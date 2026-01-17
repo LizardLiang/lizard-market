@@ -1,0 +1,13 @@
+{
+  "name": "lizard-plugins",
+  "owner": {
+    "name": "Lizard Liang"
+  },
+  "plugins": [
+    {
+      "name": "linus-droid",
+      "source": "./plugins/linus-droid",
+      "description": "Linus Droid is an AI-powered virtual assistant designed to help users with various tasks on their Android devices. It can manage apps, set reminders, answer questions, and provide personalized recommendations to enhance user experience."
+    }
+  ]
+}
