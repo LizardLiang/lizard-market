@@ -1,0 +1,8 @@
+{
+  "name": "linus-droid",
+  "description": "Code review plugin channeling Linus Torvalds - brutally honest, technically precise, zero fluff",
+  "version": "2.0.0",
+  "author": {
+    "name": "lizard_liang"
+  }
+}
