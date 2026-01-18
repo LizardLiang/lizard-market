@@ -1,0 +1,8 @@
+{
+  "name": "kratos",
+  "description": "The God of War - Master orchestrator that commands all specialist plugins, enforces workflow gates, and guides features from inception to completion",
+  "version": "1.0.0",
+  "author": {
+    "name": "Lizard Liang"
+  }
+}
