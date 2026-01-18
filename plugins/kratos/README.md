@@ -49,7 +49,8 @@ Kratos is the master orchestrator plugin that commands specialist **agents** to 
 
 | Command | Purpose |
 |---------|---------|
-| `/kratos:main` | The main orchestrator - handles any request |
+| `/kratos:main` | The main orchestrator - handles any request (auto-classifies tasks) |
+| `/kratos:quick` | Quick mode - routes simple tasks directly to agents |
 | `/kratos:start` | Begin a new feature journey |
 | `/kratos:status` | View the battlefield - all features and their state |
 | `/kratos:next` | Kratos decides and executes the next move |
@@ -88,12 +89,41 @@ Kratos is the master orchestrator plugin that commands specialist **agents** to 
 
 ## How It Works
 
+### Task Classification
+
+Kratos now classifies incoming tasks to choose the right path:
+
+| Task Type | Classification | Path |
+|-----------|----------------|------|
+| Add tests, fix bugs, refactor, review code | **SIMPLE** | Quick mode (direct agent) |
+| Build features, create systems, multi-component | **COMPLEX** | Full pipeline (8 stages) |
+
+### Quick Path (Simple Tasks)
+
+```
+User Request → Classification → Direct Agent Spawn → Done
+```
+
+Simple tasks go directly to the appropriate agent:
+- **Test writing** → Artemis
+- **Bug fixes** → Ares
+- **Refactoring** → Ares
+- **Code review** → Hermes
+- **Research** → Metis
+
+### Full Pipeline (Complex Tasks)
+
+```
+User Request → Classification → 8-Stage Pipeline → Victory
+```
+
 1. **Kratos receives request** from user
-2. **Kratos reads status.json** to understand current state
-3. **Kratos spawns appropriate agent** via Task tool
-4. **Agent executes mission** (creates document, updates status)
-5. **Kratos reports results** and offers next action
-6. **Repeat until VICTORY**
+2. **Kratos classifies** the task as COMPLEX
+3. **Kratos reads status.json** to understand current state
+4. **Kratos spawns appropriate agent** via Task tool
+5. **Agent executes mission** (creates document, updates status)
+6. **Kratos reports results** and offers next action
+7. **Repeat until VICTORY**
 
 ### Key Principle: Delegation
 
@@ -156,7 +186,37 @@ The **Arena** (`.claude/.Arena/`) is where Metis documents project knowledge. Al
 
 ## Usage
 
-### Start a New Feature
+### Quick Task (Simple)
+```
+/kratos:quick Add unit tests for the UserService class
+
+QUICK TASK
+
+Request: Add unit tests for UserService
+Classification: Test Writing
+Target Agent: Artemis (model: sonnet)
+
+Summoning Artemis...
+
+[Task tool spawns artemis agent - no PRD needed]
+```
+
+### Quick Task via Main (Auto-Classification)
+```
+/kratos:main Fix the null pointer exception in auth.js
+
+This looks like a simple task. Routing to quick mode...
+
+QUICK TASK
+
+Request: Fix null pointer in auth.js
+Classification: Bug Fix
+Target Agent: Ares (model: sonnet)
+
+[Task tool spawns ares agent directly]
+```
+
+### Start a New Feature (Complex)
 ```
 /kratos:main Build a user authentication feature
 

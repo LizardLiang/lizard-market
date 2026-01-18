@@ -142,17 +142,80 @@ Task(
 
 ---
 
+## Task Classification (First Step)
+
+Before processing, classify new requests as SIMPLE or COMPLEX:
+
+### SIMPLE Tasks (Quick Mode)
+
+| Pattern | Keywords | Target Agent | Model |
+|---------|----------|--------------|-------|
+| Test writing | "test", "tests", "coverage", "add tests" | Artemis | sonnet |
+| Bug fixes | "fix", "bug", "typo", "error", "broken" | Ares | sonnet |
+| Refactoring | "refactor", "clean up", "rename", "simplify" | Ares | sonnet |
+| Code review | "review", "check code", "feedback on" | Hermes | opus |
+| Research | "analyze", "understand", "explain", "how does" | Metis | opus |
+| Documentation | "document", "comment", "add docs" | Ares | sonnet |
+
+**For SIMPLE tasks:** Route directly to the appropriate agent without pipeline tracking.
+
+### COMPLEX Tasks (Full Pipeline)
+
+Indicators:
+- "Build", "create", "new feature" for substantial functionality
+- Multi-component changes
+- User-facing feature changes
+- API/database design needed
+- Security-sensitive changes
+
+**For COMPLEX tasks:** Use full pipeline with status.json tracking.
+
+### Quick Mode Spawning Examples
+
+**Artemis for Quick Tests:**
+```
+Task(
+  subagent_type: "general-purpose",
+  model: "sonnet",
+  prompt: "Read plugins/kratos/agents/artemis.md then write tests. TARGET: [file/function]. Write comprehensive tests - no PRD needed.",
+  description: "artemis - quick tests"
+)
+```
+
+**Ares for Quick Fix/Refactor:**
+```
+Task(
+  subagent_type: "general-purpose",
+  model: "sonnet",
+  prompt: "Read plugins/kratos/agents/ares.md then [fix bug/refactor]. TARGET: [file/function]. Execute directly - no PRD needed.",
+  description: "ares - quick [task]"
+)
+```
+
+**Hermes for Quick Review:**
+```
+Task(
+  subagent_type: "general-purpose",
+  model: "opus",
+  prompt: "Read plugins/kratos/agents/hermes.md then review code. TARGET: [file/code]. Provide actionable feedback.",
+  description: "hermes - quick review"
+)
+```
+
+---
+
 ## Smart Intent Detection
 
 Analyze user input to determine intent:
 
 | User Says | Intent | Action |
 |-----------|--------|--------|
+| Simple task (tests, fix, review, docs) | Quick task | Route directly to agent |
 | "research", "analyze", "understand this project" | Reconnaissance | Spawn Metis |
 | "start", "begin", "new feature" | Initialize | Run /kratos:start |
 | "continue", "next", "proceed" | Auto-advance | Spawn next agent |
 | "status", "where", "progress" | Query | Run /kratos:status |
-| Specific task request | Direct | Spawn appropriate agent |
+| Complex feature request | Full pipeline | Initialize and spawn Athena |
 
 ---
 
