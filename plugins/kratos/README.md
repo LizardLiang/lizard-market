@@ -11,21 +11,22 @@ Kratos is the master orchestrator plugin that commands specialist **agents** to 
                     Master Orchestrator
                     (Delegates via Task tool)
                              │
-        ┌────────────┬───────┴───────┬────────────┬─────────────┐
-        ▼            ▼               ▼            ▼             ▼
-   ┌─────────┐ ┌───────────┐   ┌─────────┐ ┌───────────┐ ┌─────────┐
-   │ ATHENA  │ │HEPHAESTUS │   │  APOLLO │ │  ARTEMIS  │ │  ARES   │
-   │  (opus) │ │   (opus)  │   │  (opus) │ │ (sonnet)  │ │(sonnet) │
-   │   PM    │ │ Tech Spec │   │SA Review│ │    QA     │ │  Impl   │
-   └─────────┘ └───────────┘   └─────────┘ └───────────┘ └─────────┘
-        │            │               │            │             │
-        │            │               │            │             │
-        │            │               │            │      ┌──────┴──────┐
-        │            │               │            │      │   HERMES    │
-        │            │               │            │      │   (opus)    │
-        │            │               │            │      │ Code Review │
-        │            │               │            │      └─────────────┘
-        └────────────┴───────────────┴────────────┴─────────────┘
+   ┌─────────────────────────┼─────────────────────────────────────────┐
+   │                         │                                         │
+   ▼                         ▼                                         │
+┌─────────┐    ┌────────────┬───────┴───────┬────────────┬─────────────┐
+│  METIS  │    ▼            ▼               ▼            ▼             ▼
+│  (opus) │ ┌─────────┐ ┌───────────┐   ┌─────────┐ ┌───────────┐ ┌─────────┐
+│Research │ │ ATHENA  │ │HEPHAESTUS │   │  APOLLO │ │  ARTEMIS  │ │  ARES   │
+└────┬────┘ │  (opus) │ │   (opus)  │   │  (opus) │ │ (sonnet)  │ │(sonnet) │
+     │      │   PM    │ │ Tech Spec │   │SA Review│ │    QA     │ │  Impl   │
+     │      └─────────┘ └───────────┘   └─────────┘ └───────────┘ └─────────┘
+     │           │            │               │            │             │
+     ▼           │            │               │            │      ┌──────┴──────┐
+┌─────────┐      │            │               │            │      │   HERMES    │
+│ .Arena  │◄─────┴────────────┴───────────────┴────────────┴──────│   (opus)    │
+│(shared) │      All gods can read Arena for context              │ Code Review │
+└─────────┘                                                       └─────────────┘
                                      │
                             ┌────────┴────────┐
                             │ Delivered Value │
@@ -36,6 +37,7 @@ Kratos is the master orchestrator plugin that commands specialist **agents** to 
 
 | Agent | File | Model | Domain |
 |-------|------|-------|--------|
+| **Metis** | `agents/metis.md` | opus | Project research, codebase analysis |
 | **Athena** | `agents/athena.md` | opus | PRD creation, PM reviews |
 | **Hephaestus** | `agents/hephaestus.md` | opus | Technical specifications |
 | **Apollo** | `agents/apollo.md` | opus | Architecture review |
@@ -67,19 +69,19 @@ Kratos is the master orchestrator plugin that commands specialist **agents** to 
 │                           THE PATH OF DESTRUCTION                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  [1]         [2]           [3]          [4]           [5]          [6]     │
-│  PRD    →  PRD Review  →  Tech Spec → PM Review  → SA Review  → Test Plan  │
-│   📋         🔍            📐          👁️           👁️           🧪       │
-│ Athena     Athena      Hephaestus    Athena       Apollo       Artemis    │
-│ (opus)     (opus)        (opus)      (opus)       (opus)      (sonnet)    │
-│                                                                             │
+│  [0]         [1]         [2]           [3]          [4]           [5]      │
+│ Research →  PRD    →  PRD Review  →  Tech Spec → PM Review  → SA Review    │
+│   🔍         📋         🔍            📐          👁️           👁️         │
+│  Metis     Athena     Athena      Hephaestus    Athena       Apollo        │
+│  (opus)    (opus)     (opus)        (opus)      (opus)       (opus)        │
+│ optional                                                                    │
 │                              ↓                                              │
 │                                                                             │
-│                  [7]              [8]                                       │
-│              Implementation  → Code Review   →    VICTORY                   │
-│                  ⚒️               🔬              🏆                        │
-│                Ares            Hermes                                       │
-│              (sonnet)          (opus)                                       │
+│          [6]              [7]              [8]                              │
+│       Test Plan  →   Implementation  → Code Review   →    VICTORY          │
+│          🧪               ⚒️               🔬              🏆              │
+│        Artemis          Ares            Hermes                              │
+│       (sonnet)        (sonnet)          (opus)                              │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -104,6 +106,27 @@ Each agent is spawned as a **true subagent** (subprocess) with:
 - Its own context window
 - Focused domain knowledge
 - Specific tools for its mission
+
+## The Arena
+
+The **Arena** (`.claude/.Arena/`) is where Metis documents project knowledge. All gods can reference it for battlefield awareness.
+
+```
+.claude/.Arena/
+├── project-overview.md      # High-level summary
+├── tech-stack.md            # Languages, frameworks, dependencies
+├── architecture.md          # System design, patterns
+├── file-structure.md        # Directory organization
+└── conventions.md           # Coding standards found
+```
+
+**Benefits:**
+- **Battlefield awareness** - Kratos knows the terrain before battle
+- **Better agent context** - All gods can reference Arena
+- **Onboarding acceleration** - Quick project understanding
+- **Reusable knowledge** - Arena persists across sessions
+
+---
 
 ## Gates (Enforced by Kratos)
 

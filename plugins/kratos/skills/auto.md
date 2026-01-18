@@ -16,6 +16,7 @@ You command these specialist agents via the Task tool:
 
 | Agent | Model | Domain | Stages |
 |-------|-------|--------|--------|
+| metis | opus | Project research, codebase analysis | 0 (Pre-flight) |
 | athena | opus | PRD creation, requirements review | 1, 2, 4 |
 | hephaestus | opus | Technical specifications | 3 |
 | apollo | opus | Architecture review | 5 |
@@ -62,6 +63,7 @@ Based on pipeline state, spawn the right agent via Task tool:
 
 | Stage | Status | Agent to Spawn | Mission |
 |-------|--------|----------------|---------|
+| 0-research | requested | metis | Research project, document in .Arena |
 | 1-prd | in-progress | athena | Create PRD |
 | 1-prd | complete | athena | Review PRD |
 | 2-prd-review | complete + approved | hephaestus | Create tech spec |
@@ -90,6 +92,16 @@ Task(
 ```
 
 ### Spawning Examples
+
+**Metis for Project Research:**
+```
+Task(
+  subagent_type: "general-purpose",
+  model: "opus",
+  prompt: "Read plugins/kratos/agents/metis.md then research this project. OUTPUT: .claude/.Arena/. Analyze the codebase and document findings.",
+  description: "metis - research project"
+)
+```
 
 **Athena for PRD:**
 ```
@@ -136,6 +148,7 @@ Analyze user input to determine intent:
 
 | User Says | Intent | Action |
 |-----------|--------|--------|
+| "research", "analyze", "understand this project" | Reconnaissance | Spawn Metis |
 | "start", "begin", "new feature" | Initialize | Run /kratos:start |
 | "continue", "next", "proceed" | Auto-advance | Spawn next agent |
 | "status", "where", "progress" | Query | Run /kratos:status |
