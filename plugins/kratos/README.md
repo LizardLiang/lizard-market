@@ -4,6 +4,58 @@
 
 Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features. Like the God Slayer himself, Kratos delegates to Athena, Hephaestus, Apollo, Artemis, Ares, and Hermes - each a true subagent spawned via the Task tool.
 
+## Installation
+
+### Step 1: Install the Plugin
+
+```bash
+# From Claude Code CLI
+/plugin install kratos
+```
+
+### Step 2: Enable Auto-Activation (Optional)
+
+To make Kratos respond when you say his name, add this to your project's `CLAUDE.md` or `~/.claude/CLAUDE.md`:
+
+```markdown
+## Kratos Auto-Activation
+
+When the user mentions "Kratos" or any god-agent name (athena, metis, hephaestus, 
+apollo, artemis, ares, hermes) case-insensitively, activate the Kratos plugin:
+
+| Trigger | Action |
+|---------|--------|
+| "Kratos" alone | Respond: *"I am Kratos. Tell me what you seek, or say 'continue' - I will summon the right power."* |
+| "Kratos, [task]" | Run `/kratos:main [task]` |
+| "[god-name], [task]" | Spawn that god-agent directly via Task tool |
+```
+
+### Usage
+
+**With slash commands:**
+```bash
+/kratos:main Build a user authentication feature
+/kratos:quick Add tests for UserService
+/kratos:status
+```
+
+**With auto-activation (if configured):**
+```bash
+Kratos, build a user authentication feature
+Hey Kratos, continue
+athena, write a PRD for dark mode
+```
+
+### Composability
+
+Combine with other skills in your CLAUDE.md:
+```bash
+Kratos + git-master: build a payment system
+Kratos + ralph: refactor the auth module (must complete)
+```
+
+---
+
 ## Architecture
 
 ```
