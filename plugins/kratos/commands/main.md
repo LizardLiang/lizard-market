@@ -166,6 +166,8 @@ MISSION: Research Project
 TARGET: [project root or specific area]
 OUTPUT: .claude/.Arena/
 
+CRITICAL: You MUST create ALL Arena documents before completing: project-overview.md, tech-stack.md, architecture.md, file-structure.md, conventions.md. Document creation is MANDATORY - verify they exist before reporting completion.
+
 Analyze the codebase and document findings in the Arena. This knowledge will guide all other gods.",
   description: "metis - research project"
 )
@@ -185,6 +187,8 @@ FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 REQUIREMENTS: [user's requirements]
 
+CRITICAL: You MUST create the file prd.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+
 Execute now. Create prd.md and update status.json.",
   description: "athena - create PRD"
 )
@@ -202,6 +206,8 @@ Task(
 MISSION: Review PRD
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+
+CRITICAL: You MUST create the file prd-review.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
 
 Review prd.md and create prd-review.md. Update status.json with verdict.",
   description: "athena - review PRD"
@@ -222,6 +228,8 @@ FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 PRD: Approved and ready at prd.md
 
+CRITICAL: You MUST create the file tech-spec.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+
 Create tech-spec.md based on the approved PRD. Update status.json.",
   description: "hephaestus - create tech spec"
 )
@@ -240,6 +248,8 @@ MISSION: Review Tech Spec (PM Perspective)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
+CRITICAL: You MUST create the file spec-review-pm.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+
 Verify tech-spec.md aligns with prd.md requirements. Create spec-review-pm.md. Update status.json.",
   description: "athena - PM spec review"
 )
@@ -257,6 +267,8 @@ Task(
 MISSION: Review Tech Spec (Architecture)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+
+CRITICAL: You MUST create the file spec-review-sa.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
 
 Review tech-spec.md for technical soundness. Create spec-review-sa.md. Update status.json.",
   description: "apollo - SA spec review"
@@ -278,6 +290,8 @@ MISSION: Create Test Plan
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
+CRITICAL: You MUST create the file test-plan.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+
 Create comprehensive test-plan.md based on prd.md and tech-spec.md. Update status.json.",
   description: "artemis - create test plan"
 )
@@ -295,6 +309,8 @@ Task(
 MISSION: Implement Feature
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+
+CRITICAL: You MUST create the file implementation-notes.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
 
 Implement according to tech-spec.md. Write tests per test-plan.md. Create implementation-notes.md. Update status.json.",
   description: "ares - implement feature"
@@ -314,6 +330,8 @@ MISSION: Code Review
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
+CRITICAL: You MUST create the file code-review.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+
 Review implementation code. Create code-review.md with verdict. Update status.json.",
   description: "hermes - code review"
 )
@@ -321,13 +339,46 @@ Review implementation code. Create code-review.md with verdict. Update status.js
 
 ---
 
-### Step 5: Handle Agent Results
+### Step 5: Handle Agent Results (MANDATORY VERIFICATION)
 
-When an agent completes:
-1. Read updated status.json
-2. Verify document was created
-3. Report results to user
-4. Offer next action or spawn next agent
+When an agent completes, you MUST verify the required document was created:
+
+**CRITICAL: Document Verification is MANDATORY**
+
+| Stage | Agent | Required Document |
+|-------|-------|-------------------|
+| 0-research | metis | `.claude/.Arena/*.md` (all 5 files) |
+| 1-prd | athena | `prd.md` |
+| 2-prd-review | athena | `prd-review.md` |
+| 3-tech-spec | hephaestus | `tech-spec.md` |
+| 4-spec-review-pm | athena | `spec-review-pm.md` |
+| 5-spec-review-sa | apollo | `spec-review-sa.md` |
+| 6-test-plan | artemis | `test-plan.md` |
+| 7-implementation | ares | `implementation-notes.md` |
+| 8-code-review | hermes | `code-review.md` |
+
+**Verification Steps:**
+1. Read updated `status.json`
+2. **Use Glob/Read to verify the required document EXISTS**
+3. **If document is MISSING, report agent failure and re-spawn the agent**
+4. Only proceed if document exists and has content
+5. Report results to user
+6. Offer next action or spawn next agent
+
+**If Document Missing:**
+```
+⚠️ AGENT VERIFICATION FAILED ⚠️
+
+Agent [NAME] did not create the required document.
+Missing: [document name]
+Location: [expected path]
+
+Re-spawning agent to complete the mission...
+
+[USE TASK TOOL TO RE-SPAWN THE SAME AGENT]
+```
+
+**Never proceed to the next stage if the required document is missing.**
 
 ---
 
