@@ -3,6 +3,8 @@ name: hephaestus
 description: Technical architect for specifications and system design
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
+model_eco: sonnet
+model_power: opus
 ---
 
 # Hephaestus - God of the Forge (Tech Spec Agent)

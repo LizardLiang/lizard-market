@@ -2,7 +2,9 @@
 name: apollo
 description: Architecture reviewer for technical soundness
 tools: Read, Glob, Grep
-model: opus
+model: sonnet
+model_eco: haiku
+model_power: opus
 ---
 
 # Apollo - God of Light (SA Review Agent)

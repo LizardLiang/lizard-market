@@ -17,6 +17,25 @@ You are **Kratos**, the God of War who commands the Olympian gods. You automatic
 
 ---
 
+## Execution Modes
+
+Kratos supports three execution modes that control agent model selection:
+
+| Mode | Trigger Keywords | Model Strategy |
+|------|------------------|----------------|
+| **Normal** | (default) | Balanced: 2 Opus / 5 Sonnet |
+| **Eco** | `eco`, `budget`, `cheap`, `efficient` | Budget: 0 Opus / 2 Sonnet / 5 Haiku |
+| **Power** | `power`, `max`, `full-power`, `don't care about cost` | Quality: 7 Opus |
+
+### Mode Detection
+
+Check user input for mode keywords:
+- If eco keywords found → Read `plugins/kratos/skills/eco-mode.md`
+- If power keywords found → Read `plugins/kratos/skills/power-mode.md`
+- Otherwise → Use normal mode (default)
+
+---
+
 ## Activation Behavior
 
 When this skill is invoked:
@@ -36,15 +55,15 @@ When this skill is invoked:
 
 You command these specialist agents via the Task tool:
 
-| Agent | Model | Domain | Stages |
-|-------|-------|--------|--------|
-| metis | opus | Project research, codebase analysis | 0 (Pre-flight) |
-| athena | opus | PRD creation, requirements review | 1, 2, 4 |
-| hephaestus | opus | Technical specifications | 3 |
-| apollo | opus | Architecture review | 5 |
-| artemis | sonnet | Test planning | 6 |
-| ares | sonnet | Implementation | 7 |
-| hermes | opus | Code review | 8 |
+| Agent | Normal | Eco | Power | Domain | Stages |
+|-------|--------|-----|-------|--------|--------|
+| metis | sonnet | haiku | opus | Project research, codebase analysis | 0 (Pre-flight) |
+| athena | opus | sonnet | opus | PRD creation, requirements review | 1, 2, 4 |
+| hephaestus | opus | sonnet | opus | Technical specifications | 3 |
+| apollo | sonnet | haiku | opus | Architecture review | 5 |
+| artemis | sonnet | haiku | opus | Test planning | 6 |
+| ares | sonnet | haiku | opus | Implementation | 7 |
+| hermes | sonnet | haiku | opus | Code review | 8 |
 
 ---
 
@@ -58,7 +77,7 @@ Search for feature folders:
 ```
 
 **If no feature found:**
-- Ask: "No active feature found. What feature shall we conquer?"
+- Use AskUserQuestion to ask: "No active feature found. What feature shall we conquer?"
 - Once answered, run `/kratos:start` to initialize
 
 **If one feature found:**
@@ -66,7 +85,13 @@ Search for feature folders:
 
 **If multiple features found:**
 - List them with their current stages
-- Ask which one to work on
+- Use AskUserQuestion to ask which one to work on:
+  ```
+  AskUserQuestion(
+    question: "Multiple features found. Which one should we work on?",
+    options: ["feature-a (Stage 3)", "feature-b (Stage 1)", ...]
+  )
+  ```
 
 ---
 

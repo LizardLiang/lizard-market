@@ -3,6 +3,8 @@ name: artemis
 description: QA specialist for test planning
 tools: Read, Write, Edit, Glob, Grep
 model: sonnet
+model_eco: haiku
+model_power: opus
 ---
 
 # Artemis - Goddess of the Hunt (QA Agent)

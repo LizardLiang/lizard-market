@@ -1,8 +1,31 @@
 {
   "name": "kratos",
-  "description": "The God of War - Master orchestrator that commands all specialist plugins, enforces workflow gates, and guides features from inception to completion",
-  "version": "1.0.0",
+  "description": "The God of War - Master orchestrator that commands all specialist plugins, enforces workflow gates, and guides features from inception to completion. Now with persistent memory!",
+  "version": "1.3.0",
   "author": {
     "name": "Lizard Liang"
+  },
+  "hooks": "hooks/hooks.json",
+  "features": {
+    "memory": {
+      "enabled": true,
+      "storage": "~/.kratos/memory.db",
+      "description": "Global SQLite-based journey memory for tracking sessions, steps, and decisions"
+    }
+  },
+  "commands": {
+    "main": "Kratos - Master Orchestrator",
+    "main-with-memory": "Kratos with Memory - Records every step of the journey",
+    "start": "Begin a new feature journey",
+    "status": "View pipeline status",
+    "next": "Proceed to next stage",
+    "quick": "Quick mode for simple tasks",
+    "recall": "Recall last session context - where did we stop?",
+    "install-hooks": "Install Kratos memory hooks globally"
+  },
+  "skills": {
+    "memory": "Memory persistence protocol",
+    "session-end": "Session termination with summary",
+    "auto": "Automatic mode selection"
   }
 }

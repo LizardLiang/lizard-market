@@ -138,18 +138,13 @@ Sometimes approval is needed even without perfect conditions. Support:
 /kratos:approve --force
 ```
 
+When forcing approval, use **AskUserQuestion** to confirm:
+
 ```
-⚔️ KRATOS: FORCED APPROVAL ⚔️
-
-⚠️ WARNING: Forcing approval despite:
-- PRD Review verdict: 🔄 Revisions Needed
-
-Are you sure? This may cause issues downstream.
-
-[Y] Yes, approve anyway (I accept the risk)
-[N] No, let me address the issues first
-
-Type Y or N:
+AskUserQuestion(
+  question: "⚠️ WARNING: Forcing approval despite issues (PRD Review verdict: Revisions Needed). This may cause problems downstream. Are you sure?",
+  options: ["Yes, approve anyway (I accept the risk)", "No, let me address the issues first"]
+)
 ```
 
 ---

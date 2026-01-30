@@ -18,10 +18,24 @@ Initialize a new feature and prepare the battlefield for the specialists to do t
 
 ### Step 1: Gather Intel
 
-Ask the user:
-1. **Feature name**: What should we call this feature? (JIRA ticket, descriptive name)
-2. **Brief description**: One sentence about what this feature does
-3. **Priority**: P0 (Critical) / P1 (High) / P2 (Medium) / P3 (Low)
+Use **AskUserQuestion** to gather information:
+
+```
+AskUserQuestion(
+  question: "What should we call this feature? (JIRA ticket ID or descriptive name)",
+  options: []  // Free text input
+)
+
+AskUserQuestion(
+  question: "Brief description - what does this feature do? (one sentence)",
+  options: []  // Free text input
+)
+
+AskUserQuestion(
+  question: "What priority is this feature?",
+  options: ["P0 (Critical)", "P1 (High)", "P2 (Medium)", "P3 (Low)"]
+)
+```
 
 ### Step 2: Create the Battlefield
 

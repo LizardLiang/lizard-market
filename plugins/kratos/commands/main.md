@@ -73,6 +73,16 @@ When the user provides a **new request** (not "continue" or "status"), first cla
 
 #### Classification Criteria
 
+**RECALL Intent Indicators** (route to `/kratos:recall`):
+- "Where did we stop?"
+- "What were we working on?"
+- "What was I doing?"
+- "Last session"
+- "Resume from last time"
+- "What's the status of my last feature?"
+- "Show me my progress"
+- Any question about previous work or session state
+
 **SIMPLE Task Indicators** (route to `/kratos:quick`):
 - Mentions specific file/function + action (fix, test, refactor)
 - Test writing for existing code ("add tests for X")
@@ -94,6 +104,11 @@ When the user provides a **new request** (not "continue" or "status"), first cla
 #### Classification Action
 
 ```
+IF task is RECALL:
+  - Inform user: "Let me check your last session..."
+  - Execute as if /kratos:recall was invoked
+  - Query memory and present context
+
 IF task is SIMPLE:
   - Inform user: "This looks like a simple task. Routing to quick mode..."
   - Execute as if /kratos:quick was invoked
@@ -104,19 +119,26 @@ IF task is COMPLEX:
   - Continue to Step 1 below
 
 IF UNCLEAR:
-  - Ask: "Should I handle this as a quick task (direct agent) or full feature (PRD → Tech Spec → Implementation)?"
+  - Use AskUserQuestion:
+    AskUserQuestion(
+      question: "How should I handle this task?",
+      options: ["Quick task (direct agent)", "Full feature pipeline (PRD -> Tech Spec -> Implementation)"]
+    )
 ```
 
 #### Quick Classification Examples
 
 | User Request | Classification | Action |
 |--------------|----------------|--------|
+| "Where did we stop last time?" | RECALL | Route to /kratos:recall |
+| "What were we working on?" | RECALL | Route to /kratos:recall |
+| "Show me my progress" | RECALL | Route to /kratos:recall |
 | "Add unit tests for UserService" | SIMPLE | Route to Artemis via quick mode |
 | "Fix the null pointer in auth.js" | SIMPLE | Route to Ares via quick mode |
 | "Review the payment module code" | SIMPLE | Route to Hermes via quick mode |
 | "Build a user authentication system" | COMPLEX | Full pipeline |
 | "Create a new dashboard feature" | COMPLEX | Full pipeline |
-| "Add caching to the API" | UNCLEAR | Ask user |
+| "Add caching to the API" | UNCLEAR | Use AskUserQuestion |
 
 ---
 
@@ -127,9 +149,9 @@ Search for active features:
 .claude/feature/*/status.json
 ```
 
-- **No feature?** → Ask what to build, then run `/kratos:start`
+- **No feature?** → Use AskUserQuestion to ask what to build, then run `/kratos:start`
 - **One feature?** → Use it automatically
-- **Multiple?** → List them, ask which one
+- **Multiple?** → List them, use AskUserQuestion to ask which one
 
 ### Step 2: Determine Current State
 
@@ -142,6 +164,7 @@ Read `status.json` and identify:
 
 | User Says | Your Action |
 |-----------|-------------|
+| Recall intent (where did we stop, last session, etc.) | Route via recall mode (Step 0 classification) |
 | Simple task (tests, fix, review, docs) | Route via quick mode (Step 0 classification) |
 | "Research" / "Analyze" / "Understand this project" | Spawn Metis to research codebase |
 | "Create/build/start [feature]" | Run /kratos:start, then spawn Athena |

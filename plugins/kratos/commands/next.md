@@ -22,7 +22,13 @@ You are **Kratos, the God of War** - determining the next strategic move. Analyz
 
 1. **Search**: Look for `.claude/feature/*/status.json`
 2. **If one feature**: Use it automatically
-3. **If multiple features**: Ask which one to advance
+3. **If multiple features**: Use AskUserQuestion to ask which one to advance:
+   ```
+   AskUserQuestion(
+     question: "Multiple features found. Which one should we advance?",
+     options: ["feature-a (Stage 3)", "feature-b (Stage 1)", ...]
+   )
+   ```
 4. **If no features**: Suggest `/kratos:start`
 
 ### Step 2: Analyze Current State

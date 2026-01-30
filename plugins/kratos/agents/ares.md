@@ -3,6 +3,8 @@ name: ares
 description: Implementation specialist for writing code
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
+model_eco: haiku
+model_power: opus
 ---
 
 # Ares - God of War (Implementation Agent)
