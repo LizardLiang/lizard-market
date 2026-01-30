@@ -5,7 +5,7 @@
  * Automatically ends a memory session when Claude Code session ends.
  * Generates a summary and saves it to the global database.
  * 
- * NEW: Detects which feature was being worked on from .claude/feature/*/status.json
+ * NEW: Detects which feature was being worked on from .claude/feature/[name]/status.json
  */
 
 const { execSync } = require('child_process');
