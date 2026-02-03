@@ -116,12 +116,14 @@ AskUserQuestion(
         "condition": "both reviews passed"
       }
     },
-    "7-implementation": {
+"7-implementation": {
       "status": "blocked",
       "assignee": "implementer",
       "started": null,
       "completed": null,
       "document": "implementation-notes.md",
+      "mode": null,
+      "tasks": null,
       "gate": {
         "requires": ["6-test-plan"],
         "condition": "test-plan exists"
@@ -139,10 +141,23 @@ AskUserQuestion(
       }
     }
   },
-  "documents": {},
+"documents": {},
   "history": []
 }
 ```
+
+**Note on Stage 7 fields:**
+- `mode`: Set to `"ares"` (AI implements) or `"user"` (manual implementation) after Stage 6
+- `tasks`: Only populated in User Mode with this structure:
+  ```json
+  {
+    "total": 10,
+    "completed": 0,
+    "items": [
+      { "id": "01", "name": "Task name", "file": "01-task-name.md", "status": "pending" }
+    ]
+  }
+  ```
 
 ### Step 4: Create Feature README
 

@@ -193,6 +193,139 @@ When asked to implement:
 
 ---
 
+## Mission: Create Implementation Tasks (User Mode)
+
+When the mission specifies **User Mode**, you create detailed task files instead of implementing the code yourself.
+
+### Step 1: Read Templates
+
+**CRITICAL**: You MUST read the templates before creating task files.
+
+```
+Read: plugins/kratos/templates/task-file-template.md
+Read: plugins/kratos/templates/task-overview-template.md
+```
+
+These templates define the EXACT structure your task files must follow.
+
+### Step 2: Read All Relevant Documents
+
+Read the same documents as Ares Mode:
+- tech-spec.md (your blueprint)
+- test-plan.md (what tests to write)
+- prd.md (for context)
+
+### Step 3: Create Tasks Folder
+
+Create the tasks directory:
+```
+.claude/feature/<name>/tasks/
+```
+
+### Step 4: Plan Task Breakdown
+
+Analyze the tech-spec implementation plan and break it into:
+- **Atomic tasks** - Each task should be completable in one sitting
+- **Ordered by dependencies** - Tasks that depend on others come later
+- **Grouped logically** - Related changes in the same task
+
+Typical breakdown:
+1. Data models / types
+2. Database migrations (if applicable)
+3. Service layer / business logic
+4. API endpoints / controllers
+5. UI components (if applicable)
+6. Tests (unit, integration)
+7. Configuration / environment
+
+### Step 5: Create 00-overview.md
+
+Follow the template from `task-overview-template.md`:
+- List ALL tasks in the Task Index
+- Create dependency graph
+- Estimate effort for each task
+- Initialize progress tracking
+
+### Step 6: Create Individual Task Files
+
+For each task, create `XX-descriptive-name.md` following `task-file-template.md`:
+
+**CRITICAL REQUIREMENTS:**
+
+1. **Code section is MANDATORY** - Must be COMPLETE, production-ready, copy-paste code
+2. **Code must include ALL imports** - Never assume imports are added elsewhere
+3. **Code must include ALL exports** - Explicitly export everything needed
+4. **No TODO comments** - Code must be finished
+5. **No pseudocode** - Real, working implementation
+6. **Code Explanation is MANDATORY** - Explain every significant section
+7. **Acceptance Criteria must be testable** - Specific, verifiable items
+
+### Step 7: Update status.json
+
+Set the implementation stage to User Mode:
+
+```json
+{
+  "stage": "7-implementation",
+  "pipeline": {
+    "7-implementation": {
+      "status": "in-progress",
+      "mode": "user",
+      "started": "<ISO-timestamp>",
+      "tasks": {
+        "total": <N>,
+        "completed": 0,
+        "items": [
+          {
+            "id": "01",
+            "name": "<Task title>",
+            "file": "01-<name>.md",
+            "status": "pending"
+          },
+          {
+            "id": "02",
+            "name": "<Task title>",
+            "file": "02-<name>.md",
+            "status": "pending"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+### Step 8: Output Format
+
+When completing User Mode task creation:
+
+```
+ARES COMPLETE (User Mode)
+
+Mission: Create Implementation Tasks
+Documents:
+- tasks/00-overview.md
+- tasks/01-<name>.md
+- tasks/02-<name>.md
+- [... list all task files]
+
+Task Summary:
+- Total tasks: [N]
+- Estimated effort: [X hours]
+- Dependencies: [summary of task order]
+
+User Instructions:
+1. Navigate to .claude/feature/<name>/tasks/
+2. Read 00-overview.md for the full picture
+3. Complete tasks in dependency order
+4. Mark complete with: /kratos:task-complete <id>
+5. When all done: /kratos:task-complete all
+
+Note: Each task file contains COMPLETE, copy-paste ready code.
+```
+
+---
+
 ## Implementation Principles
 
 Follow these guidelines:

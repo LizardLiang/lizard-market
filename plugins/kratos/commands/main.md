@@ -322,7 +322,41 @@ Create comprehensive test-plan.md based on prd.md and tech-spec.md. Update statu
 
 ---
 
-#### Stage 7: Implement Feature (Ares)
+#### Stage 6 → 7 Transition: Implementation Mode Selection
+
+**CRITICAL**: After Stage 6 (Test Plan) completes, you MUST ask the user how implementation should be handled.
+
+```
+AskUserQuestion(
+  question: "How should implementation be handled?",
+  options: [
+    "Ares Mode (AI implements the code directly)",
+    "User Mode (create detailed task files for manual implementation)"
+  ]
+)
+```
+
+**Based on the user's choice:**
+
+| Choice | Action |
+|--------|--------|
+| Ares Mode | Spawn Ares with standard mission (see Stage 7a) |
+| User Mode | Spawn Ares with task creation mission (see Stage 7b) |
+
+**Update status.json with the mode:**
+```json
+{
+  "pipeline": {
+    "7-implementation": {
+      "mode": "ares" // or "user"
+    }
+  }
+}
+```
+
+---
+
+#### Stage 7a: Implement Feature - Ares Mode (AI Implementation)
 ```
 Task(
   subagent_type: "general-purpose",
@@ -339,6 +373,40 @@ Implement according to tech-spec.md. Write tests per test-plan.md. Create implem
   description: "ares - implement feature"
 )
 ```
+
+---
+
+#### Stage 7b: Create Implementation Tasks - User Mode (Manual Implementation)
+```
+Task(
+  subagent_type: "general-purpose",
+  model: "sonnet",
+  prompt: "You are Ares, the Implementation agent. Read your instructions at plugins/kratos/agents/ares.md then execute this mission:
+
+MISSION: Create Implementation Tasks (User Mode)
+FEATURE: [feature-name]
+FOLDER: .claude/feature/[feature-name]/
+
+You are operating in USER MODE. Do NOT implement the code yourself.
+
+Instead:
+1. Read the templates at plugins/kratos/templates/task-file-template.md and plugins/kratos/templates/task-overview-template.md
+2. Create the tasks/ folder in the feature directory
+3. Create 00-overview.md following the overview template
+4. Create numbered task files (01-xxx.md, 02-xxx.md, etc.) following the task template
+5. Each task file MUST contain COMPLETE, copy-paste ready code
+6. Update status.json with mode: 'user' and the tasks array
+
+The user will implement the code themselves using your task files as guides.",
+  description: "ares - create implementation tasks (user mode)"
+)
+```
+
+**After User Mode Stage 7 completes:**
+- Do NOT automatically spawn Hermes
+- Inform the user they can now work through the tasks
+- Tell them to use `/kratos:task-complete <id>` to mark tasks done
+- Code review will be triggered when all tasks are complete
 
 ---
 
@@ -377,7 +445,7 @@ When an agent completes, you MUST verify the required document was created:
 | 4-spec-review-pm | athena | `spec-review-pm.md` |
 | 5-spec-review-sa | apollo | `spec-review-sa.md` |
 | 6-test-plan | artemis | `test-plan.md` |
-| 7-implementation | ares | `implementation-notes.md` |
+| 7-implementation | ares | `implementation-notes.md` (Ares Mode) or `tasks/*.md` (User Mode) |
 | 8-code-review | hermes | `code-review.md` |
 
 **Verification Steps:**
@@ -478,8 +546,11 @@ Ready for deployment.
 | 3-tech-spec | - | 4 + 5 parallel | athena + apollo (opus) |
 | 4+5 reviews | Both pass | 6-test-plan | artemis (sonnet) |
 | 4 or 5 | Issues | 3-tech-spec | hephaestus (opus) |
-| 6-test-plan | - | 7-implementation | ares (sonnet) |
-| 7-implementation | - | 8-code-review | hermes (opus) |
+| 6-test-plan | - | ASK MODE | Ask user: Ares Mode vs User Mode |
+| 6-test-plan | Ares Mode | 7-implementation | ares (sonnet) - implement |
+| 6-test-plan | User Mode | 7-implementation | ares (sonnet) - create tasks |
+| 7-implementation | Ares Mode | 8-code-review | hermes (opus) |
+| 7-implementation | User Mode | WAIT | User completes tasks, then /kratos:task-complete all |
 | 8-code-review | Approved | VICTORY | - |
 | 8-code-review | Changes | 7-implementation | ares (sonnet) |
 
