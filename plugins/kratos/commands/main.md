@@ -83,6 +83,42 @@ When the user provides a **new request** (not "continue" or "status"), first cla
 - "Show me my progress"
 - Any question about previous work or session state
 
+**INQUIRY Intent Indicators** (route to `/kratos:inquiry`):
+- **Project Understanding**
+  - "What does this project do?"
+  - "How is this organized?"
+  - "Explain the architecture"
+  - "Describe this project"
+- **Git History / Activity**
+  - "What changed recently?"
+  - "Who wrote this?"
+  - "Git blame [file]"
+  - "Show commit history"
+  - "Recent commits"
+  - "When was X modified?"
+- **Tech Stack / Dependencies**
+  - "What libraries are we using?"
+  - "What version of X?"
+  - "Show dependencies"
+  - "Tech stack"
+- **Documentation Lookup**
+  - "Find docs for X"
+  - "Documentation for Y"
+  - "How to use Z"
+  - "API reference for A"
+- **Codebase Exploration**
+  - "Find where X is defined"
+  - "Show all API endpoints"
+  - "List all services"
+  - "Locate Y"
+  - "Where is Z?"
+- **External Research / Best Practices**
+  - "Best practice for X"
+  - "How do other projects do Y?"
+  - "GitHub examples of Z"
+  - "Popular approach for A"
+  - "Security advisory for B"
+
 **SIMPLE Task Indicators** (route to `/kratos:quick`):
 - Mentions specific file/function + action (fix, test, refactor)
 - Test writing for existing code ("add tests for X")
@@ -109,6 +145,11 @@ IF task is RECALL:
   - Execute as if /kratos:recall was invoked
   - Query memory and present context
 
+IF task is INQUIRY:
+  - Inform user: "This is an information request. Routing to inquiry mode..."
+  - Execute as if /kratos:inquiry was invoked
+  - Skip to inquiry mode agent routing (Metis/Clio/Mimir)
+
 IF task is SIMPLE:
   - Inform user: "This looks like a simple task. Routing to quick mode..."
   - Execute as if /kratos:quick was invoked
@@ -122,7 +163,7 @@ IF UNCLEAR:
   - Use AskUserQuestion:
     AskUserQuestion(
       question: "How should I handle this task?",
-      options: ["Quick task (direct agent)", "Full feature pipeline (PRD -> Tech Spec -> Implementation)"]
+      options: ["Information request (inquiry mode)", "Quick task (direct agent)", "Full feature pipeline (PRD -> Tech Spec -> Implementation)"]
     )
 ```
 
@@ -133,6 +174,11 @@ IF UNCLEAR:
 | "Where did we stop last time?" | RECALL | Route to /kratos:recall |
 | "What were we working on?" | RECALL | Route to /kratos:recall |
 | "Show me my progress" | RECALL | Route to /kratos:recall |
+| "What does this project do?" | INQUIRY | Route to Metis via inquiry mode |
+| "Who wrote the auth module?" | INQUIRY | Route to Clio via inquiry mode |
+| "Best way to implement caching?" | INQUIRY | Route to Mimir via inquiry mode |
+| "What changed in the last week?" | INQUIRY | Route to Clio via inquiry mode |
+| "Find Stripe API documentation" | INQUIRY | Route to Mimir via inquiry mode |
 | "Add unit tests for UserService" | SIMPLE | Route to Artemis via quick mode |
 | "Fix the null pointer in auth.js" | SIMPLE | Route to Ares via quick mode |
 | "Review the payment module code" | SIMPLE | Route to Hermes via quick mode |
@@ -165,8 +211,9 @@ Read `status.json` and identify:
 | User Says | Your Action |
 |-----------|-------------|
 | Recall intent (where did we stop, last session, etc.) | Route via recall mode (Step 0 classification) |
+| Inquiry intent (what/who/when, best practices, docs) | Route via inquiry mode (Step 0 classification) |
 | Simple task (tests, fix, review, docs) | Route via quick mode (Step 0 classification) |
-| "Research" / "Analyze" / "Understand this project" | Spawn Metis to research codebase |
+| "Research" / "Analyze" / "Understand this project" | Route to inquiry mode → Metis QUICK_QUERY |
 | "Create/build/start [feature]" | Run /kratos:start, then spawn Athena |
 | "Continue" / "Next" | Spawn next agent for next stage |
 | "Status" | Show pipeline progress |

@@ -49,15 +49,30 @@ Check user input for mode keywords FIRST:
 
 Analyze the user's request to determine the target agent:
 
+### Work Tasks (Quick Mode)
+
 | Task Type | Keywords/Patterns | Target Agent |
 |-----------|-------------------|--------------|
 | **Test Writing** | "test", "tests", "coverage", "write tests", "add tests", "unit test", "integration test" | Artemis |
 | **Bug Fixes** | "fix", "bug", "typo", "error", "broken", "not working", "issue" | Ares |
 | **Refactoring** | "refactor", "clean up", "rename", "reorganize", "simplify", "extract" | Ares |
 | **Code Review** | "review", "check code", "look at", "feedback on" | Hermes |
-| **Research** | "analyze", "understand", "research", "explain", "how does", "find", "investigate" | Metis |
 | **Documentation** | "document", "comment", "add docs", "docstring", "readme", "jsdoc" | Ares |
 | **Small Features** | "add", "implement" + specific function/method | Ares |
+
+### Information Requests (Inquiry Mode - Redirect)
+
+**IMPORTANT**: If the request is information-seeking rather than work-doing, redirect to `/kratos:inquiry`:
+
+| Inquiry Type | Keywords/Patterns | Redirect To |
+|--------------|-------------------|-------------|
+| **Project Info** | "what does", "how is", "explain", "describe project" | /kratos:inquiry → Metis |
+| **Git History** | "git blame", "who wrote", "when changed", "commit history", "recent changes" | /kratos:inquiry → Clio |
+| **Tech Stack** | "what version", "dependencies", "libraries", "tech stack" | /kratos:inquiry → Metis |
+| **Best Practices** | "best practice", "how do others", "github example", "popular approach" | /kratos:inquiry → Mimir |
+| **Documentation** | "find docs", "documentation for", "how to use", "API for" | /kratos:inquiry → Mimir |
+| **Security** | "vulnerability", "security advisory", "CVE", "security issue" | /kratos:inquiry → Mimir |
+| **Code Exploration** | "find where", "show all", "list", "locate" | /kratos:inquiry → Metis |
 
 ---
 
@@ -300,6 +315,30 @@ Summoning Metis...
 
 ---
 
+## When to Redirect to Inquiry Mode
+
+If the request is **information-seeking** rather than **work-doing**, redirect to `/kratos:inquiry`:
+
+```
+User: "What does this project do?"
+
+Kratos:
+This is an information request, not a work task.
+Redirecting to inquiry mode...
+
+[Execute as if /kratos:inquiry was invoked]
+```
+
+**Key distinction:**
+- **Inquiry** = Wants to know/understand something (no code changes)
+- **Quick Task** = Wants work done (code changes, tests, reviews)
+
+**Examples:**
+- "Who wrote this?" → INQUIRY (Clio)
+- "Fix this bug" → QUICK TASK (Ares)
+- "Best practice for X?" → INQUIRY (Mimir)
+- "Refactor this function" → QUICK TASK (Ares)
+
 ## When to Redirect to Full Pipeline
 
 If the task appears to be COMPLEX, use **AskUserQuestion** to suggest the full pipeline:
@@ -323,10 +362,11 @@ Indicators of COMPLEX tasks:
 ## RULES
 
 1. **ALWAYS DELEGATE** - Use Task tool, never do the work yourself
-2. **CLASSIFY FIRST** - Determine the right agent before spawning
-3. **SPAWN IMMEDIATELY** - Don't just announce, actually use Task tool
-4. **OFFER REVIEW** - After implementation tasks, offer code review
-5. **ESCALATE WHEN NEEDED** - Suggest full pipeline for complex tasks
+2. **CLASSIFY FIRST** - Determine if it's inquiry, quick task, or complex
+3. **REDIRECT INQUIRIES** - Information requests go to /kratos:inquiry
+4. **SPAWN IMMEDIATELY** - Don't just announce, actually use Task tool
+5. **OFFER REVIEW** - After implementation tasks, offer code review
+6. **ESCALATE WHEN NEEDED** - Suggest full pipeline for complex tasks
 
 ---
 
