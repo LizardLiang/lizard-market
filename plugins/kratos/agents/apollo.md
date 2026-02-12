@@ -1,7 +1,10 @@
 ---
 name: apollo
 description: Architecture reviewer for technical soundness
-tools: Read, Glob, Grep
+tools:
+  read: true
+  glob: true
+  grep: true
 model: sonnet
 model_eco: haiku
 model_power: opus

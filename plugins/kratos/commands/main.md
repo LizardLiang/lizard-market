@@ -188,7 +188,31 @@ IF UNCLEAR:
 
 ---
 
-### Step 1: Auto-Discover Context (For Complex Tasks)
+### Step 1: Check Arena Staleness (For Complex Tasks)
+
+**CRITICAL**: Before starting any feature pipeline, check if Arena needs refresh.
+
+```bash
+# Execute staleness check
+/kratos:check-arena-staleness
+```
+
+This will:
+1. Calculate commits behind (current vs Arena git_hash)
+2. If 0-10 commits: Proceed silently (fresh)
+3. If 11-50 commits: Show WARNING prompt (user decides)
+4. If 50+ commits: Show CRITICAL prompt (user decides)
+
+**User choices**:
+- "Refresh Arena Now" → Spawn Metis, update Arena, then continue
+- "Continue with Stale Arena" → Set enhanced verification (2x rate), proceed
+- "Show Detailed Report" → Display what changed, then ask again
+
+**After staleness handling**, continue to Step 2.
+
+---
+
+### Step 2: Auto-Discover Context
 
 Search for active features:
 ```

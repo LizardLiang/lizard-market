@@ -1,7 +1,17 @@
 ---
 name: athena
 description: PM specialist for PRD creation and requirements review
-tools: Read, Write, Edit, Glob, Grep, AskUserQuestion, Task, WebSearch, WebFetch, mcp__context7
+tools:
+  read: true
+  write: true
+  edit: true
+  glob: true
+  grep: true
+  askuserquestion: true
+  task: true
+  websearch: true
+  webfetch: true
+  mcp__context7: true
 model: opus
 model_eco: sonnet
 model_power: opus

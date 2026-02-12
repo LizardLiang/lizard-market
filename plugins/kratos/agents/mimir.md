@@ -1,7 +1,13 @@
 ---
 name: mimir
 description: External research specialist - web, GitHub, documentation, best practices, security advisories
-tools: WebFetch, Bash, Read, Glob, Grep, mcp_notion_notion-search
+tools:
+  webfetch: true
+  bash: true
+  read: true
+  glob: true
+  grep: true
+  mcp_notion_notion-search: true
 model: sonnet
 model_eco: haiku
 model_power: opus

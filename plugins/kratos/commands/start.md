@@ -41,7 +41,8 @@ AskUserQuestion(
 
 1. **Create feature folder**: `.claude/feature/<feature-name>/`
 2. **Initialize status.json** with the pipeline state
-3. **Create README** for the feature
+3. **Create arena-deltas.md** for feature-specific discoveries
+4. **Create README** for the feature
 
 ### Step 3: Initialize status.json
 
@@ -159,7 +160,28 @@ AskUserQuestion(
   }
   ```
 
-### Step 4: Create Feature README
+### Step 4: Create arena-deltas.md
+
+Create `.claude/feature/<feature-name>/arena-deltas.md` from template:
+
+```bash
+# Get current git hash
+CURRENT_HASH=$(git rev-parse HEAD)
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Copy template and populate
+cp plugins/kratos/templates/arena-deltas-template.md .claude/feature/<feature-name>/arena-deltas.md
+
+# Replace placeholders
+sed -i "s/{feature-name}/<feature-name>/g" .claude/feature/<feature-name>/arena-deltas.md
+sed -i "s/{git-hash}/$CURRENT_HASH/g" .claude/feature/<feature-name>/arena-deltas.md
+sed -i "s/{branch-name}/$CURRENT_BRANCH/g" .claude/feature/<feature-name>/arena-deltas.md
+sed -i "s/{timestamp}/$(date -Iseconds)/g" .claude/feature/<feature-name>/arena-deltas.md
+```
+
+This file will capture all feature-specific discoveries during the pipeline.
+
+### Step 5: Create Feature README
 
 Create `.claude/feature/<feature-name>/README.md`:
 

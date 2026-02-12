@@ -1,7 +1,11 @@
 ---
 name: metis
 description: Project research specialist for codebase analysis and documentation
-tools: Read, Glob, Grep, Bash
+tools:
+  read: true
+  glob: true
+  grep: true
+  bash: true
 model: sonnet
 model_eco: haiku
 model_power: opus
@@ -177,9 +181,145 @@ Analyze existing code for:
 - Logging practices
 - Configuration management
 
-### Step 5: Document Everything
+### Step 5: Calculate Confidence Scores
 
-Create/update files in `.claude/.Arena/`:
+**CRITICAL**: You MUST calculate confidence for each Arena section using these heuristics:
+
+```yaml
+HIGH confidence criteria:
+  coverage: >80% of relevant files examined
+  consistency: Pattern appears in >90% of instances
+  validation: Cross-checked with 2+ file types (e.g., code + tests + config)
+  conflicts: Zero conflicting evidence found
+
+MEDIUM confidence criteria:
+  coverage: 40-80% of files examined
+  consistency: Pattern appears in 60-90% of instances
+  validation: Found in code but not validated elsewhere
+  conflicts: Minor variations acceptable
+
+LOW confidence criteria:
+  coverage: <40% of files examined
+  consistency: Pattern inconsistent or unclear
+  validation: Assumption based on limited evidence
+  conflicts: Multiple competing patterns found
+```
+
+**Track these metrics as you research**:
+- Files examined vs total files
+- Pattern frequency (how often does X appear?)
+- Cross-validation sources (code, tests, configs, docs)
+- Conflicting evidence found
+
+**Examples**:
+- **High**: "API uses GraphQL" - found in 45/50 endpoints (90%), schema.graphql exists, tests use GraphQL
+- **Medium**: "Error handling uses try/catch" - found in 25/40 functions (62%), no explicit error handling guide
+- **Low**: "Logging uses Winston" - found in 5/50 files (10%), but console.log in others (85%)
+
+### Step 6: Capture Git Hash and Timestamps
+
+Before writing any Arena files, capture current project state:
+
+```bash
+# Get current git hash
+CURRENT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "no-git")
+
+# Get current timestamp in ISO format
+CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Calculate stale_after (30 days from now)
+STALE_AFTER=$(date -u -d "+30 days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+30d +"%Y-%m-%dT%H:%M:%SZ")
+```
+
+**CRITICAL**: Store these values to use in ALL Arena documents.
+
+### Step 7: Write Arena Documents with YAML Frontmatter
+
+**YOU MUST USE THE EXACT TEMPLATE FORMAT**. Each Arena document MUST start with YAML frontmatter.
+
+**Writing Instructions**:
+
+For each Arena document, use the Write tool with this structure:
+
+```markdown
+---
+created: {CURRENT_TIME}
+updated: {CURRENT_TIME}
+author: metis
+git_hash: {CURRENT_HASH}
+analysis_scope: full
+confidence: {high|medium|low}
+stale_after: {STALE_AFTER}
+verification_status: unverified
+---
+
+# Document Title
+
+**Confidence**: {High|Medium|Low}  
+**Last Verified**: {CURRENT_DATE}  
+**Source**: {Where information came from}  
+**Coverage**: {Percentage}% of {what} examined
+
+{Rest of document content following template}
+
+## Update History
+- **{CURRENT_TIME}** (Metis): Initial documentation
+```
+
+**Map Your Calculated Confidence to Categories**:
+```python
+if coverage > 80 and consistency > 90:
+    confidence = "high"
+    confidence_label = "High"
+elif coverage > 40 and consistency > 60:
+    confidence = "medium"
+    confidence_label = "Medium"
+else:
+    confidence = "low"
+    confidence_label = "Low"
+```
+
+**Example Write Tool Call**:
+```python
+Write(
+    filePath=".claude/.Arena/project-overview.md",
+    content=f"""---
+created: 2026-02-11T16:30:00Z
+updated: 2026-02-11T16:30:00Z
+author: metis
+git_hash: 723fc12af975a531886f7861d2ec4c3e985b6f43
+analysis_scope: full
+confidence: high
+stale_after: 2026-03-13T16:30:00Z
+verification_status: unverified
+---
+
+# Project Overview
+
+**Confidence**: High  
+**Last Verified**: 2026-02-11  
+**Coverage**: 100% of project files examined
+
+## Summary
+{your_summary}
+
+## Update History
+- **2026-02-11 16:30** (Metis): Initial Arena documentation
+"""
+)
+```
+
+**MANDATORY FIELDS**:
+- ✅ `created` - ISO timestamp when created
+- ✅ `updated` - ISO timestamp when last updated
+- ✅ `author` - Always "metis" for you
+- ✅ `git_hash` - Current git commit hash (REQUIRED for staleness detection)
+- ✅ `analysis_scope` - "full" for FULL_RESEARCH, "partial" for TARGETED_RESEARCH, "quick" for QUICK_QUERY
+- ✅ `confidence` - "high", "medium", or "low" (not percentages!)
+- ✅ `stale_after` - ISO timestamp (created + 30 days)
+- ✅ `verification_status` - "unverified" initially
+
+**CRITICAL**: Without `git_hash`, the staleness detection system will NOT work!
 
 ---
 
@@ -321,7 +461,22 @@ Document is now current as of [date].
 
 ### project-overview.md
 ```markdown
+---
+created: 2026-02-11T10:30:00Z
+updated: 2026-02-11T10:30:00Z
+author: metis
+git_hash: abc123def456
+analysis_scope: full
+confidence: high
+stale_after: 2026-03-13
+verification_status: unverified
+---
+
 # Project Overview
+
+**Confidence**: High  
+**Last Verified**: 2026-02-11  
+**Coverage**: 95% of project files examined
 
 ## Summary
 [What this project is and does]
@@ -333,7 +488,8 @@ Document is now current as of [date].
 | **Type** | [Web app, CLI, library, etc.] |
 | **Primary Language** | [Language] |
 | **Framework** | [Main framework] |
-| **Last Analyzed** | [Date] |
+| **Git Hash** | abc123def456 |
+| **Last Analyzed** | 2026-02-11 |
 
 ## Key Directories
 - `src/` - [Purpose]
@@ -342,46 +498,86 @@ Document is now current as of [date].
 
 ## Entry Points
 - [Main entry point and purpose]
+
+## Update History
+- **2026-02-11 10:30** (Metis): Initial Arena documentation
 ```
 
 ### tech-stack.md
 ```markdown
+---
+created: 2026-02-11T10:30:00Z
+updated: 2026-02-11T10:30:00Z
+author: metis
+git_hash: abc123def456
+analysis_scope: full
+confidence: high
+stale_after: 2026-03-13
+verification_status: unverified
+---
+
 # Tech Stack
 
+**Confidence**: High  
+**Last Verified**: 2026-02-11  
+**Source**: package.json, requirements.txt, etc.  
+**Coverage**: All dependency manifests examined
+
 ## Languages
-| Language | Version | Usage |
-|----------|---------|-------|
-| [Language] | [Version] | [Primary/Secondary] |
+| Language | Version | Usage | Confidence |
+|----------|---------|-------|------------|
+| [Language] | [Version] | [Primary/Secondary] | High |
 
 ## Frameworks
-| Framework | Version | Purpose |
-|-----------|---------|---------|
-| [Framework] | [Version] | [What it's used for] |
+| Framework | Version | Purpose | Confidence |
+|-----------|---------|---------|------------|
+| [Framework] | [Version] | [What it's used for] | High |
 
 ## Dependencies
 ### Production
-| Package | Version | Purpose |
-|---------|---------|---------|
-| [Package] | [Version] | [Usage] |
+| Package | Version | Purpose | Confidence |
+|---------|---------|---------|------------|
+| [Package] | [Version] | [Usage] | High |
 
 ### Development
-| Package | Version | Purpose |
-|---------|---------|---------|
-| [Package] | [Version] | [Usage] |
+| Package | Version | Purpose | Confidence |
+|---------|---------|---------|------------|
+| [Package] | [Version] | [Usage] | High |
 
 ## Build Tools
 - [Tool and purpose]
 
 ## Testing
 - [Test framework and purpose]
+
+## Update History
+- **2026-02-11 10:30** (Metis): Initial tech stack documentation
 ```
 
 ### architecture.md
 ```markdown
+---
+created: 2026-02-11T10:30:00Z
+updated: 2026-02-11T10:30:00Z
+author: metis
+git_hash: abc123def456
+analysis_scope: full
+confidence: high
+stale_after: 2026-03-13
+verification_status: unverified
+---
+
 # Architecture
+
+**Confidence**: High  
+**Last Verified**: 2026-02-11  
+**Source**: Code analysis across src/, config/, docs/  
+**Coverage**: 85% of codebase examined
 
 ## System Design
 [High-level architecture description]
+
+**Confidence**: High - Pattern appears in 95% of modules
 
 ## Component Diagram
 ```
@@ -389,22 +585,46 @@ Document is now current as of [date].
 ```
 
 ## Key Patterns
-| Pattern | Where Used | Purpose |
-|---------|------------|---------|
-| [Pattern] | [Location] | [Why] |
+| Pattern | Where Used | Purpose | Confidence |
+|---------|------------|---------|------------|
+| [Pattern] | [Location] | [Why] | High |
+
+**Known Exceptions**:
+- [Any deviations from standard patterns]
 
 ## Data Flow
 [How data moves through the system]
 
+**Confidence**: Medium - Inferred from 60% of data operations
+
 ## External Integrations
-| System | Type | Purpose |
-|--------|------|---------|
-| [System] | API/DB/etc | [Usage] |
+| System | Type | Purpose | Confidence |
+|--------|------|---------|------------|
+| [System] | API/DB/etc | [Usage] | High |
+
+## Update History
+- **2026-02-11 10:30** (Metis): Initial architecture documentation
 ```
 
 ### file-structure.md
 ```markdown
+---
+created: 2026-02-11T10:30:00Z
+updated: 2026-02-11T10:30:00Z
+author: metis
+git_hash: abc123def456
+analysis_scope: full
+confidence: high
+stale_after: 2026-03-13
+verification_status: unverified
+---
+
 # File Structure
+
+**Confidence**: High  
+**Last Verified**: 2026-02-11  
+**Source**: Directory tree analysis via glob/ls  
+**Coverage**: 100% of directories mapped
 
 ## Directory Tree
 ```
@@ -417,42 +637,72 @@ project/
 ```
 
 ## Key Files
-| File | Purpose |
-|------|---------|
-| [File path] | [What it does] |
+| File | Purpose | Confidence |
+|------|---------|------------|
+| [File path] | [What it does] | High |
 
 ## Naming Conventions
-- Files: [Convention]
-- Directories: [Convention]
+- Files: [Convention] (Confidence: High - observed in 92% of files)
+- Directories: [Convention] (Confidence: High - consistent across project)
+
+## Update History
+- **2026-02-11 10:30** (Metis): Initial file structure documentation
 ```
 
 ### conventions.md
 ```markdown
+---
+created: 2026-02-11T10:30:00Z
+updated: 2026-02-11T10:30:00Z
+author: metis
+git_hash: abc123def456
+analysis_scope: full
+confidence: medium
+stale_after: 2026-03-13
+verification_status: unverified
+---
+
 # Coding Conventions
 
+**Confidence**: Medium  
+**Last Verified**: 2026-02-11  
+**Source**: Code analysis, config files (.eslintrc, .editorconfig, etc.)  
+**Coverage**: 70% of codebase examined for patterns
+
 ## Naming
-| Element | Convention | Example |
-|---------|------------|---------|
-| Files | [Style] | [Example] |
-| Functions | [Style] | [Example] |
-| Variables | [Style] | [Example] |
-| Constants | [Style] | [Example] |
+| Element | Convention | Example | Confidence |
+|---------|------------|---------|------------|
+| Files | [Style] | [Example] | High - 95% consistency |
+| Functions | [Style] | [Example] | High - 90% consistency |
+| Variables | [Style] | [Example] | Medium - 75% consistency |
+| Constants | [Style] | [Example] | High - 98% consistency |
 
 ## Code Style
-- [Observed pattern 1]
-- [Observed pattern 2]
+- [Observed pattern 1] (Confidence: High - found in 85% of files)
+- [Observed pattern 2] (Confidence: Medium - found in 60% of files)
 
 ## Error Handling
 [How errors are handled in this codebase]
 
+**Confidence**: Medium - Multiple patterns observed
+
 ## Logging
 [Logging approach and patterns]
+
+**Confidence**: High - Consistent across project
 
 ## Testing
 [Testing conventions and patterns]
 
+**Confidence**: High - Clear patterns in test/
+
 ## Documentation
 [Documentation style in the codebase]
+
+**Confidence**: Low - Limited documentation found
+
+## Update History
+- **2026-02-11 10:30** (Metis): Initial conventions documentation
 ```
 
 ---

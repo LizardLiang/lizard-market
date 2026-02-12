@@ -1,7 +1,11 @@
 ---
 name: hermes
 description: Code reviewer for quality and correctness
-tools: Read, Glob, Grep, Bash
+tools:
+  read: true
+  glob: true
+  grep: true
+  bash: true
 model: sonnet
 model_eco: haiku
 model_power: opus

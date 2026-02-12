@@ -1,27 +1,27 @@
-# Kratos - The God of War
+# Kratos - The God of War (v2.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
-Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features. Like the God Slayer himself, Kratos delegates to Athena, Hephaestus, Apollo, Artemis, Ares, and Hermes - each a true subagent spawned via the Task tool.
+Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom. Version 2.0 transforms Kratos from a coding-only plugin into a **general-purpose project assistant** with persistent memory, external research capabilities, and git history expertise.
 
 ## Installation
 
 ### Step 1: Install the Plugin
 
 ```bash
-# From Claude Code CLI
+# From Gemini CLI
 /plugin install kratos
 ```
 
 ### Step 2: Enable Auto-Activation (Optional)
 
-To make Kratos respond when you say his name, add this to your project's `CLAUDE.md` or `~/.claude/CLAUDE.md`:
+To make Kratos respond when you say his name, add this to your project's `CLAUDE.md`:
 
 ```markdown
 ## Kratos Auto-Activation
 
-When the user mentions "Kratos" or any god-agent name (athena, metis, hephaestus, 
-apollo, artemis, ares, hermes) case-insensitively, activate the Kratos plugin:
+When the user mentions "Kratos" or any god-agent name (athena, metis, clio, mimir, etc.) 
+case-insensitively, activate the Kratos plugin:
 
 | Trigger | Action |
 |---------|--------|
@@ -30,288 +30,145 @@ apollo, artemis, ares, hermes) case-insensitively, activate the Kratos plugin:
 | "[god-name], [task]" | Spawn that god-agent directly via Task tool |
 ```
 
-### Usage
-
-**With slash commands:**
-```bash
-/kratos:main Build a user authentication feature
-/kratos:quick Add tests for UserService
-/kratos:status
-```
-
-**With auto-activation (if configured):**
-```bash
-Kratos, build a user authentication feature
-Hey Kratos, continue
-athena, write a PRD for dark mode
-```
-
-### Composability
-
-Combine with other skills in your CLAUDE.md:
-```bash
-Kratos + git-master: build a payment system
-Kratos + ralph: refactor the auth module (must complete)
-```
-
 ---
 
-## Architecture
+## Architecture v2.0
 
 ```
                          ⚔️ KRATOS ⚔️
                     Master Orchestrator
-                    (Delegates via Task tool)
+            (Memory Enabled • Pipeline Orchestration)
                              │
    ┌─────────────────────────┼─────────────────────────────────────────┐
    │                         │                                         │
-   ▼                         ▼                                         │
-┌─────────┐    ┌────────────┬───────┴───────┬────────────┬─────────────┐
-│  METIS  │    ▼            ▼               ▼            ▼             ▼
-│  (opus) │ ┌─────────┐ ┌───────────┐   ┌─────────┐ ┌───────────┐ ┌─────────┐
-│Research │ │ ATHENA  │ │HEPHAESTUS │   │  APOLLO │ │  ARTEMIS  │ │  ARES   │
-└────┬────┘ │  (opus) │ │   (opus)  │   │  (opus) │ │ (sonnet)  │ │(sonnet) │
-     │      │   PM    │ │ Tech Spec │   │SA Review│ │    QA     │ │  Impl   │
-     │      └─────────┘ └───────────┘   └─────────┘ └───────────┘ └─────────┘
-     │           │            │               │            │             │
-     ▼           │            │               │            │      ┌──────┴──────┐
-┌─────────┐      │            │               │            │      │   HERMES    │
-│ .Arena  │◄─────┴────────────┴───────────────┴────────────┴──────│   (opus)    │
-│(shared) │      All gods can read Arena for context              │ Code Review │
-└─────────┘                                                       └─────────────┘
-                                     │
+   ▼                         ▼                                         ▼
+┌─────────┐            ┌───────────┐                             ┌───────────┐
+│  METIS  │            │   CLIO    │                             │   MIMIR   │
+│ Research│            │ Git Hist  │                             │ Ext Res   │
+└────┬────┘            └─────┬─────┘                             └─────┬─────┘
+     │                       │                                         │
+     └───────────────────────┼───────────────────┐                     │
+                             │                   │                     │
+                             ▼                   ▼                     ▼
+┌─────────┐            ┌───────────┐       ┌───────────┐         ┌───────────┐
+│ ATHENA  │            │HEPHAESTUS │       │  APOLLO   │         │  HERMES   │
+│   PM    │            │ Tech Spec │       │ Architect │         │ Code Rev  │
+└────┬────┘            └─────┬─────┘       └─────┬─────┘         └─────┬─────┘
+     │                       │                   │                     │
+     └───────────────────────┴─────────┬─────────┴─────────────────────┘
+                                       │
+                              ┌────────┴────────┐
+                              │  ARES & ARTEMIS │
+                              │  Impl & Quality │
+                              └────────┬────────┘
+                                       │
                             ┌────────┴────────┐
                             │ Delivered Value │
                             └─────────────────┘
 ```
 
-## Agents (Subagents)
+## The Pantheon (Agents)
 
-| Agent | File | Model | Domain |
-|-------|------|-------|--------|
-| **Metis** | `agents/metis.md` | opus | Project research, codebase analysis |
-| **Athena** | `agents/athena.md` | opus | PRD creation, PM reviews |
-| **Hephaestus** | `agents/hephaestus.md` | opus | Technical specifications |
-| **Apollo** | `agents/apollo.md` | opus | Architecture review |
-| **Artemis** | `agents/artemis.md` | sonnet | Test planning |
-| **Ares** | `agents/ares.md` | sonnet | Implementation |
-| **Hermes** | `agents/hermes.md` | opus | Code review |
+| Agent | Domain | Specialty | Model (Normal) |
+|-------|--------|-----------|----------------|
+| **Metis** | Project Knowledge | Codebase analysis, Arena documentation | Sonnet |
+| **Clio** | Git History | Blame, commit logs, contributor mapping | Sonnet |
+| **Mimir** | External Research | Web, GitHub, Best practices, Documentation | Sonnet |
+| **Athena** | Product Management | PRDs, PM reviews, requirements | Opus |
+| **Hephaestus**| Engineering | Technical specifications, blueprints | Opus |
+| **Apollo** | Architecture | System design, SA reviews | Sonnet |
+| **Artemis** | Quality Assurance | Test planning, test cases | Sonnet |
+| **Ares** | Implementation | Code writing, bug fixes, refactoring | Sonnet |
+| **Hermes** | Peer Review | Code review, quality audits | Opus |
+
+---
 
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
-| `/kratos:main` | The main orchestrator - handles any request (auto-classifies tasks) |
-| `/kratos:quick` | Quick mode - routes simple tasks directly to agents |
-| `/kratos:start` | Begin a new feature journey |
-| `/kratos:status` | View the battlefield - all features and their state |
-| `/kratos:next` | Kratos decides and executes the next move |
-| `/kratos:approve` | Grant blessing to proceed |
-| `/kratos:gate-check` | Verify readiness before battle |
-
-## Skills
-
-| Skill | Purpose |
-|-------|---------|
-| `/kratos:auto` | Auto-determine and execute next action |
-
-## The Pipeline
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           THE PATH OF DESTRUCTION                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  [0]         [1]         [2]           [3]          [4]           [5]      │
-│ Research →  PRD    →  PRD Review  →  Tech Spec → PM Review  → SA Review    │
-│   🔍         📋         🔍            📐          👁️           👁️         │
-│  Metis     Athena     Athena      Hephaestus    Athena       Apollo        │
-│  (opus)    (opus)     (opus)        (opus)      (opus)       (opus)        │
-│ optional                                                                    │
-│                              ↓                                              │
-│                                                                             │
-│          [6]              [7]              [8]                              │
-│       Test Plan  →   Implementation  → Code Review   →    VICTORY          │
-│          🧪               ⚒️               🔬              🏆              │
-│        Artemis          Ares            Hermes                              │
-│       (sonnet)        (sonnet)          (opus)                              │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-## How It Works
-
-### Task Classification
-
-Kratos now classifies incoming tasks to choose the right path:
-
-| Task Type | Classification | Path |
-|-----------|----------------|------|
-| Add tests, fix bugs, refactor, review code | **SIMPLE** | Quick mode (direct agent) |
-| Build features, create systems, multi-component | **COMPLEX** | Full pipeline (8 stages) |
-
-### Quick Path (Simple Tasks)
-
-```
-User Request → Classification → Direct Agent Spawn → Done
-```
-
-Simple tasks go directly to the appropriate agent:
-- **Test writing** → Artemis
-- **Bug fixes** → Ares
-- **Refactoring** → Ares
-- **Code review** → Hermes
-- **Research** → Metis
-
-### Full Pipeline (Complex Tasks)
-
-```
-User Request → Classification → 8-Stage Pipeline → Victory
-```
-
-1. **Kratos receives request** from user
-2. **Kratos classifies** the task as COMPLEX
-3. **Kratos reads status.json** to understand current state
-4. **Kratos spawns appropriate agent** via Task tool
-5. **Agent executes mission** (creates document, updates status)
-6. **Kratos reports results** and offers next action
-7. **Repeat until VICTORY**
-
-### Key Principle: Delegation
-
-Kratos **NEVER** does the work himself. He is an orchestrator who:
-- Understands what needs to be done
-- Spawns the right agent via Task tool
-- Reports results to the user
-
-Each agent is spawned as a **true subagent** (subprocess) with:
-- Its own context window
-- Focused domain knowledge
-- Specific tools for its mission
-
-## The Arena
-
-The **Arena** (`.claude/.Arena/`) is where Metis documents project knowledge. All gods can reference it for battlefield awareness.
-
-```
-.claude/.Arena/
-├── project-overview.md      # High-level summary
-├── tech-stack.md            # Languages, frameworks, dependencies
-├── architecture.md          # System design, patterns
-├── file-structure.md        # Directory organization
-└── conventions.md           # Coding standards found
-```
-
-**Benefits:**
-- **Battlefield awareness** - Kratos knows the terrain before battle
-- **Better agent context** - All gods can reference Arena
-- **Onboarding acceleration** - Quick project understanding
-- **Reusable knowledge** - Arena persists across sessions
+| `/kratos:main` | **Master Command** - Handles any request (auto-classifies) |
+| `/kratos:inquiry`| **Knowledge Seek** - Routes questions to Metis, Clio, or Mimir |
+| `/kratos:quick` | **Simple Tasks** - Direct routing for tests, fixes, refactors |
+| `/kratos:recall` | **Session Resume** - Where did we stop? (uses persistent memory) |
+| `/kratos:status` | **Battlefield View** - Status of all active features |
+| `/kratos:start` | **New Feature** - Initialize a complex journey |
+| `/kratos:next` | **Auto-Pilot** - Kratos decides and executes the next step |
+| `/kratos:assign` | **Direct Command** - Manually assign a mission to a god |
+| `/kratos:approve`| **Blessing** - Approve a document to proceed to next stage |
 
 ---
 
-## Gates (Enforced by Kratos)
+## New in v2.0
 
-| Gate | Requirement | Unlocks |
-|------|-------------|---------|
-| **Gate 1** | PRD Review: ✅ Approved | Tech Spec |
-| **Gate 2** | Tech Spec: ✅ Complete | Spec Reviews |
-| **Gate 3** | PM + SA Reviews: Both ✅ | Test Plan |
-| **Gate 4** | Test Plan: Created | Implementation |
-| **Gate 5** | Code Review: ✅ Approved | VICTORY |
+### 🧠 Persistent Memory
+Kratos now remembers every battle. All sessions, agent spawns, decisions, and file changes are recorded in a SQLite database (`.claude/.kratos/memory.db`).
+- Use `/kratos:recall` to see recent activity.
+- Context is automatically injected into new sessions to maintain continuity.
 
-## Feature Folder Structure
+### ⚡ Execution Modes
+Tailor Kratos's power to your needs:
+- **Eco Mode** (`eco:`): Uses Haiku/Sonnet for maximum token efficiency.
+- **Normal Mode**: Balanced performance (Default).
+- **Power Mode** (`power:`): Uses Opus for ALL agents for maximum quality.
+
+### 🔍 Inquiry Mode
+Ask anything about your project, history, or the world:
+- *"Kratos, who wrote the auth module?"* (Routes to **Clio**)
+- *"Kratos, how is the database organized?"* (Routes to **Metis**)
+- *"Kratos, what are the best practices for rate limiting?"* (Routes to **Mimir**)
+
+### 📚 Arena & Insights
+- **The Arena** (`.claude/.Arena/`): Project-specific knowledge (Architecture, Tech Stack, etc.).
+- **Insights** (`.claude/.Arena/insights/`): Cached external research from Mimir (API docs, best practices).
+
+---
+
+## The Pipeline (Complex Tasks)
+
+For building new features, Kratos follows an 8-stage divine path:
 
 ```
-.claude/feature/<feature-name>/
-├── status.json              # Kratos's ledger - tracks everything
-├── prd.md                   # Athena's creation
-├── prd-review.md            # Athena's review
-├── tech-spec.md             # Hephaestus's blueprint
-├── spec-review-pm.md        # Athena's spec review
-├── spec-review-sa.md        # Apollo's analysis
-├── test-plan.md             # Artemis's battle plan
-├── implementation-notes.md  # Ares's log
-├── code-review.md           # Hermes's verdict
-└── [source files]           # Implemented code
-```
-
-## Usage
-
-### Quick Task (Simple)
-```
-/kratos:quick Add unit tests for the UserService class
-
-QUICK TASK
-
-Request: Add unit tests for UserService
-Classification: Test Writing
-Target Agent: Artemis (model: sonnet)
-
-Summoning Artemis...
-
-[Task tool spawns artemis agent - no PRD needed]
-```
-
-### Quick Task via Main (Auto-Classification)
-```
-/kratos:main Fix the null pointer exception in auth.js
-
-This looks like a simple task. Routing to quick mode...
-
-QUICK TASK
-
-Request: Fix null pointer in auth.js
-Classification: Bug Fix
-Target Agent: Ares (model: sonnet)
-
-[Task tool spawns ares agent directly]
-```
-
-### Start a New Feature (Complex)
-```
-/kratos:main Build a user authentication feature
-
-⚔️ KRATOS ⚔️
-
-No active feature. Initializing...
-
-Feature: user-authentication
-Stage: 0 → 1 (PRD Creation)
-Summoning: ATHENA (model: opus)
-
-[Task tool spawns athena agent]
-```
-
-### Continue Through Pipeline
-```
-User: "continue"
-
-⚔️ KRATOS ⚔️
-
-Feature: user-authentication
-Stage: 1 → 2 (PRD Review)
-Summoning: ATHENA (model: opus)
-
-[Task tool spawns athena agent for review]
-```
-
-### Check Status
-```
-/kratos:status
-
-⚔️ KRATOS: BATTLEFIELD STATUS ⚔️
-
-Feature: user-authentication
-Progress: ████████░░░░░░░░ 50% (Stage 4/8)
-
-Pipeline:
-[1]✅ → [2]✅ → [3]✅ → [4]🔄 → [5]⏳ → [6]🔒 → [7]🔒 → [8]🔒
-
-Current: PM Spec Review (in-progress)
-Next: SA Spec Review (can run in parallel)
+[0] Research (Metis) → [1] PRD (Athena) → [2] PRD Review (Athena) → 
+[3] Tech Spec (Hephaestus) → [4] PM Review (Athena) → [5] SA Review (Apollo) → 
+[6] Test Plan (Artemis) → [7] Implementation (Ares) → [8] Code Review (Hermes)
 ```
 
 ---
 
-*"The cycle ends here. We must be better than this."* - Kratos guides your features to victory through his divine agents.
+## Usage Examples
+
+### Information Seeking
+```bash
+# Ask about history
+/kratos:inquiry Who worked on the login page in the last month?
+
+# Research best practices (Eco mode)
+eco: what's the most efficient way to handle large file uploads in Node.js?
+
+# Project exploration
+/kratos:inquiry Explain the current architecture
+```
+
+### Task Execution
+```bash
+# Simple task
+/kratos:quick Add unit tests for UserService.js
+
+# Complex feature
+/kratos:main Build a multi-tenant subscription system
+
+# Resume work
+/kratos:recall
+/kratos:next
+```
+
+### Power Mode for Critical Work
+```bash
+power: review the payment processing logic for security vulnerabilities
+```
+
+---
+
+*"The cycle ends here. We must be better than this."* - Kratos guides your project to victory through divine orchestration.
+
