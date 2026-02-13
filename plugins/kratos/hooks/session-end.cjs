@@ -21,21 +21,24 @@ const SESSION_FILE = path.join(KRATOS_HOME, 'active-session.json');
 // Get current working directory
 const cwd = process.cwd();
 
-// Check if Python is available
-function getPythonCmd() {
-  try {
-    const { getPythonCmd: getCmd } = require('./check-python.cjs');
-    return getCmd();
-  } catch (e) {
-    // Fallback: try common commands
-    for (const cmd of ['python3', 'python']) {
-      try {
-        execSync(`${cmd} --version`, { stdio: 'ignore' });
-        return cmd;
-      } catch (e) {}
-    }
-    return null;
+// Find kratos binary
+function findKratosBinary() {
+  const locations = [
+    'kratos', // In PATH
+    path.join(__dirname, '..', 'bin', 'kratos'), // Local bin
+    path.join(__dirname, '..', 'bin', 'kratos.exe'), // Windows local bin
+    path.join(os.homedir(), 'bin', 'kratos'), // User bin
+    path.join(os.homedir(), 'bin', 'kratos.exe'), // Windows user bin
+  ];
+
+  for (const loc of locations) {
+    try {
+      execSync(`"${loc}" --version`, { stdio: 'ignore' });
+      return loc;
+    } catch (e) {}
   }
+
+  return null;
 }
 
 // Read session data
@@ -94,41 +97,27 @@ function findActiveFeature() {
 }
 
 // Update session with feature info
+// TODO: Implement feature update in Go CLI
 function updateSessionFeature(sessionId, featureName, stage) {
-  const pythonCmd = getPythonCmd();
-  if (!pythonCmd) return;
-
-  try {
-    const pythonScript = path.join(__dirname, '..', 'memory', 'kratos_memory.py');
-    
-    // Update session record
-    execSync(
-      `${pythonCmd} "${pythonScript}" feature update "${featureName}" "${path.basename(cwd)}" --stage=${stage}`,
-      {
-        stdio: 'ignore',
-        env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
-      }
-    );
-  } catch (e) {
-    // Ignore errors
-  }
+  // Feature tracking not yet implemented in Go CLI
+  // Skipping for now
 }
 
 // Get session statistics
 function getSessionStats(sessionId) {
-  const pythonCmd = getPythonCmd();
-  if (!pythonCmd) return { totalSteps: 0, agentSpawns: 0, fileChanges: 0 };
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return { totalSteps: 0, agentSpawns: 0, fileChanges: 0 };
 
   try {
-    const pythonScript = path.join(__dirname, '..', 'memory', 'kratos_memory.py');
     const result = execSync(
-      `${pythonCmd} "${pythonScript}" query steps "${sessionId}"`,
+      `"${kratosCmd}" step list "${sessionId}"`,
       {
         encoding: 'utf-8',
         env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
       }
     );
-    const steps = JSON.parse(result);
+    const data = JSON.parse(result);
+    const steps = data.steps || [];
 
     const agentSpawns = steps.filter(s => s.step_type === 'agent_spawn').length;
     const fileChanges = steps.filter(s => s.step_type === 'file_modify').length;
@@ -145,13 +134,12 @@ function getSessionStats(sessionId) {
 
 // End session
 function endSession(sessionId, summary, status = 'completed', featureName = null) {
-  const pythonCmd = getPythonCmd();
-  if (!pythonCmd) return false;
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return false;
 
   try {
-    const pythonScript = path.join(__dirname, '..', 'memory', 'kratos_memory.py');
     execSync(
-      `${pythonCmd} "${pythonScript}" session end "${sessionId}" "${escapeShell(summary)}" "${status}"`,
+      `"${kratosCmd}" session end "${sessionId}" "${escapeShell(summary)}"`,
       {
         stdio: 'ignore',
         env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }

@@ -29,22 +29,39 @@ function getSession() {
   }
 }
 
-// Execute memory command
-function recordStep(sessionId, stepType, action, options = {}) {
+// Find kratos binary
+function findKratosBinary() {
+  const locations = [
+    'kratos', // In PATH
+    path.join(__dirname, '..', 'bin', 'kratos'), // Local bin
+    path.join(__dirname, '..', 'bin', 'kratos.exe'), // Windows local bin
+    path.join(os.homedir(), 'bin', 'kratos'), // User bin
+    path.join(os.homedir(), 'bin', 'kratos.exe'), // Windows user bin
+  ];
+
+  for (const loc of locations) {
+    try {
+      execSync(`"${loc}" --version`, { stdio: 'ignore' });
+      return loc;
+    } catch (e) {}
+  }
+
+  return null;
+}
+
+// Record agent spawn
+function recordAgentSpawn(sessionId, agentName, agentModel, action) {
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return false;
+
   try {
-    const pythonScript = path.join(__dirname, '..', 'memory', 'kratos_memory.py');
-    let cmd = `python "${pythonScript}" step "${sessionId}" "${stepType}" "${escapeShell(action)}"`;
-
-    if (options.agent) cmd += ` --agent="${options.agent}"`;
-    if (options.model) cmd += ` --model="${options.model}"`;
-    if (options.stage) cmd += ` --stage=${options.stage}`;
-    if (options.target) cmd += ` --target="${escapeShell(options.target)}"`;
-    if (options.result) cmd += ` --result="${options.result}"`;
-
-    execSync(cmd, {
-      stdio: 'ignore',
-      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
-    });
+    execSync(
+      `"${kratosCmd}" step record-agent "${sessionId}" "${agentName}" "${agentModel}" "${escapeShell(action)}"`,
+      {
+        stdio: 'ignore',
+        env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
+      }
+    );
     return true;
   } catch (e) {
     return false;
@@ -52,11 +69,13 @@ function recordStep(sessionId, stepType, action, options = {}) {
 }
 
 // Record file change
-function recordFileChange(sessionId, filePath, changeType, description = '') {
+function recordFileChange(sessionId, filePath, changeType) {
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return false;
+
   try {
-    const pythonScript = path.join(__dirname, '..', 'memory', 'kratos_memory.py');
     execSync(
-      `python "${pythonScript}" file-change "${sessionId}" "${escapeShell(filePath)}" "${changeType}" "${escapeShell(description)}"`,
+      `"${kratosCmd}" step record-file "${sessionId}" "${changeType}" "${escapeShell(filePath)}"`,
       {
         stdio: 'ignore',
         env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
@@ -108,24 +127,21 @@ function processToolUse(data) {
     const agent = detectAgent(tool_input);
     const description = tool_input?.description || 'Agent task';
     const model = tool_input?.model || 'sonnet';
+    const action = `${description}`;
 
-    recordStep(sessionId, 'agent_spawn', `Spawning ${agent}: ${description}`, {
-      agent,
-      model,
-      target: tool_input?.description
-    });
+    recordAgentSpawn(sessionId, agent, model, action);
   }
 
   // Record file writes
   if (tool_name === 'Write') {
     const filePath = tool_input?.file_path || 'unknown';
-    recordFileChange(sessionId, filePath, 'created', 'File created');
+    recordFileChange(sessionId, filePath, 'Write');
   }
 
   // Record file edits
   if (tool_name === 'Edit') {
     const filePath = tool_input?.file_path || 'unknown';
-    recordFileChange(sessionId, filePath, 'modified', 'File modified');
+    recordFileChange(sessionId, filePath, 'Edit');
   }
 }
 

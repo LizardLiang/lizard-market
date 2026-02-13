@@ -1,0 +1,46 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+*.test
+*.out
+coverage.txt
+coverage.out
+coverage.html
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kratos runtime
+.kratos/
+active-session.json
+
+# Python cache (legacy)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+memory/.pytest_cache/
+
+# Node modules (hooks)
+node_modules/
+
+# Logs
+*.log

@@ -30,33 +30,38 @@ function ensureDir() {
   }
 }
 
-// Check if Python is available
-function getPythonCmd() {
-  try {
-    const { getPythonCmd: getCmd } = require('./check-python.cjs');
-    return getCmd();
-  } catch (e) {
-    // Fallback: try common commands
-    for (const cmd of ['python3', 'python']) {
-      try {
-        execSync(`${cmd} --version`, { stdio: 'ignore' });
-        return cmd;
-      } catch (e) {}
-    }
-    return null;
+// Find kratos binary
+function findKratosBinary() {
+  const locations = [
+    'kratos', // In PATH
+    path.join(__dirname, '..', 'bin', 'kratos'), // Local bin
+    path.join(__dirname, '..', 'bin', 'kratos.exe'), // Windows local bin
+    path.join(os.homedir(), 'bin', 'kratos'), // User bin
+    path.join(os.homedir(), 'bin', 'kratos.exe'), // Windows user bin
+  ];
+
+  for (const loc of locations) {
+    try {
+      execSync(`"${loc}" --version`, { stdio: 'ignore' });
+      return loc;
+    } catch (e) {}
   }
+
+  return null;
 }
 
 // Initialize database if needed
 function initDb() {
   if (fs.existsSync(DB_PATH)) return true;
 
-  const pythonCmd = getPythonCmd();
-  if (!pythonCmd) return false;
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) {
+    console.error('Kratos binary not found. Please build: cd go && go build -o ../bin/kratos ./cmd/kratos');
+    return false;
+  }
 
   try {
-    const pythonScript = path.join(__dirname, '..', 'memory', 'kratos_memory.py');
-    execSync(`${pythonCmd} "${pythonScript}" init`, {
+    execSync(`"${kratosCmd}" init`, {
       stdio: 'ignore',
       env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
     });
@@ -75,15 +80,14 @@ function uuid() {
   });
 }
 
-// Start session using Python script
+// Start session using Go CLI
 function startSession() {
-  const pythonCmd = getPythonCmd();
-  if (!pythonCmd) return null;
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return null;
 
   try {
-    const pythonScript = path.join(__dirname, '..', 'memory', 'kratos_memory.py');
     const result = execSync(
-      `${pythonCmd} "${pythonScript}" session start "${projectName}"`,
+      `"${kratosCmd}" session start "${cwd}"`,
       {
         encoding: 'utf-8',
         env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
@@ -98,19 +102,19 @@ function startSession() {
 
 // Get last session info for context injection
 function getLastSessionInfo() {
-  const pythonCmd = getPythonCmd();
-  if (!pythonCmd) return null;
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return null;
 
   try {
-    const pythonScript = path.join(__dirname, '..', 'memory', 'kratos_memory.py');
     const result = execSync(
-      `${pythonCmd} "${pythonScript}" last-session "${projectName}"`,
+      `"${kratosCmd}" recall --project "${cwd}"`,
       {
         encoding: 'utf-8',
         env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
       }
     );
-    return JSON.parse(result);
+    const data = JSON.parse(result);
+    return data.last_session || null;
   } catch (e) {
     return null;
   }
