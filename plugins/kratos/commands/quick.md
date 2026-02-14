@@ -42,6 +42,7 @@ Check user input for mode keywords FIRST:
 | **Ares** (fix/refactor/docs) | sonnet | haiku | opus |
 | **Hermes** (review) | sonnet | haiku | opus |
 | **Metis** (research) | sonnet | haiku | opus |
+| **Daedalus** (decompose) | sonnet | haiku | opus |
 
 ---
 
@@ -59,6 +60,7 @@ Analyze the user's request to determine the target agent:
 | **Code Review** | "review", "check code", "look at", "feedback on" | Hermes |
 | **Documentation** | "document", "comment", "add docs", "docstring", "readme", "jsdoc" | Ares |
 | **Small Features** | "add", "implement" + specific function/method | Ares |
+| **Decomposition** | "decompose", "break down", "split into tasks", "break into phases", "work breakdown" | Daedalus |
 
 ### Information Requests (Inquiry Mode - Redirect)
 
@@ -188,6 +190,28 @@ Analyze and explain:
 
 Provide clear, actionable insights.",
   description: "metis - quick research"
+)
+```
+
+---
+
+#### Daedalus - Decomposition
+```
+Task(
+  subagent_type: "general-purpose",
+  model: "[sonnet|haiku|opus based on mode]",
+  prompt: "You are Daedalus, the Decomposition Agent. Read your instructions at plugins/kratos/agents/daedalus.md then execute this mission:
+
+MISSION: Standalone Decomposition
+INPUT: [user's description or feature reference]
+OUTPUT_TARGETS: [ask user if not specified]
+
+Break down the given feature/idea into precise phases with dependencies, boundaries, tasks, and acceptance criteria.
+
+Read the decomposition template at plugins/kratos/templates/decomposition-template.md for the local file format.
+
+No PRD or tech spec needed - work directly from the input.",
+  description: "daedalus - decompose"
 )
 ```
 

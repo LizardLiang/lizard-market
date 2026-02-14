@@ -76,8 +76,9 @@ Read the status.json and verify:
 When asked to create a technical specification:
 
 1. **Read the PRD** carefully - understand every requirement
-2. **Analyze the codebase** - understand existing patterns
-3. **Design the solution** - make technical decisions
+2. **Check for decomposition**: If `.claude/feature/<name>/decomposition.md` exists, read it. Use the phase structure to organize your Implementation Plan section. Align "Sequence of Changes" with the decomposition phases.
+3. **Analyze the codebase** - understand existing patterns
+4. **Design the solution** - make technical decisions
 
 4. **Create tech-spec.md** at `.claude/feature/<name>/tech-spec.md`:
 

@@ -73,6 +73,19 @@ AskUserQuestion(
         "condition": "prd.status === 'approved'"
       }
     },
+    "2.5-decomposition": {
+      "status": "skipped",
+      "assignee": "daedalus",
+      "started": null,
+      "completed": null,
+      "document": "decomposition.md",
+      "optional": true,
+      "output_targets": null,
+      "gate": {
+        "requires": ["2-prd-review"],
+        "condition": "prd-review.verdict === 'approved' AND user opts in"
+      }
+    },
     "3-tech-spec": {
       "status": "blocked",
       "assignee": "tech-spec",

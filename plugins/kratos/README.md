@@ -75,6 +75,7 @@ case-insensitively, activate the Kratos plugin:
 | **Clio** | Git History | Blame, commit logs, contributor mapping | Sonnet |
 | **Mimir** | External Research | Web, GitHub, Best practices, Documentation | Sonnet |
 | **Athena** | Product Management | PRDs, PM reviews, requirements | Opus |
+| **Daedalus** | Decomposition | Feature phases, dependencies, platform-native tasks | Sonnet |
 | **Hephaestus**| Engineering | Technical specifications, blueprints | Opus |
 | **Apollo** | Architecture | System design, SA reviews | Sonnet |
 | **Artemis** | Quality Assurance | Test planning, test cases | Sonnet |
@@ -89,6 +90,7 @@ case-insensitively, activate the Kratos plugin:
 |---------|---------|
 | `/kratos:main` | **Master Command** - Handles any request (auto-classifies) |
 | `/kratos:inquiry`| **Knowledge Seek** - Routes questions to Metis, Clio, or Mimir |
+| `/kratos:decompose`| **Decompose** - Break features into phases (files, Notion, Linear) |
 | `/kratos:quick` | **Simple Tasks** - Direct routing for tests, fixes, refactors |
 | `/kratos:recall` | **Session Resume** - Where did we stop? (uses persistent memory) |
 | `/kratos:status` | **Battlefield View** - Status of all active features |
@@ -129,8 +131,9 @@ Ask anything about your project, history, or the world:
 For building new features, Kratos follows an 8-stage divine path:
 
 ```
-[0] Research (Metis) → [1] PRD (Athena) → [2] PRD Review (Athena) → 
-[3] Tech Spec (Hephaestus) → [4] PM Review (Athena) → [5] SA Review (Apollo) → 
+[0] Research (Metis) → [1] PRD (Athena) → [2] PRD Review (Athena) →
+[2.5] Decompose (Daedalus, optional) → [3] Tech Spec (Hephaestus) →
+[4] PM Review (Athena) → [5] SA Review (Apollo) →
 [6] Test Plan (Artemis) → [7] Implementation (Ares) → [8] Code Review (Hermes)
 ```
 

@@ -80,6 +80,7 @@ When asked to review code:
    - tech-spec.md (what should have been implemented)
    - test-plan.md (what tests should exist)
    - prd.md (requirements context)
+   - **decomposition.md** (if exists) — verify all phases were implemented and acceptance criteria are met
 
 2. **Review dimensions**:
 

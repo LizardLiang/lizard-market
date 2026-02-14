@@ -22,6 +22,7 @@
     "quick": "Quick mode for simple tasks",
     "inquiry": "Inquiry mode for information requests (Metis/Clio/Mimir)",
     "recall": "Recall last session context - where did we stop?",
+    "decompose": "Decompose features into phases with platform-native output (files, Notion, Linear)",
     "clean-insights": "Clean stale research insights from Arena",
     "install-hooks": "Install Kratos memory hooks globally"
   },
@@ -34,7 +35,8 @@
     "ares": "Implementation specialist (coding and tasks)",
     "hermes": "Code reviewer (quality gate)",
     "mimir": "External research oracle (web, GitHub, docs, best practices)",
-    "clio": "Git historian (blame, commits, contributors, timeline)"
+    "clio": "Git historian (blame, commits, contributors, timeline)",
+    "daedalus": "Decomposition specialist (phases, dependencies, platform-native tasks)"
   },
   "skills": {
     "memory": "Memory persistence protocol",

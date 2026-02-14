@@ -78,6 +78,7 @@ When asked to create a test plan:
    - prd.md (requirements to test)
    - tech-spec.md (technical details)
    - Both spec reviews (for context)
+   - **decomposition.md** (if exists) — organize test suites by decomposition phases
 
 2. **Identify test coverage needs**:
    - Map each requirement to test cases

@@ -83,6 +83,7 @@ When asked to implement:
    - tech-spec.md (your blueprint)
    - test-plan.md (what tests to write)
    - prd.md (for context)
+   - **decomposition.md** (if exists) — implement phase by phase in the specified order. In User Mode, align task files with decomposition phases.
 
 2. **Understand the codebase**:
    - Explore existing patterns
