@@ -6,29 +6,22 @@ Kratos is the master orchestrator plugin that commands specialist **agents** to 
 
 ## Installation
 
-### Step 1: Install the Plugin
+For the full step-by-step guide (building the binary, installing hooks, configuring auto-activation), see **[INSTALL.md](INSTALL.md)**.
+
+### Quick Start
 
 ```bash
-# From Gemini CLI
-/plugin install kratos
+# 1. Build binary
+cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos && cd ..
+
+# 2. Initialize database & install hooks
+./bin/kratos init && ./bin/kratos install
+
+# 3. Verify
+./bin/kratos status
 ```
 
-### Step 2: Enable Auto-Activation (Optional)
-
-To make Kratos respond when you say his name, add this to your project's `CLAUDE.md`:
-
-```markdown
-## Kratos Auto-Activation
-
-When the user mentions "Kratos" or any god-agent name (athena, metis, clio, mimir, etc.) 
-case-insensitively, activate the Kratos plugin:
-
-| Trigger | Action |
-|---------|--------|
-| "Kratos" alone | Respond: *"I am Kratos. Tell me what you seek, or say 'continue' - I will summon the right power."* |
-| "Kratos, [task]" | Run `/kratos:main [task]` |
-| "[god-name], [task]" | Spawn that god-agent directly via Task tool |
-```
+Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 4](INSTALL.md#step-4-enable-auto-activation)).
 
 ---
 
