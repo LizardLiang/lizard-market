@@ -28,7 +28,61 @@ Kratos lives at `plugins/kratos/` inside the marketplace repo.
 
 ---
 
-## Step 2: Build the Kratos Binary
+## Step 2: Install the Plugin into Claude Code
+
+This step registers Kratos's skills, commands, and agents so Claude Code can discover them (e.g., `/kratos:main`, `/kratos:quick`).
+
+### 2a. Add the Marketplace
+
+If you haven't already added the lizard-market marketplace:
+
+```bash
+# From within Claude Code, run:
+/plugin marketplace add /path/to/lizard-market
+```
+
+Or from the CLI:
+
+```bash
+claude plugin marketplace add /path/to/lizard-market
+```
+
+### 2b. Install the Kratos Plugin
+
+```bash
+# From within Claude Code:
+/plugin install kratos@lizard-plugins
+
+# Or from the CLI (choose a scope):
+claude plugin install kratos@lizard-plugins              # User scope (global, all projects)
+claude plugin install kratos@lizard-plugins --scope project  # Project scope (shared via git)
+claude plugin install kratos@lizard-plugins --scope local    # Local scope (this machine only)
+```
+
+### 2c. Verify Skills Are Available
+
+After installation, Kratos commands should appear in Claude Code's skill list:
+
+```
+/kratos:main       - Master orchestrator
+/kratos:quick      - Simple tasks
+/kratos:inquiry    - Knowledge queries
+/kratos:status     - Pipeline status
+/kratos:recall     - Session resume
+/kratos:decompose  - Feature decomposition
+```
+
+You can verify by typing `/kratos:` in Claude Code — autocomplete should show available commands.
+
+### What This Does
+
+- Copies the plugin to `~/.claude/plugins/cache/kratos/`
+- Adds `kratos@lizard-plugins` to `enabledPlugins` in your settings file
+- Claude Code auto-discovers commands from `commands/`, skills from `skills/`, and agents from `agents/`
+
+---
+
+## Step 3: Build the Memory Binary
 
 The memory system requires a compiled Go binary. Pre-built binaries exist in `plugins/kratos/bin/` for common platforms, but building from source is recommended.
 
@@ -69,7 +123,7 @@ kratos init        # Creates ~/.kratos/memory.db
 
 ---
 
-## Step 3: Install Memory Hooks
+## Step 4: Install Memory Hooks
 
 Hooks enable automatic session tracking (start, tool use, end). The kratos binary handles its own installation.
 
@@ -101,7 +155,7 @@ Expected output: `Status: FULLY OPERATIONAL`
 
 ---
 
-## Step 4: Enable Auto-Activation
+## Step 5: Enable Auto-Activation
 
 This is the critical step that makes Kratos respond when called by name.
 
@@ -129,39 +183,43 @@ Claude Code decides whether to invoke a skill based on the **command description
 
 ---
 
-## Step 5: Verify the Full Installation
+## Step 6: Verify the Full Installation
 
 Run these checks in order:
 
-### 5a. Binary Works
+### 6a. Plugin Installed
+
+Type `/kratos:` in Claude Code and verify autocomplete shows available commands (`main`, `quick`, `status`, etc.).
+
+### 6b. Binary Works
 
 ```bash
 kratos --version
 # Expected: kratos version X.X.X (or "dev")
 ```
 
-### 5b. Database Initialized
+### 6c. Database Initialized
 
 ```bash
 kratos init
 # Expected: Database initialized at ~/.kratos/memory.db (or already exists)
 ```
 
-### 5c. Hooks Installed
+### 6d. Hooks Installed
 
 ```bash
 kratos status
 # Expected: Status: FULLY OPERATIONAL
 ```
 
-### 5d. Auto-Activation Works
+### 6e. Auto-Activation Works
 
 ```bash
 claude -p "Kratos, what can you do?"
 # Expected: Kratos responds with capabilities overview (not a generic Claude response)
 ```
 
-### 5e. Settings.json Has Hooks
+### 6f. Settings.json Has Hooks
 
 Check that `~/.claude/settings.json` contains hook entries with `kratos` in the command paths:
 
@@ -182,6 +240,7 @@ Check that `~/.claude/settings.json` contains hook entries with `kratos` in the 
 | Location | Purpose |
 |----------|---------|
 | `plugins/kratos/` | Plugin source (agents, commands, skills) |
+| `~/.claude/plugins/cache/kratos/` | Installed plugin (copied by Claude Code) |
 | `plugins/kratos/bin/kratos` | Compiled Go binary |
 | `~/.claude/hooks/kratos/` | Installed hook scripts |
 | `~/.claude/settings.json` | Hook registration |
@@ -253,17 +312,21 @@ kratos init
 For experienced users, here's the full installation in one block:
 
 ```bash
-# 1. Build binary
+# 1. Install plugin into Claude Code (run inside Claude Code or CLI)
+#    /plugin marketplace add /path/to/lizard-market
+#    /plugin install kratos@lizard-plugins
+
+# 2. Build binary
 cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos && cd ..
 
-# 2. Initialize database
+# 3. Initialize database
 ./bin/kratos init
 
-# 3. Install hooks + binary to ~/.claude/hooks/kratos/
+# 4. Install hooks + binary to ~/.claude/hooks/kratos/
 ./bin/kratos install
 
-# 4. Verify
+# 5. Verify
 ./bin/kratos status
 ```
 
-Then add the auto-activation block to your CLAUDE.md (see Step 4).
+Then install the plugin into Claude Code (see Step 2) and add the auto-activation block to your CLAUDE.md (see Step 5).

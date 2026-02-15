@@ -21,7 +21,7 @@ cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos 
 ./bin/kratos status
 ```
 
-Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 4](INSTALL.md#step-4-enable-auto-activation)).
+Then install the plugin and add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 2](INSTALL.md#step-2-install-the-plugin-into-claude-code) and [Step 5](INSTALL.md#step-5-enable-auto-activation)).
 
 ---
 
