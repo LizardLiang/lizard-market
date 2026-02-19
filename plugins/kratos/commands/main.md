@@ -302,9 +302,11 @@ FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 REQUIREMENTS: [user's requirements]
 
-CRITICAL: You MUST create the file prd.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+CRITICAL WORKFLOW:
+1. FIRST — Run mandatory requirements clarification. Analyze the requirements for gaps and ambiguities. Use AskUserQuestion with structured options to clarify before writing ANYTHING. Do NOT assume user intent. Do NOT skip this step.
+2. ONLY AFTER clarification is complete — create prd.md and update status.json.
 
-Execute now. Create prd.md and update status.json.",
+You MUST create the file prd.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.",
   description: "athena - create PRD"
 )
 ```

@@ -198,35 +198,47 @@ Read the status.json to understand:
 
 ### Mission: Create PRD
 
-When asked to create a PRD:
+When asked to create a PRD, follow this EXACT order. **No step may be skipped.**
 
-1. **Research first** (MANDATORY):
+1. **Clarify requirements** (MANDATORY GATE — see "MANDATORY Requirements Clarification" above):
+   - Run gap analysis on the user's request
+   - Use AskUserQuestion with structured options for every P0/P1 gap
+   - Loop until critical gaps are resolved (max 3 rounds)
+   - **You MUST NOT proceed to step 2 until the write gate passes**
+
+2. **Research** (MANDATORY):
    - Summon **Mimir** to research the problem domain, best practices, examples
    - If external APIs are mentioned, use **context7** to gather precise specs
    - Check the `.claude/.Arena/` for existing project knowledge
    - Use Mimir for broad understanding, context7 for specific API details
 
-2. **Critical Thinking Analysis** (MANDATORY - see detailed framework below)
-
 3. **Create PRD** at `.claude/feature/<name>/prd.md`:
 
 ---
 
-## Critical Thinking Analysis (MANDATORY)
+## MANDATORY Requirements Clarification (NON-NEGOTIABLE GATE)
 
-You MUST analyze the requirement and identify gaps BEFORE creating prd.md. Do NOT skip this step. Do NOT ask generic questions. Your questions must come from YOUR analysis of what's missing.
+**You MUST NOT write a single line of PRD until clarification is complete.**
+
+This is a hard gate, not a suggestion. Your turn MUST end in one of two ways:
+1. **Asking clarifying questions** via AskUserQuestion — if gaps remain
+2. **Writing the PRD** — only after critical gaps are resolved
+
+There is NO third option where you silently assume and start writing.
+
+**Core principle: Do NOT make assumptions about user intent.** If you don't know, ask. Proceeding with guesses creates rework downstream that costs more than asking upfront.
 
 ### Step 1: Parse the Requirement
 
 When you receive a feature request, first analyze it silently:
 - **Explicit**: What did the user explicitly state?
-- **Implicit**: What assumptions are being made?
+- **Implicit**: What assumptions would you need to make if you started writing now?
 - **Feature Type**: What kind of feature is this? (API, UI, Data, Auth, Integration, Mixed)
-- **Complexity**: Is this a small enhancement or a major feature?
+- **Ambiguity Level**: How many different valid interpretations could this request have?
 
 ### Step 2: Gap Analysis Checklist
 
-Mentally check if the requirement covers these critical areas. For EACH unchecked area, you have identified a gap that needs filling.
+Check if the requirement covers these critical areas. For EACH unchecked area, you have a gap. **If you have ANY P0 gaps, you MUST ask before writing.**
 
 **Restrictions & Constraints**
 - [ ] Performance requirements (speed, scale, volume limits)
@@ -259,56 +271,105 @@ Mentally check if the requirement covers these critical areas. For EACH unchecke
 For EACH unchecked item in Step 2, formulate a specific question.
 
 **Question Generation Rules:**
-- Only ask about gaps YOU identified - never follow a script
+- Only ask about gaps YOU identified — never follow a generic script
 - Prioritize by impact: Security > Data integrity > Core functionality > Edge cases > Nice-to-haves
-- Phrase questions to get actionable answers, not yes/no responses
+- Phrase questions to get actionable answers with concrete options, not open-ended or yes/no
 - Group related gaps together (e.g., all security questions in one batch)
 
-**Using AskUserQuestion:**
-- Ask 3-4 highest-priority gap questions at a time
-- After receiving answers, re-evaluate remaining gaps
-- Continue until critical gaps are filled
-- Maximum 3 rounds of questions (9-12 questions total for complex features)
+**Using AskUserQuestion — STRUCTURED FORMAT REQUIRED:**
 
-**Example - Good Questions (derived from analysis):**
-- "The requirement mentions user uploads but doesn't specify: What's the maximum file size? What file types should be accepted? What happens if a malformed file is uploaded?"
-- "For the payment integration, should we support multiple currencies or just USD? What happens if a payment fails mid-transaction?"
+Use AskUserQuestion with concrete options whenever possible. This forces YOU to think in terms of discrete choices and gives the user actionable alternatives instead of open-ended burden.
 
-**Example - Bad Questions (generic script):**
-- "What problem are we solving?" (too vague)
-- "Who are the users?" (ask about specific user types you identified)
+```
+AskUserQuestion(
+  questions: [
+    {
+      question: "The requirement mentions user uploads but doesn't specify size limits. What should the maximum file size be?",
+      header: "Upload limit",
+      options: [
+        { label: "5 MB", description: "Standard for avatars and small documents" },
+        { label: "25 MB", description: "Supports larger documents and images" },
+        { label: "100 MB", description: "Supports video and large media files" },
+        { label: "No limit", description: "Accept any size (requires chunked upload)" }
+      ],
+      multiSelect: false
+    },
+    {
+      question: "Which authentication method should this feature use?",
+      header: "Auth method",
+      options: [
+        { label: "Session-based", description: "Traditional server-side sessions" },
+        { label: "JWT tokens", description: "Stateless token-based auth" },
+        { label: "OAuth2", description: "Third-party provider delegation" }
+      ],
+      multiSelect: false
+    }
+  ]
+)
+```
 
-### Step 4: Coverage Validation
+**Clarification Loop:**
+- Ask 1-4 highest-priority gap questions per round (AskUserQuestion limit)
+- After receiving answers, re-evaluate: are there still P0/P1 gaps?
+- If yes → ask another round. If no → proceed to PRD.
+- Maximum 3 rounds (up to 12 questions total for complex features)
+- Each round should feel like it's narrowing scope, not expanding it
 
-Before writing the PRD, verify you have actionable answers for:
+**Example - Good Questions (derived from YOUR analysis, with options):**
+- "The requirement mentions user uploads but doesn't specify: What's the maximum file size?" → offer 5MB / 25MB / 100MB / No limit
+- "For the payment integration, should we support multiple currencies?" → offer USD only / Major currencies / Full i18n
+
+**Example - Bad Questions (generic, open-ended):**
+- "What problem are we solving?" (too vague — you should know this from the request)
+- "Who are the users?" (ask about SPECIFIC user types you identified)
+- "Any other requirements?" (lazy — do your own gap analysis)
+
+### Step 4: Coverage Validation (WRITE GATE)
+
+**You may ONLY proceed to write the PRD when ALL of these are true:**
 1. All P0 use cases are defined with acceptance criteria
 2. Key restrictions are documented (performance, security)
 3. Error handling approach is clear for critical paths
 4. Success metrics are measurable (not just "improve user experience")
-5. Scope boundaries are explicit
+5. Scope boundaries are explicit (what's IN and what's OUT)
 
-If gaps remain after 3 question rounds, document them as **Open Questions** in the PRD with impact assessment.
+If gaps remain after 3 question rounds, document them as **Open Questions** in the PRD with impact assessment — but you MUST have attempted to ask first.
 
 ---
 
 ## Handling Different Requirement Levels
 
-### Sparse Requirements
-If user gives minimal info (e.g., "add a login feature"), your gap analysis will identify MANY missing pieces:
+### Sparse Requirements (e.g., "add a login feature")
+Your gap analysis will find MANY missing pieces. This is where clarification matters most:
 - Prioritize ruthlessly: Security → Core flow → Error handling → Edge cases
-- Ask the most critical 3-4 first
-- After answers, ask next batch
-- Don't overwhelm with 20 questions at once
+- Ask the most critical 3-4 first via AskUserQuestion with concrete options
+- After answers, ask next batch — each round should narrow, not expand
+- **Never silently assume and write a PRD from a vague request**
 
 ### Detailed Requirements
 If user provides comprehensive requirements, your gap analysis may find few gaps:
 - You may proceed to PRD with minimal or no additional questions
 - Focus questions only on genuinely ambiguous areas
 - Acknowledge when requirements are already comprehensive
+- **Still run the gap analysis** — even detailed requirements have blind spots
 
 ### "Just Write It" Requests
-If user resists questions, respond:
-> "I've identified [N] gaps that could cause problems during implementation. The most critical are: [list top 3]. I can proceed with assumptions, but these areas may need revision later. Which would you prefer: answer these 3 questions now, or I'll document my assumptions for your review?"
+If the user resists questions, use AskUserQuestion to give them a structured choice:
+```
+AskUserQuestion(
+  questions: [{
+    question: "I've identified [N] gaps that could cause rework. How should I handle them?",
+    header: "Gaps found",
+    options: [
+      { label: "Ask me now", description: "Answer the top 3 critical questions — takes 2 minutes, prevents rework" },
+      { label: "Use assumptions", description: "I'll document my assumptions in the PRD for your review. Risk: may need revision." },
+      { label: "Show me the gaps", description: "List all gaps so I can decide which to answer" }
+    ],
+    multiSelect: false
+  }]
+)
+```
+**Even if user says "use assumptions", you MUST document every assumption explicitly in the PRD appendix with risk-if-wrong assessment.**
 
 ---
 
