@@ -5,42 +5,5 @@
   "author": {
     "name": "Lizard Liang"
   },
-  "hooks": "hooks/hooks.json",
-  "features": {
-    "memory": {
-      "enabled": true,
-      "storage": "~/.kratos/memory.db",
-      "description": "Global SQLite-based journey memory for tracking sessions, steps, and decisions"
-    }
-  },
-  "commands": {
-    "main": "Kratos - Master Orchestrator (auto-classifies tasks)",
-    "main-with-memory": "Kratos with Memory - Records every step of the journey",
-    "start": "Begin a new feature journey",
-    "status": "View pipeline status",
-    "next": "Proceed to next stage",
-    "quick": "Quick mode for simple tasks",
-    "inquiry": "Inquiry mode for information requests (Metis/Clio/Mimir)",
-    "recall": "Recall last session context - where did we stop?",
-    "decompose": "Decompose features into phases with platform-native output (files, Notion, Linear)",
-    "clean-insights": "Clean stale research insights from Arena",
-    "install-hooks": "Install Kratos memory hooks globally"
-  },
-  "agents": {
-    "metis": "Project research specialist (Arena documentation)",
-    "athena": "PM specialist (PRD creation and review)",
-    "hephaestus": "Tech architect (technical specifications)",
-    "apollo": "Architecture reviewer (SA review)",
-    "artemis": "QA specialist (test planning)",
-    "ares": "Implementation specialist (coding and tasks)",
-    "hermes": "Code reviewer (quality gate)",
-    "mimir": "External research oracle (web, GitHub, docs, best practices)",
-    "clio": "Git historian (blame, commits, contributors, timeline)",
-    "daedalus": "Decomposition specialist (phases, dependencies, platform-native tasks)"
-  },
-  "skills": {
-    "memory": "Memory persistence protocol",
-    "session-end": "Session termination with summary",
-    "auto": "Automatic mode selection"
-  }
+  "hooks": "./hooks/hooks.json"
 }
