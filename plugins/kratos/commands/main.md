@@ -400,9 +400,9 @@ Review prd.md and create prd-review.md. Update status.json with verdict.",
    )
    ```
 
-5. **After Daedalus completes:** Verify `decomposition.md` exists (if local target), update `status.json`, then proceed to Stage 3.
+5. **After Daedalus completes:** Verify `decomposition.md` exists (if local target), then proceed to Stage 3.
 
-6. **If user says No:** Set `2.5-decomposition.status` to `"skipped"` in status.json, proceed directly to Stage 3.
+6. **If user says No:** Run `kratos pipeline update --feature <name> --stage 2.5-decomposition --status skipped`, then proceed directly to Stage 3.
 
 ---
 
@@ -511,14 +511,10 @@ AskUserQuestion(
 | User Mode | Spawn Ares with task creation mission (see Stage 7b) |
 
 **Update status.json with the mode:**
-```json
-{
-  "pipeline": {
-    "7-implementation": {
-      "mode": "ares" // or "user"
-    }
-  }
-}
+```bash
+kratos pipeline update --feature <name> --stage 7-implementation --status in-progress --mode ares
+# or for user mode:
+kratos pipeline update --feature <name> --stage 7-implementation --status in-progress --mode user
 ```
 
 ---

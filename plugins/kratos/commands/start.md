@@ -39,129 +39,20 @@ AskUserQuestion(
 
 ### Step 2: Create the Battlefield
 
-1. **Create feature folder**: `.claude/feature/<feature-name>/`
-2. **Initialize status.json** with the pipeline state
-3. **Create arena-deltas.md** for feature-specific discoveries
-4. **Create README** for the feature
+1. **Initialize status.json** using the CLI (handles timestamps automatically):
+   ```bash
+   kratos pipeline init --feature <feature-name> --description "<brief-description>" --priority <P0|P1|P2|P3>
+   ```
+   This creates `.claude/feature/<feature-name>/status.json` with the full pipeline template and real timestamps.
 
-### Step 3: Initialize status.json
-
-```json
-{
-  "feature": "<feature-name>",
-  "description": "<brief-description>",
-  "priority": "P0|P1|P2|P3",
-  "created": "<ISO-timestamp>",
-  "updated": "<ISO-timestamp>",
-  "stage": "1-prd",
-  "pipeline": {
-    "1-prd": {
-      "status": "in-progress",
-      "assignee": "pm-expert",
-      "started": "<ISO-timestamp>",
-      "completed": null,
-      "document": "prd.md"
-    },
-    "2-prd-review": {
-      "status": "blocked",
-      "assignee": "pm-expert",
-      "started": null,
-      "completed": null,
-      "document": "prd-review.md",
-      "gate": {
-        "requires": ["1-prd"],
-        "condition": "prd.status === 'approved'"
-      }
-    },
-    "2.5-decomposition": {
-      "status": "skipped",
-      "assignee": "daedalus",
-      "started": null,
-      "completed": null,
-      "document": "decomposition.md",
-      "optional": true,
-      "output_targets": null,
-      "gate": {
-        "requires": ["2-prd-review"],
-        "condition": "prd-review.verdict === 'approved' AND user opts in"
-      }
-    },
-    "3-tech-spec": {
-      "status": "blocked",
-      "assignee": "tech-spec",
-      "started": null,
-      "completed": null,
-      "document": "tech-spec.md",
-      "gate": {
-        "requires": ["2-prd-review"],
-        "condition": "prd-review.verdict === 'approved'"
-      }
-    },
-    "4-spec-review-pm": {
-      "status": "blocked",
-      "assignee": "pm-expert",
-      "started": null,
-      "completed": null,
-      "document": "spec-review-pm.md",
-      "gate": {
-        "requires": ["3-tech-spec"],
-        "condition": "tech-spec.status === 'complete'"
-      }
-    },
-    "5-spec-review-sa": {
-      "status": "blocked",
-      "assignee": "sa-expert",
-      "started": null,
-      "completed": null,
-      "document": "spec-review-sa.md",
-      "gate": {
-        "requires": ["3-tech-spec"],
-        "condition": "tech-spec.status === 'complete'"
-      }
-    },
-    "6-test-plan": {
-      "status": "blocked",
-      "assignee": "qa-expert",
-      "started": null,
-      "completed": null,
-      "document": "test-plan.md",
-      "gate": {
-        "requires": ["4-spec-review-pm", "5-spec-review-sa"],
-        "condition": "both reviews passed"
-      }
-    },
-"7-implementation": {
-      "status": "blocked",
-      "assignee": "implementer",
-      "started": null,
-      "completed": null,
-      "document": "implementation-notes.md",
-      "mode": null,
-      "tasks": null,
-      "gate": {
-        "requires": ["6-test-plan"],
-        "condition": "test-plan exists"
-      }
-    },
-    "8-code-review": {
-      "status": "blocked",
-      "assignee": "code-review",
-      "started": null,
-      "completed": null,
-      "document": "code-review.md",
-      "gate": {
-        "requires": ["7-implementation"],
-        "condition": "implementation complete"
-      }
-    }
-  },
-"documents": {},
-  "history": []
-}
-```
+2. **Create arena-deltas.md** for feature-specific discoveries
+3. **Create README** for the feature
 
 **Note on Stage 7 fields:**
-- `mode`: Set to `"ares"` (AI implements) or `"user"` (manual implementation) after Stage 6
+- `mode`: Set to `"ares"` (AI implements) or `"user"` (manual implementation) after Stage 6 via:
+  ```bash
+  kratos pipeline update --feature <name> --stage 7-implementation --status in-progress --mode ares
+  ```
 - `tasks`: Only populated in User Mode with this structure:
   ```json
   {

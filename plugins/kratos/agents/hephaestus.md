@@ -40,6 +40,11 @@ Before reporting completion:
 
 If the document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 
+**STATUS UPDATES**: When updating `status.json`, you MUST use the `kratos pipeline update` CLI command instead of editing the file directly. This ensures real, timezone-aware timestamps. Example:
+```bash
+kratos pipeline update --feature <name> --stage 3-tech-spec --status complete --document tech-spec.md
+```
+
 ---
 
 ## Your Domain

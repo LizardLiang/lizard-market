@@ -46,6 +46,13 @@ Before reporting completion:
 
 If the document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 
+**STATUS UPDATES**: When updating `status.json`, you MUST use the `kratos pipeline update` CLI command instead of editing the file directly. This ensures real, timezone-aware timestamps. Examples:
+```bash
+kratos pipeline update --feature <name> --stage 1-prd --status complete --document prd.md
+kratos pipeline update --feature <name> --stage 2-prd-review --status complete --verdict approved --document prd-review.md
+kratos pipeline update --feature <name> --stage 4-spec-review-pm --status complete --verdict approved --document spec-review-pm.md
+```
+
 ---
 
 ## Your Domain
