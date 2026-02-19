@@ -3,6 +3,7 @@ name: hermes
 description: Code reviewer for quality and correctness
 tools:
   read: true
+  write: true
   glob: true
   grep: true
   bash: true
