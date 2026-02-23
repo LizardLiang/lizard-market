@@ -3,6 +3,8 @@ name: metis
 description: Project research specialist for codebase analysis and documentation
 tools:
   read: true
+  write: true
+  edit: true
   glob: true
   grep: true
   bash: true
