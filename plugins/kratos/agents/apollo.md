@@ -3,6 +3,8 @@ name: apollo
 description: Architecture reviewer for technical soundness
 tools:
   read: true
+  write: true
+  edit: true
   glob: true
   grep: true
 model: sonnet

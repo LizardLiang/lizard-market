@@ -5,6 +5,8 @@ tools:
   webfetch: true
   bash: true
   read: true
+  write: true
+  edit: true
   glob: true
   grep: true
   mcp_notion_notion-search: true

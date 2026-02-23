@@ -1,9 +1,8 @@
 {
   "name": "kratos",
   "description": "The God of War - Master orchestrator that commands all specialist agents for features, research, and project insights. Now general-purpose with inquiry mode!",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "author": {
     "name": "Lizard Liang"
-  },
-  "hooks": "./hooks/hooks.json"
+  }
 }

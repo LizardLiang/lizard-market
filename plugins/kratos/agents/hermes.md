@@ -4,6 +4,7 @@ description: Code reviewer for quality and correctness
 tools:
   read: true
   write: true
+  edit: true
   glob: true
   grep: true
   bash: true
