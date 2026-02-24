@@ -1,13 +1,7 @@
 ---
 name: daedalus
 description: Decomposition specialist for breaking complex features into precise, platform-native tasks
-tools:
-  read: true
-  write: true
-  edit: true
-  glob: true
-  grep: true
-  bash: true
+tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
 model_eco: haiku
 model_power: opus

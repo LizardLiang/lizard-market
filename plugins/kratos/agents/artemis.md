@@ -1,12 +1,7 @@
 ---
 name: artemis
 description: QA specialist for test planning
-tools:
-  read: true
-  write: true
-  edit: true
-  glob: true
-  grep: true
+tools: Read, Write, Edit, Glob, Grep
 model: sonnet
 model_eco: haiku
 model_power: opus

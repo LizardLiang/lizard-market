@@ -1,13 +1,7 @@
 ---
 name: metis
 description: Project research specialist for codebase analysis and documentation
-tools:
-  read: true
-  write: true
-  edit: true
-  glob: true
-  grep: true
-  bash: true
+tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
 model_eco: haiku
 model_power: opus

@@ -1,13 +1,7 @@
 ---
 name: hephaestus
 description: Technical architect for specifications and system design
-tools:
-  read: true
-  write: true
-  edit: true
-  glob: true
-  grep: true
-  bash: true
+tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
 model_eco: sonnet
 model_power: opus
