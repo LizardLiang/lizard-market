@@ -1,5 +1,5 @@
 ---
-description: Mark implementation tasks as complete in User Mode
+description: Mark implementation tasks complete in User Mode
 ---
 
 # Kratos: Task Complete

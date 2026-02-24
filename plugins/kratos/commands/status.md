@@ -1,5 +1,5 @@
 ---
-description: View the battlefield - see all features and their pipeline status
+description: Show all features and their current pipeline stage
 ---
 
 # Kratos: Status Dashboard
@@ -76,7 +76,7 @@ Conflicts: None
 👤 Assignee: PM Expert
 ⏭️ Next: SA Spec Review (can run in parallel)
 
-💡 Recommendation: Run /kratos:next to continue
+💡 Recommendation: Say "continue" to advance the pipeline
 ```
 
 ### Multi-Feature View (if multiple features exist)
@@ -110,7 +110,7 @@ For details on a specific feature:
 No active conquests found.
 
 The battlefield is empty. Begin a new conquest:
-> /kratos:start
+> Say "Kratos, build [feature name]" to begin
 ```
 
 ---

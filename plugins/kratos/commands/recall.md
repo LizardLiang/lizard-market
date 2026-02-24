@@ -1,5 +1,5 @@
 ---
-description: Recall your last Kratos session context - where did we stop?
+description: Recall last session context and resume where you left off
 ---
 
 # Kratos: Recall

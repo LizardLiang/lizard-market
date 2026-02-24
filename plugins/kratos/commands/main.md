@@ -1,7 +1,5 @@
 ---
-description: >-
-  Kratos full pipeline orchestration. Use /kratos:main for complex features
-  requiring PRD, tech spec, implementation, and code review stages.
+description: Full 8-stage feature pipeline with PRD, spec, implementation, and review
 ---
 
 # Kratos - Master Orchestrator
@@ -209,10 +207,7 @@ IF UNCLEAR:
 
 **CRITICAL**: Before starting any feature pipeline, check if Arena needs refresh.
 
-```bash
-# Execute staleness check
-/kratos:check-arena-staleness
-```
+Read `plugins/kratos/pipeline/check-arena-staleness.md` and execute its procedure.
 
 This will:
 1. Calculate commits behind (current vs Arena git_hash)
@@ -236,7 +231,7 @@ Search for active features:
 .claude/feature/*/status.json
 ```
 
-- **No feature?** → Use AskUserQuestion to ask what to build, then run `/kratos:start`
+- **No feature?** → Use AskUserQuestion to ask what to build, then read `plugins/kratos/pipeline/start.md` and follow its procedure
 - **One feature?** → Use it automatically
 - **Multiple?** → List them, use AskUserQuestion to ask which one
 
@@ -255,7 +250,7 @@ Read `status.json` and identify:
 | Inquiry intent (what/who/when, best practices, docs) | Route via inquiry mode (Step 0 classification) |
 | Simple task (tests, fix, review, docs) | Route via quick mode (Step 0 classification) |
 | "Research" / "Analyze" / "Understand this project" | Route to inquiry mode → Metis QUICK_QUERY |
-| "Create/build/start [feature]" | Run /kratos:start, then spawn Athena |
+| "Create/build/start [feature]" | Read `plugins/kratos/pipeline/start.md`, initialize, then spawn Athena |
 | "Continue" / "Next" | Spawn next agent for next stage |
 | "Status" | Show pipeline progress |
 | Complex feature request | Run full pipeline |

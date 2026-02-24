@@ -1,8 +1,5 @@
 ---
-description: >-
-  Decompose a feature, idea, or raw text into precise phases with platform-native
-  output. Accepts raw text or references existing PRD. Outputs to local files,
-  Notion, Linear, or multiple targets.
+description: Break features into phases with output to local files, Notion, or Linear
 ---
 
 # Kratos: Decompose Feature

@@ -37,7 +37,7 @@ Mimir caches research to `.claude/.Arena/insights/` with TTL:
 | API documentation | 14 days |
 | Security advisories | 7 days |
 
-Cleanup: `/kratos:clean-insights`
+Cleanup: Read `pipeline/clean-insights.md` for procedure
 
 ---
 
@@ -74,7 +74,7 @@ Kratos remembers where you left off across sessions.
 |---------|-------------|
 | `/kratos:recall` | See what you were working on last time |
 | `/kratos:recall --global` | See recent sessions across all projects |
-| `/kratos:install-hooks` | Install memory hooks globally |
+| Read `pipeline/install-hooks.md` | Install memory hooks globally |
 
 Memory is stored in `~/.kratos/memory.db`. Natural language recall works too:
 - "Where did we stop?"
@@ -145,7 +145,9 @@ At Stage 7, Kratos asks how you want implementation handled:
 
 ---
 
-## All Commands
+## Commands
+
+### User-Facing (registered as slash commands)
 
 | Command | Description |
 |---------|-------------|
@@ -153,19 +155,24 @@ At Stage 7, Kratos asks how you want implementation handled:
 | `/kratos:quick` | Simple tasks, direct agent routing |
 | `/kratos:inquiry` | Information requests |
 | `/kratos:decompose` | Feature decomposition |
-| `/kratos:start` | Initialize new feature |
-| `/kratos:next` | Auto-advance pipeline |
 | `/kratos:status` | Dashboard of all features |
 | `/kratos:recall` | Session continuity |
-| `/kratos:approve` | Approve current stage |
-| `/kratos:assign` | Delegate to specific agent |
-| `/kratos:gate-check` | Verify prerequisites |
 | `/kratos:task-complete` | Mark tasks complete (User Mode) |
-| `/kratos:clean-insights` | Clean stale research cache |
-| `/kratos:install-hooks` | Install memory hooks |
-| `/kratos:check-arena-staleness` | Check Arena freshness |
-| `/kratos:integrate-arena-deltas` | Sync Arena after merge |
-| `/kratos:main-with-memory` | Pipeline with session recording |
+
+### Pipeline-Internal (in `pipeline/`, read by agents as needed)
+
+| File | Purpose |
+|------|---------|
+| `start.md` | Initialize new feature |
+| `next.md` | Auto-advance pipeline |
+| `approve.md` | Approve current stage |
+| `assign.md` | Delegate to specific agent |
+| `gate-check.md` | Verify prerequisites |
+| `check-arena-staleness.md` | Check Arena freshness |
+| `integrate-arena-deltas.md` | Sync Arena after merge |
+| `clean-insights.md` | Clean stale research cache |
+| `install-hooks.md` | Install memory hooks |
+| `main-with-memory.md` | Pipeline with session recording |
 
 ---
 

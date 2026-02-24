@@ -1,5 +1,5 @@
 ---
-description: Kratos quick mode - routes simple tasks directly to agents without full pipeline
+description: Route simple tasks (tests, fixes, reviews) directly to agents
 ---
 
 # Kratos: Quick Mode

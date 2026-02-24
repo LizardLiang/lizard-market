@@ -1,5 +1,5 @@
 ---
-description: Kratos inquiry mode - routes information-seeking requests to specialist agents
+description: Route questions to Metis (project), Clio (git), or Mimir (external research)
 ---
 
 # Kratos: Inquiry Mode
