@@ -1,12 +1,9 @@
 ---
 name: auto
-description: |
-  Kratos - The God of War orchestrator. Use when the user mentions "Kratos", 
-  "Hey Kratos", "summon Kratos", or any god-agent name (athena, metis, hephaestus, 
-  apollo, artemis, ares, hermes). Also activates on "summon [god-name]", "continue", 
-  "next stage", or requests for feature development, PRDs, tech specs, code review, 
-  or test planning. Kratos commands specialist agents to deliver features through 
-  an 8-stage pipeline.
+description: >-
+  Kratos orchestrator. Auto-activates on "Kratos", god-agent names (Athena, Ares,
+  Metis, etc.), "continue", "next stage", or feature/PRD/spec/review requests.
+  Routes to inquiry, quick, or full pipeline mode.
 ---
 
 # Kratos: Auto Mode

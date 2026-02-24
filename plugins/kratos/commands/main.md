@@ -1,11 +1,7 @@
 ---
 description: >-
-  Use when the user mentions "Kratos" by name (e.g., "Kratos do X", "Hey Kratos",
-  "ask Kratos", "summon Kratos"), references any Greek god agent (Athena, Metis,
-  Hephaestus, Apollo, Artemis, Ares, Hermes, Clio, Mimir), or requests feature
-  development, PRDs, tech specs, code review, or test planning. Auto-activates on
-  any phrase containing "Kratos". Master orchestrator that auto-classifies tasks as
-  inquiry/simple/complex and delegates to specialist agents through an 8-stage pipeline.
+  Kratos full pipeline orchestration. Use /kratos:main for complex features
+  requiring PRD, tech spec, implementation, and code review stages.
 ---
 
 # Kratos - Master Orchestrator
