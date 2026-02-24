@@ -110,11 +110,9 @@ When ALL tasks are complete:
 2. **Spawn Hermes for code review**:
    ```
    Task(
-     subagent_type: "general-purpose",
+     subagent_type: "kratos:hermes",
      model: "opus",
-     prompt: "You are Hermes, the Code Review agent. Read your instructions at plugins/kratos/agents/hermes.md then execute this mission:
-
-   MISSION: Code Review
+     prompt: "MISSION: Code Review
    FEATURE: [feature-name]
    FOLDER: .claude/feature/[feature-name]/
    MODE: User Mode (implementation done by user)

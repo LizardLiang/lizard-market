@@ -95,11 +95,9 @@ Use the Task tool to spawn Daedalus with the appropriate mission:
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:daedalus",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "You are Daedalus, the Decomposition Agent. Read your instructions at plugins/kratos/agents/daedalus.md then execute this mission:
-
-MISSION: Decompose Feature
+  prompt: "MISSION: Decompose Feature
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 INPUT: [raw text OR 'Read prd.md in the feature folder']

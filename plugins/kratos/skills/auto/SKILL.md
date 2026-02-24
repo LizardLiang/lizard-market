@@ -131,9 +131,9 @@ Use the Task tool to spawn specialist agents:
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:[agent]",
   model: "[opus/sonnet based on agent]",
-  prompt: "Read the agent instructions at plugins/kratos/agents/[agent].md then execute your mission. Feature: [name]. Folder: .claude/feature/[name]/. Context: [details]",
+  prompt: "Execute your mission. Feature: [name]. Folder: .claude/feature/[name]/. Context: [details]",
   description: "[agent] - [brief mission]"
 )
 ```
@@ -143,9 +143,9 @@ Task(
 **Metis for Project Research:**
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:[agent]",
   model: "opus",
-  prompt: "Read plugins/kratos/agents/metis.md then research this project. OUTPUT: .claude/.Arena/. Analyze the codebase and document findings.",
+  prompt: "Research this project. OUTPUT: .claude/.Arena/. Analyze the codebase and document findings.",
   description: "metis - research project"
 )
 ```
@@ -153,9 +153,9 @@ Task(
 **Athena for PRD:**
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:[agent]",
   model: "opus",
-  prompt: "Read plugins/kratos/agents/athena.md then create PRD. Feature: user-login. Folder: .claude/feature/user-login/. Requirements: [user's requirements]",
+  prompt: "Create PRD. Feature: user-login. Folder: .claude/feature/user-login/. Requirements: [user's requirements]",
   description: "athena - create PRD"
 )
 ```
@@ -163,9 +163,9 @@ Task(
 **Hephaestus for Tech Spec:**
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:[agent]",
   model: "opus",
-  prompt: "Read plugins/kratos/agents/hephaestus.md then create tech spec. Feature: user-login. Folder: .claude/feature/user-login/. PRD approved.",
+  prompt: "Create tech spec. Feature: user-login. Folder: .claude/feature/user-login/. PRD approved.",
   description: "hephaestus - create tech spec"
 )
 ```
@@ -180,9 +180,9 @@ Task(apollo - SA spec review)
 **Ares for Implementation:**
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:[agent]",
   model: "sonnet",
-  prompt: "Read plugins/kratos/agents/ares.md then implement feature. Feature: user-login. Folder: .claude/feature/user-login/. Tech spec and test plan ready.",
+  prompt: "Implement feature. Feature: user-login. Folder: .claude/feature/user-login/. Tech spec and test plan ready.",
   description: "ares - implement feature"
 )
 ```
@@ -222,9 +222,9 @@ Indicators:
 **Artemis for Quick Tests:**
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:[agent]",
   model: "sonnet",
-  prompt: "Read plugins/kratos/agents/artemis.md then write tests. TARGET: [file/function]. Write comprehensive tests - no PRD needed.",
+  prompt: "Write tests. TARGET: [file/function]. Write comprehensive tests - no PRD needed.",
   description: "artemis - quick tests"
 )
 ```
@@ -232,9 +232,9 @@ Task(
 **Ares for Quick Fix/Refactor:**
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:[agent]",
   model: "sonnet",
-  prompt: "Read plugins/kratos/agents/ares.md then [fix bug/refactor]. TARGET: [file/function]. Execute directly - no PRD needed.",
+  prompt: "[Fix bug/refactor]. TARGET: [file/function]. Execute directly - no PRD needed.",
   description: "ares - quick [task]"
 )
 ```
@@ -242,9 +242,9 @@ Task(
 **Hermes for Quick Review:**
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:[agent]",
   model: "opus",
-  prompt: "Read plugins/kratos/agents/hermes.md then review code. TARGET: [file/code]. Provide actionable feedback.",
+  prompt: "Review code. TARGET: [file/code]. Provide actionable feedback.",
   description: "hermes - quick review"
 )
 ```

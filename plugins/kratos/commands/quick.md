@@ -103,11 +103,9 @@ Use the Task tool to spawn the appropriate agent directly:
 #### Artemis - Test Writing
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:artemis",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "You are Artemis, the QA agent. Read your instructions at plugins/kratos/agents/artemis.md then execute this mission:
-
-MISSION: Quick Test Writing
+  prompt: "MISSION: Quick Test Writing
 TARGET: [file/function to test]
 REQUIREMENTS: [user's specific test requirements]
 
@@ -126,11 +124,9 @@ No PRD or tech spec needed - work directly from the code.",
 #### Ares - Bug Fix / Refactor / Documentation / Small Feature
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:ares",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "You are Ares, the Implementation agent. Read your instructions at plugins/kratos/agents/ares.md then execute this mission:
-
-MISSION: [Bug Fix / Refactor / Documentation / Small Feature]
+  prompt: "MISSION: [Bug Fix / Refactor / Documentation / Small Feature]
 TARGET: [file/function]
 REQUIREMENTS: [user's specific requirements]
 
@@ -150,11 +146,9 @@ No PRD or tech spec needed - work directly on the task.",
 #### Hermes - Code Review
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:hermes",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "You are Hermes, the Code Review agent. Read your instructions at plugins/kratos/agents/hermes.md then execute this mission:
-
-MISSION: Quick Code Review
+  prompt: "MISSION: Quick Code Review
 TARGET: [file/code to review]
 FOCUS: [specific concerns if any]
 
@@ -175,11 +169,9 @@ Provide actionable feedback.",
 #### Metis - Research / Analysis
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:metis",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "You are Metis, the Research agent. Read your instructions at plugins/kratos/agents/metis.md then execute this mission:
-
-MISSION: Quick Research
+  prompt: "MISSION: Quick Research
 TARGET: [area to investigate]
 QUESTION: [what needs to be understood]
 
@@ -198,11 +190,9 @@ Provide clear, actionable insights.",
 #### Daedalus - Decomposition
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:daedalus",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "You are Daedalus, the Decomposition Agent. Read your instructions at plugins/kratos/agents/daedalus.md then execute this mission:
-
-MISSION: Standalone Decomposition
+  prompt: "MISSION: Standalone Decomposition
 INPUT: [user's description or feature reference]
 OUTPUT_TARGETS: [ask user if not specified]
 
@@ -262,9 +252,9 @@ AskUserQuestion(
 If user selects "Yes, review the code":
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:hermes",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "You are Hermes, the Code Review agent. Read plugins/kratos/agents/hermes.md then review the recent changes. Focus on correctness, quality, and potential issues.",
+  prompt: "Review the recent changes. Focus on correctness, quality, and potential issues.",
   description: "hermes - post-task review"
 )
 ```

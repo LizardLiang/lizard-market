@@ -93,11 +93,9 @@ Use the **Task tool** to spawn Mimir with a targeted research mission:
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:mimir",
   model: "sonnet",  // or haiku for eco, opus for power
-  prompt: "You are Mimir, the Research Oracle. Read your instructions at plugins/kratos/agents/mimir.md then execute this mission:
-
-MISSION: External Research for PRD
+  prompt: "MISSION: External Research for PRD
 TOPIC: [what to research]
 FOCUS: [specific questions to answer]
 FEATURE: [feature name for context]

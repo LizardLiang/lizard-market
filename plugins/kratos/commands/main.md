@@ -273,11 +273,9 @@ Read `status.json` and identify:
 #### Stage 0: Research Project (Metis) - Optional Pre-flight
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:metis",
   model: "opus",
-  prompt: "You are Metis, the Research agent. Read your instructions at plugins/kratos/agents/metis.md then execute this mission:
-
-MISSION: Research Project
+  prompt: "MISSION: Research Project
 TARGET: [project root or specific area]
 OUTPUT: .claude/.Arena/
 
@@ -293,11 +291,9 @@ Analyze the codebase and document findings in the Arena. This knowledge will gui
 #### Stage 1: Create PRD (Athena)
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:athena",
   model: "opus",
-  prompt: "You are Athena, the PM agent. Read your instructions at plugins/kratos/agents/athena.md then execute this mission:
-
-MISSION: Create PRD
+  prompt: "MISSION: Create PRD
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 REQUIREMENTS: [user's requirements]
@@ -316,11 +312,9 @@ You MUST create the file prd.md before completing. Document creation is MANDATOR
 #### Stage 2: Review PRD (Athena)
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:athena",
   model: "opus",
-  prompt: "You are Athena, the PM agent. Read your instructions at plugins/kratos/agents/athena.md then execute this mission:
-
-MISSION: Review PRD
+  prompt: "MISSION: Review PRD
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
@@ -379,11 +373,9 @@ Review prd.md and create prd-review.md. Update status.json with verdict.",
 4. **If user chooses decomposition**, spawn Daedalus:
    ```
    Task(
-     subagent_type: "general-purpose",
+     subagent_type: "kratos:daedalus",
      model: "[sonnet|haiku|opus based on mode]",
-     prompt: "You are Daedalus, the Decomposition Agent. Read your instructions at plugins/kratos/agents/daedalus.md then execute this mission:
-
-   MISSION: Decompose Feature (Pipeline Stage 2.5)
+     prompt: "MISSION: Decompose Feature (Pipeline Stage 2.5)
    FEATURE: [feature-name]
    FOLDER: .claude/feature/[feature-name]/
    INPUT: Read prd.md in the feature folder
@@ -409,11 +401,9 @@ Review prd.md and create prd-review.md. Update status.json with verdict.",
 #### Stage 3: Create Tech Spec (Hephaestus)
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:hephaestus",
   model: "opus",
-  prompt: "You are Hephaestus, the Tech Spec agent. Read your instructions at plugins/kratos/agents/hephaestus.md then execute this mission:
-
-MISSION: Create Technical Specification
+  prompt: "MISSION: Create Technical Specification
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 PRD: Approved and ready at prd.md
@@ -430,11 +420,9 @@ Create tech-spec.md based on the approved PRD. Update status.json.",
 #### Stage 4: PM Spec Review (Athena)
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:athena",
   model: "opus",
-  prompt: "You are Athena, the PM agent. Read your instructions at plugins/kratos/agents/athena.md then execute this mission:
-
-MISSION: Review Tech Spec (PM Perspective)
+  prompt: "MISSION: Review Tech Spec (PM Perspective)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
@@ -450,11 +438,9 @@ Verify tech-spec.md aligns with prd.md requirements. Create spec-review-pm.md. U
 #### Stage 5: SA Spec Review (Apollo)
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:apollo",
   model: "opus",
-  prompt: "You are Apollo, the Architecture Review agent. Read your instructions at plugins/kratos/agents/apollo.md then execute this mission:
-
-MISSION: Review Tech Spec (Architecture)
+  prompt: "MISSION: Review Tech Spec (Architecture)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
@@ -472,11 +458,9 @@ Review tech-spec.md for technical soundness. Create spec-review-sa.md. Update st
 #### Stage 6: Create Test Plan (Artemis)
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:artemis",
   model: "sonnet",
-  prompt: "You are Artemis, the QA agent. Read your instructions at plugins/kratos/agents/artemis.md then execute this mission:
-
-MISSION: Create Test Plan
+  prompt: "MISSION: Create Test Plan
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
@@ -522,11 +506,9 @@ kratos pipeline update --feature <name> --stage 7-implementation --status in-pro
 #### Stage 7a: Implement Feature - Ares Mode (AI Implementation)
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:ares",
   model: "sonnet",
-  prompt: "You are Ares, the Implementation agent. Read your instructions at plugins/kratos/agents/ares.md then execute this mission:
-
-MISSION: Implement Feature
+  prompt: "MISSION: Implement Feature
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
@@ -542,11 +524,9 @@ Implement according to tech-spec.md. Write tests per test-plan.md. Create implem
 #### Stage 7b: Create Implementation Tasks - User Mode (Manual Implementation)
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:ares",
   model: "sonnet",
-  prompt: "You are Ares, the Implementation agent. Read your instructions at plugins/kratos/agents/ares.md then execute this mission:
-
-MISSION: Create Implementation Tasks (User Mode)
+  prompt: "MISSION: Create Implementation Tasks (User Mode)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
@@ -576,11 +556,9 @@ The user will implement the code themselves using your task files as guides.",
 #### Stage 8: Code Review (Hermes)
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:hermes",
   model: "opus",
-  prompt: "You are Hermes, the Code Review agent. Read your instructions at plugins/kratos/agents/hermes.md then execute this mission:
-
-MISSION: Code Review
+  prompt: "MISSION: Code Review
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 

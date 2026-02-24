@@ -90,9 +90,9 @@ Use `opus` for ALL agents:
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:[agent]",
   model: "opus",
-  prompt: "You are [Agent] in POWER MODE. Read plugins/kratos/agents/[agent].md then execute:
+  prompt: "POWER MODE. Execute:
 
 MISSION: [task]
 MODE: POWER (maximum quality, thorough analysis)

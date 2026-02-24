@@ -96,11 +96,9 @@ Use the Task tool to spawn the appropriate agent directly:
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:metis",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "You are Metis, the Research agent. Read your instructions at plugins/kratos/agents/metis.md then execute this mission:
-
-MISSION: QUICK_QUERY
+  prompt: "MISSION: QUICK_QUERY
 QUESTION: [user's question]
 
 Answer directly without creating files. Use existing Arena knowledge if available (.claude/.Arena/). If Arena doesn't exist or is incomplete, do a quick scan of relevant areas.
@@ -124,11 +122,9 @@ Keep response concise and actionable.",
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:clio",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "You are Clio, the Git Historian. Read your instructions at plugins/kratos/agents/clio.md then execute this mission:
-
-MISSION: Git Analysis
+  prompt: "MISSION: Git Analysis
 QUERY: [user's question]
 TARGET: [file/area if specified]
 
@@ -154,11 +150,9 @@ Format results as clear tables with dates, authors, and summaries.",
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:mimir",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "You are Mimir, the Research Oracle. Read your instructions at plugins/kratos/agents/mimir.md then execute this mission:
-
-MISSION: [External Research / Documentation Lookup / Security Check]
+  prompt: "MISSION: [External Research / Documentation Lookup / Security Check]
 QUERY: [user's question]
 CACHE: [yes/no - yes if broadly useful, no if one-time question]
 

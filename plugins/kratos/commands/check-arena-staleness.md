@@ -139,7 +139,7 @@ print()
 
 # Spawn Metis for full Arena refresh
 spawn_task(
-    subagent_type="kratos-metis",
+    subagent_type="kratos:metis",
     prompt="""
 MISSION: Refresh Master Arena
 

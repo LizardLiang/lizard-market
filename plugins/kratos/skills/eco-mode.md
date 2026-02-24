@@ -78,9 +78,9 @@ Use the `model_eco` value when spawning:
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:[agent]",
   model: "haiku",  // or "sonnet" for Athena/Hephaestus
-  prompt: "You are [Agent] in ECO MODE. Read plugins/kratos/agents/[agent].md then execute:
+  prompt: "ECO MODE. Execute:
 
 MISSION: [task]
 MODE: ECO (be concise, minimize verbose output)

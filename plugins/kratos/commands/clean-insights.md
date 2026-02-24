@@ -56,11 +56,9 @@ Use the **Task tool** to spawn Metis with cleanup mission:
 
 ```
 Task(
-  subagent_type: "general-purpose",
+  subagent_type: "kratos:metis",
   model: "haiku",  // Fast cleanup task
-  prompt: "You are Metis, the Research agent. Read your instructions at plugins/kratos/agents/metis.md then execute this mission:
-
-MISSION: Arena Insights Cleanup
+  prompt: "MISSION: Arena Insights Cleanup
 
 Your task:
 1. Navigate to .claude/.Arena/insights/
