@@ -279,19 +279,69 @@ Analyze the codebase and document findings in the Arena. This knowledge will gui
 
 ---
 
-#### Stage 1: Create PRD (Athena)
+#### Stage 1: Create PRD (Athena) — Two-Phase Process
+
+**Stage 1 is a multi-step process because Athena cannot directly ask the user questions (AskUserQuestion is unavailable to subagents). Kratos handles the clarification loop.**
+
+##### Phase 1: Gap Analysis
+
+Spawn Athena to analyze requirements and return structured questions:
+
+```
+Task(
+  subagent_type: "kratos:athena",
+  model: "opus",
+  prompt: "MISSION: Gap Analysis
+PHASE: GAP_ANALYSIS
+FEATURE: [feature-name]
+FOLDER: .claude/feature/[feature-name]/
+REQUIREMENTS: [user's requirements]
+
+Analyze these requirements for gaps and ambiguities. Return structured questions in the GAP_ANALYSIS_RESULT format. Do NOT write the PRD yet.",
+  description: "athena - gap analysis"
+)
+```
+
+##### Phase 1.5: Clarification Loop (Kratos handles this)
+
+When Athena returns her gap analysis:
+
+1. **Parse the `GAP_ANALYSIS_RESULT`** from Athena's response
+2. **If `WRITE_READY: true`** → skip to Phase 2 (requirements are comprehensive)
+3. **If questions exist** → use AskUserQuestion to ask the user:
+
+```
+AskUserQuestion(
+  question: [Q1_QUESTION from Athena's output],
+  options: [mapped from Q1_OPTIONS — each "label | description" becomes { label, description }]
+)
+```
+
+Ask up to 4 questions per round (the limit per AskUserQuestion call).
+
+4. **Collect answers** and check if more rounds needed:
+   - If Athena flagged many P0 gaps, you may re-spawn Athena for another gap analysis round with the answers so far (max 3 rounds total)
+   - If gaps are resolved, proceed to Phase 2
+
+##### Phase 2: Write PRD
+
+Spawn Athena with all clarified requirements to write the PRD:
+
 ```
 Task(
   subagent_type: "kratos:athena",
   model: "opus",
   prompt: "MISSION: Create PRD
+PHASE: CREATE_PRD
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
-REQUIREMENTS: [user's requirements]
+REQUIREMENTS: [user's original requirements]
 
-CRITICAL WORKFLOW:
-1. FIRST — Run mandatory requirements clarification. Analyze the requirements for gaps and ambiguities. Use AskUserQuestion with structured options to clarify before writing ANYTHING. Do NOT assume user intent. Do NOT skip this step.
-2. ONLY AFTER clarification is complete — create prd.md and update status.json.
+CLARIFIED_REQUIREMENTS:
+[Include ALL user answers from the clarification loop here, formatted as:]
+- [Q1 header]: [user's answer]
+- [Q2 header]: [user's answer]
+- ... (all answers from all rounds)
 
 You MUST create the file prd.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.",
   description: "athena - create PRD"

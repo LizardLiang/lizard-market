@@ -71,7 +71,7 @@ Indicators: new feature, multi-component, API/DB design, security-sensitive.
 | Stage | Agent | Mission |
 |-------|-------|---------|
 | 0-research | metis | Document in .Arena |
-| 1-prd | athena | Create/review PRD |
+| 1-prd | athena | Gap analysis → Kratos asks user → Create PRD (two-phase) |
 | 2-prd-review approved | hephaestus | Create tech spec |
 | 2-prd-review revisions | athena | Fix PRD |
 | 3-tech-spec complete | athena + apollo | Parallel spec review |
