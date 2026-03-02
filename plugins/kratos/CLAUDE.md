@@ -19,6 +19,7 @@ General-purpose multi-agent orchestration for features, research, and project in
 | Best practices / docs | `/kratos:inquiry` | Mimir |
 | Decompose feature | `/kratos:decompose` | Daedalus |
 | Simple task (test, fix, review) | `/kratos:quick` | Artemis / Ares / Hermes |
+| Debug / locate error | `/kratos:quick` | Hades |
 | Complex feature | `/kratos:main` | Full 8-stage pipeline |
 
 ## Execution Modes

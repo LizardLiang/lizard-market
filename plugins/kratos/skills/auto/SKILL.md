@@ -42,6 +42,7 @@ If eco/power keywords detected, read the mode file from `plugins/kratos/modes/` 
 | artemis | sonnet | Test planning | 6 |
 | ares | sonnet | Implementation | 7 |
 | hermes | sonnet | Code review | 8 |
+| hades | sonnet | Debugging — locate errors with proof | on-demand |
 
 Spawn via: `Task(subagent_type: "kratos:[agent]", prompt: "...", description: "...")`
 
@@ -55,6 +56,7 @@ Spawn via: `Task(subagent_type: "kratos:[agent]", prompt: "...", description: ".
 | Bug fix, refactor, docs | ares |
 | Code review | hermes |
 | Research, explain | metis |
+| Debug, error, crash, locate failure | hades |
 
 ### COMPLEX → Full pipeline with status.json tracking
 

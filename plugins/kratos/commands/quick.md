@@ -43,6 +43,7 @@ Check user input for mode keywords FIRST:
 | **Hermes** (review) | sonnet | haiku | opus |
 | **Metis** (research) | sonnet | haiku | opus |
 | **Daedalus** (decompose) | sonnet | haiku | opus |
+| **Hades** (debug) | sonnet | haiku | opus |
 
 ---
 
@@ -56,6 +57,7 @@ Analyze the user's request to determine the target agent:
 |-----------|-------------------|--------------|
 | **Test Writing** | "test", "tests", "coverage", "write tests", "add tests", "unit test", "integration test" | Artemis |
 | **Bug Fixes** | "fix", "bug", "typo", "error", "broken", "not working", "issue" | Ares |
+| **Debugging** | "debug", "crash", "where is the error", "find the error", "locate the bug", "what's failing", "stack trace", "why is it crashing", "error output" | Hades |
 | **Refactoring** | "refactor", "clean up", "rename", "reorganize", "simplify", "extract" | Ares |
 | **Code Review** | "review", "check code", "look at", "feedback on" | Hermes |
 | **Documentation** | "document", "comment", "add docs", "docstring", "readme", "jsdoc" | Ares |
@@ -202,6 +204,27 @@ Read the decomposition template at plugins/kratos/templates/decomposition-templa
 
 No PRD or tech spec needed - work directly from the input.",
   description: "daedalus - decompose"
+)
+```
+
+---
+
+#### Hades - Debugging
+```
+Task(
+  subagent_type: "kratos:hades",
+  model: "[sonnet|haiku|opus based on mode]",
+  prompt: "MISSION: Debug Session
+ERROR DESCRIPTION: [user's description of what's failing]
+COMMAND TO RUN: [build/test/run command if known]
+RELEVANT FILES: [any files the user mentioned]
+
+Locate the exact source of the error following the two-phase protocol:
+1. Run the failing command and analyze the output for the error location
+2. If Phase 1 is inconclusive, add [HADES-DEBUG] logs, re-run, analyze, then remove all debug logs
+
+Report the confirmed failure location with proof. Do NOT fix anything.",
+  description: "hades - debug session"
 )
 ```
 
