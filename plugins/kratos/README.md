@@ -1,8 +1,8 @@
-# Kratos - The God of War (v2.0)
+# Kratos - The God of War (v2.3.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
-Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom. Version 2.0 transforms Kratos from a coding-only plugin into a **general-purpose project assistant** with persistent memory, external research capabilities, and git history expertise.
+Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom. It handles everything from quick bug fixes to full 8-stage feature pipelines — with persistent memory, external research capabilities, and git history expertise.
 
 ## Installation
 
@@ -23,9 +23,11 @@ cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos 
 
 Then install the plugin and add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 2](INSTALL.md#step-2-install-the-plugin-into-claude-code) and [Step 5](INSTALL.md#step-5-enable-auto-activation)).
 
+> **Note**: The binary is optional. Kratos works without it — agents fall back to direct file edits. With the binary, `status.json` gets real timestamps and full pipeline history.
+
 ---
 
-## Architecture v2.0
+## Architecture
 
 ```
                          ⚔️ KRATOS ⚔️
@@ -55,9 +57,10 @@ Then install the plugin and add the auto-activation block to your `CLAUDE.md` (s
                               │  Impl & Quality │
                               └────────┬────────┘
                                        │
-                            ┌────────┴────────┐
-                            │ Delivered Value │
-                            └─────────────────┘
+                            ┌──────────┴──────────┐
+                            │        HADES        │
+                            │  Debug (on-demand)  │
+                            └─────────────────────┘
 ```
 
 ## The Pantheon (Agents)
@@ -66,14 +69,15 @@ Then install the plugin and add the auto-activation block to your `CLAUDE.md` (s
 |-------|--------|-----------|----------------|
 | **Metis** | Project Knowledge | Codebase analysis, Arena documentation | Sonnet |
 | **Clio** | Git History | Blame, commit logs, contributor mapping | Sonnet |
-| **Mimir** | External Research | Web, GitHub, Best practices, Documentation | Sonnet |
+| **Mimir** | External Research | Web, GitHub, best practices, documentation | Sonnet |
 | **Athena** | Product Management | PRDs, PM reviews, requirements | Opus |
 | **Daedalus** | Decomposition | Feature phases, dependencies, platform-native tasks | Sonnet |
-| **Hephaestus**| Engineering | Technical specifications, blueprints | Opus |
-| **Apollo** | Architecture | System design, SA reviews | Sonnet |
+| **Hephaestus** | Engineering | Technical specifications, blueprints | Opus |
+| **Apollo** | Architecture | System design, SA reviews | Opus |
 | **Artemis** | Quality Assurance | Test planning, test cases | Sonnet |
 | **Ares** | Implementation | Code writing, bug fixes, refactoring | Sonnet |
 | **Hermes** | Peer Review | Code review, quality audits | Opus |
+| **Hades** | Debugging | Error location, proof of failure, root cause | Sonnet |
 
 ---
 
@@ -81,90 +85,84 @@ Then install the plugin and add the auto-activation block to your `CLAUDE.md` (s
 
 | Command | Purpose |
 |---------|---------|
-| `/kratos:main` | **Master Command** - Handles any request (auto-classifies) |
-| `/kratos:inquiry`| **Knowledge Seek** - Routes questions to Metis, Clio, or Mimir |
-| `/kratos:decompose`| **Decompose** - Break features into phases (files, Notion, Linear) |
-| `/kratos:quick` | **Simple Tasks** - Direct routing for tests, fixes, refactors |
-| `/kratos:recall` | **Session Resume** - Where did we stop? (uses persistent memory) |
-| `/kratos:status` | **Battlefield View** - Status of all active features |
-| `/kratos:start` | **New Feature** - Initialize a complex journey |
-| `/kratos:next` | **Auto-Pilot** - Kratos decides and executes the next step |
-| `/kratos:assign` | **Direct Command** - Manually assign a mission to a god |
-| `/kratos:approve`| **Blessing** - Approve a document to proceed to next stage |
+| `/kratos:main` | **Master Command** — Handles any request (auto-classifies) |
+| `/kratos:quick` | **Simple Tasks** — Direct routing for tests, fixes, reviews, debug |
+| `/kratos:inquiry` | **Knowledge Seek** — Routes questions to Metis, Clio, or Mimir |
+| `/kratos:decompose` | **Decompose** — Break features into phases (files, Notion, Linear) |
+| `/kratos:recall` | **Session Resume** — Where did we stop? (uses persistent memory) |
+| `/kratos:status` | **Battlefield View** — Status of all active features |
 
 ---
 
-## New in v2.0
+## Execution Modes
 
-### 🧠 Persistent Memory
-Kratos now remembers every battle. All sessions, agent spawns, decisions, and file changes are recorded in a SQLite database (`.claude/.kratos/memory.db`).
-- Use `/kratos:recall` to see recent activity.
-- Context is automatically injected into new sessions to maintain continuity.
+Tailor Kratos's power to your needs by prefixing any request:
 
-### ⚡ Execution Modes
-Tailor Kratos's power to your needs:
-- **Eco Mode** (`eco:`): Uses Haiku/Sonnet for maximum token efficiency.
-- **Normal Mode**: Balanced performance (Default).
-- **Power Mode** (`power:`): Uses Opus for ALL agents for maximum quality.
-
-### 🔍 Inquiry Mode
-Ask anything about your project, history, or the world:
-- *"Kratos, who wrote the auth module?"* (Routes to **Clio**)
-- *"Kratos, how is the database organized?"* (Routes to **Metis**)
-- *"Kratos, what are the best practices for rate limiting?"* (Routes to **Mimir**)
-
-### 📚 Arena & Insights
-- **The Arena** (`.claude/.Arena/`): Project-specific knowledge (Architecture, Tech Stack, etc.).
-- **Insights** (`.claude/.Arena/insights/`): Cached external research from Mimir (API docs, best practices).
+| Mode | Trigger | Models Used |
+|------|---------|-------------|
+| **Eco** | `eco:`, `budget:`, `cheap:` | Haiku/Sonnet — token efficient |
+| **Normal** | (default) | Balanced Opus/Sonnet mix |
+| **Power** | `power:`, `max:`, `full-power:` | Opus for all agents |
 
 ---
 
-## The Pipeline (Complex Tasks)
+## The Pipeline (Complex Features)
 
 For building new features, Kratos follows an 8-stage divine path:
 
 ```
-[0] Research (Metis) → [1] PRD (Athena) → [2] PRD Review (Athena) →
-[2.5] Decompose (Daedalus, optional) → [3] Tech Spec (Hephaestus) →
-[4] PM Review (Athena) → [5] SA Review (Apollo) →
-[6] Test Plan (Artemis) → [7] Implementation (Ares) → [8] Code Review (Hermes)
+[0] Research (Metis, optional)
+[1] PRD (Athena)
+[2] PRD Review (Athena)
+[2.5] Decompose (Daedalus, optional)
+[3] Tech Spec (Hephaestus)
+[4] PM Review (Athena) ─┐ parallel
+[5] SA Review (Apollo)  ─┘
+[6] Test Plan (Artemis)
+[7] Implementation (Ares)
+[8] Code Review (Hermes)
 ```
+
+Pipeline state is tracked in `.claude/feature/<name>/status.json`. When the Kratos binary is installed, agents use `kratos pipeline update` to write real timestamps and maintain history. Without the binary, agents fall back to editing the file directly.
+
+---
+
+## Persistent Memory
+
+All sessions, agent spawns, decisions, and file changes are recorded in a SQLite database. Use `/kratos:recall` to resume where you left off — context is automatically injected into new sessions.
+
+### Arena & Insights
+
+- **The Arena** (`.claude/.Arena/`): Project-specific knowledge — architecture, tech stack, conventions.
+- **Insights** (`.claude/.Arena/insights/`): Cached external research from Mimir (TTL-based).
 
 ---
 
 ## Usage Examples
 
-### Information Seeking
 ```bash
-# Ask about history
-/kratos:inquiry Who worked on the login page in the last month?
+# Ask about git history
+/kratos:inquiry Who worked on the login page last month?
 
 # Research best practices (Eco mode)
 eco: what's the most efficient way to handle large file uploads in Node.js?
 
-# Project exploration
-/kratos:inquiry Explain the current architecture
-```
+# Debug an error
+/kratos:quick debug: TypeError: Cannot read properties of undefined
 
-### Task Execution
-```bash
 # Simple task
 /kratos:quick Add unit tests for UserService.js
 
 # Complex feature
 /kratos:main Build a multi-tenant subscription system
 
-# Resume work
-/kratos:recall
-/kratos:next
-```
-
-### Power Mode for Critical Work
-```bash
+# Power mode for critical review
 power: review the payment processing logic for security vulnerabilities
+
+# Resume previous work
+/kratos:recall
 ```
 
 ---
 
-*"The cycle ends here. We must be better than this."* - Kratos guides your project to victory through divine orchestration.
-
+*"The cycle ends here. We must be better than this."* — Kratos guides your project to victory through divine orchestration.

@@ -30,13 +30,30 @@ This is non-negotiable. Your mission REQUIRES this document output:
 Before reporting completion:
 1. Verify the document file EXISTS using `Read` or `Glob`
 2. Verify the document has COMPLETE content (not empty/partial)
-3. Verify `status.json` is updated with document entry
+3. Update `status.json` (see STATUS UPDATES below) — verify stage `status` is `complete`
 
 If the document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 
-**STATUS UPDATES**: When updating `status.json`, you MUST use the `kratos pipeline update` CLI command instead of editing the file directly. This ensures real, timezone-aware timestamps. Example:
+**STATUS UPDATES**: Try the Kratos CLI first. If it succeeds, do not also write `status.json` manually.
 ```bash
+# 1. Run the CLI
 kratos pipeline update --feature <name> --stage 6-test-plan --status complete --document test-plan.md
+
+# 2. If the command outputs JSON → done, stop here. Do NOT also write status.json manually.
+# 3. If the command is not found or errors → fall back to editing status.json directly.
+```
+
+**SESSION TRACKING**: Record your work in the active Kratos session. At mission start, record your spawn. Record each file you create.
+```bash
+# Get active session ID
+PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
+SESSION_ID=$(kratos session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+
+# Record your spawn at start
+kratos step record-agent "$SESSION_ID" artemis sonnet "<action: e.g. Writing test plan for <feature>>"
+
+# Record each document you create
+kratos step record-file "$SESSION_ID" ".claude/feature/<name>/test-plan.md" "created"
 ```
 
 ---
