@@ -1,4 +1,4 @@
-# Kratos - The God of War (v2.3.0)
+# Kratos - The God of War (v2.5.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
@@ -87,10 +87,38 @@ Then install the plugin and add the auto-activation block to your `CLAUDE.md` (s
 |---------|---------|
 | `/kratos:main` | **Master Command** — Handles any request (auto-classifies) |
 | `/kratos:quick` | **Simple Tasks** — Direct routing for tests, fixes, reviews, debug |
+| `/kratos:review` | **Code Review** — Standards-enforced review with severity tiers and auto-fix |
 | `/kratos:inquiry` | **Knowledge Seek** — Routes questions to Metis, Clio, or Mimir |
 | `/kratos:decompose` | **Decompose** — Break features into phases (files, Notion, Linear) |
 | `/kratos:recall` | **Session Resume** — Where did we stop? (uses persistent memory) |
 | `/kratos:status` | **Battlefield View** — Status of all active features |
+
+---
+
+## Code Review Standards
+
+Kratos ships with a tiered review standard that Hermes enforces on every review:
+
+| Tier | Name | What it checks |
+|------|------|---------------|
+| 1 | **Correct** | Logic, edge cases, silent failures |
+| 2 | **Safe** | Security, injection, secrets, auth |
+| 3 | **Clear** | Readability, naming, complexity |
+| 4 | **Minimal** | Dead code, over-engineering |
+| 5 | **Consistent** | Project conventions |
+| 6 | **Resilient** | Error handling, cleanup |
+| 7 | **Performant** | N+1, blocking ops, waste |
+
+Rules live in `rules/` (global baseline) and `.claude/.Arena/review-rules/` (project-specific, higher priority). Language-specific rules (React, TypeScript, Python, etc.) are loaded automatically based on detected file types.
+
+```bash
+/kratos:review src/auth.ts           # review a file
+/kratos:review --staged              # review staged changes
+/kratos:review --branch feat/login   # review a branch diff
+/kratos:review src/components/ power # full directory, power mode
+```
+
+Hermes reports `[BLOCKER]`, `[WARNING]`, and `[SUGGESTION]` findings — BLOCKERs must be resolved before approval. Auto-fixable issues are proposed with diffs and applied with confirmation.
 
 ---
 

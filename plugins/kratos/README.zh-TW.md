@@ -1,4 +1,4 @@
-# Kratos - 戰神 (v2.3.0)
+# Kratos - 戰神 (v2.5.0)
 
 > *「我就是眾神所造之物。」* — 現在，眾神為**你**服務。
 
@@ -87,10 +87,38 @@ cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos 
 |------|------|
 | `/kratos:main` | **主指令** — 處理任何請求（自動分類） |
 | `/kratos:quick` | **簡單任務** — 直接路由至測試、修復、審查、除錯 |
+| `/kratos:review` | **程式審查** — 標準化審查，含嚴重等級分類與自動修復 |
 | `/kratos:inquiry` | **知識查詢** — 路由問題至 Metis、Clio 或 Mimir |
 | `/kratos:decompose` | **功能分解** — 將功能拆解為階段（檔案、Notion、Linear）|
 | `/kratos:recall` | **回復工作階段** — 上次停在哪裡？（使用持久記憶）|
 | `/kratos:status` | **戰場全覽** — 所有進行中功能的狀態 |
+
+---
+
+## 程式審查標準
+
+Kratos 內建分層審查標準，由 Hermes 在每次審查中強制執行：
+
+| 層級 | 名稱 | 檢查內容 |
+|------|------|---------|
+| 1 | **正確性** | 邏輯、邊界情況、靜默失敗 |
+| 2 | **安全性** | 資安漏洞、注入攻擊、密鑰、驗證 |
+| 3 | **清晰度** | 可讀性、命名、複雜度 |
+| 4 | **精簡性** | 廢棄程式碼、過度設計 |
+| 5 | **一致性** | 專案慣例 |
+| 6 | **韌性** | 錯誤處理、資源清理 |
+| 7 | **效能** | N+1 查詢、阻塞操作、浪費 |
+
+規則存放於 `rules/`（全域基準）與 `.claude/.Arena/review-rules/`（專案專屬，優先級較高）。語言特定規則（React、TypeScript、Python 等）依偵測到的檔案類型自動載入。
+
+```bash
+/kratos:review src/auth.ts           # 審查單一檔案
+/kratos:review --staged              # 審查已暫存的變更
+/kratos:review --branch feat/login   # 審查分支差異
+/kratos:review src/components/ power # 審查整個目錄（全力模式）
+```
+
+Hermes 回報 `[BLOCKER]`、`[WARNING]` 和 `[SUGGESTION]` 結果 — BLOCKER 必須在核准前解決。可自動修復的問題會以 diff 形式呈現，確認後套用。
 
 ---
 
