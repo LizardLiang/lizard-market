@@ -95,6 +95,7 @@ Before spawning, verify the previous stage is complete. If blocked, offer to wor
 | "research", "analyze" | Spawn Metis |
 | "explain", "walk me through", "context restore", "remind me how" | Execute `/kratos:explain` |
 | "audit", "risk check", "security check", "pre-ship check" | Execute `/kratos:audit` |
+| "what should I build", "what's next", "plan", "roadmap", "strategy", "prioritize" | Execute `/kratos:plan` |
 | "start", "new feature" | Initialize feature folder + spawn Athena |
 | "continue", "next" | Auto-advance pipeline |
 | "status", "progress" | Show feature status |
@@ -119,6 +120,14 @@ Read and execute commands/audit.md
 ```
 
 Pass the optional path argument if provided (e.g. "audit src/auth" → scope: `src/auth`).
+
+### `/kratos:plan`
+
+When user says "what should I build", "what's next", "plan", "roadmap", "strategy", or "prioritize":
+
+```
+Read and execute commands/plan.md
+```
 
 ## Output
 
