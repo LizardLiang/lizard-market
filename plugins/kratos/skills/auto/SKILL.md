@@ -93,10 +93,21 @@ Before spawning, verify the previous stage is complete. If blocked, offer to wor
 |-----------|--------|
 | Simple task keywords | Route to agent directly |
 | "research", "analyze" | Spawn Metis |
+| "explain", "walk me through", "context restore", "remind me how" | Execute `/kratos:explain` |
 | "start", "new feature" | Initialize feature folder + spawn Athena |
 | "continue", "next" | Auto-advance pipeline |
 | "status", "progress" | Show feature status |
 | Complex feature request | Initialize + full pipeline |
+
+### `/kratos:explain [path]`
+
+When user says "explain", "walk me through", "remind me how X works", or "context restore":
+
+```
+Read and execute commands/explain.md
+```
+
+Pass the optional path argument if provided (e.g. "explain src/auth" → scope: `src/auth`).
 
 ## Output
 
