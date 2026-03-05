@@ -192,7 +192,33 @@ Show suggestions? (y/n)
 
 ---
 
-## Step 5: Rule Proposals
+## Step 5: Refactoring Hint
+
+After reviewing, check: did you find **structural issues** that go beyond individual bugs?
+
+Examples:
+- Same pattern duplicated across 3+ files
+- Module with too many responsibilities
+- Coupling that makes future changes risky
+- Naming inconsistency across the codebase
+
+If yes, add this section to your output (both pipeline and standalone):
+
+```
+## Refactoring Recommended
+
+The following structural issues were found that go beyond this review's scope:
+- [Issue 1: what + where]
+- [Issue 2: what + where]
+
+Run `/kratos:refactor [path]` to have Heracles address these systematically.
+```
+
+Only include this section if genuine structural issues exist. Do not manufacture it.
+
+---
+
+## Step 6: Rule Proposals
 
 After reviewing, check: did you see the same pattern 2+ times that no rule currently covers?
 
@@ -213,7 +239,7 @@ Mention proposals in the summary.
 
 ---
 
-## Step 6: Gate
+## Step 7: Gate
 
 **Approved** requires:
 - Zero remaining `[BLOCKER]` findings (fixed OR explicitly skipped by user)
@@ -223,7 +249,7 @@ Mention proposals in the summary.
 
 ---
 
-## Step 7: Create Review Document (Pipeline Mode Only)
+## Step 8: Create Review Document (Pipeline Mode Only)
 
 **Create review** at `.claude/feature/<name>/code-review.md`:
 

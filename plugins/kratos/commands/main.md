@@ -43,6 +43,7 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 | **ares** | sonnet | Implementation | 7 |
 | **daedalus** | sonnet | Feature decomposition | 2.5 (Optional) |
 | **hermes** | opus | Code review | 8 |
+| **cassandra** | sonnet | Risk analysis | 8 (parallel with hermes) |
 
 ---
 
@@ -63,7 +64,7 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 | 5-spec-review-sa | apollo | opus | spec-review-sa.md |
 | 6-test-plan | artemis | sonnet | test-plan.md |
 | 7-implementation | ares | sonnet | implementation-notes.md + code |
-| 8-code-review | hermes | opus | code-review.md |
+| 8-code-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
 
 ---
 
@@ -594,7 +595,10 @@ The user will implement the code themselves using your task files as guides.",
 
 ---
 
-#### Stage 8: Code Review (Hermes)
+#### Stage 8: Code Review + Risk Analysis (Hermes + Cassandra) — Parallel
+
+Spawn **both agents simultaneously** in a single response:
+
 ```
 Task(
   subagent_type: "kratos:hermes",
@@ -608,7 +612,24 @@ CRITICAL: You MUST create the file code-review.md before completing. Document cr
 Review implementation code. Create code-review.md with verdict. Update status.json.",
   description: "hermes - code review"
 )
+
+Task(
+  subagent_type: "kratos:cassandra",
+  model: "sonnet",
+  prompt: "MISSION: Risk Analysis
+MODE: pipeline
+FEATURE: [feature-name]
+FOLDER: .claude/feature/[feature-name]/
+
+CRITICAL: You MUST create the file risk-analysis.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+
+Analyze changed files in this feature for security, breaking changes, edge cases, scalability, and dependency risks.
+Create risk-analysis.md with severity-rated findings. Update status.json.",
+  description: "cassandra - risk analysis"
+)
 ```
+
+Wait for **both** to complete, then present merged results to the user.
 
 ---
 
@@ -630,6 +651,7 @@ When an agent completes, you MUST verify the required document was created:
 | 6-test-plan | artemis | `test-plan.md` |
 | 7-implementation | ares | `implementation-notes.md` (Ares Mode) or `tasks/*.md` (User Mode) |
 | 8-code-review | hermes | `code-review.md` |
+| 8-risk-analysis | cassandra | `risk-analysis.md` |
 
 **Verification Steps:**
 1. Read updated `status.json`
@@ -713,6 +735,7 @@ Documents:
 ✅ test-plan.md
 ✅ implementation-notes.md
 ✅ code-review.md
+✅ risk-analysis.md
 
 Ready for deployment.
 ```
@@ -733,9 +756,10 @@ Ready for deployment.
 | 6-test-plan | - | ASK MODE | Ask user: Ares Mode vs User Mode |
 | 6-test-plan | Ares Mode | 7-implementation | ares (sonnet) - implement |
 | 6-test-plan | User Mode | 7-implementation | ares (sonnet) - create tasks |
-| 7-implementation | Ares Mode | 8-code-review | hermes (opus) |
+| 7-implementation | Ares Mode | 8-code-review + 8-risk-analysis | hermes (opus) + cassandra (sonnet) in parallel |
 | 7-implementation | User Mode | WAIT | User completes tasks, then /kratos:task-complete all |
-| 8-code-review | Approved | VICTORY | - |
+| 8-code-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
+| 8-code-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first, then re-run stage 8 |
 | 8-code-review | Changes | 7-implementation | ares (sonnet) |
 
 ---
