@@ -1,4 +1,4 @@
-module github.com/yourusername/lizard-market/plugins/kratos
+module github.com/LizardLiang/lizard-market/plugins/kratos
 
 go 1.25.6
 

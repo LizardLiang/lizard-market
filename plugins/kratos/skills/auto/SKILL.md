@@ -96,6 +96,7 @@ Before spawning, verify the previous stage is complete. If blocked, offer to wor
 | "explain", "walk me through", "context restore", "remind me how" | Execute `/kratos:explain` |
 | "audit", "risk check", "security check", "pre-ship check" | Execute `/kratos:audit` |
 | "what should I build", "what's next", "plan", "roadmap", "strategy", "prioritize" | Execute `/kratos:plan` |
+| "add task", "remind me to", "my todos", "what's on my list", "mark done", "I finished" | Spawn Ananke |
 | "start", "new feature" | Initialize feature folder + spawn Athena |
 | "continue", "next" | Auto-advance pipeline |
 | "status", "progress" | Show feature status |

@@ -127,6 +127,23 @@ CREATE TABLE IF NOT EXISTS decisions (
     FOREIGN KEY (step_id) REFERENCES steps(id)
 );
 
+-- Todos: Personal task list
+CREATE TABLE IF NOT EXISTS todos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',       -- open, done
+    source TEXT NOT NULL DEFAULT 'user',       -- user, jira, ananke
+    source_ref TEXT,                           -- Jira ticket ID if source=jira
+    project TEXT NOT NULL,
+    created_at INTEGER NOT NULL,               -- Unix epoch ms
+    completed_at INTEGER                       -- Unix epoch ms, null if open
+);
+
+CREATE INDEX IF NOT EXISTS idx_todos_project ON todos(project);
+CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
+CREATE INDEX IF NOT EXISTS idx_todos_source ON todos(source);
+CREATE INDEX IF NOT EXISTS idx_todos_created ON todos(created_at DESC);
+
 -- Indexes for fast queries
 CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project);
 CREATE INDEX IF NOT EXISTS idx_sessions_feature ON sessions(feature_name);
