@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/yourusername/lizard-market/plugins/kratos/internal/db"
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/db"
 )
 
 // InitCmd returns the 'init' command for initializing the Kratos database

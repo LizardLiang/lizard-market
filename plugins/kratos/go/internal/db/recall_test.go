@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/yourusername/lizard-market/plugins/kratos/internal/models"
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
 )
 
 // TestGetLastSessionForProject tests getting the most recent session for a project

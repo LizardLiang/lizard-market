@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yourusername/lizard-market/plugins/kratos/internal/models"
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
 )
 
 // CreateSession inserts a new session into the database

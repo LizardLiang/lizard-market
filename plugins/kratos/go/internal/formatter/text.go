@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yourusername/lizard-market/plugins/kratos/internal/models"
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
 )
 
 // FormatSession formats a session as human-readable text

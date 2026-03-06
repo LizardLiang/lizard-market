@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/yourusername/lizard-market/plugins/kratos/internal/models"
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
 )
 
 // GetLastSessionForProject returns the most recent session for a project
