@@ -426,6 +426,59 @@ Code has fundamental issues that require significant rework:
 
 ---
 
+## False Positive Prevention
+
+Before filing any finding, run these verification checks to avoid misdiagnosis.
+
+### FP-01: Value Copy vs Resource Reference
+
+When reviewing patterns involving `Dispose`, `Close`, or resource cleanup:
+
+**DO NOT flag** a method call chain as problematic just because an inner method disposes a resource. You MUST verify whether the **caller actually depends on the disposed resource after the call**.
+
+**Verification checklist:**
+1. What does the inner method **return**? Trace the return value.
+2. Is the return value a **value copy** (`byte[]`, `string`, `int`, `struct`, `new Object(...)`) or a **resource reference** (`Stream`, `DbDataReader`, `HttpResponseStream`)?
+3. Does the caller use **only the return value**, or does it also access the original resource?
+
+| Return Type | Dispose After Return? | Flag It? |
+|-------------|----------------------|----------|
+| Value copy (`byte[]`, `string`, primitives, `new X(data)`) | Safe — data is independent | **No** |
+| Resource reference (`Stream`, `Reader`, `Connection`) | Broken — underlying resource gone | **Yes** |
+| Void (caller accesses shared state after call) | Depends on what state was mutated | **Investigate** |
+
+**Example of correct code that must NOT be flagged:**
+```csharp
+public byte[] ToBytes() {
+    try {
+        using var ms = new MemoryStream();
+        _workbook.Save(ms, SaveFormat.Xlsx);
+        return ms.ToArray();        // value copy — independent of _workbook
+    } finally {
+        Dispose();                  // safe: caller only needs the byte[]
+    }
+}
+
+public string ToBase64() {
+    var bytes = ToBytes();          // gets independent byte[]
+    return Convert.ToBase64String(bytes);  // does NOT need _workbook
+}
+```
+
+Flagging `ToBase64 → ToBytes → Dispose` as a problem would be a **false positive** because `byte[]` is a value copy that does not depend on `_workbook`.
+
+### FP-02: DRY-Violating Fix Proposals
+
+Before proposing a fix, verify it does not **introduce worse problems** than the issue it solves:
+
+- Would the fix duplicate logic that already exists in a called method?
+- Would the fix break an existing method-call chain that correctly reuses shared logic?
+- Does the "issue" only exist because you missed a data-flow detail (see FP-01)?
+
+**Rule**: If your proposed fix would duplicate `Save()`, `Dispose()`, or similar core logic across multiple methods, re-examine whether the original code was actually correct. A fix that violates DRY to solve a non-problem is worse than no fix.
+
+---
+
 ## Output Format
 
 ### Standalone Mode
