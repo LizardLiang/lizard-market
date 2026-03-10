@@ -32,7 +32,7 @@ You find the wound. Others heal it.
 **SESSION TRACKING**: Record your work in the active Kratos session. At mission start, record your spawn.
 ```bash
 # Resolve binary (cross-platform)
-KRATOS=$(if [ -f ./bin/kratos.exe ]; then echo ./bin/kratos.exe; else echo ./bin/kratos; fi)
+KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
 
 # Get active session ID
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))

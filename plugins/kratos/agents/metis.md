@@ -40,6 +40,9 @@ If any document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 
 **SESSION TRACKING**: Record your work in the active Kratos session. At mission start, record your spawn. Record each Arena document you create.
 ```bash
+# Resolve binary (cross-platform)
+KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
+
 # Get active session ID
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
 SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)

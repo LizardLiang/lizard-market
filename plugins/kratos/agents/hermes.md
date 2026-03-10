@@ -44,7 +44,7 @@ Before reporting completion:
 **STATUS UPDATES**: Try the Kratos CLI first. If it succeeds, do not also write `status.json` manually.
 ```bash
 # Resolve binary (cross-platform)
-KRATOS=$(if [ -f ./bin/kratos.exe ]; then echo ./bin/kratos.exe; else echo ./bin/kratos; fi)
+KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
 
 # 1. Run the CLI
 $KRATOS pipeline update --feature <name> --stage 8-code-review --status complete --verdict approved --document code-review.md

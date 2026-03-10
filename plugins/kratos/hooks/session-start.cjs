@@ -182,23 +182,37 @@ function formatContextMessage(info) {
   return lines.join('\n');
 }
 
-// Export KRATOS_BIN to session env so Bash tool calls can find the binary
-function exportKratosBin() {
-  const envFile = process.env.CLAUDE_ENV_FILE;
-  if (!envFile) return;
+// Write resolved binary path to ~/.kratos/bin-path so subagents can find it
+function writeBinPath(binPath) {
+  const binPathFile = path.join(KRATOS_HOME, 'bin-path');
+  try {
+    fs.writeFileSync(binPathFile, binPath.replace(/\\/g, '/'));
+  } catch (e) {}
+}
 
+// Export KRATOS_BIN to session env and write bin-path file for subagents
+function exportKratosBin() {
   // Prefer CLAUDE_PLUGIN_ROOT (set by Claude Code when running plugin hooks)
   const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
   if (pluginRoot) {
     const binPath = path.join(pluginRoot, 'bin', 'kratos');
-    fs.appendFileSync(envFile, `export KRATOS_BIN="${binPath}"\n`);
+    writeBinPath(binPath);
+    const envFile = process.env.CLAUDE_ENV_FILE;
+    if (envFile) {
+      fs.appendFileSync(envFile, `export KRATOS_BIN="${binPath}"\n`);
+    }
     return;
   }
 
   // Fallback: find the binary ourselves
   const kratosBin = findKratosBinary();
   if (kratosBin) {
-    fs.appendFileSync(envFile, `export KRATOS_BIN="${path.resolve(kratosBin)}"\n`);
+    const resolved = path.resolve(kratosBin);
+    writeBinPath(resolved);
+    const envFile = process.env.CLAUDE_ENV_FILE;
+    if (envFile) {
+      fs.appendFileSync(envFile, `export KRATOS_BIN="${resolved}"\n`);
+    }
   }
 }
 

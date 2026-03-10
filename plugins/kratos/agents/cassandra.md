@@ -41,7 +41,7 @@ Before reporting completion:
 **SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
 # Resolve binary (cross-platform)
-KRATOS=$(if [ -f ./bin/kratos.exe ]; then echo ./bin/kratos.exe; else echo ./bin/kratos; fi)
+KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
 
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
 SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
