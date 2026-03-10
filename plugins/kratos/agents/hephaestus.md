@@ -37,7 +37,7 @@ If the document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 **STATUS UPDATES**: Try the Kratos CLI first. If it succeeds, do not also write `status.json` manually.
 ```bash
 # 1. Run the CLI
-kratos pipeline update --feature <name> --stage 3-tech-spec --status complete --document tech-spec.md
+"$KRATOS_BIN" pipeline update --feature <name> --stage 3-tech-spec --status complete --document tech-spec.md
 
 # 2. If the command outputs JSON → done, stop here. Do NOT also write status.json manually.
 # 3. If the command is not found or errors → fall back to editing status.json directly.
@@ -47,13 +47,13 @@ kratos pipeline update --feature <name> --stage 3-tech-spec --status complete --
 ```bash
 # Get active session ID
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$(kratos session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$("$KRATOS_BIN" session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
 # Record your spawn at start
-kratos step record-agent "$SESSION_ID" hephaestus opus "<action: e.g. Writing tech spec for <feature>>"
+"$KRATOS_BIN" step record-agent "$SESSION_ID" hephaestus opus "<action: e.g. Writing tech spec for <feature>>"
 
 # Record each document you create
-kratos step record-file "$SESSION_ID" ".claude/feature/<name>/tech-spec.md" "created"
+"$KRATOS_BIN" step record-file "$SESSION_ID" ".claude/feature/<name>/tech-spec.md" "created"
 ```
 
 ---

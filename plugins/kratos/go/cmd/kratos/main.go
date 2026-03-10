@@ -27,6 +27,7 @@ func main() {
 	rootCmd.AddCommand(cli.StatusCmd())
 	rootCmd.AddCommand(cli.PipelineCmd())
 	rootCmd.AddCommand(cli.TodoCmd())
+	rootCmd.AddCommand(cli.HookCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

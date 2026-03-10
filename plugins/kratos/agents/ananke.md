@@ -32,7 +32,7 @@ You manage the user's personal todo list. You handle natural language requests l
 
 ### Check binary availability:
 ```bash
-kratos --version 2>/dev/null && echo "available" || echo "unavailable"
+"$KRATOS_BIN" --version 2>/dev/null && echo "available" || echo "unavailable"
 ```
 
 ---
@@ -43,7 +43,7 @@ kratos --version 2>/dev/null && echo "available" || echo "unavailable"
 
 **With binary:**
 ```bash
-kratos todo add "<text>" --source ananke
+"$KRATOS_BIN" todo add "<text>" --source ananke
 ```
 
 **Fallback (no binary):**
@@ -66,13 +66,13 @@ Create the file with a header if it doesn't exist:
 **With binary:**
 ```bash
 # Open todos only (default)
-kratos todo list --status open
+"$KRATOS_BIN" todo list --status open
 
 # All todos including done
-kratos todo list --status all
+"$KRATOS_BIN" todo list --status all
 
 # Today's completed
-kratos todo list --status done
+"$KRATOS_BIN" todo list --status done
 ```
 
 Parse the JSON output and format as a readable list:
@@ -98,7 +98,7 @@ Read `.claude/.Arena/todos.md` and parse `- [ ]` (open) and `- [x]` (done) check
 
 **With binary:**
 ```bash
-kratos todo done <id>
+"$KRATOS_BIN" todo done <id>
 ```
 
 **Fallback:**
@@ -110,7 +110,7 @@ Edit `.claude/.Arena/todos.md` — change `- [ ]` to `- [x]` for the matching it
 
 **With binary:**
 ```bash
-kratos todo rm <id>
+"$KRATOS_BIN" todo rm <id>
 ```
 
 **Fallback:**

@@ -41,10 +41,10 @@ Before reporting completion:
 **SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$(kratos session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$("$KRATOS_BIN" session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
-kratos step record-agent "$SESSION_ID" cassandra sonnet "Risk analysis for <feature>"
-kratos step record-file "$SESSION_ID" ".claude/feature/<name>/risk-analysis.md" "created"
+"$KRATOS_BIN" step record-agent "$SESSION_ID" cassandra sonnet "Risk analysis for <feature>"
+"$KRATOS_BIN" step record-file "$SESSION_ID" ".claude/feature/<name>/risk-analysis.md" "created"
 ```
 
 ---
@@ -307,7 +307,7 @@ After writing the document:
 
 ```bash
 # Update status
-kratos pipeline update --feature <name> --stage 8-risk-analysis --status complete --verdict [clear|caution|blocked] --document risk-analysis.md
+"$KRATOS_BIN" pipeline update --feature <name> --stage 8-risk-analysis --status complete --verdict [clear|caution|blocked] --document risk-analysis.md
 ```
 
 If CLI unavailable, update status.json directly.

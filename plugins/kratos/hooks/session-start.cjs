@@ -182,8 +182,29 @@ function formatContextMessage(info) {
   return lines.join('\n');
 }
 
+// Export KRATOS_BIN to session env so Bash tool calls can find the binary
+function exportKratosBin() {
+  const envFile = process.env.CLAUDE_ENV_FILE;
+  if (!envFile) return;
+
+  // Prefer CLAUDE_PLUGIN_ROOT (set by Claude Code when running plugin hooks)
+  const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
+  if (pluginRoot) {
+    const binPath = path.join(pluginRoot, 'bin', 'kratos');
+    fs.appendFileSync(envFile, `export KRATOS_BIN="${binPath}"\n`);
+    return;
+  }
+
+  // Fallback: find the binary ourselves
+  const kratosBin = findKratosBinary();
+  if (kratosBin) {
+    fs.appendFileSync(envFile, `export KRATOS_BIN="${path.resolve(kratosBin)}"\n`);
+  }
+}
+
 // Main
 function main() {
+  exportKratosBin();
   ensureDir();
 
   // Check for existing active session
@@ -218,6 +239,7 @@ function main() {
   };
 
   fs.writeFileSync(SESSION_FILE, JSON.stringify(sessionData, null, 2));
+
   console.log(`Kratos: Memory session started - ${sessionId}`);
   
   // Inject context if there's an incomplete feature

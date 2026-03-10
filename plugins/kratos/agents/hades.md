@@ -33,10 +33,10 @@ You find the wound. Others heal it.
 ```bash
 # Get active session ID
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$(kratos session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$("$KRATOS_BIN" session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
 # Record your spawn at start
-kratos step record-agent "$SESSION_ID" hades sonnet "<action: e.g. Debugging <error description>>"
+"$KRATOS_BIN" step record-agent "$SESSION_ID" hades sonnet "<action: e.g. Debugging <error description>>"
 ```
 
 ---

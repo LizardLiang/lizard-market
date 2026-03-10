@@ -140,6 +140,21 @@ func updateSettings(settingsFile, hooksDir string) error {
 
 	// Generate hook config
 	hookPath := filepath.ToSlash(hooksDir) // Normalize for JSON
+	kratosBinPath := filepath.ToSlash(filepath.Join(hooksDir, "kratos"))
+
+	// UserPromptSubmit hook (keyword detection → skill injection)
+	hooks["UserPromptSubmit"] = []map[string]interface{}{
+		{
+			"matcher": "",
+			"hooks": []map[string]interface{}{
+				{
+					"type":    "command",
+					"command": fmt.Sprintf("\"%s\" hook prompt-submit", kratosBinPath),
+					"timeout": 3000,
+				},
+			},
+		},
+	}
 
 	// SessionStart hook
 	hooks["SessionStart"] = []map[string]interface{}{
