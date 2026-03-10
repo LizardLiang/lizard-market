@@ -36,8 +36,11 @@ If the document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 
 **STATUS UPDATES**: Try the Kratos CLI first. If it succeeds, do not also write `status.json` manually.
 ```bash
+# Resolve binary (cross-platform)
+KRATOS=$(if [ -f ./bin/kratos.exe ]; then echo ./bin/kratos.exe; else echo ./bin/kratos; fi)
+
 # 1. Run the CLI
-"$KRATOS_BIN" pipeline update --feature <name> --stage 5-spec-review-sa --status complete --verdict sound --document spec-review-sa.md
+$KRATOS pipeline update --feature <name> --stage 5-spec-review-sa --status complete --verdict sound --document spec-review-sa.md
 
 # 2. If the command outputs JSON → done, stop here. Do NOT also write status.json manually.
 # 3. If the command is not found or errors → fall back to editing status.json directly.
@@ -47,13 +50,13 @@ If the document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 ```bash
 # Get active session ID
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$("$KRATOS_BIN" session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
 # Record your spawn at start
-"$KRATOS_BIN" step record-agent "$SESSION_ID" apollo opus "<action: e.g. Reviewing tech spec for <feature>>"
+$KRATOS step record-agent "$SESSION_ID" apollo opus "<action: e.g. Reviewing tech spec for <feature>>"
 
 # Record each document you create
-"$KRATOS_BIN" step record-file "$SESSION_ID" ".claude/feature/<name>/spec-review-sa.md" "created"
+$KRATOS step record-file "$SESSION_ID" ".claude/feature/<name>/spec-review-sa.md" "created"
 ```
 
 ---

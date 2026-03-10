@@ -42,17 +42,17 @@ If any document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 ```bash
 # Get active session ID
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$("$KRATOS_BIN" session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
 # Record your spawn at start
-"$KRATOS_BIN" step record-agent "$SESSION_ID" metis sonnet "Researching project codebase for Arena"
+$KRATOS step record-agent "$SESSION_ID" metis sonnet "Researching project codebase for Arena"
 
 # Record each document you create
-"$KRATOS_BIN" step record-file "$SESSION_ID" ".claude/.Arena/project-overview.md" "created"
-"$KRATOS_BIN" step record-file "$SESSION_ID" ".claude/.Arena/tech-stack.md" "created"
-"$KRATOS_BIN" step record-file "$SESSION_ID" ".claude/.Arena/architecture.md" "created"
-"$KRATOS_BIN" step record-file "$SESSION_ID" ".claude/.Arena/file-structure.md" "created"
-"$KRATOS_BIN" step record-file "$SESSION_ID" ".claude/.Arena/conventions.md" "created"
+$KRATOS step record-file "$SESSION_ID" ".claude/.Arena/project-overview.md" "created"
+$KRATOS step record-file "$SESSION_ID" ".claude/.Arena/tech-stack.md" "created"
+$KRATOS step record-file "$SESSION_ID" ".claude/.Arena/architecture.md" "created"
+$KRATOS step record-file "$SESSION_ID" ".claude/.Arena/file-structure.md" "created"
+$KRATOS step record-file "$SESSION_ID" ".claude/.Arena/conventions.md" "created"
 ```
 
 ---

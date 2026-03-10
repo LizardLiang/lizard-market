@@ -32,7 +32,10 @@ You manage the user's personal todo list. You handle natural language requests l
 
 ### Check binary availability:
 ```bash
-"$KRATOS_BIN" --version 2>/dev/null && echo "available" || echo "unavailable"
+# Resolve binary (cross-platform)
+KRATOS=$(if [ -f ./bin/kratos.exe ]; then echo ./bin/kratos.exe; else echo ./bin/kratos; fi)
+
+$KRATOS --version 2>/dev/null && echo "available" || echo "unavailable"
 ```
 
 ---
@@ -43,7 +46,7 @@ You manage the user's personal todo list. You handle natural language requests l
 
 **With binary:**
 ```bash
-"$KRATOS_BIN" todo add "<text>" --source ananke
+$KRATOS todo add "<text>" --source ananke
 ```
 
 **Fallback (no binary):**
@@ -66,13 +69,13 @@ Create the file with a header if it doesn't exist:
 **With binary:**
 ```bash
 # Open todos only (default)
-"$KRATOS_BIN" todo list --status open
+$KRATOS todo list --status open
 
 # All todos including done
-"$KRATOS_BIN" todo list --status all
+$KRATOS todo list --status all
 
 # Today's completed
-"$KRATOS_BIN" todo list --status done
+$KRATOS todo list --status done
 ```
 
 Parse the JSON output and format as a readable list:
@@ -98,7 +101,7 @@ Read `.claude/.Arena/todos.md` and parse `- [ ]` (open) and `- [x]` (done) check
 
 **With binary:**
 ```bash
-"$KRATOS_BIN" todo done <id>
+$KRATOS todo done <id>
 ```
 
 **Fallback:**
@@ -110,7 +113,7 @@ Edit `.claude/.Arena/todos.md` — change `- [ ]` to `- [x]` for the matching it
 
 **With binary:**
 ```bash
-"$KRATOS_BIN" todo rm <id>
+$KRATOS todo rm <id>
 ```
 
 **Fallback:**

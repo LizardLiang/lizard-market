@@ -43,8 +43,11 @@ Before reporting completion:
 
 **STATUS UPDATES**: Try the Kratos CLI first. If it succeeds, do not also write `status.json` manually.
 ```bash
+# Resolve binary (cross-platform)
+KRATOS=$(if [ -f ./bin/kratos.exe ]; then echo ./bin/kratos.exe; else echo ./bin/kratos; fi)
+
 # 1. Run the CLI
-"$KRATOS_BIN" pipeline update --feature <name> --stage 8-code-review --status complete --verdict approved --document code-review.md
+$KRATOS pipeline update --feature <name> --stage 8-code-review --status complete --verdict approved --document code-review.md
 
 # 2. If the command outputs JSON → done, stop here. Do NOT also write status.json manually.
 # 3. If the command is not found or errors → fall back to editing status.json directly.
@@ -54,13 +57,13 @@ Before reporting completion:
 ```bash
 # Get active session ID
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$("$KRATOS_BIN" session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
 # Record your spawn at start
-"$KRATOS_BIN" step record-agent "$SESSION_ID" hermes opus "<action: e.g. Code reviewing <feature>>"
+$KRATOS step record-agent "$SESSION_ID" hermes opus "<action: e.g. Code reviewing <feature>>"
 
 # Record each document you create
-"$KRATOS_BIN" step record-file "$SESSION_ID" ".claude/feature/<name>/code-review.md" "created"
+$KRATOS step record-file "$SESSION_ID" ".claude/feature/<name>/code-review.md" "created"
 ```
 
 ---
