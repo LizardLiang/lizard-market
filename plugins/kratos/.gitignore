@@ -1,10 +1,7 @@
-# Binaries
-bin/
+# Go build intermediates (bin/ is tracked for distribution)
 go/kratos
-*.exe
+go/bin/
 *.dll
-*.so
-*.dylib
 
 # Test artifacts
 *.test
