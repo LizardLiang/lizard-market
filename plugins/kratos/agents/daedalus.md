@@ -39,13 +39,10 @@ If the document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 
 **STATUS UPDATES**: Update pipeline status via the Kratos CLI. You MUST use the exact resolver and flags below — do NOT improvise your own command or flags.
 ```bash
-# STEP 1: Resolve the binary — ALWAYS run this first
-KRATOS=~/.kratos/bin/kratos
-
-# STEP 2: Update pipeline — replace FEATURE_NAME with the actual feature name
+# Update pipeline — replace FEATURE_NAME with the actual feature name
 # Valid flags: --feature, --stage, --status, --document, --verdict
 # There is NO --path flag. Always use --feature with the feature name (not a file path).
-$KRATOS pipeline update --feature FEATURE_NAME --stage 2.5-decomposition --status complete --document decomposition.md
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 2.5-decomposition --status complete --document decomposition.md
 
 # If the command outputs JSON → done. Do NOT also write status.json manually.
 # If the command is not found or errors → fall back to editing status.json directly.
@@ -53,14 +50,13 @@ $KRATOS pipeline update --feature FEATURE_NAME --stage 2.5-decomposition --statu
 
 **SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
-KRATOS=~/.kratos/bin/kratos
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$(~/.kratos/bin/kratos session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
-$KRATOS step record-agent "$SESSION_ID" daedalus sonnet "Decomposing FEATURE_NAME into tasks"
+~/.kratos/bin/kratos step record-agent "$SESSION_ID" daedalus sonnet "Decomposing FEATURE_NAME into tasks"
 
 # Record each document you create
-$KRATOS step record-file "$SESSION_ID" ".claude/feature/<name>/decomposition.md" "created"
+~/.kratos/bin/kratos step record-file "$SESSION_ID" ".claude/feature/<name>/decomposition.md" "created"
 ```
 
 ---

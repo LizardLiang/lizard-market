@@ -40,12 +40,11 @@ Before reporting completion:
 
 **SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
-KRATOS=~/.kratos/bin/kratos
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$(~/.kratos/bin/kratos session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
-$KRATOS step record-agent "$SESSION_ID" cassandra sonnet "Risk analysis for FEATURE_NAME"
-$KRATOS step record-file "$SESSION_ID" ".claude/feature/FEATURE_NAME/risk-analysis.md" "created"
+~/.kratos/bin/kratos step record-agent "$SESSION_ID" cassandra sonnet "Risk analysis for FEATURE_NAME"
+~/.kratos/bin/kratos step record-file "$SESSION_ID" ".claude/feature/FEATURE_NAME/risk-analysis.md" "created"
 ```
 
 ---
@@ -309,8 +308,7 @@ After writing the document:
 ```bash
 # Resolve the binary, then update — replace FEATURE_NAME with the actual feature name
 # Valid flags: --feature, --stage, --status, --document, --verdict. There is NO --path flag.
-KRATOS=~/.kratos/bin/kratos
-$KRATOS pipeline update --feature FEATURE_NAME --stage 8-risk-analysis --status complete --verdict [clear|caution|blocked] --document risk-analysis.md
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-risk-analysis --status complete --verdict [clear|caution|blocked] --document risk-analysis.md
 ```
 
 If CLI unavailable, update status.json directly.

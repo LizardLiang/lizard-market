@@ -40,16 +40,15 @@ If any document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 
 **SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
-KRATOS=~/.kratos/bin/kratos
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$(~/.kratos/bin/kratos session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
-$KRATOS step record-agent "$SESSION_ID" metis sonnet "Researching project codebase for Arena"
-$KRATOS step record-file "$SESSION_ID" ".claude/.Arena/project-overview.md" "created"
-$KRATOS step record-file "$SESSION_ID" ".claude/.Arena/tech-stack.md" "created"
-$KRATOS step record-file "$SESSION_ID" ".claude/.Arena/architecture.md" "created"
-$KRATOS step record-file "$SESSION_ID" ".claude/.Arena/file-structure.md" "created"
-$KRATOS step record-file "$SESSION_ID" ".claude/.Arena/conventions.md" "created"
+~/.kratos/bin/kratos step record-agent "$SESSION_ID" metis sonnet "Researching project codebase for Arena"
+~/.kratos/bin/kratos step record-file "$SESSION_ID" ".claude/.Arena/project-overview.md" "created"
+~/.kratos/bin/kratos step record-file "$SESSION_ID" ".claude/.Arena/tech-stack.md" "created"
+~/.kratos/bin/kratos step record-file "$SESSION_ID" ".claude/.Arena/architecture.md" "created"
+~/.kratos/bin/kratos step record-file "$SESSION_ID" ".claude/.Arena/file-structure.md" "created"
+~/.kratos/bin/kratos step record-file "$SESSION_ID" ".claude/.Arena/conventions.md" "created"
 ```
 
 ---

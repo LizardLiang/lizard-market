@@ -40,15 +40,12 @@ If the document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 
 **STATUS UPDATES**: Update pipeline status via the Kratos CLI. You MUST use the exact resolver and flags below — do NOT improvise your own command or flags.
 ```bash
-# STEP 1: Resolve the binary — ALWAYS run this first
-KRATOS=~/.kratos/bin/kratos
-
-# STEP 2: Update pipeline — replace FEATURE_NAME with the actual feature name
+# Update pipeline — replace FEATURE_NAME with the actual feature name
 # Valid flags: --feature, --stage, --status, --document, --verdict
 # There is NO --path flag. Always use --feature with the feature name (not a file path).
-$KRATOS pipeline update --feature FEATURE_NAME --stage 1-prd --status complete --document prd.md
-$KRATOS pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict approved --document prd-review.md
-$KRATOS pipeline update --feature FEATURE_NAME --stage 4-spec-review-pm --status complete --verdict approved --document spec-review-pm.md
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 1-prd --status complete --document prd.md
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict approved --document prd-review.md
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 4-spec-review-pm --status complete --verdict approved --document spec-review-pm.md
 
 # If the command outputs JSON → done. Do NOT also write status.json manually.
 # If the command is not found or errors → fall back to editing status.json directly.
@@ -56,15 +53,14 @@ $KRATOS pipeline update --feature FEATURE_NAME --stage 4-spec-review-pm --status
 
 **SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
-KRATOS=~/.kratos/bin/kratos
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$(~/.kratos/bin/kratos session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
 # Record your spawn at start
-$KRATOS step record-agent "$SESSION_ID" athena opus "Writing PRD for FEATURE_NAME"
+~/.kratos/bin/kratos step record-agent "$SESSION_ID" athena opus "Writing PRD for FEATURE_NAME"
 
 # Record each document you create
-$KRATOS step record-file "$SESSION_ID" ".claude/feature/FEATURE_NAME/prd.md" "created"
+~/.kratos/bin/kratos step record-file "$SESSION_ID" ".claude/feature/FEATURE_NAME/prd.md" "created"
 ```
 
 ---

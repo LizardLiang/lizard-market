@@ -31,11 +31,10 @@ You find the wound. Others heal it.
 
 **SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
-KRATOS=~/.kratos/bin/kratos
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$(~/.kratos/bin/kratos session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
-$KRATOS step record-agent "$SESSION_ID" hades sonnet "Debugging ERROR_DESCRIPTION"
+~/.kratos/bin/kratos step record-agent "$SESSION_ID" hades sonnet "Debugging ERROR_DESCRIPTION"
 ```
 
 ---
