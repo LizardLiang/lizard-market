@@ -34,30 +34,31 @@ Before reporting completion:
 
 If the document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 
-**STATUS UPDATES**: Try the Kratos CLI first. If it succeeds, do not also write `status.json` manually.
+**STATUS UPDATES**: Update pipeline status via the Kratos CLI. You MUST use the exact resolver and flags below — do NOT improvise your own command or flags.
 ```bash
-# Resolve binary (cross-platform)
+# STEP 1: Resolve the binary — ALWAYS run this first
 KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
 
-# 1. Run the CLI
-$KRATOS pipeline update --feature <name> --stage 7-implementation --status complete --document implementation-notes.md
+# STEP 2: Update pipeline — replace FEATURE_NAME with the actual feature name
+# Valid flags: --feature, --stage, --status, --document, --verdict
+# There is NO --path flag. Always use --feature with the feature name (not a file path).
+$KRATOS pipeline update --feature FEATURE_NAME --stage 7-implementation --status complete --document implementation-notes.md
 
-# 2. If the command outputs JSON → done, stop here. Do NOT also write status.json manually.
-# 3. If the command is not found or errors → fall back to editing status.json directly.
+# If the command outputs JSON → done. Do NOT also write status.json manually.
+# If the command is not found or errors → fall back to editing status.json directly.
 ```
 
-**SESSION TRACKING**: Record your work in the active Kratos session. At mission start, record your spawn. Record each file you create or modify.
+**SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
-# Get active session ID
+KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
 SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
 # Record your spawn at start
-$KRATOS step record-agent "$SESSION_ID" ares sonnet "<action: e.g. Implementing <feature>>"
+$KRATOS step record-agent "$SESSION_ID" ares sonnet "Implementing FEATURE_NAME"
 
-# Record each file you create or modify (repeat for each file)
-$KRATOS step record-file "$SESSION_ID" "<file-path>" "created"
-$KRATOS step record-file "$SESSION_ID" "<file-path>" "modified"
+# Record each file you create or modify
+$KRATOS step record-file "$SESSION_ID" "path/to/file" "created"
 ```
 
 ---

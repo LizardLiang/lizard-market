@@ -38,19 +38,13 @@ Before reporting completion:
 
 If any document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 
-**SESSION TRACKING**: Record your work in the active Kratos session. At mission start, record your spawn. Record each Arena document you create.
+**SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
-# Resolve binary (cross-platform)
 KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
-
-# Get active session ID
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
 SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
-# Record your spawn at start
 $KRATOS step record-agent "$SESSION_ID" metis sonnet "Researching project codebase for Arena"
-
-# Record each document you create
 $KRATOS step record-file "$SESSION_ID" ".claude/.Arena/project-overview.md" "created"
 $KRATOS step record-file "$SESSION_ID" ".claude/.Arena/tech-stack.md" "created"
 $KRATOS step record-file "$SESSION_ID" ".claude/.Arena/architecture.md" "created"
