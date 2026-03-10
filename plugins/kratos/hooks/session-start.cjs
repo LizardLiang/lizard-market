@@ -182,44 +182,56 @@ function formatContextMessage(info) {
   return lines.join('\n');
 }
 
-// Write resolved binary path to ~/.kratos/bin-path so subagents can find it
-function writeBinPath(binPath) {
-  const binPathFile = path.join(KRATOS_HOME, 'bin-path');
-  try {
-    fs.writeFileSync(binPathFile, binPath.replace(/\\/g, '/'));
-  } catch (e) {}
-}
+// Copy kratos binary to ~/.kratos/bin/ so agents use a single fixed path
+function ensureBinary() {
+  const targetDir = path.join(KRATOS_HOME, 'bin');
+  const isWin = process.platform === 'win32';
+  const targetName = isWin ? 'kratos.exe' : 'kratos';
+  const targetPath = path.join(targetDir, targetName);
 
-// Export KRATOS_BIN to session env and write bin-path file for subagents
-function exportKratosBin() {
-  // Prefer CLAUDE_PLUGIN_ROOT (set by Claude Code when running plugin hooks)
-  const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
-  if (pluginRoot) {
-    const binPath = path.join(pluginRoot, 'bin', 'kratos');
-    writeBinPath(binPath);
-    const envFile = process.env.CLAUDE_ENV_FILE;
-    if (envFile) {
-      fs.appendFileSync(envFile, `export KRATOS_BIN="${binPath}"\n`);
-    }
-    return;
+  // Determine source binary from plugin bin/ directory
+  const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, '..');
+  const srcDir = path.join(pluginRoot, 'bin');
+
+  let srcName;
+  if (isWin) {
+    srcName = 'kratos.exe';
+  } else if (process.platform === 'darwin') {
+    srcName = `kratos-darwin-${os.arch() === 'arm64' ? 'arm64' : 'amd64'}`;
+  } else {
+    srcName = `kratos-linux-${os.arch() === 'arm64' ? 'arm64' : 'amd64'}`;
   }
 
-  // Fallback: find the binary ourselves
-  const kratosBin = findKratosBinary();
-  if (kratosBin) {
-    const resolved = path.resolve(kratosBin);
-    writeBinPath(resolved);
-    const envFile = process.env.CLAUDE_ENV_FILE;
-    if (envFile) {
-      fs.appendFileSync(envFile, `export KRATOS_BIN="${resolved}"\n`);
+  const srcPath = path.join(srcDir, srcName);
+  if (!fs.existsSync(srcPath)) return; // no source binary available
+
+  // Copy if target missing or source is newer
+  let needsCopy = !fs.existsSync(targetPath);
+  if (!needsCopy) {
+    const srcMtime = fs.statSync(srcPath).mtimeMs;
+    const tgtMtime = fs.statSync(targetPath).mtimeMs;
+    needsCopy = srcMtime > tgtMtime;
+  }
+
+  if (needsCopy) {
+    fs.mkdirSync(targetDir, { recursive: true });
+    fs.copyFileSync(srcPath, targetPath);
+    if (!isWin) {
+      fs.chmodSync(targetPath, 0o755);
     }
+  }
+
+  // Export KRATOS_BIN env var for backward compat
+  const envFile = process.env.CLAUDE_ENV_FILE;
+  if (envFile) {
+    fs.appendFileSync(envFile, `export KRATOS_BIN="${targetPath.replace(/\\/g, '/')}"\n`);
   }
 }
 
 // Main
 function main() {
-  exportKratosBin();
   ensureDir();
+  ensureBinary();
 
   // Check for existing active session
   if (fs.existsSync(SESSION_FILE)) {

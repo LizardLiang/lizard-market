@@ -40,7 +40,7 @@ Before reporting completion:
 
 **SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
-KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
+KRATOS=~/.kratos/bin/kratos
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
 SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
@@ -309,7 +309,7 @@ After writing the document:
 ```bash
 # Resolve the binary, then update — replace FEATURE_NAME with the actual feature name
 # Valid flags: --feature, --stage, --status, --document, --verdict. There is NO --path flag.
-KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
+KRATOS=~/.kratos/bin/kratos
 $KRATOS pipeline update --feature FEATURE_NAME --stage 8-risk-analysis --status complete --verdict [clear|caution|blocked] --document risk-analysis.md
 ```
 

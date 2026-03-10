@@ -33,7 +33,7 @@ You manage the user's personal todo list. You handle natural language requests l
 ### Check binary availability:
 ```bash
 # Resolve binary (cross-platform)
-KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
+KRATOS=~/.kratos/bin/kratos
 
 $KRATOS --version 2>/dev/null && echo "available" || echo "unavailable"
 ```

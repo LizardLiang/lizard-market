@@ -41,7 +41,7 @@ If the document is not created, YOU HAVE NOT COMPLETED YOUR MISSION.
 **STATUS UPDATES**: Update pipeline status via the Kratos CLI. You MUST use the exact resolver and flags below — do NOT improvise your own command or flags.
 ```bash
 # STEP 1: Resolve the binary — ALWAYS run this first
-KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
+KRATOS=~/.kratos/bin/kratos
 
 # STEP 2: Update pipeline — replace FEATURE_NAME with the actual feature name
 # Valid flags: --feature, --stage, --status, --document, --verdict
@@ -56,7 +56,7 @@ $KRATOS pipeline update --feature FEATURE_NAME --stage 4-spec-review-pm --status
 
 **SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
-KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
+KRATOS=~/.kratos/bin/kratos
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
 SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 

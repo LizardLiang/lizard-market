@@ -31,7 +31,7 @@ You find the wound. Others heal it.
 
 **SESSION TRACKING**: Record your work in the active Kratos session.
 ```bash
-KRATOS=$(cat ~/.kratos/bin-path 2>/dev/null || echo kratos)
+KRATOS=~/.kratos/bin/kratos
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
 SESSION_ID=$($KRATOS session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
