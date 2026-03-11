@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" hook prompt-submit 2>/dev/null || ~/.kratos/bin/kratos hook prompt-submit",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" hook prompt-submit || ~/.kratos/bin/kratos hook prompt-submit",
             "timeout": 5000
           }
         ]

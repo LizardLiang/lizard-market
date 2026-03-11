@@ -11,6 +11,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// debugLog writes a message to stderr (visible in Claude Code debug mode)
+func debugLog(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, "[kratos-hook] "+format+"\n", args...)
+}
+
 // hookInput is the JSON Claude Code sends on stdin for UserPromptSubmit
 type hookInput struct {
 	Prompt    string `json:"prompt"`
@@ -97,12 +102,13 @@ func promptSubmitCmd() *cobra.Command {
 func handlePromptSubmit() error {
 	raw, err := io.ReadAll(os.Stdin)
 	if err != nil {
+		debugLog("stdin read error: %v", err)
 		return outputPassthrough()
 	}
 
 	var input hookInput
 	if err := json.Unmarshal(raw, &input); err != nil {
-		// Can't parse — pass through silently
+		debugLog("json parse error: %v", err)
 		return outputPassthrough()
 	}
 
@@ -120,6 +126,8 @@ func handlePromptSubmit() error {
 	if len(matched) == 0 {
 		return outputPassthrough()
 	}
+
+	debugLog("matched keywords: %v", matched)
 
 	// Build injection context
 	context := buildInjectionContext(matched)
