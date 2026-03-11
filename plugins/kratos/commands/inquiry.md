@@ -1,4 +1,5 @@
 ---
+name: inquiry
 description: Route questions to Metis (project), Clio (git), or Mimir (external research)
 ---
 
@@ -53,6 +54,8 @@ Check user input for mode keywords FIRST:
 ---
 
 ## Inquiry Classification
+
+> **Note**: The authoritative intent classification table is in `plugins/kratos/commands/main.md` Step 0. Inquiry mode handles only the information-seeking subset.
 
 Analyze the user's request to determine the target agent:
 

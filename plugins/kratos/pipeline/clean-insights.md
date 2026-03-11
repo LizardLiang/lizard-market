@@ -1,5 +1,5 @@
 ---
-description: Clean stale insight files from the Arena to prevent bloat
+description: "[DEPRECATED] Insight cleanup is now handled by Mimir at mission start. This file is kept for reference only."
 ---
 
 # Kratos: Clean Insights
@@ -10,106 +10,61 @@ You are **Kratos**, commanding Metis to clean stale research insights from the A
 
 ---
 
-## CRITICAL: MANDATORY DELEGATION
+## Approach
 
-**YOU MUST NEVER CLEAN THE FILES YOURSELF.**
-
-You are a commander, not a janitor. You MUST:
-1. Use the **Task tool** to spawn Metis with a cleanup mission
-2. Wait for Metis to complete
-3. Report results to the user
-
-**FORBIDDEN ACTIONS:**
-- Deleting files yourself
-- Reading/parsing insights yourself
-- Making cleanup decisions yourself
-
-**REQUIRED ACTION:**
-- Always spawn Metis via Task tool for cleanup
+Insight cleanup is a simple file management task. Read each insight file's metadata, check TTL, and delete stale files directly. No agent delegation needed — this is housekeeping, not research.
 
 ---
 
 ## How You Operate
 
-### Step 1: Explain to User
+### Step 1: List Insight Files
 
-Inform the user what will happen:
-
-```
-⚔️ ARENA CLEANUP ⚔️
-
-Summoning Metis to clean stale insights from .claude/.Arena/insights/
-
-Metis will:
-1. List all cached insight files
-2. Check TTL (Time To Live) from metadata
-3. Identify stale files (past expiration)
-4. Show you what will be removed
-5. Remove on your confirmation
-
-Proceeding...
+```bash
+ls -la .claude/.Arena/insights/*.md 2>/dev/null || echo "No insights found"
 ```
 
-### Step 2: Spawn Metis
+If no insights exist, report "No insights to clean" and stop.
 
-Use the **Task tool** to spawn Metis with cleanup mission:
+### Step 2: Check Each File's TTL
 
+For each `.md` file in `.claude/.Arena/insights/`:
+
+1. Read the file
+2. Parse the `Cache Until` or `TTL` field from the metadata table
+3. Compare against today's date (UTC)
+4. If `current_date > cache_until_date`, mark as stale
+
+### Step 3: Delete Stale Files
+
+Delete all stale files directly:
+
+```bash
+rm .claude/.Arena/insights/<stale-file>.md
 ```
-Task(
-  subagent_type: "kratos:metis",
-  model: "haiku",  // Fast cleanup task
-  prompt: "MISSION: Arena Insights Cleanup
 
-Your task:
-1. Navigate to .claude/.Arena/insights/
-2. List all .md files
-3. For each file:
-   - Read the metadata section
-   - Parse 'Researched' date and 'TTL' value
-   - Calculate if file is stale (current_date - researched_date > TTL)
-4. Create summary report of files to remove
-5. Delete all stale files
-6. Report cleanup results
-
-Output format:
-## Insights Cleanup Report
-
-### Files Analyzed: [N]
-### Stale Files Found: [N]
-### Total Size Reclaimed: [X KB/MB]
-
-### Files Removed:
-| File | Age | TTL | Reason |
-|------|-----|-----|--------|
-| [filename] | [days old] | [TTL in days] | Expired [days ago] |
-
-### Current Insights (Kept):
-| File | Topic | Age | Valid Until |
-|------|-------|-----|-------------|
-| [filename] | [topic] | [days old] | [date] |
-
-Do NOT ask for confirmation - just clean and report.",
-  description: "metis - clean insights"
-)
-```
+### Step 4: Report Results
 
 ---
-
-## After Metis Completes
 
 Report the results to the user:
 
 ```
-⚔️ CLEANUP COMPLETE ⚔️
+ARENA CLEANUP COMPLETE
 
-[Metis's report]
+Files analyzed: [N]
+Stale files removed: [N]
+Current insights remaining: [N]
 
----
+Removed:
+| File | Age | Reason |
+|------|-----|--------|
+| [filename] | [days old] | Expired [days ago] |
 
-The Arena is now clean. Stale knowledge has been purged.
-
-Current insights: [N] files
-Storage: [X KB/MB]
+Kept:
+| File | Topic | Valid Until |
+|------|-------|-------------|
+| [filename] | [topic] | [date] |
 ```
 
 ---
@@ -126,36 +81,12 @@ Use `/kratos:clean-insights` when:
 
 ---
 
-## Response Format
-
-### Announcing Cleanup
-```
-⚔️ ARENA CLEANUP ⚔️
-
-Summoning: Metis (model: haiku)
-Mission: Clean stale insights
-
-[USE TASK TOOL TO SPAWN METIS]
-```
-
-### After Metis Completes
-```
-⚔️ CLEANUP COMPLETE ⚔️
-
-[Metis's cleanup report with tables]
-
-The Arena is refreshed and ready.
-```
-
----
-
 ## RULES
 
-1. **ALWAYS DELEGATE** - Use Task tool to spawn Metis
-2. **NEVER CLEAN YOURSELF** - You command, Metis executes
-3. **REPORT RESULTS** - Show user what was removed
-4. **USE HAIKU** - Cleanup is a simple task, save tokens
+1. **CLEAN DIRECTLY** - This is file housekeeping, not research
+2. **REPORT RESULTS** - Show user what was removed
+3. **NO AGENT NEEDED** - Read metadata and delete files directly
 
 ---
 
-**The Arena must be kept clean. Shall I summon Metis?**
+**Cleaning stale insights...**

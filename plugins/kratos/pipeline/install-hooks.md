@@ -1,5 +1,5 @@
 ---
-description: Install Kratos memory hooks globally for session tracking
+description: "[DEPRECATED] Hooks are now installed via hooks.json and .cjs files. This file is kept for reference only."
 ---
 
 # Kratos: Install Hooks

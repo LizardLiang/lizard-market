@@ -1,6 +1,6 @@
 ---
 name: integrate-arena-deltas
-description: Integrate feature deltas into Master Arena after feature merges to main
+description: "[DEPRECATED] Arena delta integration is not currently referenced by any command or agent. This file is kept for reference only."
 ---
 
 # Integrate Arena Deltas Command
@@ -60,6 +60,8 @@ deltas = parse_delta_sections(delta_content)
 ```
 
 ### Step 3: Update Master Arena Documents
+
+If an Arena document referenced by a delta does not exist, create it using the template from `plugins/kratos/templates/arena-templates.md`. If the template is unavailable, create a minimal document with YAML frontmatter and the relevant content.
 
 For each Arena document that needs updates:
 
@@ -173,67 +175,38 @@ for arena_file in glob(".claude/.Arena/*.md"):
     })
 ```
 
-### Step 5: Commit Arena Changes
-
-```python
-# Stage all Arena updates
-git("add .claude/.Arena/")
-
-# Create descriptive commit
-commit_message = f"""Arena: Integrate {feature_name} feature discoveries
-
-Integrated from: .claude/feature/{feature_name}/arena-deltas.md
-
-Changes:
-{format_changes_summary(deltas)}
-
-Updated Arena documents:
-{list_updated_files()}
-"""
-
-git(f'commit -m "{commit_message}"')
-
-print(f"✅ Arena updated with {feature_name} discoveries")
-print(f"   Commit: {git('rev-parse --short HEAD')}")
-```
-
-### Step 6: Delete Feature Delta File
+### Step 5: Delete Feature Delta File
 
 ```python
 # Delta has been integrated, remove it
 delta_file = f".claude/feature/{feature_name}/arena-deltas.md"
 os.remove(delta_file)
 
-print(f"🗑️ Removed {delta_file} (now in Master Arena)")
+print(f"Removed {delta_file} (now in Master Arena)")
 ```
 
-### Step 7: Summary Output
+**Note**: Do NOT auto-commit. The user decides when to commit Arena changes. Report what files were modified so the user can review and commit when ready.
+
+### Step 6: Summary Output
 
 ```
-✅ ARENA INTEGRATION COMPLETE
+ARENA INTEGRATION COMPLETE
 
 Feature: {feature_name}
-Base Arena Hash: {old_hash}
-Updated Arena Hash: {new_hash}
 
 Documents Updated:
-  ✓ tech-stack.md - Added {N} dependencies
-  ✓ architecture.md - Documented {N} new services
-  ✓ file-structure.md - Added {N} directories
-  ○ conventions.md - No changes needed
-  ○ project-overview.md - No changes needed
-
-Changes Committed:
-  Commit: {commit_hash}
-  Message: "Arena: Integrate {feature_name} feature discoveries"
+  - tech-stack.md - Added {N} dependencies
+  - architecture.md - Documented {N} new services
+  - file-structure.md - Added {N} directories
+  - conventions.md - No changes needed
+  - project-overview.md - No changes needed
 
 Cleanup:
-  ✓ Removed {delta_file}
+  - Removed {delta_file}
 
 Next Steps:
-  - Arena is now current for main branch
+  - Review Arena changes and commit when ready
   - Future features will use updated Arena
-  - Consider running /kratos:refresh-arena monthly
 ```
 
 ---

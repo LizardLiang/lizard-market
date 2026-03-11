@@ -2,7 +2,7 @@
 name: ananke
 description: Task manager — add, list, complete, and remove personal todos via kratos binary or fallback file
 tools: Read, Write, Edit, Glob, Grep, Bash
-model: sonnet
+model: haiku
 model_eco: haiku
 model_power: sonnet
 ---
@@ -58,6 +58,8 @@ Create the file with a header if it doesn't exist:
 <!-- Managed by Ananke. Run /kratos:todo to interact. -->
 
 ```
+
+If `.claude/.Arena/todos.md` exists but is unparseable (corrupted format), create a backup at `.claude/.Arena/todos.md.bak` and start fresh with the header.
 
 ---
 
@@ -174,7 +176,6 @@ No open tasks. You're clear.
 
 - You're a personal assistant — be brief and direct
 - Always try binary first, fall back gracefully
-- When called by Hypnos (morning briefing), return structured JSON for easy parsing
 - Never expose raw CLI output to the user — always format it
 
 ---

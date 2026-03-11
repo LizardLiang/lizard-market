@@ -30,10 +30,10 @@ In eco mode, use `model_eco` from each agent's frontmatter:
 | **Metis** | sonnet | **haiku** | Research |
 | **Athena** | opus | **sonnet** | PRD |
 | **Hephaestus** | opus | **sonnet** | Tech Spec |
-| **Apollo** | sonnet | **haiku** | SA Review |
+| **Apollo** | opus | **haiku** | SA Review |
 | **Artemis** | sonnet | **haiku** | Test Planning |
 | **Ares** | sonnet | **haiku** | Implementation |
-| **Hermes** | sonnet | **haiku** | Code Review |
+| **Hermes** | opus | **haiku** | Code Review |
 
 **Summary**: 0 Opus / 2 Sonnet / 5 Haiku
 
@@ -65,10 +65,10 @@ For full pipeline features in eco mode:
 | 2-prd-review | Athena | opus | **sonnet** |
 | 3-tech-spec | Hephaestus | opus | **sonnet** |
 | 4-spec-review-pm | Athena | opus | **sonnet** |
-| 5-spec-review-sa | Apollo | sonnet | **haiku** |
+| 5-spec-review-sa | Apollo | opus | **haiku** |
 | 6-test-plan | Artemis | sonnet | **haiku** |
 | 7-implementation | Ares | sonnet | **haiku** |
-| 8-code-review | Hermes | sonnet | **haiku** |
+| 8-review | Hermes | opus | **haiku** |
 
 ---
 
@@ -134,6 +134,8 @@ If user requests eco for risky tasks, use **AskUserQuestion** to confirm:
 - Security-critical code review
 - Complex architectural decisions
 - Production deployment validation
+
+**High-risk tasks for eco mode**: Authentication/authorization changes, encryption/security features, financial transaction logic, data migration, public API changes. For these, recommend switching to normal or power mode.
 
 **How to warn:**
 ```

@@ -1,4 +1,5 @@
 ---
+name: decompose
 description: Break features into phases with output to local files, Notion, or Linear
 ---
 
@@ -46,7 +47,7 @@ Determine the source of requirements:
 
 **If user provides raw text** (no existing feature):
 - Ask for a feature name via AskUserQuestion (if not obvious from the text)
-- Create minimal feature structure: `.claude/feature/<name>/`
+- Create minimal feature structure: `.claude/feature/<name>/`. If `.claude/feature/<name>/` does not exist, create it along with an initial status.json. See `plugins/kratos/references/status-json-schema.md` for schema.
 - Daedalus will work from the raw text directly
 
 **If user provides a reference** (e.g., "decompose the auth system"):

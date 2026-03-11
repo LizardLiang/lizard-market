@@ -1,4 +1,5 @@
 ---
+name: audit
 description: Pre-ship risk audit — security, breaking changes, scalability, dependency CVEs
 ---
 

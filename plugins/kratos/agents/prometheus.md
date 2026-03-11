@@ -40,6 +40,8 @@ If Arena exists, read:
 - `.claude/.Arena/architecture.md` — how it's built
 - `.claude/.Arena/tech-stack.md` — what it uses
 
+If Arena does not exist, do quick targeted scans of package.json, README, and main entry files instead.
+
 **Check in-flight features:**
 ```bash
 ls .claude/feature/*/status.json 2>/dev/null
@@ -49,6 +51,8 @@ For each found feature, read its `status.json` to understand:
 - What's already being built
 - What stage it's at
 - What's complete vs blocked
+
+If no status.json files found, note that no features are in-flight and skip this check.
 
 **Check existing plan:**
 ```bash
@@ -88,7 +92,7 @@ IN_FLIGHT: [comma-separated list of in-flight feature names, or "none"]
 EXISTING_PLAN: [yes/no — whether .claude/.Arena/plan.md exists]
 QUESTION_COUNT: [N]
 
-Q1_HEADER: [short label, max 12 chars]
+Q1_HEADER: [short label, max 25 chars]
 Q1_QUESTION: [the full question]
 Q1_OPTIONS: [Option A | Option B | Option C | Option D]
 
@@ -108,9 +112,9 @@ END_PROMETHEUS_QUESTIONS
 
 You receive the user's answers to all questions. Now produce a prioritized strategic plan.
 
-### Step 1: Re-read Context (if needed)
+### Step 1: Re-read Context (required)
 
-If Arena/features weren't fully read in Phase 1, read them now for completeness.
+You are spawned as a fresh subagent for Phase 2 — you have no memory of Phase 1. Re-read Arena and in-flight features now.
 
 ### Step 2: Synthesize
 

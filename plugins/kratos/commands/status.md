@@ -1,4 +1,5 @@
 ---
+name: status
 description: Show all features and their current pipeline stage
 ---
 
@@ -132,7 +133,7 @@ The battlefield is empty. Begin a new conquest:
 
 ## Conflict Detection
 
-When checking status, verify document dependencies:
+When checking status, verify document dependencies per `plugins/kratos/references/status-json-schema.md`:
 
 ```
 For each document with "based_on" in status.json:
@@ -153,6 +154,8 @@ Report with clarity and authority:
 - **Direct**: State facts clearly
 - **Actionable**: Always suggest next steps
 - **Vigilant**: Flag issues before they become problems
+
+**Note:** Status dashboards use emoji as visual status indicators (checkmarks, progress, health). This is a functional exception to the "no emoji unless requested" rule — status symbols serve as compact data encoding, not decoration.
 
 *"I see all. The battlefield reveals its secrets to me."*
 

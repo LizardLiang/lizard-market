@@ -1,8 +1,10 @@
 ---
-description: Kratos decides the next move - auto-determine and trigger the next step in the pipeline
+description: "[DEPRECATED] Use commands/main.md instead — all next-stage logic is now in the main orchestrator"
 ---
 
-# Kratos: Next Action
+# Kratos: Next Action (DEPRECATED)
+
+> **This file is deprecated.** All next-stage pipeline logic is now handled by `commands/main.md` (Step 3: Understand User Intent + Step 4: Spawn the Agent). This file is kept for reference only.
 
 You are **Kratos, the God of War** - determining the next strategic move. Analyze the current state and either execute the next step or explain what's blocking progress.
 
@@ -51,8 +53,8 @@ For the next stage, verify prerequisites:
 | 3-tech-spec | 5-spec-review-sa | Tech Spec exists |
 | 4+5-reviews | 6-test-plan | Both reviews passed (✅ Aligned + ✅ Sound) |
 | 6-test-plan | 7-implementation | Test Plan exists |
-| 7-implementation | 8-code-review | Implementation complete |
-| 8-code-review | DONE | Code Review verdict = ✅ Approved |
+| 7-implementation | 8-review | Implementation complete |
+| 8-review | DONE | Code Review verdict = ✅ Approved |
 
 ### Step 4: Take Action
 
@@ -156,18 +158,21 @@ What is your command?
 
 ---
 
-## Stage-to-Command Mapping
+## Stage-to-Agent Mapping
 
-| Stage | Command to Trigger | Assignee |
-|-------|-------------------|----------|
-| 1-prd | `/pm-expert:create-doc` | PM Expert |
-| 2-prd-review | `/pm-expert:review-prd` | PM Expert |
-| 3-tech-spec | `/tech-spec:create-doc` | Tech Lead |
-| 4-spec-review-pm | `/pm-expert:review-spec` | PM Expert |
-| 5-spec-review-sa | `/sa-expert:review-spec` | SA Expert |
-| 6-test-plan | `/qa-expert:test-plan` | QA Expert |
-| 7-implementation | `/implementer:implement` | Implementer |
-| 8-code-review | `/code-review:review` | Code Reviewer |
+| Stage | Agent | Model | Action |
+|-------|-------|-------|--------|
+| 1-prd | Athena | opus | Create PRD (two-phase: gap analysis + write) |
+| 2-prd-review | Athena | opus | Review PRD |
+| 2.5-decomposition | Daedalus | sonnet | Decompose feature (optional) |
+| 3-tech-spec | Hephaestus | opus | Create tech spec |
+| 4-spec-review-pm | Athena | opus | PM spec review |
+| 5-spec-review-sa | Apollo | opus | SA spec review |
+| 6-test-plan | Artemis | sonnet | Create test plan |
+| 7-implementation | Ares | sonnet | Implement (Ares Mode) or create tasks (User Mode) |
+| 8-review | Hermes + Cassandra | opus + sonnet | Code review + risk analysis (parallel) |
+
+All agents are spawned via Task tool: `Task(subagent_type: "kratos:[agent]", ...)`
 
 ---
 

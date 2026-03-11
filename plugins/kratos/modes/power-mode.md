@@ -31,10 +31,10 @@ In power mode, ALL agents use Opus:
 | **Metis** | sonnet | **opus** | Research |
 | **Athena** | opus | **opus** | PRD |
 | **Hephaestus** | opus | **opus** | Tech Spec |
-| **Apollo** | sonnet | **opus** | SA Review |
+| **Apollo** | opus | **opus** | SA Review |
 | **Artemis** | sonnet | **opus** | Test Planning |
 | **Ares** | sonnet | **opus** | Implementation |
-| **Hermes** | sonnet | **opus** | Code Review |
+| **Hermes** | opus | **opus** | Code Review |
 
 **Summary**: 7 Opus / 0 Sonnet / 0 Haiku
 
@@ -66,10 +66,10 @@ For full pipeline features in power mode:
 | 2-prd-review | Athena | opus | **opus** |
 | 3-tech-spec | Hephaestus | opus | **opus** |
 | 4-spec-review-pm | Athena | opus | **opus** |
-| 5-spec-review-sa | Apollo | sonnet | **opus** |
+| 5-spec-review-sa | Apollo | opus | **opus** |
 | 6-test-plan | Artemis | sonnet | **opus** |
 | 7-implementation | Ares | sonnet | **opus** |
-| 8-code-review | Hermes | sonnet | **opus** |
+| 8-review | Hermes | opus | **opus** |
 
 ---
 
@@ -81,6 +81,8 @@ Power mode is ideal for:
 - **Production deployments** - Critical path validation
 - **Deep debugging** - Mysterious issues requiring deep analysis
 - **Important code reviews** - Critical PR reviews
+
+**When to avoid power mode**: Simple bug fixes, documentation updates, test additions, and other focused tasks. Power mode's cost is justified only when the extra reasoning quality of Opus meaningfully impacts the outcome.
 
 ---
 

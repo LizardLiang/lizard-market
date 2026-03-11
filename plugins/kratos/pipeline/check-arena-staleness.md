@@ -76,76 +76,37 @@ fi
 
 ### Step 5: Show Interactive Prompt (if needed)
 
-```python
-if severity in ["WARNING", "CRITICAL"]:
-    user_choice = AskUserQuestion(
-        question=f"""
-⚠️ ARENA STALENESS DETECTED ({severity})
+If severity is **WARNING** or **CRITICAL**, use `AskUserQuestion` to present the staleness info and let the user decide:
 
-Your Master Arena is outdated:
-  📅 Last Updated: {arena_date} ({days_old} days ago)
-  📊 Commits Behind: {commits_behind} commits (>{threshold} threshold)
-  🔀 Git Hash: {arena_hash[:8]} → {current_hash[:8]}
-
-Stale Sections:
-{format_stale_sections(stale_sections)}
-
-Impact if you continue without refresh:
-  ⚠️ Agents will use outdated project context
-  ⚠️ Risk of design decisions based on old assumptions
-  ⚠️ Higher token cost during pipeline (more verification needed)
-  ⚠️ Estimated extra cost: ~30-50K tokens
-
-Refresh Arena Now ({"strongly recommended" if severity == "CRITICAL" else "recommended"}):
-  ✓ Ensures accurate foundation for your feature
-  ✓ Reduces verification overhead in pipeline
-  ✓ Time: ~2-3 minutes
-  ✓ Cost: ~75K tokens (~$0.15 in Normal mode)
-  ✓ Net savings: ~$0.05-$0.10 + reduced risk
-
-What would you like to do?
-        """,
-        options=[
-            {
-                "label": "Refresh Arena Now (Recommended)",
-                "value": "refresh",
-                "description": "Run Metis to update Master Arena before continuing"
-            },
-            {
-                "label": "Continue with Stale Arena",
-                "value": "continue",
-                "description": "Proceed anyway - agents will verify more (higher cost)"
-            },
-            {
-                "label": "Show Detailed Report",
-                "value": "report",
-                "description": f"See exactly what changed in those {commits_behind} commits"
-            }
-        ]
-    )
-    
-    handle_user_choice(user_choice)
 ```
+AskUserQuestion(
+  question: "ARENA STALENESS DETECTED (<severity>)\n\nYour Master Arena is outdated:\n  Last Updated: <arena_date> (<days_old> days ago)\n  Commits Behind: <commits_behind>\n  Git Hash: <arena_hash_short> → <current_hash_short>\n\nStale Sections:\n  <list stale sections from Step 4>\n\nImpact if you continue without refresh:\n  - Agents will use outdated project context\n  - Risk of design decisions based on old assumptions\n  - Higher token cost (~30-50K extra tokens for verification)\n\nRefresh now takes ~2-3 minutes and ~75K tokens.",
+  options: [
+    "Refresh Arena Now (Recommended) — Run Metis to update Master Arena before continuing",
+    "Continue with Stale Arena — Proceed anyway, agents will verify more",
+    "Show Detailed Report — See exactly what changed in those commits"
+  ]
+)
+```
+
+Handle the user's choice as described below.
 
 ---
 
 ## User Choice Handling
 
-### Choice: "refresh"
+### Choice: "Refresh Arena Now"
 
-```python
-print("⚔️ KRATOS: Summoning METIS to refresh Arena...")
-print()
+Spawn Metis to refresh the Arena:
 
-# Spawn Metis for full Arena refresh
-spawn_task(
-    subagent_type="kratos:metis",
-    prompt="""
-MISSION: Refresh Master Arena
-
+```
+Task(
+  subagent_type: "kratos:metis",
+  model: "opus",
+  prompt: "MISSION: Refresh Master Arena
 TARGET: Full project analysis
 MODE: FULL_RESEARCH
-GIT_HASH: {current_hash}
+GIT_HASH: <current_hash>
 
 Analyze the codebase and update ALL Arena documents:
 - project-overview.md
@@ -155,44 +116,29 @@ Analyze the codebase and update ALL Arena documents:
 - conventions.md
 
 Calculate confidence scores for each section.
-Update git_hash metadata to current commit.
-    """,
-    description="metis - refresh arena"
+Update git_hash metadata to current commit.",
+  description: "metis - refresh arena"
 )
-
-print("✅ Arena refreshed successfully!")
-print(f"   Updated from {arena_hash[:8]} to {current_hash[:8]}")
-print(f"   All 5 Arena documents are now current")
-print()
-return "proceed_with_fresh_arena"
 ```
 
-### Choice: "continue"
+After Metis completes, report refresh summary and return `"proceed_with_fresh_arena"`.
 
-```python
-print("⚠️ Proceeding with stale Arena (as requested)")
-print()
-print("Mitigation strategy:")
-print("  • Agents will double verification rates (10% → 20%)")
-print("  • Feature deltas will capture discoveries")
-print("  • You can refresh anytime: /kratos:refresh-arena")
-print()
+### Choice: "Continue with Stale Arena"
 
-# Set enhanced verification for this pipeline
-set_pipeline_config("verification_multiplier", 2.0)
-set_pipeline_config("trust_threshold", "medium_or_higher")
+Inform the user of mitigation:
+```
+Proceeding with stale Arena (as requested).
 
-return "proceed_with_stale_arena"
+Mitigation strategy:
+  - Feature deltas will capture discoveries
+  - You can refresh anytime with /kratos:inquiry (Metis research mode)
 ```
 
-### Choice: "report"
+Return `"proceed_with_stale_arena"`.
 
-```python
-show_detailed_staleness_report(arena_hash, current_hash, changed_files)
+### Choice: "Show Detailed Report"
 
-# Ask again after showing report
-return check_arena_staleness()
-```
+Display the detailed staleness report (see below), then re-prompt the user with the same AskUserQuestion (minus the report option).
 
 ---
 
@@ -266,7 +212,7 @@ Arena refresh is STRONGLY RECOMMENDED due to:
 
 Estimated Refresh Cost:
   Time: 2-3 minutes
-  Tokens: ~75K tokens (~$0.15 in Normal mode)
+  Tokens: ~75K tokens (~$0.15 in Normal mode, based on typical Opus token usage for a FULL_RESEARCH Metis spawn at standard API pricing)
 
 Proceeding without refresh:
   - Agents will spend extra tokens verifying outdated claims

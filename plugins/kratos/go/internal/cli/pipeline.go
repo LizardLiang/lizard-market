@@ -211,7 +211,7 @@ func pipelineInit(feature, description, priority string) error {
 					"condition": "test-plan exists",
 				},
 			},
-			"8-code-review": map[string]interface{}{
+			"8-review": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "code-review",
 				"started":   nil,

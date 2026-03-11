@@ -1,6 +1,6 @@
 -- Kratos Memory System Schema
 -- Lightweight, fast memory for tracking agent journeys
--- Storage: .claude/.kratos/memory.db
+-- Storage: ~/.kratos/memory.db
 
 PRAGMA journal_mode = WAL;          -- Write-ahead logging for performance
 PRAGMA synchronous = NORMAL;        -- Balance safety and speed

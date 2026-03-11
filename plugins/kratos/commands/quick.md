@@ -1,4 +1,5 @@
 ---
+name: quick
 description: Route simple tasks (tests, fixes, reviews) directly to agents
 ---
 
@@ -40,7 +41,7 @@ Check user input for mode keywords FIRST:
 |-------|--------|-----|-------|
 | **Artemis** (tests) | sonnet | haiku | opus |
 | **Ares** (fix/refactor/docs) | sonnet | haiku | opus |
-| **Hermes** (review) | sonnet | haiku | opus |
+| **Hermes** (review) | opus | haiku | opus |
 | **Metis** (research) | sonnet | haiku | opus |
 | **Daedalus** (decompose) | sonnet | haiku | opus |
 | **Hades** (debug) | sonnet | haiku | opus |
@@ -64,19 +65,11 @@ Analyze the user's request to determine the target agent:
 | **Small Features** | "add", "implement" + specific function/method | Ares |
 | **Decomposition** | "decompose", "break down", "split into tasks", "break into phases", "work breakdown" | Daedalus |
 
-### Information Requests (Inquiry Mode - Redirect)
+### Information Requests (Redirect to Inquiry Mode)
 
-**IMPORTANT**: If the request is information-seeking rather than work-doing, redirect to `/kratos:inquiry`:
+**IMPORTANT**: If the request is information-seeking (what/who/when/where questions, best practices, documentation lookup) rather than work-doing, redirect to `/kratos:inquiry`. See `plugins/kratos/commands/inquiry.md` for the full classification table and agent routing.
 
-| Inquiry Type | Keywords/Patterns | Redirect To |
-|--------------|-------------------|-------------|
-| **Project Info** | "what does", "how is", "explain", "describe project" | /kratos:inquiry → Metis |
-| **Git History** | "git blame", "who wrote", "when changed", "commit history", "recent changes" | /kratos:inquiry → Clio |
-| **Tech Stack** | "what version", "dependencies", "libraries", "tech stack" | /kratos:inquiry → Metis |
-| **Best Practices** | "best practice", "how do others", "github example", "popular approach" | /kratos:inquiry → Mimir |
-| **Documentation** | "find docs", "documentation for", "how to use", "API for" | /kratos:inquiry → Mimir |
-| **Security** | "vulnerability", "security advisory", "CVE", "security issue" | /kratos:inquiry → Mimir |
-| **Code Exploration** | "find where", "show all", "list", "locate" | /kratos:inquiry → Metis |
+> **Note**: The authoritative intent classification table is in `plugins/kratos/commands/main.md` Step 0. Quick mode handles only the SIMPLE task subset. When in doubt, refer to `main.md`.
 
 ---
 
@@ -282,6 +275,8 @@ Task(
 )
 ```
 
+If the user declines the review, the task is complete.
+
 ---
 
 ## Examples
@@ -343,7 +338,7 @@ QUICK TASK
 
 Request: Understand caching system
 Classification: Research
-Target Agent: Metis (model: opus)
+Target Agent: Metis (model: sonnet)
 
 Summoning Metis...
 
@@ -354,27 +349,13 @@ Summoning Metis...
 
 ## When to Redirect to Inquiry Mode
 
-If the request is **information-seeking** rather than **work-doing**, redirect to `/kratos:inquiry`:
-
-```
-User: "What does this project do?"
-
-Kratos:
-This is an information request, not a work task.
-Redirecting to inquiry mode...
-
-[Execute as if /kratos:inquiry was invoked]
-```
+If the request is **information-seeking** rather than **work-doing**, redirect to `/kratos:inquiry`.
 
 **Key distinction:**
 - **Inquiry** = Wants to know/understand something (no code changes)
 - **Quick Task** = Wants work done (code changes, tests, reviews)
 
-**Examples:**
-- "Who wrote this?" → INQUIRY (Clio)
-- "Fix this bug" → QUICK TASK (Ares)
-- "Best practice for X?" → INQUIRY (Mimir)
-- "Refactor this function" → QUICK TASK (Ares)
+See `plugins/kratos/commands/inquiry.md` for the full inquiry classification table.
 
 ## When to Redirect to Full Pipeline
 

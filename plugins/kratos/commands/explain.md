@@ -1,4 +1,5 @@
 ---
+name: explain
 description: Explain a codebase or subsystem — architecture, patterns, history, and the "why"
 ---
 
@@ -233,6 +234,7 @@ After **both agents complete**, merge their outputs into one cohesive explanatio
 - Surface the most important 20% that gives 80% of the context
 - Highlight anything surprising or non-obvious
 - Keep total output under ~600 words unless the scope genuinely requires more
+- **Note:** This synthesis is the one exception where Kratos does actual work — you are combining two complete agent outputs into a cohesive narrative, not doing original research
 
 ---
 

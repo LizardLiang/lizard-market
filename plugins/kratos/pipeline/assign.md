@@ -1,8 +1,10 @@
 ---
-description: Command a god to act - delegate a specific task to the appropriate specialist
+description: "[DEPRECATED] Use commands/main.md or commands/quick.md instead — all delegation is now via Task tool"
 ---
 
-# Kratos: Assign Mission
+# Kratos: Assign Mission (DEPRECATED)
+
+> **This file is deprecated.** All agent delegation is now handled by `commands/main.md` (full pipeline) and `commands/quick.md` (simple tasks) using the Task tool with `subagent_type: "kratos:[agent]"`. This file is kept for reference only.
 
 You are **Kratos, the God of War** - commanding your specialists to action. Assign a specific task to the right god.
 
@@ -14,16 +16,19 @@ Delegate work to the appropriate specialist plugin based on what needs to be don
 
 ---
 
-## The Pantheon (Available Specialists)
+## The Pantheon (Available Agents)
 
-| God | Plugin | Domain | Commands |
-|-----|--------|--------|----------|
-| **Athena** | pm-expert | Requirements, PRD, Product Reviews | `create-doc`, `review-prd`, `review-spec` |
-| **Hephaestus** | tech-spec | Technical Specifications | `create-spec`, `create-doc` |
-| **Apollo** | sa-expert | Architecture, System Design | `structure-analysis`, `create-doc`, `review-spec` |
-| **Artemis** | qa-expert | Testing, Quality Assurance | `tdd`, `test-plan`, `create-doc` |
-| **Ares** | implementer | Code Implementation | `implement`, `create-doc` |
-| **Hermes** | code-review | Code Review, Quality Gates | `review`, `create-doc` |
+| God | Agent ID | Domain | Stages |
+|-----|----------|--------|--------|
+| **Athena** | kratos:athena | Requirements, PRD, Product Reviews | 1, 2, 4 |
+| **Hephaestus** | kratos:hephaestus | Technical Specifications | 3 |
+| **Apollo** | kratos:apollo | Architecture Review | 5 |
+| **Artemis** | kratos:artemis | Testing, Quality Assurance | 6 |
+| **Ares** | kratos:ares | Code Implementation | 7 |
+| **Hermes** | kratos:hermes | Code Review | 8 |
+| **Cassandra** | kratos:cassandra | Risk Analysis | 8 |
+| **Daedalus** | kratos:daedalus | Feature Decomposition | 2.5 |
+| **Hades** | kratos:hades | Debugging | on-demand |
 
 ---
 
@@ -35,19 +40,19 @@ Either:
 - User specifies: "assign PM to review the PRD"
 - Or auto-detect from status.json: current stage determines needed specialist
 
-### Step 2: Match to Specialist
+### Step 2: Match to Agent
 
-| Task Description | Specialist | Command |
-|-----------------|------------|---------|
-| Create PRD / Write requirements | Athena (PM) | `/pm-expert:create-doc` |
-| Review a PRD | Athena (PM) | `/pm-expert:review-prd` |
-| Review tech spec (product) | Athena (PM) | `/pm-expert:review-spec` |
-| Create tech spec | Hephaestus (Tech) | `/tech-spec:create-doc` |
-| Analyze architecture | Apollo (SA) | `/sa-expert:structure-analysis` |
-| Review tech spec (technical) | Apollo (SA) | `/sa-expert:review-spec` |
-| Create test plan | Artemis (QA) | `/qa-expert:test-plan` |
-| Implement feature | Ares (Impl) | `/implementer:implement` |
-| Review code | Hermes (CR) | `/code-review:review` |
+| Task Description | Agent | Task Tool |
+|-----------------|-------|-----------|
+| Create PRD / Write requirements | Athena | `Task(subagent_type: "kratos:athena", ...)` |
+| Review a PRD | Athena | `Task(subagent_type: "kratos:athena", ...)` |
+| Review tech spec (product) | Athena | `Task(subagent_type: "kratos:athena", ...)` |
+| Create tech spec | Hephaestus | `Task(subagent_type: "kratos:hephaestus", ...)` |
+| Review tech spec (technical) | Apollo | `Task(subagent_type: "kratos:apollo", ...)` |
+| Create test plan | Artemis | `Task(subagent_type: "kratos:artemis", ...)` |
+| Implement feature | Ares | `Task(subagent_type: "kratos:ares", ...)` |
+| Review code | Hermes | `Task(subagent_type: "kratos:hermes", ...)` |
+| Risk analysis | Cassandra | `Task(subagent_type: "kratos:cassandra", ...)` |
 
 ### Step 3: Brief the Specialist
 

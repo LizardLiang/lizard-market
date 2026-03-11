@@ -1,4 +1,5 @@
 ---
+name: recall
 description: Recall last session context and resume where you left off
 ---
 
@@ -20,20 +21,30 @@ When the user invokes `/kratos:recall`, you:
 
 ## How to Query
 
-Use the Python memory script to get session info:
+Use the Go binary (preferred) or status.json fallback to get session info:
 
 ```bash
-python plugins/kratos/memory/kratos_memory.py last-session [project] [--global] [--format=json|text]
+# Go binary (primary method) — pass the project root path as argument
+~/.kratos/bin/kratos recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
+
+# Global recall (all projects)
+~/.kratos/bin/kratos recall --global --limit 5
+
+# Incomplete features only
+~/.kratos/bin/kratos recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) --incomplete
+
+# Fallback: scan status.json files directly (if Go binary unavailable)
+# Use Glob to find .claude/feature/*/status.json and Read to parse them
 ```
 
 ### Options
 
 | Flag | Effect |
 |------|--------|
-| `[project]` | Filter to specific project (default: current directory name) |
+| `[project]` | Project root path (required unless `--global`) |
 | `--global` | Show sessions across all projects |
-| `--format=text` | Human-readable output |
-| `--format=json` | Machine-readable output (default) |
+| `--incomplete` | Show only incomplete features |
+| `--limit N` | Number of recent sessions for `--global` (default: 5) |
 
 ---
 
@@ -58,6 +69,8 @@ Last Actions:
 
 Pipeline:
 [1]OK -> [2]OK -> [3]OK -> [4]>> -> [5].. -> [6].. -> [7].. -> [8]..
+
+Pipeline symbols: `✅` = complete, `>>` = current/in-progress, `..` = pending/not started, `⏭️` = skipped, `❌` = blocked
 
 Recommendation: Continue with Stage [X] ([Agent] - [Stage Name])?
 ```
@@ -106,17 +119,19 @@ Check if user specified `--global`:
 
 ### Step 2: Query Memory
 
-Run the Python script:
+Run the Go binary (preferred):
 
 ```bash
-python plugins/kratos/memory/kratos_memory.py last-session --format=json
+~/.kratos/bin/kratos recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
 ```
 
 Or for global:
 
 ```bash
-python plugins/kratos/memory/kratos_memory.py last-session --global --format=json
+~/.kratos/bin/kratos recall --global --limit 5
 ```
+
+If the Go binary is unavailable, fall back to scanning `.claude/feature/*/status.json` files directly using Glob and Read tools.
 
 ### Step 3: Parse and Present
 
@@ -165,20 +180,25 @@ To start a new feature, use:
   /kratos Build [your feature description]
 ```
 
-### Python Not Available
+### Go Binary Not Available
 
-If Python is not available:
+If the Go binary is not available:
 
 ```
 KRATOS RECALL
 
-WARNING: Memory system unavailable (Python 3 required)
+Note: Memory binary unavailable. Falling back to status file scan.
+```
 
-The recall feature requires Python 3 to query the session database.
-Install Python and try again.
+Fall back to scanning `.claude/feature/*/status.json` files directly using Glob and Read tools. Parse the JSON to reconstruct session context — read `current_stage`, `pipeline_status`, `updated`, and `history` to build the recall summary.
 
-In the meantime, check for feature status manually:
-  .claude/feature/*/status.json
+**Limitation:** Global recall (`--global`) requires the Go binary because it searches across all projects. Without the binary, only the current project's features are searchable. If `--global` is requested without the binary, inform the user:
+
+```
+KRATOS RECALL
+
+Global recall requires the kratos binary (~/.kratos/bin/kratos).
+Showing current project only.
 ```
 
 ---
@@ -233,10 +253,11 @@ Use /kratos:recall in the project directory for details.
 
 When you receive `/kratos:recall`, execute these steps:
 
-1. **Run the query**:
+1. **Run the query** (Go binary preferred, status.json fallback):
 ```bash
-python plugins/kratos/memory/kratos_memory.py last-session --format=json
+~/.kratos/bin/kratos recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) 2>/dev/null
 ```
+If the binary is unavailable, use Glob to find `.claude/feature/*/status.json` and Read to parse them.
 
 2. **Parse the JSON output**
 

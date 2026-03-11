@@ -1,4 +1,5 @@
 ---
+name: task-complete
 description: Mark implementation tasks complete in User Mode
 ---
 
@@ -83,9 +84,7 @@ For each valid task:
 
 After updating, check if ALL tasks are complete:
 
-```javascript
-const allComplete = tasks.items.every(t => t.status === 'complete');
-```
+Check if every task in `status.json` `stages["7-implementation"].tasks` has `status: "complete"`.
 
 ### Step 6: Handle All Complete
 
@@ -94,20 +93,20 @@ When ALL tasks are complete:
 1. **Update status.json**:
    ```json
    {
-     "stage": "8-code-review",
+     "stage": "8-review",
      "pipeline": {
        "7-implementation": {
          "status": "complete",
          "completed": "<ISO-timestamp>"
        },
-       "8-code-review": {
+       "8-review": {
          "status": "ready"
        }
      }
    }
    ```
 
-2. **Spawn Hermes for code review**:
+2. **Spawn Hermes + Cassandra in parallel** (same as pipeline Stage 8):
    ```
    Task(
      subagent_type: "kratos:hermes",
@@ -121,6 +120,21 @@ When ALL tasks are complete:
 
    Review implementation code. Create code-review.md with verdict. Update status.json.",
      description: "hermes - code review (user mode)"
+   )
+
+   Task(
+     subagent_type: "kratos:cassandra",
+     model: "sonnet",
+     prompt: "MISSION: Risk Analysis
+   MODE: pipeline
+   FEATURE: [feature-name]
+   FOLDER: .claude/feature/[feature-name]/
+
+   CRITICAL: You MUST create the file risk-analysis.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+
+   Analyze changed files in this feature for security, breaking changes, edge cases, scalability, and dependency risks.
+   Create risk-analysis.md with severity-rated findings. Update status.json.",
+     description: "cassandra - risk analysis (user mode)"
    )
    ```
 
@@ -169,8 +183,8 @@ All 10 implementation tasks have been marked complete.
 
 Progress: [████████████████████] 100% (10/10 tasks)
 
-Advancing to Stage 8: Code Review
-Summoning: HERMES (model: opus)
+Advancing to Stage 8: Code Review + Risk Analysis
+Summoning: HERMES (model: opus) + CASSANDRA (model: sonnet) in parallel
 
 [TASK TOOL INVOCATION FOR HERMES]
 ```

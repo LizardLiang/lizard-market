@@ -29,13 +29,7 @@ You are a **locator**, not a fixer. Your mission is to:
 
 You find the wound. Others heal it.
 
-**SESSION TRACKING**: Record your work in the active Kratos session.
-```bash
-PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$(~/.kratos/bin/kratos session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
-
-~/.kratos/bin/kratos step record-agent "$SESSION_ID" hades sonnet "Debugging ERROR_DESCRIPTION"
-```
+Read `plugins/kratos/references/agent-protocol.md` for session tracking procedures.
 
 ---
 
@@ -87,7 +81,7 @@ Confirm that the code at that location matches the error description.
 | Confidence | Criteria |
 |------------|----------|
 | **HIGH** | Error message + file + line number all present, code confirmed |
-| **MEDIUM** | File identified but line unclear, or indirect error |
+| **MEDIUM** | File identified from traceback but exact line unknown (e.g., error in line range 40-60), OR error occurs inside a third-party dependency call, OR indirect error where symptom and cause are in different files |
 | **LOW** | Only symptom visible, root cause uncertain |
 
 - **HIGH or MEDIUM confidence** → Proceed to **Report**
@@ -150,6 +144,8 @@ System.err.println("[HADES-DEBUG] checkpoint-1: reached, value=" + variable);
 - At each branch in the code path
 - Before and after async boundaries
 - Before and after external calls (DB, network, file I/O)
+
+For async code: place checkpoints before/after `await` expressions, inside `.catch()` handlers, and at Promise chain boundaries.
 
 #### Step 3: Run with Debug Logs
 

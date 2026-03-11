@@ -1,4 +1,5 @@
 ---
+name: review
 description: Dedicated code review with standards enforcement, severity tiers, and auto-fix
 ---
 
@@ -47,7 +48,7 @@ Extract from the user's request:
 |------|----------|-------|
 | **Eco** | `eco`, `budget`, `cheap` | haiku |
 | **Power** | `power`, `max`, `full-power` | opus |
-| **Normal** | (default) | sonnet |
+| **Normal** | (default) | opus |
 
 ---
 
@@ -58,73 +59,37 @@ Task(
   subagent_type: "kratos:hermes",
   model: "[haiku|sonnet|opus based on mode]",
   prompt: "MISSION: Dedicated Code Review
-
 TARGET: [file / directory / git diff target]
 FOCUS: [specific concerns, or 'all categories']
 MODE: standalone (not pipeline)
 
-## Rules to Load
-
-Load and apply rules in this priority order (highest priority last wins on conflict):
-
-1. plugins/kratos/rules/default.md          — always load
-2. plugins/kratos/rules/<language>.md       — if file exists for detected language(s)
-3. .claude/.Arena/review-rules/conventions.md — if exists (project conventions)
-4. .claude/.Arena/review-rules/<language>.md  — if exists (project language overrides)
-
-## Review Protocol
-
-1. Detect the language(s) in the target files
-2. Load the applicable rules as described above
-3. Review all files/diffs in the target
-4. Report findings using this format per issue:
-   [SEVERITY] file:line — <short title>
-   Tier: <1–7 tier name>
-   Rule: <which rule this violates>
-   Why: <one sentence explanation>
-   Fix: <proposed fix or 'requires manual review'>
-
-5. After findings: group by severity
-   - BLOCKER items: show diff one by one, ask y/n per fix
-   - WARNING items: show grouped diff, ask to bulk approve/reject
-   - SUGGESTION items: list at end, skip by default
-
-6. Gate: if BLOCKERs remain unfixed → status = 'Changes Required'
-   If all BLOCKERs resolved (fixed or explicitly skipped) → status = 'Approved'
-
-7. Rule proposals: if you see a recurring pattern not covered by rules,
-   write a proposal to .claude/.Arena/review-rules/proposals/<date>-<description>.md
-   and mention it in the summary.
-
-## Output Format
-
-\`\`\`
-HERMES REVIEW COMPLETE
-
-Target: [what was reviewed]
-Languages detected: [list]
-Rules loaded: [list of rule files]
-
-Findings:
-  [BLOCKER] x[N]
-  [WARNING] x[N]
-  [SUGGESTION] x[N]
-
-[List all findings with file:line]
-
-Auto-fix results:
-  Applied: [N]
-  Skipped: [N]
-  Requires manual: [N]
-
-Rule proposals: [N new proposals written / none]
-
-Verdict: Approved / Changes Required
-\`\`\`
-
+Follow your standard review protocol from your agent instructions.
 This is a standalone review — no pipeline stage to update, no status.json to write.",
   description: "hermes - dedicated review"
 )
+```
+
+---
+
+**Severity tiers (Hermes Greatness Hierarchy):**
+1. Correct — Logic, edge cases, silent failures
+2. Safe — Security, data protection, secrets
+3. Clear — Readability, naming, comments
+4. Minimal — Dead code, over-engineering
+5. Consistent — Project conventions from .Arena
+6. Resilient — Error handling, cleanup, edge cases
+7. Performant — N+1, blocking ops, waste
+
+Severity mapping is determined by Hermes based on the loaded rule files. See `agents/hermes.md` for the full review protocol.
+
+Rule proposals written to `.claude/.Arena/review-rules/proposals/` follow the format:
+```yaml
+rule: <rule-name>
+severity: blocker | warning | suggestion
+description: <what the rule checks>
+rationale: <why this matters>
+example_violation: <code example>
+example_fix: <corrected code>
 ```
 
 ---

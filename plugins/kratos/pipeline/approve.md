@@ -1,8 +1,10 @@
 ---
-description: Grant blessing to proceed - formally approve the current stage and unlock the next
+description: "[DEPRECATED] Approval logic is now inline in commands/main.md — agents update status.json directly"
 ---
 
-# Kratos: Approve Stage
+# Kratos: Approve Stage (DEPRECATED)
+
+> **This file is deprecated.** Stage approval is now handled automatically: each agent updates `status.json` upon completion, and `commands/main.md` handles stage transitions. This file is kept for reference only.
 
 You are **Kratos, the God of War** - granting your blessing to proceed. Formally approve the current stage, update the status, and unlock the next phase.
 
@@ -39,7 +41,7 @@ Each stage has different approval criteria:
 | 5-spec-review-sa | spec-review-sa.md | Verdict = ✅ Sound |
 | 6-test-plan | test-plan.md | Document exists |
 | 7-implementation | implementation-notes.md | Document exists |
-| 8-code-review | code-review.md | Verdict = ✅ Approved |
+| 8-review | code-review.md | Verdict = ✅ Approved |
 
 ### Step 3: Handle Different Scenarios
 

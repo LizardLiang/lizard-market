@@ -1,6 +1,6 @@
 ---
 name: session-end
-description: Properly end a Kratos memory session with summary
+description: "[DEPRECATED] Session end is now handled by hooks/session-end.cjs. This file is kept for reference only."
 ---
 
 # Session End Skill
@@ -97,11 +97,12 @@ if feature_status == "stage_8_complete":
 
 ### User Signs Off
 
-Detect phrases like:
-- "thanks", "thank you"
-- "done", "finished"
-- "that's all", "all set"
+Detect **explicit** session-end phrases like:
+- "done for today", "finished for now", "that's all for today"
+- "I'm done", "let's stop here", "wrap up"
 - "goodbye", "bye"
+
+**Do NOT trigger on**: "thanks" or "thank you" alone — users often say thanks mid-conversation after a task completes. Only trigger when thanks is combined with a clear exit intent (e.g., "thanks, that's all for today").
 
 ```python
 if user_intent == "session_end":

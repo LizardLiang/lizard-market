@@ -1,6 +1,6 @@
 ---
 name: memory
-description: Memory persistence for Kratos - records every step of the journey
+description: "[DEPRECATED] Memory is now handled by the Go binary and hooks (.cjs files). This file is kept for reference only."
 ---
 
 # Kratos Memory Skill
@@ -9,20 +9,21 @@ This skill enables persistent memory for Kratos, recording every step of the jou
 
 ## Database Location
 
-Memory is stored at: `.claude/.kratos/memory.db`
+Memory is stored at: `~/.kratos/memory.db`
 
 ## Initialization
 
-Before first use, initialize the database:
+**Default**: Use the Go binary at `~/.kratos/bin/kratos` for all memory operations. The Python script (`plugins/kratos/memory/kratos_memory.py`) is a legacy fallback only used if the Go binary is unavailable.
+
+Before first use, check binary availability:
 
 ```bash
-python plugins/kratos/memory/kratos_memory.py init
+~/.kratos/bin/kratos --version 2>/dev/null && echo "available" || echo "unavailable"
 ```
 
-Or with Rust (faster):
+If unavailable, fall back to Python:
 ```bash
-cd plugins/kratos/memory && cargo build --release
-./target/release/kratos-memory init
+python plugins/kratos/memory/kratos_memory.py init
 ```
 
 ---
@@ -193,11 +194,11 @@ When updating `status.json`:
 ## Performance Notes
 
 - SQLite with WAL mode: ~1ms writes
-- Python script: ~50ms cold start, ~10ms warm
-- Rust binary: ~2ms total execution
+- Go binary: ~2ms total execution
+- Python script: ~50ms cold start, ~10ms warm (legacy fallback)
 - FTS5 search: ~5ms for 1000+ entries
 
-For highest performance in long sessions, prefer the Rust binary.
+For highest performance, use the Go binary at `~/.kratos/bin/kratos`.
 
 ---
 

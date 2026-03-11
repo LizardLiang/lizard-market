@@ -1,4 +1,5 @@
 ---
+name: plan
 description: Strategic planning — interview-driven prioritized build plan
 ---
 
@@ -52,7 +53,7 @@ Return PROMETHEUS_QUESTIONS_RESULT block only.",
 
 ### Phase 2: Interview Loop (YOU handle this)
 
-When Prometheus returns, parse the `PROMETHEUS_QUESTIONS_RESULT` block.
+When Prometheus returns, parse the `PROMETHEUS_QUESTIONS_RESULT` block. The `PROMETHEUS_QUESTIONS_RESULT` block contains: CONTEXT_SUMMARY, IN_FLIGHT, EXISTING_PLAN, QUESTION_COUNT, and Q1..QN entries each with HEADER, QUESTION, and OPTIONS fields. Parse these to present questions via AskUserQuestion.
 
 **Announce context to user first:**
 ```
@@ -114,7 +115,7 @@ Return PROMETHEUS_PLAN_RESULT block only.",
 
 ### Phase 4: Present + Approve
 
-Parse the `PROMETHEUS_PLAN_RESULT` block and render it in chat.
+Parse the `PROMETHEUS_PLAN_RESULT` block and render it in chat. The `PROMETHEUS_PLAN_RESULT` block contains a markdown-formatted strategic plan with sections: Context, In-Flight, Recommended Build Order (Priority 1-5), What to Defer, and Strategic Note.
 
 Then ask for approval:
 

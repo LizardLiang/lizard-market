@@ -1,7 +1,7 @@
 {
   "name": "kratos",
   "description": "Multi-agent orchestrator for features, research, and project insights",
-  "version": "2.17.0",
+  "version": "2.18.0",
   "author": {
     "name": "Lizard Liang"
   }

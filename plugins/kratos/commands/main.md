@@ -1,4 +1,5 @@
 ---
+name: main
 description: Full 8-stage feature pipeline with PRD, spec, implementation, and review
 ---
 
@@ -35,7 +36,7 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 
 | Agent | Model | Domain | Stages |
 |-------|-------|--------|--------|
-| **metis** | opus | Project research, codebase analysis | 0 (Pre-flight) |
+| **metis** | sonnet | Project research, codebase analysis | 0 (Pre-flight) |
 | **athena** | opus | PRD creation, PM reviews | 1, 2, 4 |
 | **hephaestus** | opus | Technical specifications | 3 |
 | **apollo** | opus | Architecture review | 5 |
@@ -50,12 +51,12 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 ## Pipeline Stages
 
 ```
-[0] Research (optional) → [1] PRD → [2] PRD Review → [2.5] Decompose (optional) → [3] Tech Spec → [4] PM Review → [5] SA Review → [6] Test Plan → [7] Implement → [8] Code Review → VICTORY
+[0] Research (optional) → [1] PRD → [2] PRD Review → [2.5] Decompose (optional) → [3] Tech Spec → [4] PM Review → [5] SA Review → [6] Test Plan → [7] Implement → [8] Review → VICTORY
 ```
 
 | Stage | Agent | Model | Document Created |
 |-------|-------|-------|------------------|
-| 0-research | metis | opus | .claude/.Arena/* |
+| 0-research | metis | sonnet | .claude/.Arena/* |
 | 1-prd | athena | opus | prd.md |
 | 2-prd-review | athena | opus | prd-review.md |
 | 2.5-decomposition | daedalus | sonnet | decomposition.md (optional) |
@@ -64,7 +65,7 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 | 5-spec-review-sa | apollo | opus | spec-review-sa.md |
 | 6-test-plan | artemis | sonnet | test-plan.md |
 | 7-implementation | ares | sonnet | implementation-notes.md + code |
-| 8-code-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
+| 8-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
 
 ---
 
@@ -225,7 +226,7 @@ This will:
 
 ---
 
-### Step 2: Auto-Discover Context
+### Step 2: Auto-Discover Context & Determine State
 
 Search for active features:
 ```
@@ -235,8 +236,6 @@ Search for active features:
 - **No feature?** → Use AskUserQuestion to ask what to build, then read `plugins/kratos/pipeline/start.md` and follow its procedure
 - **One feature?** → Use it automatically
 - **Multiple?** → List them, use AskUserQuestion to ask which one
-
-### Step 2: Determine Current State
 
 Read `status.json` and identify:
 1. Current stage (1-8)
@@ -252,9 +251,11 @@ Read `status.json` and identify:
 | Simple task (tests, fix, review, docs) | Route via quick mode (Step 0 classification) |
 | "Research" / "Analyze" / "Understand this project" | Route to inquiry mode → Metis QUICK_QUERY |
 | "Create/build/start [feature]" | Read `plugins/kratos/pipeline/start.md`, initialize, then spawn Athena |
-| "Continue" / "Next" | Spawn next agent for next stage |
+| "Continue" / "Next" | Check current stage and spawn next agent (see note below) |
 | "Status" | Show pipeline progress |
 | Complex feature request | Run full pipeline |
+
+**"Continue" at Stage 1 (PRD):** If the user says "continue" and the feature is at stage 1 with no `prd.md` yet, you MUST run the full two-phase gap analysis flow (Phase 1: Gap Analysis → Phase 1.5: Clarification Loop → Phase 2: Write PRD) described in Stage 1 below. Do not skip the clarification loop just because this is a "continue" rather than a new request.
 
 ### Step 4: SPAWN THE AGENT (MANDATORY)
 
@@ -266,7 +267,7 @@ Read `status.json` and identify:
 ```
 Task(
   subagent_type: "kratos:metis",
-  model: "opus",
+  model: "sonnet",
   prompt: "MISSION: Research Project
 TARGET: [project root or specific area]
 OUTPUT: .claude/.Arena/
@@ -303,22 +304,29 @@ Analyze these requirements for gaps and ambiguities. Return structured questions
 )
 ```
 
-##### Phase 1.5: Clarification Loop (Kratos handles this)
+##### Phase 1.5: Clarification Loop (Kratos handles this — MANDATORY AskUserQuestion)
+
+**CRITICAL: You MUST use the AskUserQuestion tool to present questions to the user. Do NOT simply print/output the questions as text. The AskUserQuestion tool provides structured options the user can click — dumping questions as plain text is FORBIDDEN.**
 
 When Athena returns her gap analysis:
 
 1. **Parse the `GAP_ANALYSIS_RESULT`** from Athena's response
 2. **If `WRITE_READY: true`** → skip to Phase 2 (requirements are comprehensive)
-3. **If questions exist** → use AskUserQuestion to ask the user:
+3. **If questions exist** → you MUST call `AskUserQuestion` for EACH question, one at a time:
 
 ```
 AskUserQuestion(
   question: [Q1_QUESTION from Athena's output],
-  options: [mapped from Q1_OPTIONS — each "label | description" becomes { label, description }]
+  options: [mapped from Q1_OPTIONS — each "label | description" becomes an option]
 )
 ```
 
-Ask up to 4 questions per round (the limit per AskUserQuestion call).
+**Procedure:**
+- Call AskUserQuestion with the FIRST question
+- Wait for the user's answer
+- Then call AskUserQuestion with the SECOND question
+- Continue until all questions (up to 4) are asked
+- Do NOT batch all questions into a single text message — ask them ONE BY ONE using the tool
 
 4. **Collect answers** and check if more rounds needed:
    - If Athena flagged many P0 gaps, you may re-spawn Athena for another gap analysis round with the answers so far (max 3 rounds total)
@@ -373,10 +381,15 @@ Review prd.md and create prd-review.md. Update status.json with verdict.",
 
 **After Stage 2 completes with APPROVED verdict, before spawning Hephaestus:**
 
-1. **Read the approved PRD** (brief scan for complexity signals — this is the ONE exception to the "never read documents" rule)
+1. **Check the PRD review for complexity signals** — Read `prd-review.md` (which Athena just created) and look for these indicators in her review:
+   - High requirement count mentioned in the review
+   - Multiple modules/areas flagged
+   - Cross-cutting concerns noted
+   - External integrations discussed
+   - Complex data relationships identified
 
 2. **Judge complexity using these signals** (NO hard thresholds — use judgment):
-   - Number of user stories / requirements
+   - Number of user stories / requirements (from review summary)
    - Module spread (many directories / services)
    - Cross-cutting concerns (auth, caching, logging interleaved)
    - External integrations (APIs, databases, third-party)
@@ -436,7 +449,7 @@ Review prd.md and create prd-review.md. Update status.json with verdict.",
 
 5. **After Daedalus completes:** Verify `decomposition.md` exists (if local target), then proceed to Stage 3.
 
-6. **If user says No:** Run `kratos pipeline update --feature <name> --stage 2.5-decomposition --status skipped`, then proceed directly to Stage 3.
+6. **If user says No:** Update status.json directly: set `stages["2.5-decomposition"].status` to `"skipped"` and update the `history` array. See `plugins/kratos/references/status-json-schema.md` for schema. Then proceed directly to Stage 3.
 
 ---
 
@@ -537,11 +550,8 @@ AskUserQuestion(
 | User Mode | Spawn Ares with task creation mission (see Stage 7b) |
 
 **Update status.json with the mode:**
-```bash
-kratos pipeline update --feature <name> --stage 7-implementation --status in-progress --mode ares
-# or for user mode:
-kratos pipeline update --feature <name> --stage 7-implementation --status in-progress --mode user
-```
+
+Update status.json directly: set `stages["7-implementation"].status` to `"in-progress"` and set `stages["7-implementation"].mode` to `"ares"` (or `"user"` for user mode). Update the `history` array. See `plugins/kratos/references/status-json-schema.md` for schema.
 
 ---
 
@@ -650,8 +660,8 @@ When an agent completes, you MUST verify the required document was created:
 | 5-spec-review-sa | apollo | `spec-review-sa.md` |
 | 6-test-plan | artemis | `test-plan.md` |
 | 7-implementation | ares | `implementation-notes.md` (Ares Mode) or `tasks/*.md` (User Mode) |
-| 8-code-review | hermes | `code-review.md` |
-| 8-risk-analysis | cassandra | `risk-analysis.md` |
+| 8-review | hermes | `code-review.md` |
+| 8-review | cassandra | `risk-analysis.md` |
 
 **Verification Steps:**
 1. Read updated `status.json`
@@ -756,11 +766,11 @@ Ready for deployment.
 | 6-test-plan | - | ASK MODE | Ask user: Ares Mode vs User Mode |
 | 6-test-plan | Ares Mode | 7-implementation | ares (sonnet) - implement |
 | 6-test-plan | User Mode | 7-implementation | ares (sonnet) - create tasks |
-| 7-implementation | Ares Mode | 8-code-review + 8-risk-analysis | hermes (opus) + cassandra (sonnet) in parallel |
+| 7-implementation | Ares Mode | 8-review | hermes (opus) + cassandra (sonnet) in parallel |
 | 7-implementation | User Mode | WAIT | User completes tasks, then /kratos:task-complete all |
-| 8-code-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
-| 8-code-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first, then re-run stage 8 |
-| 8-code-review | Changes | 7-implementation | ares (sonnet) |
+| 8-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
+| 8-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first, then re-run stage 8 |
+| 8-review | Changes | 7-implementation | ares (sonnet) |
 
 ---
 
@@ -778,6 +788,8 @@ ELSE
   Spawn the agent
 ```
 
+See `plugins/kratos/references/status-json-schema.md` for the complete status.json schema and `plugins/kratos/references/agent-handoff-spec.md` for agent input/output contracts.
+
 ---
 
 ## RULES (MANDATORY)
@@ -788,6 +800,7 @@ ELSE
 4. **ENFORCE GATES** - Don't skip prerequisites
 5. **SPAWN IMMEDIATELY** - Don't just announce, actually use Task tool
 6. **REPORT RESULTS** - Tell user what happened after each agent
+7. **USE AskUserQuestion FOR ALL QUESTIONS** - When you need user input (clarification, mode selection, decomposition choice), you MUST call the AskUserQuestion tool. Never dump questions as plain text output. One question at a time, wait for the answer before asking the next.
 
 ---
 
