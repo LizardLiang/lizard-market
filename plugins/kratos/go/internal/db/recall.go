@@ -65,44 +65,26 @@ func GetIncompleteFeatures(db *sql.DB, project string) ([]*models.Session, error
 
 // GetSessionContext retrieves a session with all its steps and metadata
 func GetSessionContext(db *sql.DB, sessionID string) (*models.SessionContext, error) {
-	// Get session
 	session, err := GetSession(db, sessionID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get steps
 	steps, err := GetSessionTimeline(db, sessionID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create context
-	context := &models.SessionContext{
+	return &models.SessionContext{
 		Session:     session,
 		Steps:       steps,
 		TotalSteps:  session.TotalSteps,
 		TotalAgents: session.TotalAgentsSpawned,
-	}
-
-	return context, nil
+	}, nil
 }
 
-// GetRecentSessionsGlobal returns recent sessions across all projects
+// GetRecentSessionsGlobal returns recent sessions across all projects.
+// Delegates to GetRecentSessions which performs the same query.
 func GetRecentSessionsGlobal(db *sql.DB, limit int) ([]*models.Session, error) {
-	query := `
-		SELECT id, session_id, project, feature_name, started_at, ended_at,
-		       status, summary, total_steps, total_agents_spawned
-		FROM sessions
-		ORDER BY started_at DESC
-		LIMIT ?
-	`
-
-	rows, err := db.Query(query, limit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get recent sessions globally: %w", err)
-	}
-	defer rows.Close()
-
-	return scanSessions(rows)
+	return GetRecentSessions(db, limit)
 }

@@ -125,23 +125,16 @@ function processToolUse(data) {
   // Record Task tool usage (agent spawns)
   if (tool_name === 'Task') {
     const agent = detectAgent(tool_input);
-    const description = tool_input?.description || 'Agent task';
+    const action = tool_input?.description || 'Agent task';
     const model = tool_input?.model || 'sonnet';
-    const action = `${description}`;
 
     recordAgentSpawn(sessionId, agent, model, action);
   }
 
-  // Record file writes
-  if (tool_name === 'Write') {
+  // Record file writes and edits
+  if (tool_name === 'Write' || tool_name === 'Edit') {
     const filePath = tool_input?.file_path || 'unknown';
-    recordFileChange(sessionId, filePath, 'Write');
-  }
-
-  // Record file edits
-  if (tool_name === 'Edit') {
-    const filePath = tool_input?.file_path || 'unknown';
-    recordFileChange(sessionId, filePath, 'Edit');
+    recordFileChange(sessionId, filePath, tool_name);
   }
 }
 

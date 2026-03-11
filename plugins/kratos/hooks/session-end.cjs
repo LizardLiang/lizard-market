@@ -96,13 +96,6 @@ function findActiveFeature() {
   }
 }
 
-// Update session with feature info
-// TODO: Implement feature update in Go CLI
-function updateSessionFeature(sessionId, featureName, stage) {
-  // Feature tracking not yet implemented in Go CLI
-  // Skipping for now
-}
-
 // Get session statistics
 function getSessionStats(sessionId) {
   const kratosCmd = findKratosBinary();
@@ -179,9 +172,6 @@ function main() {
 
   // Detect active feature
   const activeFeature = findActiveFeature();
-  if (activeFeature) {
-    updateSessionFeature(session_id, activeFeature.name, activeFeature.stage);
-  }
 
   // Get stats
   const stats = getSessionStats(session_id);

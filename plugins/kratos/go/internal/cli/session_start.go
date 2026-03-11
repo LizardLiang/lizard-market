@@ -86,12 +86,11 @@ Returns the session details if one is active, otherwise returns null.`,
 				return fmt.Errorf("failed to get active session: %w", err)
 			}
 
-			result := map[string]interface{}{}
+			result := map[string]interface{}{
+				"session": session,
+			}
 			if session == nil {
 				result["message"] = "no active session"
-				result["session"] = nil
-			} else {
-				result["session"] = session
 			}
 
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(result)

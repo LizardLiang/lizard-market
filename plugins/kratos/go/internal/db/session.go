@@ -145,30 +145,5 @@ func ListRecentSessions(db *sql.DB, project string, limit int) ([]*models.Sessio
 	}
 	defer rows.Close()
 
-	var sessions []*models.Session
-	for rows.Next() {
-		session := &models.Session{}
-		err := rows.Scan(
-			&session.ID,
-			&session.SessionID,
-			&session.Project,
-			&session.FeatureName,
-			&session.StartedAt,
-			&session.EndedAt,
-			&session.Status,
-			&session.Summary,
-			&session.TotalSteps,
-			&session.TotalAgentsSpawned,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan session: %w", err)
-		}
-		sessions = append(sessions, session)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows error: %w", err)
-	}
-
-	return sessions, nil
+	return scanSessions(rows)
 }

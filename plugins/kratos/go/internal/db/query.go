@@ -64,11 +64,8 @@ func GetSessionsByProject(db *sql.DB, project string) ([]*models.Session, error)
 	return scanSessions(rows)
 }
 
-// SearchSessions performs full-text search across sessions using FTS5
-// Searches in project, feature_name, and summary fields
+// SearchSessions performs a LIKE search across project, feature_name, and summary fields
 func SearchSessions(db *sql.DB, searchTerm string) ([]*models.Session, error) {
-	// Use FTS5 MATCH syntax for better search
-	// Search across project, feature_name, and summary
 	query := `
 		SELECT s.id, s.session_id, s.project, s.feature_name, s.started_at, s.ended_at,
 		       s.status, s.summary, s.total_steps, s.total_agents_spawned
@@ -89,51 +86,10 @@ func SearchSessions(db *sql.DB, searchTerm string) ([]*models.Session, error) {
 	return scanSessions(rows)
 }
 
-// GetSessionTimeline returns all steps for a session in chronological order
+// GetSessionTimeline returns all steps for a session in chronological order.
+// Delegates to GetStepsForSession which performs the same query.
 func GetSessionTimeline(db *sql.DB, sessionID string) ([]*models.Step, error) {
-	query := `
-		SELECT id, session_id, step_number, step_type, timestamp,
-		       agent_name, agent_model, pipeline_stage,
-		       action, target, result, context
-		FROM steps
-		WHERE session_id = ?
-		ORDER BY step_number ASC
-	`
-
-	rows, err := db.Query(query, sessionID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get session timeline: %w", err)
-	}
-	defer rows.Close()
-
-	steps := []*models.Step{} // Initialize as empty slice, not nil
-	for rows.Next() {
-		step := &models.Step{}
-		err := rows.Scan(
-			&step.ID,
-			&step.SessionID,
-			&step.StepNumber,
-			&step.StepType,
-			&step.Timestamp,
-			&step.AgentName,
-			&step.AgentModel,
-			&step.PipelineStage,
-			&step.Action,
-			&step.Target,
-			&step.Result,
-			&step.Context,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan step: %w", err)
-		}
-		steps = append(steps, step)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows error: %w", err)
-	}
-
-	return steps, nil
+	return GetStepsForSession(db, sessionID)
 }
 
 // GetSessionCount returns the total number of sessions

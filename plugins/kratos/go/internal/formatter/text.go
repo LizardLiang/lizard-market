@@ -120,21 +120,18 @@ func FormatTimestamp(timestampMs int64) string {
 	now := time.Now()
 	duration := now.Sub(ts)
 
-	// Relative time for recent events
 	if duration < time.Minute {
 		return "just now"
-	} else if duration < time.Hour {
-		minutes := int(duration.Minutes())
-		return fmt.Sprintf("%d minutes ago", minutes)
-	} else if duration < 24*time.Hour {
-		hours := int(duration.Hours())
-		return fmt.Sprintf("%d hours ago", hours)
-	} else if duration < 7*24*time.Hour {
-		days := int(duration.Hours() / 24)
-		return fmt.Sprintf("%d days ago", days)
 	}
-
-	// Absolute date for older events
+	if duration < time.Hour {
+		return fmt.Sprintf("%d minutes ago", int(duration.Minutes()))
+	}
+	if duration < 24*time.Hour {
+		return fmt.Sprintf("%d hours ago", int(duration.Hours()))
+	}
+	if duration < 7*24*time.Hour {
+		return fmt.Sprintf("%d days ago", int(duration.Hours()/24))
+	}
 	return ts.Format("2006-01-02 15:04")
 }
 
@@ -144,23 +141,18 @@ func FormatDuration(startMs, endMs int64) string {
 
 	if duration < time.Minute {
 		return fmt.Sprintf("%ds", int(duration.Seconds()))
-	} else if duration < time.Hour {
-		return fmt.Sprintf("%dm", int(duration.Minutes()))
-	} else if duration < 24*time.Hour {
-		hours := int(duration.Hours())
-		minutes := int(duration.Minutes()) % 60
-		return fmt.Sprintf("%dh %dm", hours, minutes)
-	} else {
-		days := int(duration.Hours() / 24)
-		hours := int(duration.Hours()) % 24
-		return fmt.Sprintf("%dd %dh", days, hours)
 	}
+	if duration < time.Hour {
+		return fmt.Sprintf("%dm", int(duration.Minutes()))
+	}
+	if duration < 24*time.Hour {
+		return fmt.Sprintf("%dh %dm", int(duration.Hours()), int(duration.Minutes())%60)
+	}
+	return fmt.Sprintf("%dd %dh", int(duration.Hours()/24), int(duration.Hours())%24)
 }
 
-// FormatStatus formats a session status with appropriate styling
+// FormatStatus formats a session status with an emoji prefix
 func FormatStatus(status string) string {
-	// In a terminal, this could use ANSI colors
-	// For now, just return the status as-is
 	switch status {
 	case "active":
 		return "🟢 active"
