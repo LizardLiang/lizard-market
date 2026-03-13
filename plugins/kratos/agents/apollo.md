@@ -108,7 +108,17 @@ Review the tech spec against: (1) the PRD requirements, (2) codebase conventions
 
 Read the template at `plugins/kratos/templates/spec-review-sa-template.md` and follow its structure.
 
-4. **Update status.json**:
+4. **If verdict is Concerns or Unsound**, append your revision requests to `decisions.md` at `.claude/feature/<name>/decisions.md`. This creates a traceable record of WHY the spec was sent back, so Hephaestus and Athena understand the architectural intent behind your requests — not just the what, but the why.
+
+Append this block under `## Revision Requests`:
+```markdown
+### Architecture Review (Apollo) — [date]
+| Issue | Severity | Rationale | Required Change |
+|-------|----------|-----------|-----------------|
+| [issue] | [Critical/High/Medium] | [why this matters architecturally] | [what must change] |
+```
+
+5. **Update status.json**:
    - Set `5-spec-review-sa.status` to "complete"
    - Record verdict
    - If both reviews pass, set `6-test-plan.status` to "ready"

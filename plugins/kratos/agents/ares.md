@@ -63,24 +63,42 @@ When asked to implement:
    - tech-spec.md (your blueprint)
    - test-plan.md (what tests to write)
    - prd.md (for context)
-   - **decomposition.md** (if exists) — implement phase by phase in the specified order. In User Mode, align task files with decomposition phases.
+   - decisions.md (if exists) — understand WHY design decisions were made before implementing
+   - **decomposition.md** (if exists) — this is your task queue. Implement task-by-task in wave order.
 
 2. **Understand the codebase**:
    - Explore existing patterns
    - Identify files to modify
    - Understand conventions
 
-3. **Execute implementation plan** from tech-spec:
-   - Follow the sequence of changes
+3. **Execute implementation** — choose mode based on what documents exist:
+
+   **Sub-task mode** (when `decomposition.md` exists — preferred):
+
+   Process tasks wave by wave, task by task. Each task gets its own implementation + verification + commit cycle. This keeps context fresh and produces a bisectable git history where every commit represents a complete, verifiable unit of work.
+
+   For each wave (Wave 1 first, then Wave 2, etc.):
+   - For each task in the wave:
+     a. Read the task definition (description, target files, verify criterion)
+     b. Implement the task
+     c. Run the task's `verify` command — if it fails, fix until it passes
+     d. Commit: `git add [changed files] && git commit -m "feat([feature-name]): [task description]"`
+     e. Note the task as complete in implementation-notes.md
+
+   If no `verify` command is specified for a task, run the full test suite before committing.
+
+   **Full-spec mode** (when no decomposition.md exists):
+   - Follow the sequence of changes in tech-spec
    - Create new files as specified
    - Modify existing files as specified
    - Write tests as specified in test-plan
+   - Run full test suite at the end
 
 4. **Track progress** in `.claude/feature/<name>/implementation-notes.md`:
 
 Read the template at `plugins/kratos/templates/implementation-notes-template.md` and follow its structure.
 
-5. **Run tests** and fix any failures
+5. **Run full test suite** after all tasks complete and fix any remaining failures.
 
 6. **Update status.json**:
    - Set `7-implementation.status` to "complete"

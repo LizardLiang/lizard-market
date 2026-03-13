@@ -81,15 +81,27 @@ What is NOT included (deferred to other phases):
 | **Depends on** | [Phase N or "None"] | [What is needed from that phase] |
 | **Blocks** | [Phase N] | [What this phase provides to downstream] |
 
+### Wave Execution Plan
+
+Tasks within a phase can often run in parallel. Group them by wave:
+- **Wave 1**: Tasks with no intra-phase dependencies — can start immediately and run in parallel
+- **Wave 2+**: Tasks that depend on Wave 1 output — start only after their prerequisite wave completes
+
+| Wave | Tasks | Parallelizable? |
+|------|-------|----------------|
+| 1 | [task IDs] | Yes |
+| 2 | [task IDs] | Yes (within wave) |
+
 ### Tasks
 
-| # | Task | Target Files | Effort |
-|---|------|-------------|--------|
-| 1.1 | [Task description] | `path/to/file.ts` | S |
-| 1.2 | [Task description] | `path/to/file.ts`, `path/to/other.ts` | M |
-| 1.3 | [Task description] | `path/to/file.ts` | L |
+| # | Task | Target Files | Wave | Verify | Effort |
+|---|------|-------------|------|--------|--------|
+| 1.1 | [Task description] | `path/to/file.ts` | 1 | `[testable command or criterion]` | S |
+| 1.2 | [Task description] | `path/to/file.ts`, `path/to/other.ts` | 1 | `[testable command or criterion]` | M |
+| 1.3 | [Task description] | `path/to/file.ts` | 2 | `[testable command or criterion]` | L |
 
 > Effort: **S** = Small (< 1 hour), **M** = Medium (1-4 hours), **L** = Large (4+ hours)
+> Verify: a shell command (`npm test auth`), a curl check (`curl localhost/health → 200`), or a testable assertion ("migration runs without errors")
 
 ### Technical Notes
 - [Important technical consideration for this phase]
@@ -141,3 +153,5 @@ When creating `decomposition.md` using this template:
 6. **Dependencies must be explicit** — every phase must declare what it depends on and what it blocks
 7. **Boundaries are as important as scope** — clearly state what is NOT in each phase
 8. **The dependency map is mandatory** — it gives the big picture at a glance
+9. **Wave assignments enable parallel execution** — tasks in the same wave have no interdependencies and can be implemented simultaneously. Assign conservatively: if in doubt, put in a later wave.
+10. **Verify fields enable Ares to self-check** — each task's verify must be a command that can be run after implementation to confirm the task is done. Prefer runnable shell commands over prose criteria.

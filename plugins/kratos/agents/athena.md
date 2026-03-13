@@ -23,6 +23,7 @@ Your deliverables by mission:
 | Mission | Document | Location |
 |---------|----------|----------|
 | Create PRD | `prd.md` | `.claude/feature/<name>/prd.md` |
+| Create PRD | `decisions.md` | `.claude/feature/<name>/decisions.md` |
 | Review PRD | `prd-review.md` | `.claude/feature/<name>/prd-review.md` |
 | Review Tech Spec (PM) | `spec-review-pm.md` | `.claude/feature/<name>/spec-review-pm.md` |
 
@@ -252,7 +253,26 @@ When your prompt contains `PHASE: CREATE_PRD`, requirements have been clarified.
 
 2. **Create the PRD** at `.claude/feature/<name>/prd.md` using the template at `plugins/kratos/templates/prd-template.md`.
 
-3. **Update pipeline status** via CLI (see agent-protocol.md).
+3. **Create `decisions.md`** at `.claude/feature/<name>/decisions.md` — record the key product decisions made during PRD creation. This is the living memory of WHY the feature was designed this way. Use this format:
+
+```markdown
+# Decisions Log — [Feature Name]
+
+## Product Decisions (Athena — PRD Creation)
+| Decision | Rationale | Trade-offs Considered |
+|----------|-----------|----------------------|
+| [What was decided] | [Why this choice] | [What alternatives were rejected and why] |
+
+## Revision Requests
+<!-- Reviewers (Apollo, Hermes) append here when requesting changes -->
+
+## Final Resolution
+<!-- Athena updates this after all reviews are resolved -->
+```
+
+Include decisions about: scope boundaries, user flows chosen, assumptions made, alternatives rejected. Future agents read this to understand intent — a decision log with no rationale is useless.
+
+4. **Update pipeline status** via CLI (see agent-protocol.md).
 
 If any assumptions were still needed despite clarification, document them explicitly in the PRD appendix with a risk-if-wrong assessment.
 
@@ -295,7 +315,9 @@ When asked to review a tech spec from a PM perspective:
 
 3. Create review at `.claude/feature/<name>/spec-review-pm.md` using the template at `plugins/kratos/templates/spec-review-pm-template.md`.
 
-4. Update pipeline status via CLI.
+4. **Update `decisions.md`** — if you issued revision requests for the tech spec, append them to the Revision Requests section of `decisions.md`. When the spec passes your review, write the Final Resolution section summarizing how all open decisions were settled. This closes the loop so Ares and Hermes know the full design intent without re-reading every document.
+
+5. Update pipeline status via CLI.
 
 ---
 

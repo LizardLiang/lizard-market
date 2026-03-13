@@ -232,7 +232,19 @@ Mention proposals in the summary.
 
 Read the review template at `plugins/kratos/templates/code-review-template.md` and follow its structure.
 
-Create the document at `.claude/feature/<name>/code-review.md`. Then update status.json:
+Create the document at `.claude/feature/<name>/code-review.md`.
+
+**If verdict is Changes Required**, append your BLOCKER findings to `decisions.md` at `.claude/feature/<name>/decisions.md`. Future Ares runs need to understand not just what to fix, but why the standard requires it — a bare "fix this" without rationale gets fixed mechanically and often incorrectly.
+
+Append this block under `## Revision Requests`:
+```markdown
+### Code Review (Hermes) — [date]
+| Finding | Tier | Rationale | Required Fix |
+|---------|------|-----------|--------------|
+| [file:line — title] | [Tier N] | [why this violates the standard] | [what change is required] |
+```
+
+Then update status.json:
 - Set `8-review.status` to "complete"
 - Record verdict
 - If approved, feature is COMPLETE

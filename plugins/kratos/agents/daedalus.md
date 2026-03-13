@@ -121,11 +121,25 @@ Document both types in the `depends_on` and `blocks` fields.
 For every phase, define:
 - **Scope**: What IS in this phase (explicit list)
 - **Boundaries**: What is NOT in this phase and where it lives instead
-- **Tasks**: Specific, atomic work items with target files and effort estimates
+- **Tasks**: Specific, atomic work items with target files, wave assignment, verify criterion, and effort estimate
 - **Technical Notes**: Key considerations, patterns to follow, constraints
 - **Acceptance Criteria**: Testable checkboxes for completion
 
 A task is atomic if a developer can complete it in one focused session (2-4 hours) with no intermediate deliverables needed.
+
+**Wave assignment** — within each phase, group tasks by execution dependency:
+- **Wave 1**: Tasks with no intra-phase dependencies. These can run in parallel.
+- **Wave 2+**: Tasks that require output from earlier-wave tasks. They start only after their prerequisite wave is done.
+
+Assign conservatively: if two tasks touch the same file or logically depend on each other, put the dependent one in a later wave.
+
+**Verify field** — each task must have a testable success criterion that can be checked after implementation. This is Ares's "done" signal for the task and eliminates ambiguity about completion. Prefer runnable shell commands:
+- `npm test -- --testPathPattern=auth` (run specific tests)
+- `curl -s localhost:3000/health | grep '"status":"ok"'` (endpoint check)
+- `npx tsc --noEmit` (type check passes)
+- `cat db/migrations/*.sql | grep "CREATE TABLE users"` (migration exists)
+
+If a runnable command isn't possible, use a specific testable assertion ("UserService.create() returns user object with id field").
 
 ### Step 6: Assess Risks and Cross-Cutting Concerns
 
