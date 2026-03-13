@@ -1,4 +1,4 @@
-# Kratos - The God of War (v2.5.0)
+# Kratos - The God of War (v2.19.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
@@ -78,6 +78,40 @@ Then install the plugin and add the auto-activation block to your `CLAUDE.md` (s
 | **Ares** | Implementation | Code writing, bug fixes, refactoring | Sonnet |
 | **Hermes** | Peer Review | Code review, quality audits | Opus |
 | **Hades** | Debugging | Error location, proof of failure, root cause | Sonnet |
+| **Ananke** | Task Management | Personal todo list (binary + file fallback) | Sonnet |
+
+---
+
+## Hooks & Quality Gates
+
+Kratos ships Claude Code hooks that enforce workflow discipline automatically — no configuration needed after `./bin/kratos install`.
+
+### SubagentStart — TODO-First Gate
+
+Fires before **Ares** and **Hephaestus** begin work. Injects a mandatory reminder that agents must write a numbered TODO list before making any tool calls.
+
+### SubagentStop — Deliverable Verification
+
+Fires when **Ares** or **Hephaestus** attempt to finish. Blocks completion and forces continuation if:
+
+| Agent | Check |
+|-------|-------|
+| **Ares** | Must have written a TODO list, mentioned specific files modified, and declared completion |
+| **Hephaestus** | Spec must cover at least 2 of: architecture, data model, API, implementation, schema, interface |
+
+When `stop_hook_active` is true (hook-triggered re-run), the gate passes automatically to prevent infinite loops.
+
+### PreToolUse — Package Manager Auto-Correction
+
+Intercepts every `Bash` tool call containing `npm` and rewrites it to the project's actual package manager, detected from lockfiles in the project root:
+
+| Lockfile | Detected PM |
+|----------|-------------|
+| `bun.lockb` | `bun` |
+| `yarn.lock` | `yarn` |
+| `pnpm-lock.yaml` | `pnpm` |
+
+If no alternative lockfile is found, `npm` commands pass through unchanged.
 
 ---
 

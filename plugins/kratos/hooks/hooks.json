@@ -24,6 +24,18 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" hook fix-pm 2>/dev/null || ~/.kratos/bin/kratos hook fix-pm",
+            "timeout": 3000
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Task|Write|Edit",
@@ -31,7 +43,52 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/tool-use.cjs\"",
-            "timeout": 5000
+            "timeout": 5000,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "kratos:ares",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" hook subagent-start 2>/dev/null || ~/.kratos/bin/kratos hook subagent-start",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:hephaestus",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" hook subagent-start 2>/dev/null || ~/.kratos/bin/kratos hook subagent-start",
+            "timeout": 3000
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "kratos:ares",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" hook subagent-stop 2>/dev/null || ~/.kratos/bin/kratos hook subagent-stop",
+            "timeout": 10000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:hephaestus",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" hook subagent-stop 2>/dev/null || ~/.kratos/bin/kratos hook subagent-stop",
+            "timeout": 10000
           }
         ]
       }

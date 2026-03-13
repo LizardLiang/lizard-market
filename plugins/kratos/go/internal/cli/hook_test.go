@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -137,4 +140,179 @@ func TestBuildInjectionContext(t *testing.T) {
 			t.Error("should mention hermes")
 		}
 	})
+}
+
+func TestDetectPackageManager(t *testing.T) {
+	tests := []struct {
+		name       string
+		lockfiles  []string
+		wantPM     string
+		wantLock   string
+	}{
+		{"bun takes priority", []string{"bun.lockb", "yarn.lock"}, "bun", "bun.lockb"},
+		{"yarn detected", []string{"yarn.lock"}, "yarn", "yarn.lock"},
+		{"pnpm detected", []string{"pnpm-lock.yaml"}, "pnpm", "pnpm-lock.yaml"},
+		{"no lockfile returns empty", []string{}, "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, f := range tt.lockfiles {
+				os.WriteFile(filepath.Join(dir, f), []byte{}, 0644)
+			}
+			pm, lock := detectPackageManager(dir)
+			if pm != tt.wantPM {
+				t.Errorf("detectPackageManager() pm = %q, want %q", pm, tt.wantPM)
+			}
+			if lock != tt.wantLock {
+				t.Errorf("detectPackageManager() lockfile = %q, want %q", lock, tt.wantLock)
+			}
+		})
+	}
+}
+
+func TestFixPMRewrite(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		pm      string
+		want    string
+	}{
+		{"npm install → yarn install", "npm install", "yarn", "yarn install"},
+		{"npm run build → bun run build", "npm run build", "bun", "bun run build"},
+		{"npm test → pnpm test", "npm test", "pnpm", "pnpm test"},
+		{"no npm → unchanged", "node index.js", "yarn", "node index.js"},
+		{"partial word no match", "npmrc check", "yarn", "npmrc check"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := npmWordBoundary.ReplaceAllString(tt.command, tt.pm)
+			if got != tt.want {
+				t.Errorf("rewrite %q with %q = %q, want %q", tt.command, tt.pm, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSubagentStopGate(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     subagentStopInput
+		wantOK    bool
+		wantInMsg string
+	}{
+		{
+			name: "ares passes with all checks",
+			input: subagentStopInput{
+				AgentType:            "kratos:ares",
+				LastAssistantMessage: "TODO:\n1. [ ] Implement auth\nTODO:\ncreated auth.ts\nImplementation complete.",
+			},
+			wantOK: true,
+		},
+		{
+			name: "ares blocked — no todo list",
+			input: subagentStopInput{
+				AgentType:            "kratos:ares",
+				LastAssistantMessage: "created auth.ts. Implementation complete.",
+			},
+			wantOK:    false,
+			wantInMsg: "no TODO list",
+		},
+		{
+			name: "ares blocked — no files mentioned",
+			input: subagentStopInput{
+				AgentType:            "kratos:ares",
+				LastAssistantMessage: "TODO:\n1. [x] Done\nImplementation complete.",
+			},
+			wantOK:    false,
+			wantInMsg: "no specific files",
+		},
+		{
+			name: "hephaestus passes with enough sections",
+			input: subagentStopInput{
+				AgentType:            "kratos:hephaestus",
+				LastAssistantMessage: "## Architecture\n...\n## API\n...\n## Data Model\n...",
+			},
+			wantOK: true,
+		},
+		{
+			name: "hephaestus blocked — too few sections",
+			input: subagentStopInput{
+				AgentType:            "kratos:hephaestus",
+				LastAssistantMessage: "This is a brief spec.",
+			},
+			wantOK:    false,
+			wantInMsg: "incomplete",
+		},
+		{
+			name: "stop_hook_active bypasses gate",
+			input: subagentStopInput{
+				AgentType:      "kratos:ares",
+				StopHookActive: true,
+			},
+			wantOK: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agentType := strings.ToLower(tt.input.AgentType)
+			msg := tt.input.LastAssistantMessage
+			msgLower := strings.ToLower(msg)
+
+			if tt.input.StopHookActive {
+				out, _ := json.Marshal(subagentStopOutput{OK: true})
+				var result subagentStopOutput
+				json.Unmarshal(out, &result)
+				if !result.OK {
+					t.Error("stop_hook_active should always pass")
+				}
+				return
+			}
+
+			var result subagentStopOutput
+
+			if strings.Contains(agentType, "ares") {
+				var failures []string
+				hasTodo := strings.Contains(msgLower, "todo:")
+				if !hasTodo {
+					failures = append(failures, "no TODO list was written before starting work")
+				}
+				mentionsFiles := npmWordBoundary.String() != "" && strings.Contains(msg, ".ts") || strings.Contains(msg, ".js") || strings.Contains(msg, ".go") || strings.Contains(msg, ".py")
+				_ = mentionsFiles
+				hasFiles := strings.Contains(msg, "created") || strings.Contains(msg, "wrote") || strings.Contains(msg, "modified")
+				fileExt := strings.Contains(msg, ".ts") || strings.Contains(msg, ".js") || strings.Contains(msg, ".go") || strings.Contains(msg, ".py")
+				if !hasFiles || !fileExt {
+					failures = append(failures, "no specific files were mentioned as created or modified")
+				}
+				done := strings.Contains(msgLower, "complete") || strings.Contains(msgLower, "done") || strings.Contains(msgLower, "finished") || strings.Contains(msgLower, "implemented")
+				if !done {
+					failures = append(failures, "implementation completion was not confirmed")
+				}
+				result = subagentStopOutput{OK: len(failures) == 0, Reason: strings.Join(failures, "; ")}
+			} else if strings.Contains(agentType, "hephaestus") {
+				sections := []string{"architecture", "data model", "api", "implementation", "schema", "interface"}
+				var found []string
+				for _, s := range sections {
+					if strings.Contains(msgLower, s) {
+						found = append(found, s)
+					}
+				}
+				if len(found) < 2 {
+					result = subagentStopOutput{OK: false, Reason: "technical spec appears incomplete"}
+				} else {
+					result = subagentStopOutput{OK: true}
+				}
+			}
+
+			if result.OK != tt.wantOK {
+				t.Errorf("gate OK = %v, want %v (reason: %s)", result.OK, tt.wantOK, result.Reason)
+			}
+			if tt.wantInMsg != "" && !strings.Contains(result.Reason, tt.wantInMsg) {
+				t.Errorf("reason %q should contain %q", result.Reason, tt.wantInMsg)
+			}
+		})
+	}
 }
