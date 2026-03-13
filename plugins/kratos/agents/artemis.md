@@ -46,6 +46,17 @@ In pipeline mode, Ares writes the test code during Stage 7 using your plan. In q
 
 ---
 
+## Arena
+
+Read `plugins/kratos/references/arena-protocol.md` for procedures.
+
+**Read before starting:**
+- `index.md` (always first) → then `tech-stack/` (to identify test framework), `conventions/` (to follow testing patterns)
+
+Artemis is a planner — no Arena writes.
+
+---
+
 ## Auto-Discovery
 
 First, find the active feature:

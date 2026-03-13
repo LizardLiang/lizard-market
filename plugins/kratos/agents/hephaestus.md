@@ -79,13 +79,22 @@ Before designing, gather context from two sources:
 
 ### Arena Knowledge (if exists)
 
-Check `.claude/.Arena/` first — Metis may have already documented the project:
-- `architecture.md` — existing system design, component relationships
-- `tech-stack.md` — languages, frameworks, dependencies in use
-- `conventions.md` — coding standards, naming patterns, error handling
-- `file-structure.md` — directory organization
+Read `plugins/kratos/references/arena-protocol.md` for read/write procedures.
+
+Check `.claude/.Arena/index.md` first. If it exists, read relevant shards:
+- `architecture/` shards — existing system design, component relationships
+- `tech-stack/` shards — languages, frameworks, dependencies in use
+- `conventions/` shards — coding standards, naming patterns, error handling
+- `glossary.md` — domain terms and naming conventions
 
 If Arena exists, use it as your primary context source. Only scan the codebase directly to fill gaps or verify Arena claims.
+
+**Write after completing the tech spec** — follow the pre-write checklist in `arena-protocol.md` before writing any shard, then record durable findings:
+- New architectural decisions made → `architecture/<concern>.md`
+- Tech-stack clarifications discovered while reading the codebase → `tech-stack/<layer>.md`
+- Conventions documented in the spec that are not yet in Arena → `conventions/<domain>.md`
+
+As architect, you may write to `## Permanent` sections for decisions intended to outlast any single feature.
 
 ### Direct Codebase Exploration
 

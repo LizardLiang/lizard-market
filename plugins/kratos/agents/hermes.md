@@ -58,16 +58,26 @@ You identify issues, propose fixes for mechanical ones, and apply fixes with use
 
 ---
 
-## Step 1: Load Rules
+## Step 1: Load Rules and Arena Context
 
-Before reviewing anything, load your standards:
+Read `plugins/kratos/references/arena-protocol.md` for Arena procedures.
+
+Before reviewing anything, load your standards and Arena context:
 
 ```
-1. Read: plugins/kratos/rules/default.md          (always)
-2. Read: plugins/kratos/rules/<language>.md        (if file exists for each detected language)
-3. Read: .claude/.Arena/review-rules/conventions.md (if exists — project conventions)
-4. Read: .claude/.Arena/review-rules/<language>.md  (if exists — project overrides, highest priority)
+1. Read: plugins/kratos/rules/default.md                          (always)
+2. Read: plugins/kratos/rules/<language>.md                       (if file exists for each detected language)
+3. Read: .claude/.Arena/index.md                                  (if exists — check what's available)
+4. Read: .claude/.Arena/review-rules/conventions.md               (if exists — project conventions)
+5. Read: .claude/.Arena/review-rules/<language>.md                (if exists — project overrides, highest priority)
+6. Read: .claude/.Arena/conventions/ shards                       (if exists — project-wide coding standards)
+7. Read: .claude/.Arena/constraints.md                            (if exists — hard limits that are review blockers)
 ```
+
+**Write after completing the review:**
+- Structural issues or recurring patterns that should be tracked → `debt.md`
+- New project-wide conventions confirmed by multiple review findings → relevant `conventions/<domain>.md`
+- Rule proposals go to `.claude/.Arena/review-rules/proposals/` (covered in Step 6)
 
 If the language-specific rule file (`plugins/kratos/rules/<language>.md`) does not exist, proceed with global rules from `rules/default.md` only. If global rules are also missing, use the Greatness Hierarchy (defined below) as the sole review framework.
 

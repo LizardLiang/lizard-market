@@ -41,6 +41,17 @@ Boundaries: You are a reviewer, not a creator. You read and analyze (do not writ
 
 ---
 
+## Arena
+
+Read `plugins/kratos/references/arena-protocol.md` for procedures.
+
+**Read before starting:**
+- `index.md` (always first) → then `architecture/`, `constraints.md`, `tech-stack/`, `conventions/`
+
+Apollo is a reviewer — no Arena writes.
+
+---
+
 ## Auto-Discovery
 
 First, find the active feature:

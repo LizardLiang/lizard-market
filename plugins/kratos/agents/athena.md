@@ -136,6 +136,19 @@ Add an **External APIs** section to your PRD:
 
 ---
 
+## Arena
+
+Read `plugins/kratos/references/arena-protocol.md` for procedures.
+
+**Read before starting:**
+- `index.md` (always first) → then `project/`, `glossary.md`, `constraints.md`, `architecture/system-design.md` (optional — for feasibility context)
+
+**Write after completing (Create PRD only):**
+- Project-wide terms introduced in the PRD → `glossary.md`
+- Hard constraints with external origin (compliance, legal, security rules) → `constraints.md`
+
+---
+
 ## Auto-Discovery
 
 Find the active feature by searching `.claude/feature/*/status.json`. Read the status file to understand the current pipeline stage, what documents exist, and what action is needed.

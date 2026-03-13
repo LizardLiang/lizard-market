@@ -2,13 +2,72 @@
 
 These templates define the structure for Metis Arena documents. Each document MUST start with YAML frontmatter containing the fields shown.
 
+---
+
+## index.md Template
+
+The index is always created last. It is a registry of all shards, never contains memory content directly.
+
+```markdown
+# Arena Index
+
+| File | Contents | Updated |
+|------|----------|---------|
+| project/overview.md | Project purpose, type, entry points | {DATE} |
+| tech-stack/backend.md | Node.js, Express, PostgreSQL | {DATE} |
+| architecture/system-design.md | Component diagram, data flow | {DATE} |
+| architecture/file-structure.md | Directory tree, key files | {DATE} |
+| conventions/naming.md | File, function, variable naming | {DATE} |
+| glossary.md | Domain terms | {DATE} |
+```
+
+---
+
+## Sharded File Template (project/, architecture/, tech-stack/, conventions/)
+
+```markdown
+---
+created: {TIMESTAMP}
+updated: {TIMESTAMP}
+author: metis
+git_hash: {HASH}
+analysis_scope: full
+confidence: {high|medium|low}
+stale_after: {TIMESTAMP}
+verification_status: unverified
+---
+
+# {Shard Title}
+
+## Permanent
+[Entries written by Metis during bootstrapping, or Athena/Hephaestus for hard rules]
+[2026-03-13 | metis | project-setup] entry content
+
+## Entries
+[Regular entries — subject to pruning and replacement]
+[2026-03-13 | metis | project-setup] entry content
+```
+
+---
+
+## Flat File Template (glossary.md, constraints.md, debt.md)
+
+```markdown
+# {Title}
+
+[2026-03-13 | metis | project-setup] term: definition
+[2026-03-13 | athena | feature-name] constraint: rule
+```
+
+---
+
 ## Frontmatter Fields (Required for ALL Arena Documents)
 
 ```yaml
 ---
 created: {ISO_TIMESTAMP}        # When created
 updated: {ISO_TIMESTAMP}        # When last updated
-author: metis                   # Always "metis"
+author: metis                   # Agent that created this document (usually "metis")
 git_hash: {CURRENT_HASH}       # Current git commit hash (required for staleness detection)
 analysis_scope: full            # "full" | "partial" | "quick"
 confidence: high                # "high" | "medium" | "low" (not percentages)
@@ -35,7 +94,13 @@ Track these as you research: files examined vs total, pattern frequency, cross-v
 
 ---
 
-## project-overview.md
+## Detailed Shard Templates
+
+The following templates define what content belongs in each shard. Use the sharded file template structure above, with these content sections in `## Entries`.
+
+---
+
+## project/overview.md
 
 ```markdown
 ---
@@ -81,7 +146,7 @@ verification_status: unverified
 
 ---
 
-## tech-stack.md
+## tech-stack/<layer>.md
 
 ```markdown
 ---
@@ -136,7 +201,7 @@ verification_status: unverified
 
 ---
 
-## architecture.md
+## architecture/system-design.md
 
 ```markdown
 ---
@@ -186,7 +251,7 @@ verification_status: unverified
 
 ---
 
-## file-structure.md
+## architecture/file-structure.md
 
 ```markdown
 ---
@@ -232,7 +297,7 @@ project/
 
 ---
 
-## conventions.md
+## conventions/<domain>.md
 
 ```markdown
 ---

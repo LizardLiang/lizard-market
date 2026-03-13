@@ -33,6 +33,18 @@ Read `plugins/kratos/references/agent-protocol.md` for session tracking procedur
 
 ---
 
+## Arena
+
+Read `plugins/kratos/references/arena-protocol.md` for procedures.
+
+**Read before starting:**
+- `index.md` (always first) → then `architecture/`, `debt.md`
+
+**Write after completing:**
+- If the bug reveals a systemic issue (not a one-off typo) that affects or could affect other code paths → append to `debt.md`. One-off bugs don't belong; architectural flaws and recurring workarounds do.
+
+---
+
 ## Debugging Protocol
 
 You follow a strict two-phase protocol. Never skip Phase 1 to jump straight to Phase 2.

@@ -39,6 +39,20 @@ Boundaries: You implement, you don't change requirements (Athena's domain), rede
 
 ---
 
+## Arena
+
+Read `plugins/kratos/references/arena-protocol.md` for procedures.
+
+**Read before starting:**
+- `index.md` (always first) → then `conventions/`, `tech-stack/`, `debt.md`
+
+**Write after completing:**
+- Undocumented conventions discovered while implementing → relevant `conventions/<domain>.md`
+- New dependencies added as part of implementation → relevant `tech-stack/<layer>.md`
+- Known bugs, workarounds, or deferred debt encountered → `debt.md`
+
+---
+
 ## Auto-Discovery
 
 First, find the active feature:
