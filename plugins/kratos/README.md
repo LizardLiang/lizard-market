@@ -1,4 +1,4 @@
-# Kratos - The God of War (v2.19.0)
+# Kratos - The God of War (v2.20.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
@@ -193,10 +193,45 @@ Pipeline state is tracked in `.claude/feature/<name>/status.json`. When the Krat
 
 All sessions, agent spawns, decisions, and file changes are recorded in a SQLite database. Use `/kratos:recall` to resume where you left off — context is automatically injected into new sessions.
 
-### Arena & Insights
+### Arena — Shared Project Knowledge
 
-- **The Arena** (`.claude/.Arena/`): Project-specific knowledge — architecture, tech stack, conventions.
-- **Insights** (`.claude/.Arena/insights/`): Cached external research from Mimir (TTL-based).
+The Arena (`.claude/.Arena/`) is Kratos's pull-model knowledge base. Agents read what they need from it, nothing is injected automatically. Metis bootstraps it on first run; all other agents append to it as part of their missions.
+
+**Structure:**
+```
+.claude/.Arena/
+├── index.md                  ← always read first — registry of all shards
+├── glossary.md               ← domain terms (flat dated list)
+├── constraints.md            ← hard limits with external origin
+├── debt.md                   ← known issues, active workarounds
+├── project/overview.md       ← project purpose, goals, users
+├── architecture/             ← system design, component decisions
+├── tech-stack/               ← one shard per stack layer
+├── conventions/              ← one shard per coding domain
+├── features/                 ← digest of past completed features
+├── research/                 ← Mimir's cached external research (TTL)
+└── review-rules/             ← Hermes review standards and proposals
+```
+
+Sharded files use an evidence format for every entry:
+```
+[YYYY-MM-DD | agent | feature-name] entry content
+```
+
+Each shard has a `## Permanent` section (written only by Metis at bootstrap, Athena, and Hephaestus) and an `## Entries` section (written by any authorized agent, subject to pruning). See `references/arena-protocol.md` for the full read/write protocol.
+
+**Who reads what:**
+
+| Agent | Reads | Writes |
+|-------|-------|--------|
+| Metis | — (bootstrapper) | All shards (initial) |
+| Athena | project/, glossary.md, constraints.md | glossary.md, constraints.md |
+| Hephaestus | architecture/, tech-stack/, conventions/, glossary.md | architecture/, tech-stack/, conventions/ (+ Permanent) |
+| Apollo | architecture/, constraints.md, tech-stack/, conventions/ | — |
+| Artemis | tech-stack/, conventions/ | — |
+| Ares | conventions/, tech-stack/, debt.md | conventions/, tech-stack/, debt.md |
+| Hermes | conventions/, constraints.md, review-rules/ | debt.md, conventions/, review-rules/ |
+| Hades | architecture/, debt.md | debt.md |
 
 ---
 

@@ -18,16 +18,26 @@ go/
 │   │   ├── db.go                # Database connection management
 │   │   ├── migrations.go        # Schema initialization
 │   │   ├── schema.sql           # Embedded schema file
-│   │   ├── session.go           # Session operations (TODO)
-│   │   ├── step.go              # Step recording (TODO)
-│   │   ├── feature.go           # Feature tracking (TODO)
-│   │   └── query.go             # Query operations (TODO)
+│   │   ├── session.go           # Session CRUD operations
+│   │   ├── step.go              # Step recording
+│   │   ├── feature.go           # Feature tracking
+│   │   └── query.go             # Query operations
 │   ├── models/
 │   │   └── session.go           # Session data model
 │   └── cli/
-│       ├── init.go              # Database initialization command
-│       └── session.go           # Session command stub
-├── bin/                         # Built binaries (gitignored)
+│       ├── init.go              # `kratos init` — DB initialization
+│       ├── install.go           # `kratos install` — hook installation
+│       ├── uninstall.go         # `kratos uninstall`
+│       ├── session.go           # `kratos session` — session management
+│       ├── session_start.go     # `kratos session start`
+│       ├── pipeline.go          # `kratos pipeline` — stage updates
+│       ├── step.go              # `kratos step` — step recording
+│       ├── query.go             # `kratos query` — data queries
+│       ├── recall.go            # `kratos recall` — session context restore
+│       ├── status.go            # `kratos status` — pipeline status
+│       ├── todo.go              # `kratos todo` — todo list management
+│       └── hook.go              # `kratos hook` — all hook subcommands
+├── bin/                         # Built binaries (tracked in git)
 ├── go.mod                       # Go module definition
 ├── go.sum                       # Dependency checksums
 ├── Makefile                     # Build automation
@@ -53,13 +63,23 @@ make install
 ## Usage
 
 ```bash
-# Initialize the database
-./bin/kratos init
+# Initialize database & install hooks
+./bin/kratos init && ./bin/kratos install
 
-# Show version
+# Pipeline stage management
+./bin/kratos pipeline update --feature <name> --stage 7-implementation --status complete
+
+# Session tracking
+./bin/kratos session start --feature <name>
+./bin/kratos recall --feature <name>
+
+# Hook subcommands (invoked by Claude Code hooks)
+./bin/kratos hook subagent-start   # inject TODO-first gate
+./bin/kratos hook subagent-stop    # verify deliverable completeness
+./bin/kratos hook fix-pm           # rewrite npm → project PM
+
+# Show version / help
 ./bin/kratos --version
-
-# Show help
 ./bin/kratos --help
 ```
 
@@ -88,33 +108,23 @@ GOOS=darwin GOARCH=arm64 go build -o bin/kratos-mac ./cmd/kratos
 - `github.com/google/uuid` - UUID generation
 - `github.com/spf13/cobra` - CLI framework
 
-## Development Status
+## CLI Commands
 
-### ✅ Completed (Task #1)
-- Directory structure
-- Go module initialization
-- Database connection layer
-- Schema embedding
-- Basic CLI (init command)
-- Build system
-
-### 🚧 TODO (Future Tasks)
-- Session management (start, end, active)
-- Step recording
-- Feature tracking
-- Decision tracking
-- File change tracking
-- Query commands (summary, recall)
-- Full CLI parity with Python implementation
-
-## Migration Strategy
-
-This Go implementation **coexists** with the existing Python/Rust implementations:
-
-1. **Same database schema** - Uses identical `schema.sql`
-2. **JSON API compatibility** - Matches Python output format
-3. **Gradual migration** - Hooks will be updated incrementally
-4. **Eventual replacement** - Will replace both Python and Rust
+| Command | Purpose |
+|---------|---------|
+| `kratos init` | Initialize SQLite database at `~/.kratos/memory.db` |
+| `kratos install` | Install Claude Code hooks from `hooks/hooks.json` |
+| `kratos uninstall` | Remove installed hooks |
+| `kratos session start` | Start a new session for a feature |
+| `kratos pipeline update` | Update pipeline stage status and timestamps |
+| `kratos step record` | Record an agent step with metadata |
+| `kratos query` | Query session/feature data |
+| `kratos recall` | Restore context for a prior session |
+| `kratos status` | Show pipeline status for active features |
+| `kratos todo` | Manage agent todo lists |
+| `kratos hook subagent-start` | Inject TODO-first gate (SubagentStart hook) |
+| `kratos hook subagent-stop` | Verify deliverable completeness (SubagentStop hook) |
+| `kratos hook fix-pm` | Rewrite npm → project package manager (PreToolUse hook) |
 
 ## Performance
 
