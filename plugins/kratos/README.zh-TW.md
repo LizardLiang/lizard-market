@@ -1,4 +1,4 @@
-# Kratos - 戰神 (v2.5.0)
+# Kratos - 戰神 (v2.19.0)
 
 > *「我就是眾神所造之物。」* — 現在，眾神為**你**服務。
 
@@ -78,6 +78,40 @@ cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos 
 | **Ares** | 實作 | 程式撰寫、Bug 修復、重構 | Sonnet |
 | **Hermes** | 同儕審查 | 程式審查、品質稽核 | Opus |
 | **Hades** | 除錯 | 錯誤定位、失敗證明、根因分析 | Sonnet |
+| **Ananke** | 任務管理 | 個人待辦清單（二進位檔 + 檔案備援） | Sonnet |
+
+---
+
+## Hooks 與品質關卡
+
+Kratos 內建 Claude Code Hooks，自動強制執行工作流程規範 — 執行 `./bin/kratos install` 後無需額外設定。
+
+### SubagentStart — 待辦清單優先關卡
+
+在 **Ares** 和 **Hephaestus** 開始工作前觸發。注入強制提示，要求代理人在呼叫任何工具前必須先撰寫編號待辦清單。
+
+### SubagentStop — 交付成果驗證
+
+在 **Ares** 或 **Hephaestus** 嘗試完成工作時觸發。若未達標則封鎖完成並強制繼續：
+
+| 代理人 | 檢查項目 |
+|--------|---------|
+| **Ares** | 必須撰寫待辦清單、提及具體修改的檔案，並確認完成 |
+| **Hephaestus** | 規格文件必須涵蓋至少 2 項：架構、資料模型、API、實作、Schema、介面 |
+
+當 `stop_hook_active` 為 true（由 Hook 觸發的重新執行）時，關卡自動放行以避免無限迴圈。
+
+### PreToolUse — 套件管理器自動修正
+
+攔截所有含 `npm` 的 `Bash` 工具呼叫，並依據專案根目錄的 lockfile 自動改寫為正確的套件管理器：
+
+| Lockfile | 偵測結果 |
+|----------|---------|
+| `bun.lockb` | `bun` |
+| `yarn.lock` | `yarn` |
+| `pnpm-lock.yaml` | `pnpm` |
+
+若未找到其他 lockfile，`npm` 指令原樣通過。
 
 ---
 
