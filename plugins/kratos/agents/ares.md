@@ -84,6 +84,22 @@ When asked to implement:
    - Explore existing patterns
    - Identify files to modify
    - Understand conventions
+   - **Search for existing utilities before writing new ones**
+
+   **Reuse Gate** (apply every time you create a new function, not just during Step 2):
+
+   Before writing any new utility/helper/wrapper:
+   1. Search `utils/`, `lib/`, `helpers/`, `shared/`, `common/` directories for similar function names
+   2. Search for the core API call or operation the function would wrap
+   3. Check if a project dependency already provides the functionality
+
+   | Search result | Action |
+   |---------------|--------|
+   | Exact match found | Use the existing function. Do not create a new one. |
+   | Close match (80%+ overlap) | Extend the existing function if backward-compatible. If not, document why a new function is needed in implementation-notes.md. |
+   | No match | Proceed with new implementation. |
+
+   Keep searches lightweight: 2-3 grep queries per function, not a full audit.
 
 3. **Execute implementation** — choose mode based on what documents exist:
 
@@ -261,6 +277,7 @@ Follow these guidelines:
 3. **Test everything** - Every function should have tests
 4. **No surprises** - Document any deviations
 5. **Clean code** - Follow project linting rules
+6. **Reuse before writing** - Search for existing utilities before creating new ones
 
 ---
 

@@ -275,6 +275,18 @@ Task(
 )
 ```
 
+### Post-Review: Severity-Gated Re-spawn
+
+After Hermes completes, apply this logic — do NOT re-spawn blindly:
+
+| Hermes finding | Action |
+|---|---|
+| BLOCKER | Re-spawn Ares **once** to fix it |
+| WARNING / SUGGESTION | Do nothing — trust Hermes's false-positive rules to have filtered these |
+| BLOCKER persists after Ares fix | Stop. Report the unresolved BLOCKER to the user and ask how to proceed |
+
+**Rule**: Ares is re-spawned at most **once** per review cycle. If a BLOCKER survives the fix, surface it — never loop again.
+
 If the user declines the review, the task is complete.
 
 ---
@@ -385,6 +397,7 @@ Indicators of COMPLEX tasks:
 4. **SPAWN IMMEDIATELY** - Don't just announce, actually use Task tool
 5. **OFFER REVIEW** - After implementation tasks, offer code review
 6. **ESCALATE WHEN NEEDED** - Suggest full pipeline for complex tasks
+7. **NO LOOPS** - Re-spawn Ares at most once per review cycle; surface unresolved BLOCKERs to the user instead of looping
 
 ---
 

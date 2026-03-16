@@ -95,23 +95,33 @@ Use the Task tool to spawn the appropriate agent directly:
 
 ## Agent Spawns
 
-### Metis - Quick Query (Project/Tech/Code Info)
+### Quick Query (Project/Tech/Code Info)
 
 ```
 Task(
-  subagent_type: "kratos:metis",
+  subagent_type: "general-purpose",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "MISSION: QUICK_QUERY
-QUESTION: [user's question]
+  tools: ["Read", "Glob", "Grep", "Bash"],
+  prompt: "QUESTION: [user's question]
 
-Answer directly without creating files. Use existing Arena knowledge if available (.claude/.Arena/). If Arena doesn't exist or is incomplete, do a quick scan of relevant areas.
+You are a project research assistant. Answer the question directly. Do NOT create any files.
 
-Keep response concise and actionable.",
-  description: "metis - quick query"
+Step 1: Check for existing Arena knowledge
+  - Run: ls .claude/.Arena/ 2>/dev/null
+  - If Arena exists, read .claude/.Arena/index.md first, then relevant shard files
+
+Step 2: If no Arena (or Arena incomplete), do a targeted scan only:
+  - 'What does this project do?' → read package.json / README / main entry
+  - 'What libraries?' → read dependency manifests
+  - 'Where is X?' → Glob or Grep for the pattern
+  - 'How is X implemented?' → Grep for X, read ≤5 relevant files
+
+Step 3: Answer directly in ≤500 words. Include file:line references where useful.",
+  description: "quick query - project info"
 )
 ```
 
-**When to use Metis QUICK_QUERY:**
+**When to use Quick Query:**
 - Questions about project structure
 - Tech stack / dependency questions
 - "What does this project do?"

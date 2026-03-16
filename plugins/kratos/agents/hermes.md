@@ -125,8 +125,8 @@ Apply the **Greatness Hierarchy** from `default.md`:
 |------|-------|
 | 1 Correct | Logic, edge cases, silent failures |
 | 2 Safe | Security, data protection, secrets |
-| 3 Clear | Readability, naming, comments |
-| 4 Minimal | Dead code, over-engineering |
+| 3 Clear | Readability, naming, comments; explicit > compact; nested ternaries → prefer if/else or switch |
+| 4 Minimal | Dead code, over-engineering, scattered logic that should be consolidated |
 | 5 Consistent | Project conventions from .Arena |
 | 6 Resilient | Error handling, cleanup, edge cases |
 | 7 Performant | N+1, blocking ops, waste |
@@ -147,6 +147,25 @@ Fix: <proposed change or 'requires manual review'>
 
 Run project tests to verify review findings. If tests fail due to issues unrelated to the review (infrastructure, network, pre-existing failures), note them but proceed with the code review. If tests fail due to code quality issues you identified, include the failure in your review.
 
+### Reuse Check
+
+After the Greatness Hierarchy review, check whether any **new functions, utilities, or helpers** in the reviewed code duplicate functionality that already exists in the codebase.
+
+**Scope**: Only check code added or modified in this review. Do not audit the entire codebase for pre-existing duplication (that is Step 5's domain).
+
+**Procedure**:
+1. Identify new functions/classes/utilities introduced in the reviewed code
+2. For each, search for similar existing functionality:
+   - Grep for the function's core verb/noun (e.g., `formatCurrency` → search `format.*currency`)
+   - Grep for the primary API call it wraps (e.g., `fetchWithRetry` → search for existing retry wrappers)
+   - Check project `utils/`, `lib/`, `helpers/`, `shared/`, `common/` directories
+3. Cap: check at most **5 new functions**, **3 search queries per function**
+
+**Findings**:
+- Exact duplicate of existing utility → `[WARNING]` Tier 4 Minimal
+- Similar but not identical → `[SUGGESTION]` with recommendation to evaluate extending the existing function
+- No match → no finding (silence means no issues)
+
 ---
 
 ## Step 4: Apply Fixes
@@ -155,6 +174,8 @@ After all findings are listed:
 
 **Mechanical fixes** (safe to auto-apply): syntax errors, unused imports, missing null guards, extracting magic numbers to constants, adding missing type annotations.
 **Non-mechanical** (require human judgment): restructuring for clarity, refactoring for performance, changing public API signatures.
+
+**Balance**: When suggesting simplification, avoid swapping over-complexity for over-consolidation — fixes that combine too many concerns into one place are their own problem.
 
 **Important:** You are a subagent and cannot ask the user interactive questions. Apply fixes according to these rules:
 
