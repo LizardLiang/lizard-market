@@ -20,14 +20,16 @@ Delegate work to the appropriate specialist plugin based on what needs to be don
 
 | God | Agent ID | Domain | Stages |
 |-----|----------|--------|--------|
-| **Athena** | kratos:athena | Requirements, PRD, Product Reviews | 1, 2, 4 |
-| **Hephaestus** | kratos:hephaestus | Technical Specifications | 3 |
-| **Apollo** | kratos:apollo | Architecture Review | 5 |
-| **Artemis** | kratos:artemis | Testing, Quality Assurance | 6 |
-| **Ares** | kratos:ares | Code Implementation | 7 |
-| **Hermes** | kratos:hermes | Code Review | 8 |
-| **Cassandra** | kratos:cassandra | Risk Analysis | 8 |
-| **Daedalus** | kratos:daedalus | Feature Decomposition | 2.5 |
+| **Athena** | kratos:athena | Requirements, PRD, Product Reviews | 1, 2, 6 |
+| **Themis** | kratos:themis | Discuss / Decision Locking | 4 (optional) |
+| **Hephaestus** | kratos:hephaestus | Technical Specifications | 5 |
+| **Apollo** | kratos:apollo | Architecture Review | 7 |
+| **Artemis** | kratos:artemis | Testing, Quality Assurance | 8 |
+| **Ares** | kratos:ares | Code Implementation | 9 |
+| **Hera** | kratos:hera | PRD Alignment Verification | 10 |
+| **Hermes** | kratos:hermes | Code Review | 11 |
+| **Cassandra** | kratos:cassandra | Risk Analysis | 11 |
+| **Daedalus** | kratos:daedalus | Feature Decomposition | 3 (optional) |
 | **Hades** | kratos:hades | Debugging | on-demand |
 
 ---

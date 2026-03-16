@@ -58,7 +58,7 @@ When the user runs `/kratos:recall`:
 KRATOS RECALL
 
 Feature: [feature-name]
-Stage: [X]/8 ([stage-name])
+Stage: [X]/11 ([stage-name])
 Status: [in_progress | completed | abandoned]
 Last active: [time ago]
 
@@ -84,8 +84,8 @@ KRATOS RECALL (Global)
 
 Recent sessions across all projects:
 
-1. [project]/[feature] - Stage [X]/8 - [time ago]
-2. [project]/[feature] - Stage [X]/8 - [time ago]
+1. [project]/[feature] - Stage [X]/11 - [time ago]
+2. [project]/[feature] - Stage [X]/11 - [time ago]
 3. [project]/[feature] - Completed - [time ago]
 
 Use /kratos:recall in the project directory for details.
@@ -100,12 +100,15 @@ Use /kratos:recall in the project directory for details.
 | 0 | Research | Metis |
 | 1 | PRD Creation | Athena |
 | 2 | PRD Review | Athena |
-| 3 | Tech Spec | Hephaestus |
-| 4 | PM Spec Review | Athena |
-| 5 | SA Spec Review | Apollo |
-| 6 | Test Plan | Artemis |
-| 7 | Implementation | Ares |
-| 8 | Code Review | Hermes |
+| 3 | Decomposition | Daedalus |
+| 4 | Discuss | Themis |
+| 5 | Tech Spec | Hephaestus |
+| 6 | PM Spec Review | Athena |
+| 7 | SA Spec Review | Apollo |
+| 8 | Test Plan | Artemis |
+| 9 | Implementation | Ares |
+| 10 | PRD Alignment | Hera |
+| 11 | Review | Hermes + Cassandra |
 
 ---
 
@@ -212,7 +215,7 @@ Showing current project only.
 KRATOS RECALL
 
 Feature: user-authentication
-Stage: 4/8 (PM Spec Review)
+Stage: 6/11 (PM Spec Review)
 Status: in_progress
 Last active: 2 hours ago
 
@@ -222,9 +225,9 @@ Last Actions:
 - Updated status.json
 
 Pipeline:
-[1]OK -> [2]OK -> [3]OK -> [4]>> -> [5].. -> [6].. -> [7].. -> [8]..
+[1]OK -> [2]OK -> [5]OK -> [6]>> -> [7].. -> [8].. -> [9].. -> [10].. -> [11]..
 
-Recommendation: Continue with Stage 5 (Apollo - SA Spec Review)?
+Recommendation: Continue with Stage 7 (Apollo - SA Spec Review)?
 
 Ready to continue? Say "continue" or "/kratos" to resume.
 ```
@@ -239,10 +242,10 @@ KRATOS RECALL (Global)
 
 Recent sessions across all projects:
 
-1. kratos/memory-recall-system - Stage 4/8 - 2 hours ago
-2. lizard-market/payment-integration - Stage 7/8 - 1 day ago
+1. kratos/memory-recall-system - Stage 6/11 - 2 hours ago
+2. lizard-market/payment-integration - Stage 9/11 - 1 day ago
 3. my-app/user-dashboard - Completed - 3 days ago
-4. api-server/rate-limiting - Stage 2/8 - 5 days ago
+4. api-server/rate-limiting - Stage 2/11 - 5 days ago
 
 Use /kratos:recall in the project directory for details.
 ```

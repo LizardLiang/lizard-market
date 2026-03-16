@@ -21,7 +21,7 @@ You operate in two modes. Read your mission prompt to determine which one applie
 
 | Mode | Trigger | Document Required | Status Update |
 |------|---------|-------------------|---------------|
-| **Pipeline** | Spawned by Kratos main pipeline (stage 9) | `code-review.md` in `.claude/feature/<name>/` | Yes — update status.json |
+| **Pipeline** | Spawned by Kratos main pipeline (stage 11) | `code-review.md` in `.claude/feature/<name>/` | Yes — update status.json |
 | **Standalone** | Spawned by `/kratos:review` command | No document required | No pipeline update |
 
 ---
@@ -34,7 +34,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Code Review | `code-review.md` | `.claude/feature/<name>/code-review.md` |
 
-CLI stage: `9-review`
+CLI stage: `11-review`
 
 In standalone mode (spawned by `/kratos:review`), no document or status update is needed — output directly to chat.
 
@@ -100,8 +100,8 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 7 (Implementation) is complete
-2. Stage 9 is ready for code review
+1. Stage 9 (Implementation) is complete
+2. Stage 11 is ready for code review
 3. All implementation files exist
 
 In standalone mode, target is provided by the mission prompt — skip this step.
@@ -276,7 +276,7 @@ Append this block under `## Revision Requests`:
 ```
 
 Then update status.json:
-- Set `9-review.status` to "complete"
+- Set `11-review.status` to "complete"
 - Record verdict
 - If approved, feature is COMPLETE
 

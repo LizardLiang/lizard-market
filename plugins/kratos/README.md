@@ -1,8 +1,8 @@
-# Kratos - The God of War (v2.20.0)
+# Kratos - The God of War (v2.24.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
-Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom. It handles everything from quick bug fixes to full 8-stage feature pipelines — with persistent memory, external research capabilities, and git history expertise.
+Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom. It handles everything from quick bug fixes to full 11-stage feature pipelines — with persistent memory, external research capabilities, and git history expertise.
 
 ## Installation
 
@@ -72,11 +72,14 @@ Then install the plugin and add the auto-activation block to your `CLAUDE.md` (s
 | **Mimir** | External Research | Web, GitHub, best practices, documentation | Sonnet |
 | **Athena** | Product Management | PRDs, PM reviews, requirements | Opus |
 | **Daedalus** | Decomposition | Feature phases, dependencies, platform-native tasks | Sonnet |
+| **Themis** | Discuss / Decision Lock | Debates implementation choices, writes context.md | Sonnet |
 | **Hephaestus** | Engineering | Technical specifications, blueprints | Opus |
 | **Apollo** | Architecture | System design, SA reviews | Opus |
 | **Artemis** | Quality Assurance | Test planning, test cases | Sonnet |
 | **Ares** | Implementation | Code writing, bug fixes, refactoring | Sonnet |
+| **Hera** | PRD Alignment | Verifies implementation covers all acceptance criteria | Sonnet |
 | **Hermes** | Peer Review | Code review, quality audits | Opus |
+| **Cassandra** | Risk Analysis | Security, breaking changes, CVEs | Sonnet |
 | **Hades** | Debugging | Error location, proof of failure, root cause | Sonnet |
 | **Ananke** | Task Management | Personal todo list (binary + file fallback) | Sonnet |
 
@@ -170,19 +173,21 @@ Tailor Kratos's power to your needs by prefixing any request:
 
 ## The Pipeline (Complex Features)
 
-For building new features, Kratos follows an 8-stage divine path:
+For building new features, Kratos follows an 11-stage divine path:
 
 ```
 [0] Research (Metis, optional)
 [1] PRD (Athena)
 [2] PRD Review (Athena)
-[2.5] Decompose (Daedalus, optional)
-[3] Tech Spec (Hephaestus)
-[4] PM Review (Athena) ─┐ parallel
-[5] SA Review (Apollo)  ─┘
-[6] Test Plan (Artemis)
-[7] Implementation (Ares)
-[8] Code Review (Hermes)
+[3] Decompose (Daedalus, optional)
+[4] Discuss (Themis, optional) ← locks decisions before Hephaestus specs
+[5] Tech Spec (Hephaestus)
+[6] PM Review (Athena) ─┐ parallel
+[7] SA Review (Apollo)  ─┘
+[8] Test Plan (Artemis)
+[9] Implementation (Ares)
+[10] PRD Alignment (Hera)
+[11] Review (Hermes + Cassandra)
 ```
 
 Pipeline state is tracked in `.claude/feature/<name>/status.json`. When the Kratos binary is installed, agents use `kratos pipeline update` to write real timestamps and maintain history. Without the binary, agents fall back to editing the file directly.

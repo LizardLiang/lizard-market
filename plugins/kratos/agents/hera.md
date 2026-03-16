@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | PRD Alignment | `prd-alignment.md` | `.claude/feature/<name>/prd-alignment.md` |
 
-CLI stage: `8-prd-alignment`
+CLI stage: `10-prd-alignment`
 
 ---
 
@@ -43,8 +43,8 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 7 (Implementation) is complete
-2. Stage 8 is ready for PRD alignment check
+1. Stage 9 (Implementation) is complete
+2. Stage 10 is ready for PRD alignment check
 
 ---
 
@@ -134,8 +134,8 @@ Coverage = (verified + passing criteria) / total criteria × 100%
 
 | Verdict | Condition | Next Stage |
 |---------|-----------|------------|
-| `aligned` | All criteria verified and passing | Proceed to stage 9 (Hermes + Cassandra) |
-| `gaps` | 1+ criteria missing tests or failing | Return to stage 7 (Ares) to add missing coverage |
+| `aligned` | All criteria verified and passing | Proceed to stage 11 (Hermes + Cassandra) |
+| `gaps` | 1+ criteria missing tests or failing | Return to stage 9 (Ares) to add missing coverage |
 | `misaligned` | Core feature functionality not built | Escalate to user — fundamental scope issue |
 
 **`misaligned`** is reserved for cases where a major user story is absent from the implementation entirely — not just missing a test, but missing the functionality itself. Use it sparingly.
@@ -147,10 +147,10 @@ Coverage = (verified + passing criteria) / total criteria × 100%
 Read the template structure from this output format and create `prd-alignment.md`.
 
 Then update status.json:
-- Set `8-prd-alignment.status` to `"complete"`
+- Set `10-prd-alignment.status` to `"complete"`
 - Record `alignment_verdict`
-- If `aligned`, set `9-review.status` to `"ready"`
-- If `gaps`, set `7-implementation.status` back to `"ready"` and record which criteria need coverage
+- If `aligned`, set `11-review.status` to `"ready"`
+- If `gaps`, set `9-implementation.status` back to `"ready"` and record which criteria need coverage
 
 Append to `decisions.md` if verdict is `gaps` or `misaligned`:
 ```markdown
@@ -181,7 +181,7 @@ Coverage: [N]%
 
 Verdict: ALIGNED / GAPS / MISALIGNED
 
-[If GAPS or MISALIGNED]: Returning to stage 7.
+[If GAPS or MISALIGNED]: Returning to stage 9.
   Ares must cover: AC-XX, AC-YY
 ```
 
@@ -189,7 +189,7 @@ Verdict: ALIGNED / GAPS / MISALIGNED
 
 ## Remember
 
-- You are a subagent spawned by Kratos at stage 8
+- You are a subagent spawned by Kratos at stage 10
 - You verify requirements, not code quality — that's Hermes's job
 - A test that exists but fails is a BLOCKER
 - A requirement with no test is a BLOCKER

@@ -45,8 +45,8 @@ AskUserQuestion(
 
 3. **Create README** for the feature
 
-**Note on Stage 7 fields:**
-- `mode`: Set to `"ares"` (AI implements) or `"user"` (manual implementation) after Stage 6 by editing status.json directly. See `plugins/kratos/references/status-json-schema.md` for the schema.
+**Note on Stage 9 fields:**
+- `mode`: Set to `"ares"` (AI implements) or `"user"` (manual implementation) after Stage 8 by editing status.json directly. See `plugins/kratos/references/status-json-schema.md` for the schema.
 - `tasks`: Only populated in User Mode with this structure:
   ```json
   {
@@ -100,13 +100,15 @@ Stage 1: PRD Creation (in-progress)
 |-------|--------|-------|----------|
 | 1. PRD | In Progress | Athena | prd.md |
 | 2. PRD Review | Blocked | Athena | prd-review.md |
-| 2.5. Decomposition | Blocked | Daedalus | decomposition.md |
-| 3. Tech Spec | Blocked | Hephaestus | tech-spec.md |
-| 4. PM Spec Review | Blocked | Athena | spec-review-pm.md |
-| 5. SA Spec Review | Blocked | Apollo | spec-review-sa.md |
-| 6. Test Plan | Blocked | Artemis | test-plan.md |
-| 7. Implementation | Blocked | Ares | implementation-notes.md |
-| 8. Code Review | Blocked | Hermes + Cassandra | code-review.md + risk-analysis.md |
+| 3. Decomposition | Blocked | Daedalus | decomposition.md |
+| 4. Discuss | Blocked | Themis | context.md |
+| 5. Tech Spec | Blocked | Hephaestus | tech-spec.md |
+| 6. PM Spec Review | Blocked | Athena | spec-review-pm.md |
+| 7. SA Spec Review | Blocked | Apollo | spec-review-sa.md |
+| 8. Test Plan | Blocked | Artemis | test-plan.md |
+| 9. Implementation | Blocked | Ares | implementation-notes.md |
+| 10. PRD Alignment | Blocked | Hera | prd-alignment.md |
+| 11. Review | Blocked | Hermes + Cassandra | code-review.md + risk-analysis.md |
 
 ## History
 - <timestamp>: Feature created by Kratos
@@ -128,7 +130,7 @@ Priority: <priority>
 Battlefield: .claude/feature/<feature-name>/
 
 Pipeline Initialized:
-[1]PRD -> [2]Review -> [2.5]Decompose -> [3]Spec -> [4-5]Reviews -> [6]Test -> [7]Impl -> [8]Review -> VICTORY
+[1]PRD -> [2]Review -> [3]Decompose -> [4]Discuss -> [5]Spec -> [6-7]Reviews -> [8]Test -> [9]Impl -> [10]Align -> [11]Review -> VICTORY
 
 Current Stage: 1 - PRD Creation
 Agent: Athena (opus)

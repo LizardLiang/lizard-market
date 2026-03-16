@@ -5,7 +5,7 @@ description: Ensure decomposition exists and select implementation mode before s
 
 # Pre-Implementation Gate
 
-This procedure runs between Stage 6 (Test Plan) and Stage 7 (Implementation). It ensures Ares receives a structured task queue rather than a monolithic spec, which prevents context rot and produces a bisectable git history.
+This procedure runs between Stage 8 (Test Plan) and Stage 9 (Implementation). It ensures Ares receives a structured task queue rather than a monolithic spec, which prevents context rot and produces a bisectable git history.
 
 ---
 
@@ -13,7 +13,7 @@ This procedure runs between Stage 6 (Test Plan) and Stage 7 (Implementation). It
 
 Check if `decomposition.md` exists at `.claude/feature/<name>/decomposition.md`.
 
-**If it already exists** (created at Stage 2.5) — skip to Step 2. Daedalus's earlier work is still valid.
+**If it already exists** (created at Stage 3) — skip to Step 2. Daedalus's earlier work is still valid.
 
 **If it does NOT exist** — spawn Daedalus now. The tech-spec is a better input than the PRD at this stage because it contains the implementation plan Ares will follow.
 
@@ -56,11 +56,11 @@ AskUserQuestion(
 )
 ```
 
-Update status.json: set `stages["7-implementation"].status` to `"in-progress"` and `stages["7-implementation"].mode` to `"ares"` or `"user"`. See `plugins/kratos/references/status-json-schema.md` for schema.
+Update status.json: set `stages["9-implementation"].status` to `"in-progress"` and `stages["9-implementation"].mode` to `"ares"` or `"user"`. See `plugins/kratos/references/status-json-schema.md` for schema.
 
 ---
 
 ## Returns
 
-- `"ares-mode"` — proceed to Stage 7a
-- `"user-mode"` — proceed to Stage 7b
+- `"ares-mode"` — proceed to Stage 9a
+- `"user-mode"` — proceed to Stage 9b

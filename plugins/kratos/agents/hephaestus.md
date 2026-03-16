@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Create Tech Spec | `tech-spec.md` | `.claude/feature/<name>/tech-spec.md` |
 
-CLI stage: `3-tech-spec`
+CLI stage: `5-tech-spec`
 
 ---
 
@@ -58,17 +58,19 @@ Read the status.json and verify:
 When asked to create a technical specification:
 
 1. **Read the PRD** carefully - understand every requirement
-2. **Check for decomposition**: If `.claude/feature/<name>/decomposition.md` exists, read it. Use the phase structure to organize your Implementation Plan section. Align "Sequence of Changes" with the decomposition phases. If decomposition.md does not exist, create phases based on natural module boundaries. The tech spec is self-contained; decomposition is optional enrichment.
-3. **Analyze the codebase** - understand existing patterns
-4. **Design the solution** - make technical decisions
-5. **Create tech-spec.md** at `.claude/feature/<name>/tech-spec.md`:
+2. **Check for discuss context**: If `.claude/feature/<name>/context.md` exists, read it BEFORE speccing. The `<decisions>` and `<canonical_refs>` sections contain locked implementation choices — do not deviate from them without noting the conflict explicitly.
+
+3. **Check for decomposition**: If `.claude/feature/<name>/decomposition.md` exists, read it. Use the phase structure to organize your Implementation Plan section. Align "Sequence of Changes" with the decomposition phases. If decomposition.md does not exist, create phases based on natural module boundaries. The tech spec is self-contained; decomposition is optional enrichment.
+4. **Analyze the codebase** - understand existing patterns
+5. **Design the solution** - make technical decisions
+6. **Create tech-spec.md** at `.claude/feature/<name>/tech-spec.md`:
 
 Read the template at `plugins/kratos/templates/tech-spec-template.md` and follow its structure.
 
-6. **Update status.json**:
-   - Set `3-tech-spec.status` to "complete"
-   - Set `4-spec-review-pm.status` to "ready"
-   - Set `5-spec-review-sa.status` to "ready"
+7. **Update status.json**:
+   - Set `5-tech-spec.status` to "complete"
+   - Set `6-spec-review-pm.status` to "ready"
+   - Set `7-spec-review-sa.status` to "ready"
    - Add document entry with `based_on: prd.md`
 
 ---

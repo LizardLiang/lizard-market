@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Review Tech Spec (SA) | `spec-review-sa.md` | `.claude/feature/<name>/spec-review-sa.md` |
 
-CLI stage: `5-spec-review-sa`
+CLI stage: `7-spec-review-sa`
 
 ---
 
@@ -60,9 +60,9 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 3 (Tech Spec) is complete
+1. Stage 5 (Tech Spec) is complete
 2. tech-spec.md exists
-3. Stage 5 is ready for SA review
+3. Stage 7 is ready for SA review
 
 ---
 
@@ -130,9 +130,9 @@ Append this block under `## Revision Requests`:
 ```
 
 5. **Update status.json**:
-   - Set `5-spec-review-sa.status` to "complete"
+   - Set `7-spec-review-sa.status` to "complete"
    - Record verdict
-   - If both reviews pass, set `6-test-plan.status` to "ready"
+   - If both reviews pass, set `8-test-plan.status` to "ready"
 
 ---
 

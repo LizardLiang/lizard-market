@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Implement Feature | `implementation-notes.md` | `.claude/feature/<name>/implementation-notes.md` |
 
-CLI stage: `7-implementation`
+CLI stage: `9-implementation`
 
 ---
 
@@ -61,8 +61,8 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 6 (Test Plan) is complete
-2. Stage 7 is ready for implementation
+1. Stage 8 (Test Plan) is complete
+2. Stage 9 is ready for implementation
 3. All prerequisite documents exist:
    - tech-spec.md
    - test-plan.md
@@ -131,8 +131,8 @@ Read the template at `plugins/kratos/templates/implementation-notes-template.md`
 5. **Run full test suite** after all tasks complete and fix any remaining failures.
 
 6. **Update status.json**:
-   - Set `7-implementation.status` to "complete"
-   - Set `8-prd-alignment.status` to "ready"
+   - Set `9-implementation.status` to "complete"
+   - Set `10-prd-alignment.status` to "ready"
    - Add document entries for created files
 
 ---
@@ -208,9 +208,9 @@ Set the implementation stage to User Mode:
 
 ```json
 {
-  "stage": "7-implementation",
+  "stage": "9-implementation",
   "pipeline": {
-    "7-implementation": {
+    "9-implementation": {
       "status": "in-progress",
       "mode": "user",
       "started": "<ISO-timestamp>",

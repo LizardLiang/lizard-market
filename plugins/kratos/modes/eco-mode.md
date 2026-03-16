@@ -64,13 +64,15 @@ For full pipeline features in eco mode:
 | 0-research | Metis | sonnet | **haiku** |
 | 1-prd | Athena | opus | **sonnet** |
 | 2-prd-review | Athena | opus | **sonnet** |
-| 3-tech-spec | Hephaestus | opus | **sonnet** |
-| 4-spec-review-pm | Athena | opus | **sonnet** |
-| 5-spec-review-sa | Apollo | opus | **haiku** |
-| 6-test-plan | Artemis | sonnet | **haiku** |
-| 7-implementation | Ares | sonnet | **haiku** |
-| 8-prd-alignment | Hera | sonnet | **haiku** |
-| 9-review | Hermes | opus | **haiku** |
+| 3-decomposition | Daedalus | sonnet | **haiku** |
+| 4-discuss | Themis | sonnet | **haiku** |
+| 5-tech-spec | Hephaestus | opus | **sonnet** |
+| 6-spec-review-pm | Athena | opus | **sonnet** |
+| 7-spec-review-sa | Apollo | opus | **haiku** |
+| 8-test-plan | Artemis | sonnet | **haiku** |
+| 9-implementation | Ares | sonnet | **haiku** |
+| 10-prd-alignment | Hera | sonnet | **haiku** |
+| 11-review | Hermes | opus | **haiku** |
 
 ---
 

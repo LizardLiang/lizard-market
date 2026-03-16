@@ -44,7 +44,7 @@ Search for the active feature:
 
 Verify:
 1. Feature exists
-2. Stage 7 (implementation) is active
+2. Stage 9 (implementation) is active
 3. Mode is "user" (User Mode)
 
 ### Step 3: Validate Tasks
@@ -62,7 +62,7 @@ For each valid task:
    ```json
    {
      "pipeline": {
-       "7-implementation": {
+       "9-implementation": {
          "tasks": {
            "items": [
              { "id": "01", "name": "...", "status": "complete" }
@@ -84,7 +84,7 @@ For each valid task:
 
 After updating, check if ALL tasks are complete:
 
-Check if every task in `status.json` `stages["7-implementation"].tasks` has `status: "complete"`.
+Check if every task in `status.json` `stages["9-implementation"].tasks` has `status: "complete"`.
 
 ### Step 6: Handle All Complete
 
@@ -93,20 +93,20 @@ When ALL tasks are complete:
 1. **Update status.json**:
    ```json
    {
-     "stage": "8-prd-alignment",
+     "stage": "10-prd-alignment",
      "pipeline": {
-       "7-implementation": {
+       "9-implementation": {
          "status": "complete",
          "completed": "<ISO-timestamp>"
        },
-       "8-prd-alignment": {
+       "10-prd-alignment": {
          "status": "ready"
        }
      }
    }
    ```
 
-2. **Spawn Hera** (PRD alignment check, stage 8):
+2. **Spawn Hera** (PRD alignment check, stage 10):
    ```
    Task(
      subagent_type: "kratos:hera",
@@ -123,7 +123,7 @@ When ALL tasks are complete:
    )
    ```
 
-   If Hera returns **aligned**, immediately spawn Hermes + Cassandra in parallel (stage 9):
+   If Hera returns **aligned**, immediately spawn Hermes + Cassandra in parallel (stage 11):
    ```
    Task(
      subagent_type: "kratos:hermes",
@@ -203,7 +203,7 @@ All 10 implementation tasks have been marked complete.
 
 Progress: [████████████████████] 100% (10/10 tasks)
 
-Advancing to Stage 8: PRD Alignment Check
+Advancing to Stage 10: PRD Alignment Check
 Summoning: HERA (model: sonnet)
 
 [TASK TOOL INVOCATION FOR HERMES]
@@ -230,7 +230,7 @@ Available tasks:
 This feature is using Ares Mode (AI implementation).
 The /kratos:task-complete command is only available in User Mode.
 
-Current stage: 7-implementation
+Current stage: 9-implementation
 Mode: ares
 ```
 
@@ -241,8 +241,8 @@ Mode: ares
 
 Cannot mark tasks complete - not in implementation stage.
 
-Current stage: 6-test-plan
-Required stage: 7-implementation
+Current stage: 8-test-plan
+Required stage: 9-implementation
 ```
 
 ---
@@ -254,7 +254,7 @@ Required stage: 7-implementation
 ```json
 {
   "pipeline": {
-    "7-implementation": {
+    "9-implementation": {
       "status": "in-progress",
       "mode": "user",
       "tasks": {

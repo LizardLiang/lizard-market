@@ -48,14 +48,14 @@ For the next stage, verify prerequisites:
 | Current Stage | Next Stage | Gate Requirement |
 |---------------|------------|------------------|
 | 1-prd | 2-prd-review | PRD exists |
-| 2-prd-review | 3-tech-spec | PRD Review verdict = ✅ Approved |
-| 3-tech-spec | 4-spec-review-pm | Tech Spec exists |
-| 3-tech-spec | 5-spec-review-sa | Tech Spec exists |
-| 4+5-reviews | 6-test-plan | Both reviews passed (✅ Aligned + ✅ Sound) |
-| 6-test-plan | 7-implementation | Test Plan exists |
-| 7-implementation | 8-prd-alignment | Implementation complete |
-| 8-prd-alignment | 9-review | PRD alignment verdict = ✅ Aligned |
-| 9-review | DONE | Code Review verdict = ✅ Approved |
+| 2-prd-review | 5-tech-spec | PRD Review verdict = ✅ Approved |
+| 5-tech-spec | 6-spec-review-pm | Tech Spec exists |
+| 5-tech-spec | 7-spec-review-sa | Tech Spec exists |
+| 6+7-reviews | 8-test-plan | Both reviews passed (✅ Aligned + ✅ Sound) |
+| 8-test-plan | 9-implementation | Test Plan exists |
+| 9-implementation | 10-prd-alignment | Implementation complete |
+| 10-prd-alignment | 11-review | PRD alignment verdict = ✅ Aligned |
+| 11-review | DONE | Code Review verdict = ✅ Approved |
 
 ### Step 4: Take Action
 
@@ -165,14 +165,15 @@ What is your command?
 |-------|-------|-------|--------|
 | 1-prd | Athena | opus | Create PRD (two-phase: gap analysis + write) |
 | 2-prd-review | Athena | opus | Review PRD |
-| 2.5-decomposition | Daedalus | sonnet | Decompose feature (optional) |
-| 3-tech-spec | Hephaestus | opus | Create tech spec |
-| 4-spec-review-pm | Athena | opus | PM spec review |
-| 5-spec-review-sa | Apollo | opus | SA spec review |
-| 6-test-plan | Artemis | sonnet | Create test plan |
-| 7-implementation | Ares | sonnet | Implement (Ares Mode) or create tasks (User Mode) |
-| 8-prd-alignment | Hera | sonnet | Verify acceptance criteria coverage |
-| 9-review | Hermes + Cassandra | opus + sonnet | Code review + risk analysis (parallel) |
+| 3-decomposition | Daedalus | sonnet | Decompose feature (optional) |
+| 4-discuss | Themis | sonnet | Debate implementation choices, lock decisions (optional) |
+| 5-tech-spec | Hephaestus | opus | Create tech spec |
+| 6-spec-review-pm | Athena | opus | PM spec review |
+| 7-spec-review-sa | Apollo | opus | SA spec review |
+| 8-test-plan | Artemis | sonnet | Create test plan |
+| 9-implementation | Ares | sonnet | Implement (Ares Mode) or create tasks (User Mode) |
+| 10-prd-alignment | Hera | sonnet | Verify acceptance criteria coverage |
+| 11-review | Hermes + Cassandra | opus + sonnet | Code review + risk analysis (parallel) |
 
 All agents are spawned via Task tool: `Task(subagent_type: "kratos:[agent]", ...)`
 

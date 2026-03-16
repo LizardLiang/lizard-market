@@ -27,7 +27,7 @@ Your deliverables by mission:
 | Review PRD | `prd-review.md` | `.claude/feature/<name>/prd-review.md` |
 | Review Tech Spec (PM) | `spec-review-pm.md` | `.claude/feature/<name>/spec-review-pm.md` |
 
-CLI stage names: `1-prd`, `2-prd-review`, `4-spec-review-pm`
+CLI stage names: `1-prd`, `2-prd-review`, `6-spec-review-pm`
 
 ---
 

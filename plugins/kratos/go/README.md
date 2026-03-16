@@ -67,7 +67,7 @@ make install
 ./bin/kratos init && ./bin/kratos install
 
 # Pipeline stage management
-./bin/kratos pipeline update --feature <name> --stage 7-implementation --status complete
+./bin/kratos pipeline update --feature <name> --stage 9-implementation --status complete
 
 # Session tracking
 ./bin/kratos session start --feature <name>

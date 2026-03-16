@@ -1,6 +1,6 @@
 ---
 name: stages
-description: Exact Task invocations for each pipeline stage (0–8)
+description: Exact Task invocations for each pipeline stage (0–11)
 ---
 
 # Pipeline Stage Invocations
@@ -133,7 +133,7 @@ AskUserQuestion(
     { label: "Yes, Notion", description: "Create native Notion page with task database" },
     { label: "Yes, Linear", description: "Create Linear project with phase issues" },
     { label: "Yes, multiple targets", description: "Output to local files + Notion/Linear" },
-    { label: "No, proceed to tech spec", description: "Skip decomposition, go straight to Hephaestus" }
+    { label: "No, proceed", description: "Skip decomposition, go straight to discuss/tech spec" }
   ]
 )
 ```
@@ -144,7 +144,7 @@ If user chooses decomposition:
 Task(
   subagent_type: "kratos:daedalus",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "MISSION: Decompose Feature (Pipeline Stage 2.5)
+  prompt: "MISSION: Decompose Feature (Pipeline Stage 3)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 INPUT: Read prd.md in the feature folder
@@ -161,11 +161,153 @@ This decomposition enriches the feature — downstream agents (Hephaestus, Artem
 )
 ```
 
-If user says No: set `stages["2.5-decomposition"].status` to `"skipped"` in status.json. See `plugins/kratos/references/status-json-schema.md`.
+If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status.json. See `plugins/kratos/references/status-json-schema.md`.
 
 ---
 
-## Stage 3: Create Tech Spec (Hephaestus)
+## Stage 3 → 4 Transition: Optional Discuss (Themis)
+
+After Stage 3 (complete or skipped), offer the Discuss phase before spawning Hephaestus:
+
+```
+AskUserQuestion(
+  question: "Before Hephaestus specs, would you like to lock down implementation decisions? Themis will surface every choice Hephaestus would otherwise guess.",
+  options: [
+    { label: "Yes, lock decisions first", description: "Themis will surface implementation choices in batches until everything is locked" },
+    { label: "No, proceed to tech spec", description: "Skip to Hephaestus — faster but he'll make assumptions" }
+  ]
+)
+```
+
+If user says No: set `stages["4-discuss"].status` to `"skipped"` in status.json.
+
+If user chooses Discuss, Stage 4 runs in two phases. **Themis cannot call AskUserQuestion — Kratos handles all user interaction.**
+
+### Phase 1: Identify Gray Areas
+
+```
+Task(
+  subagent_type: "kratos:themis",
+  model: "[sonnet|haiku|opus based on mode]",
+  prompt: "MISSION: Identify Gray Areas (Pipeline Stage 4)
+PHASE: IDENTIFY_GRAY_AREAS
+FEATURE: [feature-name]
+FOLDER: .claude/feature/[feature-name]/
+
+Read prd.md, scout the codebase for existing patterns, load any prior context.md files from other features. Identify implementation choices Hephaestus would otherwise guess (up to 4 per batch — set MORE_QUESTIONS: true if more remain).
+
+Return THEMIS_QUESTIONS_RESULT. Do NOT write context.md yet.",
+  description: "themis - identify gray areas"
+)
+```
+
+### Phase 1.5: Question Loop (Kratos handles this)
+
+This loop continues until Themis returns `MORE_QUESTIONS: false`. Max 5 rounds total to prevent runaway loops.
+
+**Each round:**
+
+**Step A — ask this batch:**
+
+For each Q[N] in the current `THEMIS_QUESTIONS_RESULT`, ask and resolve one at a time:
+
+```
+AskUserQuestion(
+  question: "[Q1_TITLE]\n\n[Q1_CONTEXT]\n\n[If debate mode + recommendation: 'I recommend [Label] — ']",
+  options: [mapped from Q1_OPTIONS]
+)
+```
+
+**If answer is a concrete choice** → record it, move to next question in batch.
+
+**If answer is "Tell me more" / "Explore further"** → spawn Themis FOLLOW_UP for that area:
+
+```
+Task(
+  subagent_type: "kratos:themis",
+  model: "[sonnet|haiku|opus based on mode]",
+  prompt: "PHASE: FOLLOW_UP
+FEATURE: [feature-name]
+GRAY_AREA: [Q1_TITLE]
+ORIGINAL_CONTEXT: [Q1_CONTEXT]
+USER_WANTS: [user's answer]
+
+Return THEMIS_FOLLOWUP_RESULT. Concrete options only — no further explore.",
+  description: "themis - follow-up [Q1_TITLE]"
+)
+```
+
+Ask the follow-up, record the final answer. Maximum one follow-up per question.
+
+**Step B — check for more:**
+
+After the batch is fully answered, check `MORE_QUESTIONS`:
+
+- `MORE_QUESTIONS: false` → proceed to Phase 2
+- `MORE_QUESTIONS: true` → re-spawn Themis with all answers so far:
+
+```
+Task(
+  subagent_type: "kratos:themis",
+  model: "[sonnet|haiku|opus based on mode]",
+  prompt: "PHASE: IDENTIFY_GRAY_AREAS
+FEATURE: [feature-name]
+FOLDER: .claude/feature/[feature-name]/
+
+ANSWERED_SO_FAR:
+[Q1_TITLE]
+Answer: [answer]
+
+[Q2_TITLE]
+Answer: [answer]
+
+[...all answers from all previous rounds...]
+
+Surface the next batch of gray areas not yet covered. Return THEMIS_QUESTIONS_RESULT.",
+  description: "themis - identify gray areas (round N)"
+)
+```
+
+Then repeat from Step A with the new batch.
+
+### Phase 2: Write context.md
+
+After all answers are collected, re-spawn Themis with the decisions:
+
+```
+Task(
+  subagent_type: "kratos:themis",
+  model: "[sonnet|haiku|opus based on mode]",
+  prompt: "MISSION: Write context.md (Pipeline Stage 4)
+PHASE: WRITE_CONTEXT
+FEATURE: [feature-name]
+FOLDER: .claude/feature/[feature-name]/
+
+DECISIONS:
+[Q1_TITLE]
+Answer: [user's answer]
+
+[Q2_TITLE]
+Answer: [user's answer]
+
+[...all answers...]
+
+CONTEXT_DATA from Phase 1:
+SCOPE_BOUNDARY: [from THEMIS_QUESTIONS_RESULT]
+CANONICAL_REFS: [from THEMIS_QUESTIONS_RESULT]
+EXISTING_PATTERNS: [from THEMIS_QUESTIONS_RESULT]
+REUSABLE_ASSETS: [from THEMIS_QUESTIONS_RESULT]
+INTEGRATION_POINTS: [from THEMIS_QUESTIONS_RESULT]
+PRIOR_DECISIONS_IMPORTED: [from THEMIS_QUESTIONS_RESULT]
+
+Write context.md with these locked decisions. Update status.json.",
+  description: "themis - write context.md"
+)
+```
+
+---
+
+## Stage 5: Create Tech Spec (Hephaestus)
 
 ```
 Task(
@@ -178,14 +320,14 @@ PRD: Approved and ready at prd.md
 
 Create tech-spec.md before completing. Verify it exists before reporting completion.
 
-Create tech-spec.md based on the approved PRD. Update status.json.",
+Create tech-spec.md based on the approved PRD. If context.md exists, read it first — it contains locked implementation decisions. Update status.json.",
   description: "hephaestus - create tech spec"
 )
 ```
 
 ---
 
-## Stages 4 + 5: Spec Reviews — Run in Parallel
+## Stages 6 + 7: Spec Reviews — Run in Parallel
 
 Spawn both agents in the same response:
 
@@ -221,7 +363,7 @@ Wait for both to complete before proceeding.
 
 ---
 
-## Stage 6: Create Test Plan (Artemis)
+## Stage 8: Create Test Plan (Artemis)
 
 ```
 Task(
@@ -238,11 +380,11 @@ Create comprehensive test-plan.md based on prd.md and tech-spec.md. Update statu
 )
 ```
 
-After Stage 6 completes: read `plugins/kratos/pipeline/pre-implementation.md` and execute its procedure.
+After Stage 8 completes: read `plugins/kratos/pipeline/pre-implementation.md` and execute its procedure.
 
 ---
 
-## Stage 7a: Implement Feature — Ares Mode
+## Stage 9a: Implement Feature — Ares Mode
 
 ```
 Task(
@@ -261,7 +403,7 @@ Implement according to tech-spec.md. Write tests per test-plan.md. Create implem
 
 ---
 
-## Stage 7b: Create Implementation Tasks — User Mode
+## Stage 9b: Create Implementation Tasks — User Mode
 
 ```
 Task(
@@ -287,7 +429,7 @@ After User Mode completes: do NOT spawn Hermes automatically. Tell the user to w
 
 ---
 
-## Stage 8: PRD Alignment Check (Hera)
+## Stage 10: PRD Alignment Check (Hera)
 
 ```
 Task(
@@ -306,7 +448,7 @@ Verify every acceptance criterion in prd.md is covered by a test and that tests 
 
 ---
 
-## Stage 9: Code Review + Risk Analysis — Parallel
+## Stage 11: Code Review + Risk Analysis — Parallel
 
 Spawn both agents in the same response:
 

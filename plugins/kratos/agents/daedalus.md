@@ -30,7 +30,7 @@ Your deliverables depend on the output target:
 
 Default to local `decomposition.md` unless the user explicitly requests Notion or Linear targets. Multi-target output only when user explicitly requests it.
 
-CLI stage: `2.5-decomposition`
+CLI stage: `3-decomposition`
 
 ---
 
@@ -165,7 +165,7 @@ When outputting to local files:
 3. **Create `decomposition.md`** at `.claude/feature/<name>/decomposition.md` following the template structure
 
 4. **Update `status.json`** (if in pipeline mode):
-   - Set `2.5-decomposition.status` to "complete"
+   - Set `3-decomposition.status` to "complete"
    - Add document entry for `decomposition.md`
 
 ---

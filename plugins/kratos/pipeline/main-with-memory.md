@@ -131,21 +131,25 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 | Agent | Model | Domain | Stages |
 |-------|-------|--------|--------|
 | **metis** | opus | Project research, codebase analysis | 0 (Pre-flight) |
-| **athena** | opus | PRD creation, PM reviews | 1, 2, 4 |
-| **hephaestus** | opus | Technical specifications | 3 |
-| **apollo** | opus | Architecture review | 5 |
-| **artemis** | sonnet | Test planning | 6 |
-| **ares** | sonnet | Implementation | 7 |
-| **daedalus** | sonnet | Feature decomposition | 2.5 (Optional) |
-| **hermes** | opus | Code review | 8 |
-| **cassandra** | sonnet | Risk analysis | 8 (parallel with hermes) |
+| **athena** | opus | PRD creation, PM reviews | 1, 2, 6 |
+| **daedalus** | sonnet | Feature decomposition | 3 (optional) |
+| **themis** | sonnet | Implementation discuss, decision locking | 4 (optional) |
+| **hephaestus** | opus | Technical specifications | 5 |
+| **apollo** | opus | Architecture review | 7 |
+| **artemis** | sonnet | Test planning | 8 |
+| **ares** | sonnet | Implementation | 9 |
+| **hera** | sonnet | PRD alignment verification | 10 |
+| **hermes** | opus | Code review | 11 |
+| **cassandra** | sonnet | Risk analysis | 11 (parallel with hermes) |
 
 ---
 
 ## Pipeline Stages
 
 ```
-[0] Research (optional) → [1] PRD → [2] PRD Review → [2.5] Decompose (optional) → [3] Tech Spec → [4] PM Review → [5] SA Review → [6] Test Plan → [7] Implement → [8] Review → VICTORY
+[0] Research (opt) → [1] PRD → [2] PRD Review → [3] Decompose (opt) → [4] Discuss (opt)
+  → [5] Tech Spec → [6] Spec Review PM → [7] Spec Review SA → [8] Test Plan
+  → [9] Implement → [10] PRD Alignment → [11] Review → VICTORY
 ```
 
 | Stage | Agent | Model | Document Created |
@@ -153,14 +157,15 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 | 0-research | metis | opus | .claude/.Arena/* |
 | 1-prd | athena | opus | prd.md |
 | 2-prd-review | athena | opus | prd-review.md |
-| 2.5-decomposition | daedalus | sonnet | decomposition.md (optional) |
-| 3-tech-spec | hephaestus | opus | tech-spec.md |
-| 4-spec-review-pm | athena | opus | spec-review-pm.md |
-| 5-spec-review-sa | apollo | opus | spec-review-sa.md |
-| 6-test-plan | artemis | sonnet | test-plan.md |
-| 7-implementation | ares | sonnet | implementation-notes.md + code |
-| 8-prd-alignment | hera | sonnet | prd-alignment.md |
-| 9-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
+| 3-decomposition | daedalus | sonnet | decomposition.md (optional) |
+| 4-discuss | themis | sonnet | context.md (optional) |
+| 5-tech-spec | hephaestus | opus | tech-spec.md |
+| 6-spec-review-pm | athena | opus | spec-review-pm.md |
+| 7-spec-review-sa | apollo | opus | spec-review-sa.md |
+| 8-test-plan | artemis | sonnet | test-plan.md |
+| 9-implementation | ares | sonnet | implementation-notes.md + code |
+| 10-prd-alignment | hera | sonnet | prd-alignment.md |
+| 11-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
 
 ---
 
@@ -204,15 +209,15 @@ For each stage, follow this pattern:
    - After PRD Review approved, judge complexity
    - If complex, use AskUserQuestion to offer decomposition
    - If user accepts, spawn Daedalus → record completion
-   - If declined, mark 2.5 as skipped
+   - If declined, mark 3-decomposition as skipped
 
-   **Stage 6→7 transition requires mode selection:**
+   **Stage 8→9 transition requires mode selection:**
    - Use AskUserQuestion: "Ares Mode" vs "User Mode"
    - Record decision in memory
 
-   **Stage 8 spawns Hera:**
+   **Stage 10 spawns Hera:**
    - Hera (PRD alignment check) — record spawn and completion
-   - If aligned, Stage 9 spawns two agents in parallel:
+   - If aligned, Stage 11 spawns two agents in parallel:
    - Hermes (code review) + Cassandra (risk analysis) — record both spawns and completions
 
 3. **RECORD POST-COMPLETION**:
@@ -245,21 +250,22 @@ This matches `commands/main.md` exactly:
 | 1-prd | - | 2-prd-review | athena (opus) |
 | 2-prd-review | Approved | DECOMPOSITION CHECK | Kratos judges complexity |
 | 2-prd-review | Revisions | 1-prd | athena (opus) |
-| 2.5-decomposition | Complete or Skipped | 3-tech-spec | hephaestus (opus) |
-| 3-tech-spec | - | 4 + 5 parallel | athena + apollo (opus) |
-| 4+5 reviews | Both pass | 6-test-plan | artemis (sonnet) |
-| 4 or 5 | Issues | 3-tech-spec | hephaestus (opus) |
-| 6-test-plan | - | ASK MODE | Ask user: Ares Mode vs User Mode |
-| 6-test-plan | Ares Mode | 7-implementation | ares (sonnet) - implement |
-| 6-test-plan | User Mode | 7-implementation | ares (sonnet) - create tasks |
-| 7-implementation | Ares Mode | 8-prd-alignment | hera (sonnet) |
-| 7-implementation | User Mode | WAIT | User completes tasks, then /kratos:task-complete all |
-| 8-prd-alignment | Aligned | 9-review | hermes (opus) + cassandra (sonnet) in parallel |
-| 8-prd-alignment | Gaps | 7-implementation | ares (sonnet) — add missing test coverage |
-| 8-prd-alignment | Misaligned | BLOCKED | Escalate to user |
-| 9-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
-| 9-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first |
-| 9-review | Changes | 7-implementation | ares (sonnet) |
+| 3-decomposition | Complete or Skipped | 4-discuss gate | Offer Themis or skip to 5 |
+| 4-discuss | Complete or Skipped | 5-tech-spec | hephaestus (opus) |
+| 5-tech-spec | - | 6 + 7 parallel | athena + apollo (opus) |
+| 6+7 reviews | Both pass | 8-test-plan | artemis (sonnet) |
+| 6 or 7 | Issues | 5-tech-spec | hephaestus (opus) |
+| 8-test-plan | - | ASK MODE | Ask user: Ares Mode vs User Mode |
+| 8-test-plan | Ares Mode | 9-implementation | ares (sonnet) - implement |
+| 8-test-plan | User Mode | 9-implementation | ares (sonnet) - create tasks |
+| 9-implementation | Ares Mode | 10-prd-alignment | hera (sonnet) |
+| 9-implementation | User Mode | WAIT | User completes tasks, then /kratos:task-complete all |
+| 10-prd-alignment | Aligned | 11-review | hermes (opus) + cassandra (sonnet) in parallel |
+| 10-prd-alignment | Gaps | 9-implementation | ares (sonnet) — add missing test coverage |
+| 10-prd-alignment | Misaligned | BLOCKED | Escalate to user |
+| 11-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
+| 11-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first |
+| 11-review | Changes | 9-implementation | ares (sonnet) |
 
 ---
 
@@ -301,7 +307,7 @@ Result: <success/failure>
 Files: <list of files created/modified>
 
 Pipeline:
-[1]✅ → [2]✅ → [2.5]⏭️ → [3]✅ → [4]🔄 → [5]⏳ → [6]🔒 → [7]🔒 → [8]🔒
+[1]✅ → [2]✅ → [3]⏭️ → [4]⏭️ → [5]✅ → [6]🔄 → [7]⏳ → [8]🔒 → [9]🔒 → [10]🔒 → [11]🔒
 
 Next: <next stage>
 Continue?

@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Create Test Plan | `test-plan.md` | `.claude/feature/<name>/test-plan.md` |
 
-CLI stage: `6-test-plan`
+CLI stage: `8-test-plan`
 
 ---
 
@@ -39,10 +39,10 @@ You are responsible for:
 
 | Mode | Trigger | You Do | You Don't Do |
 |------|---------|--------|--------------|
-| **Pipeline** | Spawned by `/kratos:main` at Stage 6 | Plan tests, define cases, map coverage | Write test code, execute tests, modify source |
+| **Pipeline** | Spawned by `/kratos:main` at Stage 8 | Plan tests, define cases, map coverage | Write test code, execute tests, modify source |
 | **Quick** | Spawned by `/kratos:quick` | Write actual test code, run tests, verify results | Create PRDs, tech specs, or pipeline documents |
 
-In pipeline mode, Ares writes the test code during Stage 7 using your plan. In quick mode, you are the implementer — write working test files directly.
+In pipeline mode, Ares writes the test code during Stage 9 using your plan. In quick mode, you are the implementer — write working test files directly.
 
 ---
 
@@ -65,9 +65,9 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 4 (PM Spec Review) - complete with "Aligned" verdict
-2. Stage 5 (SA Spec Review) - complete with "Sound" verdict
-3. Stage 6 is ready for test planning
+1. Stage 6 (PM Spec Review) - complete with "Aligned" verdict
+2. Stage 7 (SA Spec Review) - complete with "Sound" verdict
+3. Stage 8 is ready for test planning
 
 ---
 
@@ -92,8 +92,8 @@ When asked to create a test plan:
 Read the template at `plugins/kratos/templates/test-plan-template.md` and follow its structure.
 
 4. **Update status.json**:
-   - Set `6-test-plan.status` to "complete"
-   - Set `7-implementation.status` to "ready"
+   - Set `8-test-plan.status` to "complete"
+   - Set `9-implementation.status` to "ready"
    - Add document entry
 
 ---
