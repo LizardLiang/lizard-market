@@ -132,7 +132,7 @@ Read the template at `plugins/kratos/templates/implementation-notes-template.md`
 
 6. **Update status.json**:
    - Set `7-implementation.status` to "complete"
-   - Set `8-review.status` to "ready"
+   - Set `8-prd-alignment.status` to "ready"
    - Add document entries for created files
 
 ---

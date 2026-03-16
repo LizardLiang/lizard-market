@@ -287,7 +287,26 @@ After User Mode completes: do NOT spawn Hermes automatically. Tell the user to w
 
 ---
 
-## Stage 8: Code Review + Risk Analysis — Parallel
+## Stage 8: PRD Alignment Check (Hera)
+
+```
+Task(
+  subagent_type: "kratos:hera",
+  model: "sonnet",
+  prompt: "MISSION: PRD Alignment Check
+FEATURE: [feature-name]
+FOLDER: .claude/feature/[feature-name]/
+
+Create prd-alignment.md before completing. Verify it exists before reporting completion.
+
+Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Create prd-alignment.md with verdict. Update status.json.",
+  description: "hera - prd alignment check"
+)
+```
+
+---
+
+## Stage 9: Code Review + Risk Analysis — Parallel
 
 Spawn both agents in the same response:
 

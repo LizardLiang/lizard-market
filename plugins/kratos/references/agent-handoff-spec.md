@@ -7,7 +7,7 @@ Defines what each agent produces, what each expects as input, and how to handle 
 ## Pipeline Flow
 
 ```
-Metis -> Athena -> Athena(review) -> [Daedalus] -> Hephaestus -> Athena+Apollo -> Artemis -> Ares -> Hermes+Cassandra
+Metis -> Athena -> Athena(review) -> [Daedalus] -> Hephaestus -> Athena+Apollo -> Artemis -> Ares -> Hera -> Hermes+Cassandra
 ```
 
 ---
@@ -102,9 +102,21 @@ Metis -> Athena -> Athena(review) -> [Daedalus] -> Hephaestus -> Athena+Apollo -
 | **Outputs (Ares Mode)** | Implementation code + `implementation-notes.md` |
 | **Outputs (User Mode)** | `tasks/*.md` + `tasks/00-overview.md` |
 | **Output format** | Code files + markdown notes following `templates/implementation-notes-template.md` |
-| **Required by** | Stage 8 (code review) |
+| **Required by** | Stage 8 (PRD alignment) |
 
-### Hermes (Stage 8 - Code Review)
+### Hera (Stage 8 - PRD Alignment)
+
+| | Details |
+|---|---|
+| **Inputs** | `prd.md`, `test-plan.md`, `implementation-notes.md`, test files in codebase |
+| **Outputs** | `prd-alignment.md` with verdict |
+| **Output format** | Markdown with criterion-to-test mapping table |
+| **Verdict values** | `aligned` / `gaps` / `misaligned` |
+| **If `aligned`** | Proceed to stage 9 (Hermes + Cassandra) |
+| **If `gaps`** | Return to stage 7 (Ares) to add missing test coverage |
+| **If `misaligned`** | Block pipeline — escalate to user, fundamental scope issue |
+
+### Hermes (Stage 9 - Code Review)
 
 | | Details |
 |---|---|
@@ -115,7 +127,7 @@ Metis -> Athena -> Athena(review) -> [Daedalus] -> Hephaestus -> Athena+Apollo -
 | **Rule sources** | `rules/default.md`, `rules/<language>.md`, `.claude/.Arena/review-rules/conventions.md` |
 | **If rule files missing** | Use built-in Greatness Hierarchy as fallback (see hermes.md) |
 
-### Cassandra (Stage 8 - Risk Analysis)
+### Cassandra (Stage 9 - Risk Analysis)
 
 | | Details |
 |---|---|

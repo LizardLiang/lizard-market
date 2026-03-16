@@ -53,8 +53,9 @@ For the next stage, verify prerequisites:
 | 3-tech-spec | 5-spec-review-sa | Tech Spec exists |
 | 4+5-reviews | 6-test-plan | Both reviews passed (✅ Aligned + ✅ Sound) |
 | 6-test-plan | 7-implementation | Test Plan exists |
-| 7-implementation | 8-review | Implementation complete |
-| 8-review | DONE | Code Review verdict = ✅ Approved |
+| 7-implementation | 8-prd-alignment | Implementation complete |
+| 8-prd-alignment | 9-review | PRD alignment verdict = ✅ Aligned |
+| 9-review | DONE | Code Review verdict = ✅ Approved |
 
 ### Step 4: Take Action
 
@@ -170,7 +171,8 @@ What is your command?
 | 5-spec-review-sa | Apollo | opus | SA spec review |
 | 6-test-plan | Artemis | sonnet | Create test plan |
 | 7-implementation | Ares | sonnet | Implement (Ares Mode) or create tasks (User Mode) |
-| 8-review | Hermes + Cassandra | opus + sonnet | Code review + risk analysis (parallel) |
+| 8-prd-alignment | Hera | sonnet | Verify acceptance criteria coverage |
+| 9-review | Hermes + Cassandra | opus + sonnet | Code review + risk analysis (parallel) |
 
 All agents are spawned via Task tool: `Task(subagent_type: "kratos:[agent]", ...)`
 

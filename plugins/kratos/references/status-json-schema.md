@@ -98,7 +98,18 @@ All agents that read or update status.json MUST follow this schema.
         }
       ]
     },
-    "8-review": {
+    "8-prd-alignment": {
+      "status": "pending | in-progress | complete",
+      "agent": "hera",
+      "started": "<ISO8601>",
+      "completed": "<ISO8601>",
+      "documents": ["prd-alignment.md"],
+      "alignment_verdict": "aligned | gaps | misaligned",
+      "criteria_total": 0,
+      "criteria_verified": 0,
+      "coverage_pct": 0
+    },
+    "9-review": {
       "status": "pending | in-progress | complete",
       "agents": ["hermes", "cassandra"],
       "started": "<ISO8601>",
@@ -153,8 +164,9 @@ All agents that read or update status.json MUST follow this schema.
 | Athena (stage 2) | `verdict` | `approved` / `revisions` | PRD quality assessment |
 | Athena (stage 4) | `verdict` | `approved` / `revisions` | Tech spec aligns with PRD |
 | Apollo (stage 5) | `verdict` | `sound` / `concerns` / `unsound` | Architecture quality |
-| Hermes (stage 8) | `code_review_verdict` | `approved` / `changes-required` | Code quality |
-| Cassandra (stage 8) | `risk_verdict` | `clear` / `caution` / `blocked` | Risk assessment |
+| Hera (stage 8) | `alignment_verdict` | `aligned` / `gaps` / `misaligned` | PRD coverage |
+| Hermes (stage 9) | `code_review_verdict` | `approved` / `changes-required` | Code quality |
+| Cassandra (stage 9) | `risk_verdict` | `clear` / `caution` / `blocked` | Risk assessment |
 
 ### Verdict Thresholds
 
@@ -189,8 +201,9 @@ Each significant pipeline event is appended to the `history` array. This provide
 | Artemis | `current_stage` | Stage 6 status |
 | Daedalus | `current_stage` | Stage 2.5 status + `output_targets` |
 | Ares | `current_stage`, `implementation_mode` | Stage 7 status + tasks array |
-| Hermes | `current_stage` | Stage 8 `code_review_verdict` |
-| Cassandra | `current_stage` | Stage 8 `risk_verdict` |
+| Hera | `current_stage` | Stage 8 `alignment_verdict` + coverage fields |
+| Hermes | `current_stage` | Stage 9 `code_review_verdict` |
+| Cassandra | `current_stage` | Stage 9 `risk_verdict` |
 
 ---
 

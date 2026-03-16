@@ -33,9 +33,10 @@ In eco mode, use `model_eco` from each agent's frontmatter:
 | **Apollo** | opus | **haiku** | SA Review |
 | **Artemis** | sonnet | **haiku** | Test Planning |
 | **Ares** | sonnet | **haiku** | Implementation |
+| **Hera** | sonnet | **haiku** | PRD Alignment |
 | **Hermes** | opus | **haiku** | Code Review |
 
-**Summary**: 0 Opus / 2 Sonnet / 5 Haiku
+**Summary**: 0 Opus / 2 Sonnet / 6 Haiku
 
 ---
 
@@ -68,7 +69,8 @@ For full pipeline features in eco mode:
 | 5-spec-review-sa | Apollo | opus | **haiku** |
 | 6-test-plan | Artemis | sonnet | **haiku** |
 | 7-implementation | Ares | sonnet | **haiku** |
-| 8-review | Hermes | opus | **haiku** |
+| 8-prd-alignment | Hera | sonnet | **haiku** |
+| 9-review | Hermes | opus | **haiku** |
 
 ---
 

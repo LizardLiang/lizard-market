@@ -28,8 +28,9 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 | **artemis** | sonnet | Test planning | 6 |
 | **ares** | sonnet | Implementation | 7 |
 | **daedalus** | sonnet | Feature decomposition | 2.5 (optional) or 6.5 (mandatory pre-Ares) |
-| **hermes** | opus | Code review | 8 |
-| **cassandra** | sonnet | Risk analysis | 8 (parallel with hermes) |
+| **hera** | sonnet | PRD alignment verification | 8 |
+| **hermes** | opus | Code review | 9 |
+| **cassandra** | sonnet | Risk analysis | 9 (parallel with hermes) |
 
 ---
 
@@ -37,7 +38,7 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 
 ```
 [0] Research (opt) → [1] PRD → [2] PRD Review → [2.5] Decompose (opt) → [3] Tech Spec
-  → [4+5] Reviews (parallel) → [6] Test Plan → [6.5] Decompose (if not done) → [7] Implement → [8] Review → VICTORY
+  → [4+5] Reviews (parallel) → [6] Test Plan → [6.5] Decompose (if not done) → [7] Implement → [8] PRD Alignment → [9] Review → VICTORY
 ```
 
 | Stage | Agent | Document |
@@ -52,7 +53,8 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 | 6-test-plan | artemis | `test-plan.md` |
 | 6.5-decomposition | daedalus | `decomposition.md` (mandatory if not done at 2.5) |
 | 7-implementation | ares | `implementation-notes.md` + code |
-| 8-review | hermes + cassandra | `code-review.md` + `risk-analysis.md` |
+| 8-prd-alignment | hera | `prd-alignment.md` |
+| 9-review | hermes + cassandra | `code-review.md` + `risk-analysis.md` |
 
 ---
 
@@ -107,7 +109,8 @@ After each agent completes, verify the required document was created before proc
 | 5-spec-review-sa | `spec-review-sa.md` |
 | 6-test-plan | `test-plan.md` |
 | 7-implementation | `implementation-notes.md` or `tasks/*.md` |
-| 8-review | `code-review.md` + `risk-analysis.md` |
+| 8-prd-alignment | `prd-alignment.md` |
+| 9-review | `code-review.md` + `risk-analysis.md` |
 
 If the document is missing, re-spawn the same agent — agents sometimes fail silently. Never proceed to the next stage with a missing artifact.
 
@@ -125,11 +128,14 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 | 4 + 5 reviews | Both pass | 6-test-plan (artemis) |
 | 4 or 5 | Issues | 3-tech-spec (hephaestus) |
 | 6-test-plan | — | Pre-implementation gate → 7 |
-| 7-implementation | Ares Mode | 8-review (hermes + cassandra parallel) |
+| 7-implementation | Ares Mode | 8-prd-alignment (hera) |
 | 7-implementation | User Mode | Wait — user completes tasks, then `/kratos:task-complete all` |
-| 8-review | Approved + risk CLEAR/CAUTION | VICTORY |
-| 8-review | Approved + risk CRITICAL | Blocked — fix risks, re-run stage 8 |
-| 8-review | Changes Required | 7-implementation (ares) |
+| 8-prd-alignment | Aligned | 9-review (hermes + cassandra parallel) |
+| 8-prd-alignment | Gaps | 7-implementation (ares) — add missing test coverage |
+| 8-prd-alignment | Misaligned | Blocked — escalate to user, fundamental scope issue |
+| 9-review | Approved + risk CLEAR/CAUTION | VICTORY |
+| 9-review | Approved + risk CRITICAL | Blocked — fix risks, re-run stage 9 |
+| 9-review | Changes Required | 7-implementation (ares) |
 
 ---
 

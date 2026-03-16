@@ -93,20 +93,37 @@ When ALL tasks are complete:
 1. **Update status.json**:
    ```json
    {
-     "stage": "8-review",
+     "stage": "8-prd-alignment",
      "pipeline": {
        "7-implementation": {
          "status": "complete",
          "completed": "<ISO-timestamp>"
        },
-       "8-review": {
+       "8-prd-alignment": {
          "status": "ready"
        }
      }
    }
    ```
 
-2. **Spawn Hermes + Cassandra in parallel** (same as pipeline Stage 8):
+2. **Spawn Hera** (PRD alignment check, stage 8):
+   ```
+   Task(
+     subagent_type: "kratos:hera",
+     model: "sonnet",
+     prompt: "MISSION: PRD Alignment Check
+   FEATURE: [feature-name]
+   FOLDER: .claude/feature/[feature-name]/
+   MODE: User Mode (implementation done by user)
+
+   CRITICAL: You MUST create the file prd-alignment.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+
+   Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Create prd-alignment.md with verdict. Update status.json.",
+     description: "hera - prd alignment check (user mode)"
+   )
+   ```
+
+   If Hera returns **aligned**, immediately spawn Hermes + Cassandra in parallel (stage 9):
    ```
    Task(
      subagent_type: "kratos:hermes",
@@ -137,6 +154,9 @@ When ALL tasks are complete:
      description: "cassandra - risk analysis (user mode)"
    )
    ```
+
+   If Hera returns **gaps**, report missing coverage to user — Ares must be re-spawned to fill the gaps.
+   If Hera returns **misaligned**, block and escalate to user.
 
 ---
 
@@ -183,8 +203,8 @@ All 10 implementation tasks have been marked complete.
 
 Progress: [████████████████████] 100% (10/10 tasks)
 
-Advancing to Stage 8: Code Review + Risk Analysis
-Summoning: HERMES (model: opus) + CASSANDRA (model: sonnet) in parallel
+Advancing to Stage 8: PRD Alignment Check
+Summoning: HERA (model: sonnet)
 
 [TASK TOOL INVOCATION FOR HERMES]
 ```

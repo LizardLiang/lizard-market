@@ -159,7 +159,8 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 | 5-spec-review-sa | apollo | opus | spec-review-sa.md |
 | 6-test-plan | artemis | sonnet | test-plan.md |
 | 7-implementation | ares | sonnet | implementation-notes.md + code |
-| 8-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
+| 8-prd-alignment | hera | sonnet | prd-alignment.md |
+| 9-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
 
 ---
 
@@ -209,9 +210,10 @@ For each stage, follow this pattern:
    - Use AskUserQuestion: "Ares Mode" vs "User Mode"
    - Record decision in memory
 
-   **Stage 8 spawns two agents in parallel:**
-   - Hermes (code review) + Cassandra (risk analysis)
-   - Record both spawns and both completions
+   **Stage 8 spawns Hera:**
+   - Hera (PRD alignment check) — record spawn and completion
+   - If aligned, Stage 9 spawns two agents in parallel:
+   - Hermes (code review) + Cassandra (risk analysis) — record both spawns and completions
 
 3. **RECORD POST-COMPLETION**:
    ```bash
@@ -250,11 +252,14 @@ This matches `commands/main.md` exactly:
 | 6-test-plan | - | ASK MODE | Ask user: Ares Mode vs User Mode |
 | 6-test-plan | Ares Mode | 7-implementation | ares (sonnet) - implement |
 | 6-test-plan | User Mode | 7-implementation | ares (sonnet) - create tasks |
-| 7-implementation | Ares Mode | 8-review | hermes (opus) + cassandra (sonnet) in parallel |
+| 7-implementation | Ares Mode | 8-prd-alignment | hera (sonnet) |
 | 7-implementation | User Mode | WAIT | User completes tasks, then /kratos:task-complete all |
-| 8-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
-| 8-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first |
-| 8-review | Changes | 7-implementation | ares (sonnet) |
+| 8-prd-alignment | Aligned | 9-review | hermes (opus) + cassandra (sonnet) in parallel |
+| 8-prd-alignment | Gaps | 7-implementation | ares (sonnet) — add missing test coverage |
+| 8-prd-alignment | Misaligned | BLOCKED | Escalate to user |
+| 9-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
+| 9-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first |
+| 9-review | Changes | 7-implementation | ares (sonnet) |
 
 ---
 

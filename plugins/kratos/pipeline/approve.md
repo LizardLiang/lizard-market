@@ -41,7 +41,8 @@ Each stage has different approval criteria:
 | 5-spec-review-sa | spec-review-sa.md | Verdict = ✅ Sound |
 | 6-test-plan | test-plan.md | Document exists |
 | 7-implementation | implementation-notes.md | Document exists |
-| 8-review | code-review.md | Verdict = ✅ Approved |
+| 8-prd-alignment | prd-alignment.md | Verdict = ✅ Aligned |
+| 9-review | code-review.md | Verdict = ✅ Approved |
 
 ### Step 3: Handle Different Scenarios
 

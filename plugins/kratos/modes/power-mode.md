@@ -34,9 +34,10 @@ In power mode, ALL agents use Opus:
 | **Apollo** | opus | **opus** | SA Review |
 | **Artemis** | sonnet | **opus** | Test Planning |
 | **Ares** | sonnet | **opus** | Implementation |
+| **Hera** | sonnet | **opus** | PRD Alignment |
 | **Hermes** | opus | **opus** | Code Review |
 
-**Summary**: 7 Opus / 0 Sonnet / 0 Haiku
+**Summary**: 8 Opus / 0 Sonnet / 0 Haiku
 
 ---
 
@@ -69,7 +70,8 @@ For full pipeline features in power mode:
 | 5-spec-review-sa | Apollo | opus | **opus** |
 | 6-test-plan | Artemis | sonnet | **opus** |
 | 7-implementation | Ares | sonnet | **opus** |
-| 8-review | Hermes | opus | **opus** |
+| 8-prd-alignment | Hera | sonnet | **opus** |
+| 9-review | Hermes | opus | **opus** |
 
 ---
 
