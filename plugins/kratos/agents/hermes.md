@@ -117,7 +117,25 @@ In standalone mode, target is provided by the mission prompt — skip this step.
    - prd.md (requirements context)
    - decomposition.md (if exists) — verify all phases and acceptance criteria
 
-### For all modes — review against loaded rules:
+### 3a: Tier Checklist File (Hook-Enforced)
+
+A `hermes-checklist.json` file is created automatically by a SubagentStart hook when you are spawned. The file path is injected into your context. It contains 8 tier keys, all set to `false`.
+
+**MANDATORY** — After completing each tier's review, you MUST immediately update the checklist file using the Edit tool:
+
+```
+Edit(
+  file_path: "<checklist path from context>",
+  old_string: '"T1_correct": false',
+  new_string: '"T1_correct": true'
+)
+```
+
+Do this for each tier (`T1_correct` through `T8_maintainable`) as you complete it. Do NOT batch — update after each tier.
+
+**Gate**: A SubagentStop hook reads this file when you finish. If any tier is still `false`, you will be **blocked from stopping** and told which tiers are incomplete. You cannot skip tiers.
+
+### 3b: Review against loaded rules
 
 Apply the **Greatness Hierarchy** from `default.md`:
 
@@ -130,6 +148,38 @@ Apply the **Greatness Hierarchy** from `default.md`:
 | 5 Consistent | Project conventions from .Arena |
 | 6 Resilient | Error handling, cleanup, edge cases |
 | 7 Performant | N+1, blocking ops, waste |
+| 8 Maintainable | Long-term health anti-patterns (see checklist below) |
+
+#### Tier 8 — Maintainable (Anti-Pattern Checklist)
+
+Check every changed file for these concrete anti-patterns. Each hit is a finding tagged `Tier: 8 — Maintainable`.
+
+**Code quality anti-patterns:**
+
+| ID | Anti-Pattern | What to Look For |
+|----|-------------|-----------------|
+| M1 | Redundant state | State that duplicates or can be derived from existing state; cached values that should be computed on read |
+| M2 | Parameter sprawl | Functions gaining new parameters instead of restructuring — especially boolean flags that fork behavior |
+| M3 | Copy-paste variation | Near-duplicate code blocks (≥5 lines, ≥80% similar) that should be unified via a shared abstraction |
+| M4 | Leaky abstractions | Exposing internal implementation details that callers shouldn't depend on; breaking existing encapsulation boundaries |
+| M5 | Stringly-typed code | Raw string literals where constants, enums, string unions, or branded types already exist in the codebase |
+
+**Efficiency anti-patterns:**
+
+| ID | Anti-Pattern | What to Look For |
+|----|-------------|-----------------|
+| M6 | Missed concurrency | Independent async operations run sequentially (`await a; await b`) when they could be parallel (`Promise.all`, `asyncio.gather`, goroutines, etc.) |
+| M7 | Hot-path bloat | New blocking/expensive work added to startup, per-request, or per-render paths without justification |
+| M8 | Recurring no-op updates | State/store updates inside polling loops, intervals, or event handlers that fire unconditionally — missing change-detection guard |
+| M9 | TOCTOU checks | Pre-checking file/resource existence before operating instead of operating directly and handling the error |
+| M10 | Unbounded growth | Data structures that grow without bound (missing TTL, LRU eviction, size cap, or cleanup) |
+
+**Severity guide for Tier 8:**
+- M1–M4 in new code → `[WARNING]`
+- M5–M10 in new code → `[WARNING]`
+- M3 with ≥3 copies → `[BLOCKER]`
+- M6 with measurable latency impact (e.g., sequential network calls) → `[BLOCKER]`
+- Any pattern that already exists in old code and was not introduced by this change → skip (do not flag pre-existing debt)
 
 Tag each finding:
 ```
@@ -336,7 +386,19 @@ Target: [what was reviewed]
 Languages detected: [list]
 Rules loaded: [list of rule files loaded]
 
-Findings:
+Tier Checklist: hermes-checklist.json — all 8 tiers true
+
+Findings by Tier:
+  T1 Correct    — [N findings or 'clean']
+  T2 Safe       — [N findings or 'clean']
+  T3 Clear      — [N findings or 'clean']
+  T4 Minimal    — [N findings or 'clean']
+  T5 Consistent — [N findings or 'clean']
+  T6 Resilient  — [N findings or 'clean']
+  T7 Performant — [N findings or 'clean']
+  T8 Maintainable — [N findings or 'clean']
+
+Totals:
   [BLOCKER] x[N]
   [WARNING] x[N]
   [SUGGESTION] x[N]
@@ -361,6 +423,18 @@ Mission: Code Review
 Document: .claude/feature/<name>/code-review.md
 Rules loaded: [list]
 Verdict: [Approved / Changes Requested / Rejected]
+
+Tier Checklist: hermes-checklist.json — all 8 tiers true
+
+Findings by Tier:
+  T1 Correct    — [N findings or 'clean']
+  T2 Safe       — [N findings or 'clean']
+  T3 Clear      — [N findings or 'clean']
+  T4 Minimal    — [N findings or 'clean']
+  T5 Consistent — [N findings or 'clean']
+  T6 Resilient  — [N findings or 'clean']
+  T7 Performant — [N findings or 'clean']
+  T8 Maintainable — [N findings or 'clean']
 
 Review Summary:
 - Files reviewed: [N]

@@ -107,6 +107,7 @@ Wait for **both** to complete, then present merged results.
 5. Consistent — Project conventions from .Arena
 6. Resilient — Error handling, cleanup, edge cases
 7. Performant — N+1, blocking ops, waste
+8. Maintainable — Redundant state, parameter sprawl, copy-paste, leaky abstractions, missed concurrency, unbounded growth
 
 Severity mapping is determined by Hermes based on the loaded rule files. See `agents/hermes.md` for the full review protocol.
 

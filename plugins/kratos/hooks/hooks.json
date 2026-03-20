@@ -69,6 +69,16 @@
             "timeout": 3000
           }
         ]
+      },
+      {
+        "matcher": "kratos:hermes",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" hook subagent-start 2>/dev/null || ~/.kratos/bin/kratos hook subagent-start",
+            "timeout": 3000
+          }
+        ]
       }
     ],
     "SubagentStop": [
@@ -84,6 +94,16 @@
       },
       {
         "matcher": "kratos:hephaestus",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" hook subagent-stop 2>/dev/null || ~/.kratos/bin/kratos hook subagent-stop",
+            "timeout": 10000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:hermes",
         "hooks": [
           {
             "type": "command",

@@ -18,8 +18,9 @@ Every issue you find must be tagged with one of these tiers. Evaluate in order �
 | 5 | **Consistent** | Does it follow the project's established patterns and conventions? |
 | 6 | **Resilient** | Does it handle failure gracefully? Errors, edge cases, unexpected inputs. |
 | 7 | **Performant** | Is it appropriately fast for its context? No premature optimization, no obvious waste. |
+| 8 | **Maintainable** | Will this code stay healthy over time? No anti-patterns that create future debt. |
 
-Not every piece of code needs to reach tier 7. But you must evaluate all 7 tiers and be explicit about which ones a piece of code fails to reach.
+Not every piece of code needs to reach tier 8. But you must evaluate all 8 tiers and be explicit about which ones a piece of code fails to reach.
 
 ---
 
@@ -29,8 +30,8 @@ Each finding must carry one of these labels:
 
 | Label | Meaning | Action Required |
 |-------|---------|----------------|
-| `[BLOCKER]` | Prevents correctness or safety (Tier 1–2 failures) | Must be fixed. Cannot approve until resolved. |
-| `[WARNING]` | Violates clarity, consistency, or resilience (Tier 3–6) | Should be fixed. Propose auto-fix. Bulk confirm. |
+| `[BLOCKER]` | Prevents correctness or safety (Tier 1–2 failures), or severe Tier 8 anti-patterns (3+ copy-paste, sequential network calls) | Must be fixed. Cannot approve until resolved. |
+| `[WARNING]` | Violates clarity, consistency, resilience, or maintainability (Tier 3–6, 8) | Should be fixed. Propose auto-fix. Bulk confirm. |
 | `[SUGGESTION]` | Tier 7 or style improvements | Optional. Defer to end. User skips by default. |
 
 ---
@@ -122,6 +123,28 @@ Each finding must carry one of these labels:
 
 ---
 
+## Maintainability (Tier 8)
+
+Long-term health anti-patterns. Only flag these in **new or modified code** — do not flag pre-existing debt.
+
+### Code Quality
+
+- **Redundant state**: State that duplicates or can be derived from existing state; cached values that should be computed on read
+- **Parameter sprawl**: Functions gaining new parameters (especially boolean flags that fork behavior) instead of restructuring
+- **Copy-paste variation**: Near-duplicate code blocks (≥5 lines, ≥80% similar) that should be unified via a shared abstraction — 3+ copies is a BLOCKER
+- **Leaky abstractions**: Exposing internal implementation details that callers shouldn't depend on; breaking existing encapsulation boundaries
+- **Stringly-typed code**: Raw string literals where constants, enums, string unions, or branded types already exist in the codebase
+
+### Efficiency
+
+- **Missed concurrency**: Independent async operations run sequentially when they could be parallel — BLOCKER when it involves network/IO calls
+- **Hot-path bloat**: New blocking/expensive work added to startup, per-request, or per-render paths without justification
+- **Recurring no-op updates**: State/store updates inside loops, intervals, or event handlers that fire unconditionally — missing change-detection guard
+- **TOCTOU checks**: Pre-checking file/resource existence before operating instead of operating directly and handling the error
+- **Unbounded growth**: Data structures that grow without bound (missing TTL, LRU eviction, size cap, or cleanup)
+
+---
+
 ## Auto-Fix Rules
 
 Some findings can be auto-applied. Hermes must distinguish:
@@ -152,7 +175,7 @@ If Hermes observes a recurring pattern not covered by existing rules, it should:
    Observed in: <file:line>, <file:line>
    Pattern: <what keeps appearing>
    Proposed rule: <the rule in one sentence>
-   Suggested tier: <1–7>
+   Suggested tier: <1–8>
    Suggested severity: BLOCKER / WARNING / SUGGESTION
    ```
 3. Mention the proposal in the review summary so the user can promote it
