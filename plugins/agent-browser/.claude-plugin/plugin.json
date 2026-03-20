@@ -1,0 +1,5 @@
+{
+  "name": "agent-browser",
+  "version": "1.0.0",
+  "description": "Advanced browser automation skill using agent-browser CLI - a fast native Rust headless browser for AI agents. Covers batch workflows, network mocking, multi-tab orchestration, semantic selectors, and production-grade automation patterns."
+}
