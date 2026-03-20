@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSanitizePrompt(t *testing.T) {
@@ -144,10 +145,10 @@ func TestBuildInjectionContext(t *testing.T) {
 
 func TestDetectPackageManager(t *testing.T) {
 	tests := []struct {
-		name       string
-		lockfiles  []string
-		wantPM     string
-		wantLock   string
+		name      string
+		lockfiles []string
+		wantPM    string
+		wantLock  string
 	}{
 		{"bun takes priority", []string{"bun.lockb", "yarn.lock"}, "bun", "bun.lockb"},
 		{"yarn detected", []string{"yarn.lock"}, "yarn", "yarn.lock"},
@@ -312,6 +313,293 @@ func TestSubagentStopGate(t *testing.T) {
 			}
 			if tt.wantInMsg != "" && !strings.Contains(result.Reason, tt.wantInMsg) {
 				t.Errorf("reason %q should contain %q", result.Reason, tt.wantInMsg)
+			}
+		})
+	}
+}
+
+// createFeatureStatusJSON creates a status.json file with the given 11-review status under featureDir.
+func createFeatureStatusJSON(t *testing.T, featureDir string, reviewStatus string) {
+	t.Helper()
+	if err := os.MkdirAll(featureDir, 0755); err != nil {
+		t.Fatalf("MkdirAll(%s): %v", featureDir, err)
+	}
+	content := map[string]interface{}{
+		"stages": map[string]interface{}{
+			"11-review": map[string]interface{}{
+				"status": reviewStatus,
+			},
+		},
+	}
+	data, err := json.Marshal(content)
+	if err != nil {
+		t.Fatalf("json.Marshal status: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(featureDir, "status.json"), data, 0644); err != nil {
+		t.Fatalf("WriteFile status.json: %v", err)
+	}
+}
+
+func TestFindActiveFeatureDir(t *testing.T) {
+	tests := []struct {
+		name          string
+		reviewStatus  string // empty string means: do not create status.json
+		malformedJSON bool
+		wantEmpty     bool
+	}{
+		{
+			name:         "pending status returns feature dir",
+			reviewStatus: "pending",
+			wantEmpty:    false,
+		},
+		{
+			name:         "in-progress status returns feature dir",
+			reviewStatus: "in-progress",
+			wantEmpty:    false,
+		},
+		{
+			name:         "complete status returns empty string",
+			reviewStatus: "complete",
+			wantEmpty:    true,
+		},
+		{
+			name:      "no status.json returns empty string",
+			wantEmpty: true,
+		},
+		{
+			name:          "malformed JSON returns empty string without panic",
+			malformedJSON: true,
+			wantEmpty:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			featureDir := filepath.Join(root, ".claude", "feature", "my-feature")
+
+			switch {
+			case tt.malformedJSON:
+				if err := os.MkdirAll(featureDir, 0755); err != nil {
+					t.Fatalf("MkdirAll: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(featureDir, "status.json"), []byte("{not valid json"), 0644); err != nil {
+					t.Fatalf("WriteFile malformed: %v", err)
+				}
+			case tt.reviewStatus != "":
+				createFeatureStatusJSON(t, featureDir, tt.reviewStatus)
+				// When reviewStatus is empty and not malformed, no status.json is created.
+			}
+
+			got, err := findActiveFeatureDir(root)
+			if err != nil {
+				t.Fatalf("findActiveFeatureDir returned unexpected error: %v", err)
+			}
+
+			if tt.wantEmpty {
+				if got != "" {
+					t.Errorf("expected empty string, got %q", got)
+				}
+			} else {
+				if got == "" {
+					t.Error("expected a feature dir path, got empty string")
+				}
+				if got != featureDir {
+					t.Errorf("got %q, want %q", got, featureDir)
+				}
+			}
+		})
+	}
+}
+
+func TestFindHermesChecklist(t *testing.T) {
+	t.Run("single checklist in feature folder", func(t *testing.T) {
+		root := t.TempDir()
+		featureDir := filepath.Join(root, ".claude", "feature", "my-feature")
+		if err := os.MkdirAll(featureDir, 0755); err != nil {
+			t.Fatalf("MkdirAll: %v", err)
+		}
+		checklistPath := filepath.Join(featureDir, "hermes-checklist.json")
+		if err := os.WriteFile(checklistPath, []byte("{}"), 0644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+
+		got := findHermesChecklist(root)
+		if got != checklistPath {
+			t.Errorf("got %q, want %q", got, checklistPath)
+		}
+	})
+
+	t.Run("fallback to .claude/tmp/ when no feature checklist", func(t *testing.T) {
+		root := t.TempDir()
+		tmpDir := filepath.Join(root, ".claude", "tmp")
+		if err := os.MkdirAll(tmpDir, 0755); err != nil {
+			t.Fatalf("MkdirAll: %v", err)
+		}
+		fallbackPath := filepath.Join(tmpDir, "hermes-checklist.json")
+		if err := os.WriteFile(fallbackPath, []byte("{}"), 0644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+
+		got := findHermesChecklist(root)
+		if got != fallbackPath {
+			t.Errorf("got %q, want %q", got, fallbackPath)
+		}
+	})
+
+	t.Run("no checklist anywhere returns empty string", func(t *testing.T) {
+		root := t.TempDir()
+		got := findHermesChecklist(root)
+		if got != "" {
+			t.Errorf("expected empty string, got %q", got)
+		}
+	})
+
+	t.Run("multiple checklists returns most recently modified", func(t *testing.T) {
+		root := t.TempDir()
+		featureA := filepath.Join(root, ".claude", "feature", "feature-a")
+		featureB := filepath.Join(root, ".claude", "feature", "feature-b")
+		if err := os.MkdirAll(featureA, 0755); err != nil {
+			t.Fatalf("MkdirAll featureA: %v", err)
+		}
+		if err := os.MkdirAll(featureB, 0755); err != nil {
+			t.Fatalf("MkdirAll featureB: %v", err)
+		}
+
+		pathA := filepath.Join(featureA, "hermes-checklist.json")
+		pathB := filepath.Join(featureB, "hermes-checklist.json")
+
+		// Write A first, then back-date it so B is clearly newer.
+		if err := os.WriteFile(pathA, []byte(`{"feature":"a"}`), 0644); err != nil {
+			t.Fatalf("WriteFile A: %v", err)
+		}
+		old := time.Now().Add(-10 * time.Second)
+		if err := os.Chtimes(pathA, old, old); err != nil {
+			t.Fatalf("Chtimes A: %v", err)
+		}
+		if err := os.WriteFile(pathB, []byte(`{"feature":"b"}`), 0644); err != nil {
+			t.Fatalf("WriteFile B: %v", err)
+		}
+
+		got := findHermesChecklist(root)
+		if got != pathB {
+			t.Errorf("expected most-recent checklist %q, got %q", pathB, got)
+		}
+	})
+}
+
+// writeHermesChecklist creates a hermes-checklist.json with the provided tier values.
+func writeHermesChecklist(t *testing.T, path string, tiers map[string]bool) {
+	t.Helper()
+	content := map[string]interface{}{
+		"agent_id": "test-agent",
+		"tiers":    tiers,
+	}
+	data, err := json.MarshalIndent(content, "", "  ")
+	if err != nil {
+		t.Fatalf("json.Marshal checklist: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("WriteFile checklist: %v", err)
+	}
+}
+
+// allTiersFalse returns a map with all 8 tiers set to false.
+func allTiersFalse() map[string]bool {
+	return map[string]bool{
+		"T1_correct":      false,
+		"T2_safe":         false,
+		"T3_clear":        false,
+		"T4_minimal":      false,
+		"T5_consistent":   false,
+		"T6_resilient":    false,
+		"T7_performant":   false,
+		"T8_maintainable": false,
+	}
+}
+
+// allTiersTrue returns a map with all 8 tiers set to true.
+func allTiersTrue() map[string]bool {
+	return map[string]bool{
+		"T1_correct":      true,
+		"T2_safe":         true,
+		"T3_clear":        true,
+		"T4_minimal":      true,
+		"T5_consistent":   true,
+		"T6_resilient":    true,
+		"T7_performant":   true,
+		"T8_maintainable": true,
+	}
+}
+
+func TestHermesChecklistEnforcement(t *testing.T) {
+	tests := []struct {
+		name             string
+		tiers            map[string]bool // nil means: do not create checklist file
+		wantAllComplete  bool
+		wantInIncomplete string // substring that must appear in one of the incomplete tier names
+	}{
+		{
+			name:             "all tiers false — blocked",
+			tiers:            allTiersFalse(),
+			wantAllComplete:  false,
+			wantInIncomplete: "T1 Correct",
+		},
+		{
+			name:            "all tiers true — passes",
+			tiers:           allTiersTrue(),
+			wantAllComplete: true,
+		},
+		{
+			name: "seven true one false — blocked with incomplete tier name",
+			tiers: func() map[string]bool {
+				m := allTiersTrue()
+				m["T5_consistent"] = false
+				return m
+			}(),
+			wantAllComplete:  false,
+			wantInIncomplete: "T5 Consistent",
+		},
+		{
+			name:            "no checklist file — fails open (passes)",
+			tiers:           nil,
+			wantAllComplete: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			checklistPath := filepath.Join(root, "hermes-checklist.json")
+
+			if tt.tiers != nil {
+				writeHermesChecklist(t, checklistPath, tt.tiers)
+			} else {
+				// Point at a path that does not exist so checkHermesChecklist fails open.
+				checklistPath = filepath.Join(root, "nonexistent-checklist.json")
+			}
+
+			ok, incomplete := checkHermesChecklist(checklistPath)
+
+			if ok != tt.wantAllComplete {
+				t.Errorf("checkHermesChecklist() ok = %v, want %v (incomplete: %v)", ok, tt.wantAllComplete, incomplete)
+			}
+
+			if tt.wantInIncomplete != "" {
+				found := false
+				for _, name := range incomplete {
+					if strings.Contains(name, tt.wantInIncomplete) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("incomplete tiers %v should contain %q", incomplete, tt.wantInIncomplete)
+				}
+			}
+
+			if tt.wantAllComplete && len(incomplete) != 0 {
+				t.Errorf("expected no incomplete tiers, got %v", incomplete)
 			}
 		})
 	}

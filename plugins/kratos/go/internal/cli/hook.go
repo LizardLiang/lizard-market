@@ -564,8 +564,42 @@ var tierOrder = []string{
 	"T8_maintainable",
 }
 
+// checkHermesChecklist reads and validates the hermes-checklist.json at the given path.
+// Returns (allComplete bool, incompleteTierNames []string).
+// Returns (true, nil) when the checklist cannot be read or parsed (fail-open behaviour).
+func checkHermesChecklist(checklistPath string) (bool, []string) {
+	data, err := os.ReadFile(checklistPath)
+	if err != nil {
+		debugLog("hermes-stop: failed to read checklist %s: %v", checklistPath, err)
+		return true, nil
+	}
+
+	var checklist struct {
+		AgentID string          `json:"agent_id"`
+		Tiers   map[string]bool `json:"tiers"`
+	}
+	if err := json.Unmarshal(data, &checklist); err != nil {
+		debugLog("hermes-stop: failed to parse checklist: %v", err)
+		return true, nil
+	}
+
+	var incomplete []string
+	for _, key := range tierOrder {
+		if !checklist.Tiers[key] {
+			if name, ok := tierDisplayNames[key]; ok {
+				incomplete = append(incomplete, name)
+			} else {
+				incomplete = append(incomplete, key)
+			}
+		}
+	}
+
+	return len(incomplete) == 0, incomplete
+}
+
 // handleHermesStop finds and verifies the hermes-checklist.json.
 // Fails open (allows stop) if the checklist cannot be found or parsed.
+// Applies a max-block guard: after 3 blocked attempts, allows stop with a warning.
 func handleHermesStop(input subagentStopInput) error {
 	cwd := input.Cwd
 	if cwd == "" {
@@ -585,8 +619,9 @@ func handleHermesStop(input subagentStopInput) error {
 	}
 
 	var checklist struct {
-		AgentID string          `json:"agent_id"`
-		Tiers   map[string]bool `json:"tiers"`
+		AgentID    string          `json:"agent_id"`
+		BlockCount int             `json:"block_count"`
+		Tiers      map[string]bool `json:"tiers"`
 	}
 	if err := json.Unmarshal(data, &checklist); err != nil {
 		debugLog("hermes-stop: failed to parse checklist: %v", err)
@@ -605,9 +640,24 @@ func handleHermesStop(input subagentStopInput) error {
 	}
 
 	if len(incomplete) > 0 {
+		tierList := strings.Join(incomplete, ", ")
+		if checklist.BlockCount >= 3 {
+			debugLog("hermes-stop: max block attempts reached (%d), allowing stop with incomplete tiers: %s", checklist.BlockCount, tierList)
+			return outputSubagentOK()
+		}
+
+		checklist.BlockCount++
+		updated, err := json.MarshalIndent(checklist, "", "  ")
+		if err != nil {
+			debugLog("hermes-stop: failed to marshal updated checklist: %v", err)
+		} else if err := os.WriteFile(checklistPath, updated, 0644); err != nil {
+			debugLog("hermes-stop: failed to write updated checklist: %v", err)
+		}
+
 		return outputSubagentBlock(fmt.Sprintf(
-			"Hermes tier checklist incomplete. The following tiers were not reviewed: %s. Update hermes-checklist.json to set each completed tier to true.",
-			strings.Join(incomplete, ", "),
+			"Hermes tier checklist incomplete. The following tiers were not reviewed: %s. Update hermes-checklist.json to set each completed tier to true. (attempt %d/3)",
+			tierList,
+			checklist.BlockCount,
 		))
 	}
 
