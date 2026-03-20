@@ -199,9 +199,30 @@ Check coverage across these areas. Each unchecked item is a gap.
 - [ ] What is explicitly OUT of scope?
 - [ ] What happens to existing functionality?
 
+#### Step 2b: Score Requirement Clarity
+
+After the gap checklist, use your checklist results + the user's original requirements to score clarity across **3 weighted dimensions** (0.0–1.0 each):
+
+| Dimension | Weight | Evidence Source |
+|-----------|--------|--------------|
+| **Goal Clarity** | 0.40 | Can you state what this feature does and why in one sentence without guessing? |
+| **Constraint Clarity** | 0.30 | How many Restrictions & Constraints + Data & Integration checklist items are covered? |
+| **Success Criteria** | 0.30 | How many Use Cases & Users & Measurement checklist items have concrete, testable answers? |
+
+**Formula:**
+```
+ambiguity = 1 - (goal_clarity × 0.40 + constraint_clarity × 0.30 + criteria_clarity × 0.30)
+```
+
+- **WRITE_READY: true** when ambiguity ≤ 0.20 (80%+ clarity)
+- **WRITE_READY: false** when ambiguity > 0.20 — keep asking
+- Target the **lowest-scoring dimension** when picking which gaps to ask about next
+
+Score using the user's original requirements + any `CLARIFIED_REQUIREMENTS` from prior rounds as evidence. A vague one-liner like "build a task app" should score very low. Detailed requirements with constraints and acceptance criteria should score high.
+
 #### Step 3: Generate Targeted Questions
 
-For each P0/P1 gap, formulate a question with concrete options.
+For each P0/P1 gap, formulate a question with concrete options. **Prioritize gaps in the lowest-scoring clarity dimension.**
 
 Rules:
 - Only ask about gaps YOU identified — never follow a generic script
@@ -229,6 +250,13 @@ REQUIREMENT_LEVEL: [Sparse | Moderate | Detailed]
 TOTAL_GAPS: [number]
 P0_GAPS: [number]
 
+CLARITY_SCORES:
+  GOAL_CLARITY: [0.00–1.00]
+  CONSTRAINT_CLARITY: [0.00–1.00]
+  CRITERIA_CLARITY: [0.00–1.00]
+  AMBIGUITY: [calculated: 1 - (goal × 0.40 + constraints × 0.30 + criteria × 0.30)]
+  WEAKEST_DIMENSION: [goal|constraints|criteria — questions target this]
+
 QUESTIONS:
 ---
 Q1_HEADER: [short header]
@@ -252,9 +280,9 @@ WRITE_READY: [true|false]
 NOTES: [any context for Kratos about the analysis]
 ```
 
-If requirements are already comprehensive (few or no P0 gaps), set `WRITE_READY: true` and `QUESTIONS: NONE`. Kratos will skip clarification and proceed directly to PRD creation.
+If requirements are already comprehensive, set `WRITE_READY: true` and `QUESTIONS: NONE`. Kratos will skip clarification and proceed directly to PRD creation.
 
-**WRITE_READY criteria**: Set `WRITE_READY: true` only if there are 2 or fewer P0 gaps remaining AND all security/scope questions have been answered. If uncertain, default to asking questions.
+**WRITE_READY criteria**: Set `WRITE_READY: true` when `AMBIGUITY ≤ 0.20` (clarity is 80%+). If ambiguity is above 0.20, set `WRITE_READY: false` and ask questions targeting the weakest dimension. If uncertain, default to asking questions.
 
 ---
 

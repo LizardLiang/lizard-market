@@ -44,7 +44,7 @@ FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 REQUIREMENTS: [user's requirements]
 
-Analyze these requirements for gaps and ambiguities. Return structured questions in the GAP_ANALYSIS_RESULT format. Do NOT write the PRD yet.",
+Analyze these requirements for gaps and ambiguities. Score clarity (Step 2b) and include CLARITY_SCORES in output. Return structured questions in the GAP_ANALYSIS_RESULT format targeting the weakest dimension. Do NOT write the PRD yet.",
   description: "athena - gap analysis"
 )
 ```
@@ -54,8 +54,24 @@ Analyze these requirements for gaps and ambiguities. Return structured questions
 When Athena returns her gap analysis:
 
 1. Parse the `GAP_ANALYSIS_RESULT`
-2. If `WRITE_READY: true` → skip to Phase 2
-3. If questions exist → call `AskUserQuestion` for each question **one at a time**:
+2. Display **clarity progress** to the user:
+
+```
+📊 Requirements Clarity
+
+| Dimension   | Score | Weight | Contribution | Gap  |
+|-------------|-------|--------|-------------|------|
+| Goal        | [X]   | 0.40   | [X×0.40]    | [remaining] |
+| Constraints | [X]   | 0.30   | [X×0.30]    | [remaining] |
+| Criteria    | [X]   | 0.30   | [X×0.30]    | [remaining] |
+| **Total**   |       |        | [sum]       |      |
+| **Ambiguity** |     |        | [1 - sum]   |      |
+
+Target: ≤ 0.20 | Current: [ambiguity] | Weakest: [dimension]
+```
+
+3. If `WRITE_READY: true` (ambiguity ≤ 0.20) → skip to Phase 2
+4. If questions exist → call `AskUserQuestion` for each question **one at a time**:
 
 ```
 AskUserQuestion(
@@ -66,7 +82,7 @@ AskUserQuestion(
 
 Call AskUserQuestion with each question sequentially (up to 4). Wait for the answer before asking the next. Never batch questions into a single text output — the tool gives the user clickable options.
 
-After answers are collected: if many P0 gaps remain, re-spawn Athena for another gap analysis round with answers included (max 3 rounds total).
+After answers are collected: if ambiguity is still > 0.20, re-spawn Athena for another gap analysis round with answers included (max 3 rounds total).
 
 ### Phase 2: Write PRD
 
@@ -194,16 +210,32 @@ PHASE: IDENTIFY_GRAY_AREAS
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read prd.md, scout the codebase for existing patterns, load any prior context.md files from other features. Identify implementation choices Hephaestus would otherwise guess (up to 4 per batch — set MORE_QUESTIONS: true if more remain).
+Read prd.md, scout the codebase for existing patterns, load any prior context.md files from other features. Score clarity (Step 3b), then identify implementation choices Hephaestus would otherwise guess — target the weakest clarity dimension first (up to 4 per batch). Set MORE_QUESTIONS based on ambiguity score (true if > 0.20).
 
-Return THEMIS_QUESTIONS_RESULT. Do NOT write context.md yet.",
+Return THEMIS_QUESTIONS_RESULT with CLARITY_SCORES. Do NOT write context.md yet.",
   description: "themis - identify gray areas"
 )
 ```
 
 ### Phase 1.5: Question Loop (Kratos handles this)
 
-This loop continues until Themis returns `MORE_QUESTIONS: false`. Max 5 rounds total to prevent runaway loops.
+This loop continues until Themis returns `MORE_QUESTIONS: false` (ambiguity ≤ 0.20). Max 5 rounds total to prevent runaway loops.
+
+**After each Themis response**, display the clarity progress to the user:
+
+```
+📊 Clarity Progress
+
+| Dimension   | Score | Weight | Contribution | Gap  |
+|-------------|-------|--------|-------------|------|
+| Goal        | [X]   | 0.40   | [X×0.40]    | [remaining] |
+| Constraints | [X]   | 0.30   | [X×0.30]    | [remaining] |
+| Criteria    | [X]   | 0.30   | [X×0.30]    | [remaining] |
+| **Total**   |       |        | [sum]       |      |
+| **Ambiguity** |     |        | [1 - sum]   |      |
+
+Target: ≤ 0.20 | Current: [ambiguity] | Weakest: [dimension]
+```
 
 **Each round:**
 
@@ -239,12 +271,12 @@ Return THEMIS_FOLLOWUP_RESULT. Concrete options only — no further explore.",
 
 Ask the follow-up, record the final answer. Maximum one follow-up per question.
 
-**Step B — check for more:**
+**Step B — check ambiguity and decide:**
 
-After the batch is fully answered, check `MORE_QUESTIONS`:
+After the batch is fully answered, check `MORE_QUESTIONS` (driven by `CLARITY_SCORES.AMBIGUITY`):
 
-- `MORE_QUESTIONS: false` → proceed to Phase 2
-- `MORE_QUESTIONS: true` → re-spawn Themis with all answers so far:
+- `MORE_QUESTIONS: false` (ambiguity ≤ 0.20) → proceed to Phase 2
+- `MORE_QUESTIONS: true` (ambiguity > 0.20) → re-spawn Themis with all answers so far:
 
 ```
 Task(

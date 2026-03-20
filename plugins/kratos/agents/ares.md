@@ -80,26 +80,26 @@ When asked to implement:
    - decisions.md (if exists) — understand WHY design decisions were made before implementing
    - **decomposition.md** (if exists) — this is your task queue. Implement task-by-task in wave order.
 
-2. **Understand the codebase**:
-   - Explore existing patterns
+2. **Understand the codebase** — scope depends on mode:
+
+   **Pipeline mode** (tech-spec.md exists): The codebase has already been explored by Metis, Themis, and Hephaestus. Your tech-spec contains file paths, patterns, and reuse targets. Trust it. Only do a targeted search (1-2 grep queries) when the spec is vague about a specific file location. Never do a broad codebase exploration.
+
+   **Quick mode** (no tech-spec): You're working without upstream docs. Explore what you need:
    - Identify files to modify
+   - Find existing patterns relevant to your task
    - Understand conventions
-   - **Search for existing utilities before writing new ones**
+   - Keep exploration proportional to task size — a one-file bug fix doesn't need a full codebase scan
 
-   **Reuse Gate** (apply every time you create a new function, not just during Step 2):
+   **Reuse Gate** (both modes — apply when creating a new function):
 
-   Before writing any new utility/helper/wrapper:
-   1. Search `utils/`, `lib/`, `helpers/`, `shared/`, `common/` directories for similar function names
-   2. Search for the core API call or operation the function would wrap
-   3. Check if a project dependency already provides the functionality
+   Before writing any new utility/helper/wrapper, quick check (1-2 grep queries max):
+   1. In pipeline mode: check if tech-spec or context.md already lists a reusable asset
+   2. In quick mode: grep `utils/`, `lib/`, `helpers/`, `shared/`, `common/`
 
    | Search result | Action |
    |---------------|--------|
-   | Exact match found | Use the existing function. Do not create a new one. |
-   | Close match (80%+ overlap) | Extend the existing function if backward-compatible. If not, document why a new function is needed in implementation-notes.md. |
-   | No match | Proceed with new implementation. |
-
-   Keep searches lightweight: 2-3 grep queries per function, not a full audit.
+   | Found in tech-spec/context.md or via grep | Use the existing function |
+   | No match | Proceed with new implementation |
 
 3. **Execute implementation** — choose mode based on what documents exist:
 

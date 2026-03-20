@@ -108,9 +108,34 @@ Read any that exist. The `<decisions>` sections contain previously settled choic
 
 ---
 
+## Step 3b: Score Clarity
+
+After completing Steps 1–3 (or loading prior answers), score the feature's clarity across **3 weighted dimensions** (0.0–1.0 each):
+
+| Dimension | Weight | What to Score |
+|-----------|--------|--------------|
+| **Goal Clarity** | 0.40 | Is the objective unambiguous? Can you state exactly what this feature does in one sentence? |
+| **Constraint Clarity** | 0.30 | Are technical/business limits known? (Performance targets, API boundaries, auth model, data format, error handling strategy) |
+| **Success Criteria** | 0.30 | Can Hephaestus objectively verify "done"? Are acceptance criteria concrete and testable? |
+
+**Formula:**
+```
+ambiguity = 1 - (goal_clarity × 0.40 + constraint_clarity × 0.30 + criteria_clarity × 0.30)
+```
+
+- **Start** at ambiguity ~1.0 (before any questions)
+- **Stop** when ambiguity ≤ 0.20 (80%+ clarity) — set `MORE_QUESTIONS: false`
+- **Continue** when ambiguity > 0.20 — set `MORE_QUESTIONS: true` and target the **lowest-scoring dimension** in the next batch
+
+Score after each batch, not after each individual question. Use the PRD content, user's answers so far, and codebase patterns as evidence. Be honest — a vague PRD with no user answers should score low.
+
+---
+
 ## Step 4: Identify the Next Batch of Gray Areas
 
-**If `ANSWERED_SO_FAR` is present in your prompt**, skip Steps 1–3 — you already have the PRD analysis and codebase context from the first round. Go straight to identifying remaining gray areas.
+**If `ANSWERED_SO_FAR` is present in your prompt**, skip Steps 1–3 — you already have the PRD analysis and codebase context from the first round. Go straight to scoring clarity and identifying remaining gray areas.
+
+**Scoring step:** Before identifying gray areas, score all 3 clarity dimensions based on the PRD + any `ANSWERED_SO_FAR`. This determines what to ask about next.
 
 From your PRD scan, codebase scout, prior context review, and any already-answered decisions (provided in prompt as `ANSWERED_SO_FAR`), identify gray areas that:
 
@@ -118,8 +143,11 @@ From your PRD scan, codebase scout, prior context review, and any already-answer
 2. Would force a real architectural choice from Hephaestus
 3. Are NOT already settled by existing patterns, prior context, or `ANSWERED_SO_FAR`
 4. Have at least 2 meaningfully different valid answers
+5. **Target the lowest-scoring clarity dimension first** — if constraint clarity is 0.30 but goal clarity is 0.80, prioritize constraint-related gray areas
 
-Return up to **4 gray areas per batch** — keep each round focused. If more remain after this batch, set `MORE_QUESTIONS: true` and Kratos will re-spawn you with the updated answers to surface the next batch.
+Return up to **4 gray areas per batch** — keep each round focused. Set `MORE_QUESTIONS` based on the ambiguity score:
+- `ambiguity > 0.20` → `MORE_QUESTIONS: true` (keep asking)
+- `ambiguity ≤ 0.20` → `MORE_QUESTIONS: false` (clarity sufficient)
 
 ---
 
@@ -146,7 +174,14 @@ After Steps 1–4, output a `THEMIS_QUESTIONS_RESULT` block. Kratos will parse t
 ```
 THEMIS_QUESTIONS_RESULT
 GRAY_AREAS_FOUND: [N in this batch]
-MORE_QUESTIONS: [true|false — true if more gray areas remain after this batch]
+MORE_QUESTIONS: [true|false — driven by ambiguity score: true if > 0.20]
+
+CLARITY_SCORES:
+  GOAL_CLARITY: [0.00–1.00]
+  CONSTRAINT_CLARITY: [0.00–1.00]
+  CRITERIA_CLARITY: [0.00–1.00]
+  AMBIGUITY: [calculated: 1 - (goal × 0.40 + constraints × 0.30 + criteria × 0.30)]
+  WEAKEST_DIMENSION: [goal|constraints|criteria — this batch targets this]
 
 Q1_TITLE: [Domain-specific gray area title]
 Q1_DEBATE_MODE: [debate|challenge|validate]
@@ -175,10 +210,15 @@ PRIOR_DECISIONS_IMPORTED:
 
 Only include `SCOPE_BOUNDARY` / `CANONICAL_REFS` / `EXISTING_PATTERNS` / `REUSABLE_ASSETS` / `INTEGRATION_POINTS` / `PRIOR_DECISIONS_IMPORTED` on the **first batch** — Kratos carries them forward.
 
-If everything is already settled (`GRAY_AREAS_FOUND: 0`), add:
+If everything is already settled (`GRAY_AREAS_FOUND: 0` and `AMBIGUITY ≤ 0.20`), add:
 ```
 NO_DISCUSSIONS_NEEDED: true
-REASON: [Why — e.g., all patterns are established]
+REASON: [Why — e.g., all patterns are established, ambiguity already at 0.15]
+CLARITY_SCORES:
+  GOAL_CLARITY: [score]
+  CONSTRAINT_CLARITY: [score]
+  CRITERIA_CLARITY: [score]
+  AMBIGUITY: [score]
 ```
 
 Kratos will then spawn you directly into `WRITE_CONTEXT`.
