@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.mjs\"",
+            "timeout": 120000
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.mjs\"",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "AskUserQuestion": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.mjs\"",
+            "timeout": 180000
+          }
+        ]
+      }
+    ]
+  }
+}
