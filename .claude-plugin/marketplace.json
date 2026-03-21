@@ -48,6 +48,11 @@
       "name": "agent-browser",
       "source": "./plugins/agent-browser",
       "description": "Advanced browser automation skill using agent-browser CLI - a fast native Rust headless browser for AI agents. Covers batch workflows, network mocking, semantic selectors, and production-grade automation patterns."
+    },
+    {
+      "name": "discord-remote",
+      "source": "./plugins/discord-remote",
+      "description": "Discord remote control for Claude Code — forwards tool permission requests, PreToolUse hooks, and AskUserQuestion hooks to Discord DMs. Approve or deny from your phone using emoji reactions."
     }
   ]
 }
