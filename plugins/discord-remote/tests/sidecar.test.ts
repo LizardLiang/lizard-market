@@ -265,7 +265,7 @@ describe('POST /pretool', () => {
     expect(status).toBe(200)
     const b = body as Record<string, unknown>
     const out = b.hookSpecificOutput as Record<string, unknown>
-    expect(out.permissionDecision).toBe('block')
+    expect(out.permissionDecision).toBe('block') // PreToolUse still uses permissionDecision
     expect(String(out.reason)).toContain('rm -rf /')
   })
 
@@ -323,8 +323,9 @@ describe('POST /approve', () => {
 
       expect(status).toBe(200)
       const out = (body as Record<string, unknown>).hookSpecificOutput as Record<string, unknown>
-      expect(out.permissionDecision).toBe('ask')
-      expect(String(out.permissionDecisionReason)).toContain('Timed out')
+      const decision = out.decision as Record<string, unknown>
+      expect(decision.behavior).toBe('ask')
+      expect(String(decision.reason)).toContain('Timed out')
     } finally {
       await s.stop()
     }

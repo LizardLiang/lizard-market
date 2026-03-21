@@ -242,10 +242,10 @@ export async function sendApprovalRequest(
           resolve({
             hookSpecificOutput: {
               hookEventName: 'PermissionRequest',
-              permissionDecision: 'allow',
-              permissionDecisionReason: `Always-approved via Discord by ${username}`,
-              updatedPermissions: {
-                allow: [toolName],
+              decision: {
+                behavior: 'allow',
+                reason: `Always-approved via Discord by ${username}`,
+                updatedPermissions: [`${toolName}(*)`],
               },
             },
           })
@@ -253,16 +253,20 @@ export async function sendApprovalRequest(
           resolve({
             hookSpecificOutput: {
               hookEventName: 'PermissionRequest',
-              permissionDecision: 'allow',
-              permissionDecisionReason: `Approved via Discord by ${username}`,
+              decision: {
+                behavior: 'allow',
+                reason: `Approved via Discord by ${username}`,
+              },
             },
           })
         } else {
           resolve({
             hookSpecificOutput: {
               hookEventName: 'PermissionRequest',
-              permissionDecision: 'deny',
-              permissionDecisionReason: `Denied via Discord by ${username}`,
+              decision: {
+                behavior: 'deny',
+                reason: `Denied via Discord by ${username}`,
+              },
             },
           })
         }
@@ -281,8 +285,10 @@ function makeTimeoutPermissionResponse(
   return {
     hookSpecificOutput: {
       hookEventName: 'PermissionRequest',
-      permissionDecision: fallback,
-      permissionDecisionReason: 'Timed out waiting for Discord response, falling back to terminal',
+      decision: {
+        behavior: fallback,
+        reason: 'Timed out waiting for Discord response, falling back to terminal',
+      },
     },
   }
 }

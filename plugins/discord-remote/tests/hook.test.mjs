@@ -109,8 +109,7 @@ test('TC-001: Hook routes PermissionRequest to /approve', async () => {
   const approveResponse = {
     hookSpecificOutput: {
       hookEventName: 'PermissionRequest',
-      permissionDecision: 'allow',
-      permissionDecisionReason: 'Approved via Discord by testuser',
+      decision: { behavior: 'allow', reason: 'Approved via Discord by testuser' },
     },
   }
   const { server, port, requests } = await startMockServer(approveResponse)
@@ -127,7 +126,7 @@ test('TC-001: Hook routes PermissionRequest to /approve', async () => {
 
     assert.equal(code, 0, 'exit code should be 0')
     const output = JSON.parse(stdout)
-    assert.equal(output.hookSpecificOutput.permissionDecision, 'allow')
+    assert.equal(output.hookSpecificOutput.decision.behavior, 'allow')
     assert.equal(requests.length, 1, 'exactly one request to sidecar')
     assert.equal(requests[0].url, '/approve', 'routed to /approve')
     assert.equal(requests[0].body.tool_name, 'Write', 'tool_name forwarded')
@@ -216,7 +215,7 @@ test('TC-004: Hook falls back gracefully when sidecar is unreachable', async () 
     assert.equal(code, 0, 'exit code 0 even on unreachable sidecar')
     const output = JSON.parse(stdout)
     assert.equal(output.hookSpecificOutput.hookEventName, 'PermissionRequest')
-    assert.equal(output.hookSpecificOutput.permissionDecision, 'ask', 'falls back to ask')
+    assert.equal(output.hookSpecificOutput.decision.behavior, 'ask', 'falls back to ask')
   } finally {
     cleanup()
   }
@@ -300,8 +299,7 @@ test('TC-007: Hook waits for delayed sidecar response (no premature timeout)', {
   const approveResponse = {
     hookSpecificOutput: {
       hookEventName: 'PermissionRequest',
-      permissionDecision: 'allow',
-      permissionDecisionReason: 'Delayed response',
+      decision: { behavior: 'allow', reason: 'Delayed response' },
     },
   }
   const { server, port } = await startMockServer(approveResponse, { delay: 2000 })
@@ -324,7 +322,7 @@ test('TC-007: Hook waits for delayed sidecar response (no premature timeout)', {
     assert.ok(elapsed < 5000, `elapsed ${elapsed}ms should be < 5000ms (no premature timeout)`)
 
     const output = JSON.parse(stdout)
-    assert.equal(output.hookSpecificOutput.permissionDecision, 'allow', 'received delayed approval')
+    assert.equal(output.hookSpecificOutput.decision.behavior, 'allow', 'received delayed approval')
   } finally {
     server.close()
     cleanup()

@@ -65,8 +65,10 @@ function permissionFallback() {
   return {
     hookSpecificOutput: {
       hookEventName: 'PermissionRequest',
-      permissionDecision: 'ask',
-      permissionDecisionReason: 'discord-remote sidecar unreachable, falling back to terminal',
+      decision: {
+        behavior: 'ask',
+        reason: 'discord-remote sidecar unreachable, falling back to terminal',
+      },
     },
   }
 }

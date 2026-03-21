@@ -326,8 +326,10 @@ export function createSidecar(client: Client, config: RemoteConfig): Sidecar {
         pending.resolve({
           hookSpecificOutput: {
             hookEventName: 'PermissionRequest',
-            permissionDecision: fallback,
-            permissionDecisionReason: 'Sidecar shutting down',
+            decision: {
+              behavior: fallback,
+              reason: 'Sidecar shutting down',
+            },
           },
         } as HookResponse)
       } else {

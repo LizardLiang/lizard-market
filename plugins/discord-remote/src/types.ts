@@ -54,10 +54,10 @@ export type HookRequest = {
 export type PermissionResponse = {
   hookSpecificOutput: {
     hookEventName: 'PermissionRequest'
-    permissionDecision: 'allow' | 'deny' | 'ask'
-    permissionDecisionReason?: string
-    updatedPermissions?: {
-      allow: string[]
+    decision: {
+      behavior: 'allow' | 'deny' | 'ask'
+      reason?: string
+      updatedPermissions?: Array<{ type: string; mode?: string; destination?: string } | string>
     }
   }
 }

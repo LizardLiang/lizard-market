@@ -350,7 +350,7 @@ describe('sendApprovalRequest security', () => {
       mockMessage._resolveReaction(PAIRED_USER_ID, 'testuser', TEST_CONFIG.reactions.approve)
 
       const result = await approvalPromise
-      expect(result.hookSpecificOutput.permissionDecision).toBe('allow')
+      expect(result.hookSpecificOutput.decision.behavior).toBe('allow')
     } finally {
       teardownAccessFile()
     }
@@ -510,8 +510,8 @@ describe('sendApprovalRequest timeout', () => {
       )
 
       // Should resolve with fallback 'ask' after timeout
-      expect(result.hookSpecificOutput.permissionDecision).toBe('ask')
-      expect(result.hookSpecificOutput.permissionDecisionReason).toContain('Timed out')
+      expect(result.hookSpecificOutput.decision.behavior).toBe('ask')
+      expect(result.hookSpecificOutput.decision.reason).toContain('Timed out')
     } finally {
       teardownAccessFile()
     }
@@ -543,8 +543,8 @@ describe('sendApprovalRequest always-approve', () => {
       mockMessage._resolveReaction(PAIRED_USER_ID, 'testuser', TEST_CONFIG.reactions.always)
 
       const result = await approvalPromise
-      expect(result.hookSpecificOutput.permissionDecision).toBe('allow')
-      expect(result.hookSpecificOutput.updatedPermissions).toEqual({ allow: ['Write'] })
+      expect(result.hookSpecificOutput.decision.behavior).toBe('allow')
+      expect(result.hookSpecificOutput.decision.updatedPermissions).toEqual(['Write(*)'])
     } finally {
       teardownAccessFile()
     }
