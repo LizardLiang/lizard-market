@@ -23,18 +23,6 @@
           }
         ]
       }
-    ],
-    "AskUserQuestion": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.mjs\"",
-            "timeout": 180000
-          }
-        ]
-      }
     ]
   }
 }

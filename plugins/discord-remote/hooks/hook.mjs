@@ -34,7 +34,23 @@ const STATE_DIR = process.env.DISCORD_STATE_DIR
   ?? path.join(os.homedir(), '.claude', 'channels', 'discord')
 
 const PORT_FILE = path.join(STATE_DIR, 'sidecar.port')
+const PPID_FILE = path.join(STATE_DIR, 'sidecar.ppid')
 const SECRET_FILE = path.join(STATE_DIR, 'sidecar.secret')
+
+/**
+ * Check if this hook is running in the same Claude Code session as the sidecar.
+ * Both the MCP server (sidecar) and hook scripts are child processes of Claude Code.
+ * If the sidecar's parent PID matches our parent PID, we're in the same session.
+ * Returns false if the file doesn't exist or PIDs don't match.
+ */
+function isSameSession() {
+  try {
+    const sidecarPpid = parseInt(fs.readFileSync(PPID_FILE, 'utf8').trim(), 10)
+    return sidecarPpid === process.ppid
+  } catch {
+    return false
+  }
+}
 
 /**
  * Read the shared secret for sidecar authentication.
@@ -202,6 +218,15 @@ function routeEvent(hookEventName) {
 }
 
 async function main() {
+  // Only forward to Discord if we're in the same Claude Code session as the sidecar.
+  // This prevents other sessions from sending approval requests to Discord.
+  if (!isSameSession()) {
+    // Not our session — pass through silently (empty = no opinion for PreToolUse,
+    // "ask" fallback for PermissionRequest lets the terminal handle it)
+    process.stdout.write(JSON.stringify({}) + '\n')
+    process.exit(0)
+  }
+
   // Read stdin (Claude Code writes JSON hook data here)
   let stdinData = ''
   try {

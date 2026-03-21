@@ -37,6 +37,7 @@ import {
 } from './discord-approver.js'
 
 const PORT_FILE = join(STATE_DIR, 'sidecar.port')
+const PPID_FILE = join(STATE_DIR, 'sidecar.ppid')
 const MAX_PORT_ATTEMPTS = 10
 
 // ---------------------------------------------------------------------------
@@ -215,17 +216,18 @@ function writePortFile(port: number): void {
   try {
     mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 })
     writeFileSync(PORT_FILE, String(port) + '\n', { mode: 0o600 })
+    // Write the parent PID (Claude Code's PID) so hook scripts can check
+    // if they belong to the same session. The MCP server is a child process
+    // of Claude Code, and hooks are also children of the same Claude Code.
+    writeFileSync(PPID_FILE, String(process.ppid) + '\n', { mode: 0o600 })
   } catch (err) {
     process.stderr.write(`discord-remote: failed to write sidecar.port: ${err}\n`)
   }
 }
 
 function deletePortFile(): void {
-  try {
-    unlinkSync(PORT_FILE)
-  } catch {
-    // If it doesn't exist, that's fine
-  }
+  try { unlinkSync(PORT_FILE) } catch {}
+  try { unlinkSync(PPID_FILE) } catch {}
 }
 
 // ---------------------------------------------------------------------------

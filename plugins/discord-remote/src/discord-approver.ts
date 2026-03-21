@@ -88,7 +88,6 @@ function formatPermissionMessage(
   toolInput: Record<string, unknown>,
   timeoutMs: number,
   reactions: RemoteConfig['reactions'],
-  permissionSuggestions?: Record<string, unknown>,
 ): string {
   const inputSummary = summarizeToolInput(toolInput)
   const timeoutSecs = Math.round(timeoutMs / 1000)
@@ -100,16 +99,6 @@ function formatPermissionMessage(
     inputSummary,
     '```',
   ]
-
-  if (permissionSuggestions && Object.keys(permissionSuggestions).length > 0) {
-    let suggestionsText: string
-    try {
-      suggestionsText = JSON.stringify(permissionSuggestions)
-    } catch {
-      suggestionsText = String(permissionSuggestions)
-    }
-    lines.push('', `**Suggested permissions:** ${suggestionsText}`)
-  }
 
   lines.push(
     '',
@@ -198,7 +187,6 @@ export async function sendApprovalRequest(
     toolInput,
     config.timeout.approval_ms,
     config.reactions,
-    permissionSuggestions,
   )
 
   const message = await dmChannel.send(messageText)
