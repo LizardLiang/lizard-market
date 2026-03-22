@@ -752,10 +752,16 @@ async function handleInbound(msg: Message): Promise<void> {
 client.once('ready', c => {
   process.stderr.write(`discord channel: gateway connected as ${c.user.tag}\n`)
   // --- discord-remote sidecar: start HTTP sidecar after Discord client is ready ---
-  sidecar.start().catch(err => {
+  sidecar.start().then(() => {
+    process.stderr.write(`discord-remote: sidecar started successfully\n`)
+  }).catch(err => {
     process.stderr.write(`discord-remote: sidecar failed to start: ${err}\n`)
   })
 })
+
+// Note: discord.js v14 uses 'ready'. If upgrading to v15+ where 'ready' is
+// renamed to 'clientReady', update the listener above. Do NOT register both
+// — that would start the sidecar twice and cause an EADDRINUSE error.
 
 client.login(TOKEN).catch(err => {
   process.stderr.write(`discord channel: login failed: ${err}\n`)

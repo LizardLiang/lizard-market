@@ -57,7 +57,7 @@ export type PermissionResponse = {
     decision: {
       behavior: 'allow' | 'deny' | 'ask'
       reason?: string
-      updatedPermissions?: Array<{ type: string; mode?: string; destination?: string } | string>
+      updatedPermissions?: unknown[]
     }
   }
 }

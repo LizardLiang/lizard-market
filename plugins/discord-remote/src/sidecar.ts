@@ -46,6 +46,13 @@ const MAX_PORT_ATTEMPTS = 10
 
 const pendingRequests = new Map<string, PendingRequest>()
 
+// In-memory auto-approve set — tools the user clicked 🔒 on this session.
+// Resets when the sidecar stops. Not persisted.
+// Dangerous tools (Bash, Write, Edit) are NEVER auto-approved — each call
+// gets a fresh Discord prompt because different inputs carry different risk.
+const autoApproved = new Set<string>()
+const NEVER_AUTO_APPROVE = new Set(['Bash', 'Write', 'Edit', 'NotebookEdit'])
+
 // ---------------------------------------------------------------------------
 // Request body parsing
 // ---------------------------------------------------------------------------
@@ -110,6 +117,20 @@ async function handleApprove(
     return
   }
 
+  // Check in-memory auto-approve list (tools previously 🔒'd this session)
+  if (autoApproved.has(body.tool_name)) {
+    sendJson(res, 200, {
+      hookSpecificOutput: {
+        hookEventName: 'PermissionRequest',
+        decision: {
+          behavior: 'allow',
+          reason: `Auto-approved (${body.tool_name} was always-approved this session)`,
+        },
+      },
+    } satisfies PermissionResponse)
+    return
+  }
+
   try {
     // sendApprovalRequest blocks until user reacts or timeout fires
     const response: PermissionResponse = await sendApprovalRequest(
@@ -119,6 +140,14 @@ async function handleApprove(
       body.tool_input ?? {},
       body.permission_suggestions,
     )
+
+    // If user clicked 🔒, save tool to auto-approve set for this session
+    // Skip dangerous tools — Bash/Write/Edit need per-call review
+    if (response.hookSpecificOutput.decision.updatedPermissions && !NEVER_AUTO_APPROVE.has(body.tool_name)) {
+      autoApproved.add(body.tool_name)
+      process.stderr.write(`discord-remote: auto-approve added: ${body.tool_name}\n`)
+    }
+
     sendJson(res, 200, response)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

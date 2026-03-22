@@ -201,69 +201,66 @@ export async function sendApprovalRequest(
   }
 
   return new Promise<PermissionResponse>((resolve) => {
-    // Set up reaction collector filtered to the paired user
-    const filter = (reaction: { emoji: { name: string | null } }, user: { id: string }) => {
-      const emoji = reaction.emoji.name ?? ''
-      return (
-        user.id === pairedUserId &&
-        (emoji === config.reactions.approve ||
-          emoji === config.reactions.deny ||
-          emoji === config.reactions.always)
-      )
-    }
+    const validEmojis = new Set([config.reactions.approve, config.reactions.deny, config.reactions.always])
+    const botId = client.user?.id
 
-    message
-      .awaitReactions({ filter, max: 1, time: config.timeout.approval_ms, errors: [] })
-      .then((collected: Collection<string, MessageReaction>) => {
-        const reaction = collected.first()
-        if (!reaction) {
-          // Timeout — use configured fallback
-          resolve(makeTimeoutPermissionResponse(config.defaults.permission_fallback))
-          return
-        }
-
+    const collector = message.createReactionCollector({
+      filter: (reaction: MessageReaction, user: User) => {
+        // Ignore bot's own reactions
+        if (user.id === botId) return false
+        // Only accept from paired user
+        if (user.id !== pairedUserId) return false
+        // Check emoji matches one of our valid emojis
         const emoji = reaction.emoji.name ?? ''
-        const reactingUser = reaction.users.cache.find((u: User) => u.id === pairedUserId)
-        const username = reactingUser?.username ?? pairedUserId
+        return validEmojis.has(emoji)
+      },
+      max: 1,
+      time: config.timeout.approval_ms,
+    })
 
-        if (emoji === config.reactions.always) {
-          resolve({
-            hookSpecificOutput: {
-              hookEventName: 'PermissionRequest',
-              decision: {
-                behavior: 'allow',
-                reason: `Always-approved via Discord by ${username}`,
-                updatedPermissions: [`${toolName}(*)`],
-              },
+    collector.on('collect', (reaction: MessageReaction, user: User) => {
+      const emoji = reaction.emoji.name ?? ''
+      const username = user.username ?? pairedUserId
+
+      if (emoji === config.reactions.always) {
+        resolve({
+          hookSpecificOutput: {
+            hookEventName: 'PermissionRequest',
+            decision: {
+              behavior: 'allow',
+              reason: `Always-approved via Discord by ${username}`,
+              updatedPermissions: permissionSuggestions ? (Array.isArray(permissionSuggestions) ? permissionSuggestions : [permissionSuggestions]) : undefined,
             },
-          })
-        } else if (emoji === config.reactions.approve) {
-          resolve({
-            hookSpecificOutput: {
-              hookEventName: 'PermissionRequest',
-              decision: {
-                behavior: 'allow',
-                reason: `Approved via Discord by ${username}`,
-              },
+          },
+        })
+      } else if (emoji === config.reactions.approve) {
+        resolve({
+          hookSpecificOutput: {
+            hookEventName: 'PermissionRequest',
+            decision: {
+              behavior: 'allow',
+              reason: `Approved via Discord by ${username}`,
             },
-          })
-        } else {
-          resolve({
-            hookSpecificOutput: {
-              hookEventName: 'PermissionRequest',
-              decision: {
-                behavior: 'deny',
-                reason: `Denied via Discord by ${username}`,
-              },
+          },
+        })
+      } else {
+        resolve({
+          hookSpecificOutput: {
+            hookEventName: 'PermissionRequest',
+            decision: {
+              behavior: 'deny',
+              reason: `Denied via Discord by ${username}`,
             },
-          })
-        }
-      })
-      .catch(() => {
-        // awaitReactions can throw on timeout if errors flag is set — we use errors: []
-        // so this shouldn't happen, but handle it defensively
+          },
+        })
+      }
+    })
+
+    collector.on('end', (collected: Collection<string, MessageReaction>) => {
+      if (collected.size === 0) {
         resolve(makeTimeoutPermissionResponse(config.defaults.permission_fallback))
-      })
+      }
+    })
   })
 }
 
