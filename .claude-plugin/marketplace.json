@@ -53,6 +53,11 @@
       "name": "discord-remote",
       "source": "./plugins/discord-remote",
       "description": "Discord remote control for Claude Code — forwards tool permission requests, PreToolUse hooks, and AskUserQuestion hooks to Discord DMs. Approve or deny from your phone using emoji reactions."
+    },
+    {
+      "name": "discord-orchestrator",
+      "source": "./plugins/discord-orchestrator",
+      "description": "Multi-project Discord orchestrator — routes channels to projects via Claude Agent SDK"
     }
   ]
 }

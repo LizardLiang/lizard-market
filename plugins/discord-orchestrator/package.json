@@ -1,0 +1,18 @@
+{
+  "name": "discord-orchestrator",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "bun install --no-summary && bun server.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.0",
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "uuid": "^11.0.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^10.0.0"
+  }
+}
