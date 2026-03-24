@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -83,6 +84,30 @@ func removeHooksFromSettings(settingsFile string) error {
 		// Remove empty hooks object
 		if len(hooks) == 0 {
 			delete(settings, "hooks")
+		}
+	}
+
+	// Remove kratos permission rules
+	if perms, ok := settings["permissions"].(map[string]interface{}); ok {
+		if allowList, ok := perms["allow"].([]interface{}); ok {
+			filtered := make([]interface{}, 0, len(allowList))
+			for _, rule := range allowList {
+				s, _ := rule.(string)
+				isKratos := s == "Read(~/.claude/plugins/cache/lizard-plugins/kratos/**)" ||
+					s == "Bash(~/.kratos/bin/kratos:*)" ||
+					strings.Contains(s, "hooks/kratos/kratos:")
+				if !isKratos {
+					filtered = append(filtered, rule)
+				}
+			}
+			if len(filtered) == 0 {
+				delete(perms, "allow")
+			} else {
+				perms["allow"] = filtered
+			}
+			if len(perms) == 0 {
+				delete(settings, "permissions")
+			}
 		}
 	}
 

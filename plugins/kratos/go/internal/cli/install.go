@@ -198,6 +198,33 @@ func updateSettings(settingsFile, hooksDir string) error {
 		},
 	}
 
+	// Ensure permissions.allow includes plugin cache read + binary exec
+	// Read workaround: https://github.com/anthropics/claude-code/issues/31036
+	perms, ok := settings["permissions"].(map[string]interface{})
+	if !ok {
+		perms = make(map[string]interface{})
+		settings["permissions"] = perms
+	}
+	allowList, _ := perms["allow"].([]interface{})
+	requiredRules := []string{
+		"Read(~/.claude/plugins/cache/lizard-plugins/kratos/**)",
+		fmt.Sprintf("Bash(%s/kratos:*)", filepath.ToSlash(hooksDir)),
+		"Bash(~/.kratos/bin/kratos:*)",
+	}
+	for _, rule := range requiredRules {
+		found := false
+		for _, existing := range allowList {
+			if existing == rule {
+				found = true
+				break
+			}
+		}
+		if !found {
+			allowList = append(allowList, rule)
+		}
+	}
+	perms["allow"] = allowList
+
 	// Write settings
 	data, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
