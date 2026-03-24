@@ -245,4 +245,10 @@ export class SessionManager {
   hasSession(projectName: string): boolean {
     return this.sessions.has(projectName);
   }
+
+  async clearSession(projectName: string): Promise<void> {
+    await this.closeSession(projectName);
+    delete this.savedSessions[projectName];
+    this.queueSave();
+  }
 }
