@@ -23,6 +23,7 @@ func PipelineCmd() *cobra.Command {
 	cmd.AddCommand(pipelineInitCmd())
 	cmd.AddCommand(pipelineUpdateCmd())
 	cmd.AddCommand(pipelineGetCmd())
+	cmd.AddCommand(pipelineSetPendingCmd())
 
 	return cmd
 }
@@ -406,5 +407,57 @@ func pipelineGet(feature string) error {
 
 	out, _ := json.MarshalIndent(statusJSON, "", "  ")
 	fmt.Println(string(out))
+	return nil
+}
+
+// pipelineSetPendingCmd sets pending_stage in status.json so that kratos check --init
+// knows which stage Athena is about to run — before Athena has updated "stage" itself.
+func pipelineSetPendingCmd() *cobra.Command {
+	var feature, stage string
+
+	cmd := &cobra.Command{
+		Use:   "set-pending",
+		Short: "Set pending_stage before spawning a multi-stage agent (e.g. Athena)",
+		Long: `Set the pending_stage field in status.json before spawning an agent that runs at
+multiple stages (like Athena). The kratos check --init hook reads this field first so it
+can inject the correct deliverable expectations at SubagentStart time.
+
+Clear it by passing --stage "" after the agent completes.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return pipelineSetPending(feature, stage)
+		},
+	}
+
+	cmd.Flags().StringVar(&feature, "feature", "", "Feature name (required)")
+	cmd.Flags().StringVar(&stage, "stage", "", "Stage to set as pending (e.g. 2-prd-review); empty string clears it")
+	cmd.MarkFlagRequired("feature")
+
+	return cmd
+}
+
+func pipelineSetPending(feature, stage string) error {
+	path := statusPath(feature)
+
+	statusJSON, err := readStatusJSON(path)
+	if err != nil {
+		return err
+	}
+
+	if stage == "" {
+		delete(statusJSON, "pending_stage")
+	} else {
+		statusJSON["pending_stage"] = stage
+	}
+	statusJSON["updated"] = time.Now().Format(time.RFC3339)
+
+	if err := writeStatusJSON(path, statusJSON); err != nil {
+		return err
+	}
+
+	if stage == "" {
+		fmt.Printf(`{"feature":%q,"pending_stage_cleared":true}`+"\n", feature)
+	} else {
+		fmt.Printf(`{"feature":%q,"pending_stage":%q}`+"\n", feature, stage)
+	}
 	return nil
 }

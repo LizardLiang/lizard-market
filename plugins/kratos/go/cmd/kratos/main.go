@@ -8,7 +8,7 @@ import (
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/cli"
 )
 
-var version = "2.5.0-go"
+var version = "2.7.0-go"
 
 func main() {
 	rootCmd := &cobra.Command{
@@ -28,6 +28,7 @@ func main() {
 	rootCmd.AddCommand(cli.PipelineCmd())
 	rootCmd.AddCommand(cli.TodoCmd())
 	rootCmd.AddCommand(cli.HookCmd())
+	rootCmd.AddCommand(cli.CheckCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

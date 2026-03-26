@@ -109,7 +109,9 @@ Create prd.md before completing. Verify it exists before reporting completion.",
 
 ---
 
-## Stage 2: Review PRD (Athena)
+## Stage 2: Review PRD — Three-Agent Parallel
+
+Spawn all three reviewers in the same response. All three must reach `approved` before the gate passes.
 
 ```
 Task(
@@ -122,9 +124,30 @@ FOLDER: .claude/feature/[feature-name]/
 Create prd-review.md before completing. Verify it exists before reporting completion.
 
 Review prd.md and create prd-review.md. Update status.json with verdict.",
-  description: "athena - review PRD"
+  description: "athena - PRD review (PM)"
 )
+
+Task(
+  subagent_type: "kratos:nemesis",
+  model: "opus",
+  prompt: "MISSION: Challenge PRD
+FEATURE: [feature-name]
+FOLDER: .claude/feature/[feature-name]/
+
+Create prd-challenge.md before completing. Verify it exists before reporting completion.
+
+Challenge every assumption and claim in prd.md. Create prd-challenge.md. Update status.json with nemesis_verdict.",
+  description: "nemesis - PRD challenge (devil's advocate)"
+)
+
 ```
+
+Wait for both to complete before proceeding.
+
+**Gate logic:**
+- Both verdicts `approved` → proceed to Stage 3 gate
+- Any verdict `revisions` → return to Stage 1 (Athena rewrites PRD, both re-review)
+- Any verdict `rejected` → escalate to user — fundamental PRD issue
 
 ---
 

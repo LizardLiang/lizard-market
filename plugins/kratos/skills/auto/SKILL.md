@@ -48,6 +48,7 @@ Classify the user's intent and read the corresponding command file:
 | "decompose", "break down", "split into phases" | Decompose mode | `plugins/kratos/commands/decompose.md` |
 | "status", "progress" | Status dashboard | `plugins/kratos/commands/status.md` |
 | "where did we stop", "last session", "resume" | Recall mode | `plugins/kratos/commands/recall.md` |
+| "greet", "motivate", "inspire me" | Greet mode | `plugins/kratos/commands/greet.md` |
 | "add task", "my todos", "mark done" | Spawn Ananke | `Task(subagent_type: "kratos:ananke")` |
 | "continue", "next", "start", "new feature" | Full pipeline | `plugins/kratos/commands/main.md` |
 | Complex feature request | Full pipeline | `plugins/kratos/commands/main.md` |

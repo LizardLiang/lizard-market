@@ -1,3 +1,8 @@
+# Override global gitignore for docs/roadmap.md only
+!docs/
+docs/*
+!docs/roadmap.md
+
 # Go build intermediates (bin/ is tracked for distribution)
 go/kratos
 go/bin/

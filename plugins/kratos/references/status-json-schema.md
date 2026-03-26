@@ -13,12 +13,12 @@ All agents that read or update status.json MUST follow this schema.
   "feature": "<feature-name>",
   "created": "<ISO8601 timestamp>",
   "updated": "<ISO8601 timestamp>",
-  "current_stage": "<stage-id>",
+  "stage": "<stage-id>",
   "pipeline_status": "in-progress | complete | blocked | abandoned",
   "mode": "normal | eco | power",
   "implementation_mode": "ares | user | null",
 
-  "stages": {
+  "pipeline": {
     "0-research": {
       "status": "skipped | in-progress | complete",
       "agent": "metis",
@@ -36,11 +36,13 @@ All agents that read or update status.json MUST follow this schema.
     },
     "2-prd-review": {
       "status": "pending | in-progress | complete",
-      "agent": "athena",
+      "agents": ["athena", "nemesis"],
       "started": "<ISO8601>",
       "completed": "<ISO8601>",
-      "documents": ["prd-review.md"],
-      "verdict": "approved | revisions"
+      "documents": ["prd-review.md", "prd-challenge.md"],
+      "athena_verdict": "approved | revisions | rejected",
+      "nemesis_verdict": "approved | revisions | rejected",
+      "verdict": "approved | revisions | rejected"
     },
     "3-decomposition": {
       "status": "skipped | in-progress | complete",
@@ -148,7 +150,7 @@ All agents that read or update status.json MUST follow this schema.
 | `feature` | string | yes | Feature name (matches directory name) |
 | `created` | ISO8601 | yes | When pipeline was initialized |
 | `updated` | ISO8601 | yes | Last modification timestamp |
-| `current_stage` | string | yes | Current active stage ID (e.g., "5-tech-spec") |
+| `stage` | string | yes | Current active stage ID (e.g., "5-tech-spec") |
 | `pipeline_status` | enum | yes | Overall pipeline status |
 | `mode` | enum | yes | Execution mode (affects model assignments) |
 | `implementation_mode` | enum | no | Set at stage 9; "ares" (AI implements) or "user" (task files created) |
@@ -195,30 +197,66 @@ All agents that read or update status.json MUST follow this schema.
 
 Each significant pipeline event is appended to the `history` array. This provides an audit trail for Clio and recall commands.
 
+### check_failures (per-stage)
+
+Each stage object in `pipeline` may optionally contain a `check_failures` array. This array is populated by `kratos check --verify` when the retry limit is exhausted for that stage. It is **append-only and never pruned** — entries accumulate as an audit trail.
+
+**Field definitions:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `check_failures` | `[]object` | Optional array on each stage object. Empty or absent means no verification failures recorded. |
+| `check_failures[].timestamp` | ISO8601 string | When the failure was recorded |
+| `check_failures[].tier` | integer | Verification tier level (1 = file existence, 2 = build/test, 3 = checklist) |
+| `check_failures[].checks_failed` | `[]string` | Human-readable list of which checks failed |
+| `check_failures[].retries_exhausted` | boolean | Always `true` when recorded (failures only recorded on max retry) |
+
+**Example:**
+
+```json
+{
+  "pipeline": {
+    "7-spec-review-sa": {
+      "status": "complete",
+      "assignee": "apollo",
+      "document": "spec-review-sa.md",
+      "check_failures": [
+        {
+          "timestamp": "2026-03-25T10:00:00+08:00",
+          "tier": 1,
+          "checks_failed": ["spec-review-sa.md not found or empty"],
+          "retries_exhausted": true
+        }
+      ]
+    }
+  }
+}
+```
+
 ---
 
 ## Agent Update Responsibilities
 
 | Agent | Reads | Updates |
 |-------|-------|---------|
-| Kratos | All fields | `current_stage`, `pipeline_status`, `updated`, `history` |
-| Athena | `current_stage`, stage status | Stage 1, 2, 6 status + verdict |
-| Themis | `current_stage`, PRD | Stage 4 status |
-| Hephaestus | `current_stage`, PRD version | Stage 5 status + `based_on_prd_version` |
-| Apollo | `current_stage` | Stage 7 status + verdict |
-| Artemis | `current_stage` | Stage 8 status |
-| Daedalus | `current_stage` | Stage 3 status + `output_targets` |
-| Ares | `current_stage`, `implementation_mode` | Stage 9 status + tasks array |
-| Hera | `current_stage` | Stage 10 `alignment_verdict` + coverage fields |
-| Hermes | `current_stage` | Stage 11 `code_review_verdict` |
-| Cassandra | `current_stage` | Stage 11 `risk_verdict` |
+| Kratos | All fields | `stage`, `pipeline_status`, `updated`, `history` |
+| Athena | `stage`, stage status | Stage 1, 2, 6 status + verdict |
+| Themis | `stage`, PRD | Stage 4 status |
+| Hephaestus | `stage`, PRD version | Stage 5 status + `based_on_prd_version` |
+| Apollo | `stage` | Stage 7 status + verdict |
+| Artemis | `stage` | Stage 8 status |
+| Daedalus | `stage` | Stage 3 status + `output_targets` |
+| Ares | `stage`, `implementation_mode` | Stage 9 status + tasks array |
+| Hera | `stage` | Stage 10 `alignment_verdict` + coverage fields |
+| Hermes | `stage` | Stage 11 `code_review_verdict` |
+| Cassandra | `stage` | Stage 11 `risk_verdict` |
 
 ---
 
 ## Conflict Detection
 
 A **stale conflict** exists when:
-- `stages["5-tech-spec"].based_on_prd_version` < `stages["1-prd"].completed`
+- `pipeline["5-tech-spec"].based_on_prd_version` < `pipeline["1-prd"].completed`
   (Tech spec was written against an older PRD)
 
 A **gate failure** exists when:

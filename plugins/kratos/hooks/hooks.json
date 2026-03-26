@@ -79,6 +79,76 @@
             "timeout": 3000
           }
         ]
+      },
+      {
+        "matcher": "kratos:athena",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init 2>/dev/null || ~/.kratos/bin/kratos check --init",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:apollo",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 7-spec-review-sa 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 7-spec-review-sa",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:artemis",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 8-test-plan 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 8-test-plan",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:hera",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 10-prd-alignment 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 10-prd-alignment",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:cassandra",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 11-review 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 11-review",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:daedalus",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 3-decomposition 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 3-decomposition",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:themis",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 4-discuss 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 4-discuss",
+            "timeout": 3000
+          }
+        ]
       }
     ],
     "SubagentStop": [
@@ -109,6 +179,76 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" hook subagent-stop 2>/dev/null || ~/.kratos/bin/kratos hook subagent-stop",
             "timeout": 10000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:athena",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify 2>/dev/null || ~/.kratos/bin/kratos check --verify",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:apollo",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 7-spec-review-sa 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 7-spec-review-sa",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:artemis",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 8-test-plan 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 8-test-plan",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:hera",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 10-prd-alignment 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 10-prd-alignment",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:cassandra",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 11-review 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 11-review",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:daedalus",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 3-decomposition 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 3-decomposition",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
+        "matcher": "kratos:themis",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 4-discuss 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 4-discuss",
+            "timeout": 5000
           }
         ]
       }

@@ -325,12 +325,14 @@ When asked to review a PRD:
 
 1. Read the existing `prd.md`
 2. If external APIs are present, use context7 to validate API claims. Use Mimir to check for any API changes or deprecations.
-3. Evaluate against criteria:
-   - Clear problem statement?
-   - Well-defined users?
-   - Measurable success metrics?
-   - Complete requirements with acceptance criteria?
-   - Appropriate scope?
+3. Evaluate against criteria — each item below is a gate, not a suggestion:
+   - Clear problem statement with no circular reasoning?
+   - Well-defined users with distinct personas?
+   - **Measurable** success metrics — each metric must have a number, baseline, and owner. Vague metrics ("improved UX", "better performance") → **Revisions**
+   - Complete requirements with unambiguous acceptance criteria — each AC must be independently testable. "Works correctly" is not an AC → **Revisions**
+   - Scope explicitly bounded — out-of-scope items listed. Missing out-of-scope definition → **Revisions**
+   - Failure modes covered for every P0 user flow → **Revisions** if absent
+   - Every assumption labeled as assumption, not stated as fact → **Revisions** if unvalidated assumptions are presented as facts
    - External API dependencies documented correctly?
 
 4. Create the review at `.claude/feature/<name>/prd-review.md` using the template at `plugins/kratos/templates/prd-review-template.md`.

@@ -177,8 +177,8 @@ Check every changed file for these concrete anti-patterns. Each hit is a finding
 **Severity guide for Tier 8:**
 - M1–M4 in new code → `[WARNING]`
 - M5–M10 in new code → `[WARNING]`
-- M3 with ≥3 copies → `[BLOCKER]`
-- M6 with measurable latency impact (e.g., sequential network calls) → `[BLOCKER]`
+- M3 with ≥2 copies → `[BLOCKER]` (was 3 — two copies is already a pattern that will become three)
+- M6 any missed concurrency → `[BLOCKER]` (sequential async is always wrong; latency impact is not required to flag it)
 - Any pattern that already exists in old code and was not introduced by this change → skip (do not flag pre-existing debt)
 
 Tag each finding:
@@ -302,10 +302,10 @@ Mention proposals in the summary.
 ## Step 7: Gate
 
 **Approved** requires:
-- Zero remaining `[BLOCKER]` findings (fixed OR explicitly skipped by user)
-- All `[WARNING]` either fixed or acknowledged
+- Zero remaining `[BLOCKER]` findings (fixed OR explicitly skipped with written justification)
+- Zero remaining `[WARNING]` findings — every WARNING must be fixed or overridden with a documented rationale. "Acknowledged" is not acceptable; acknowledgement without action means the problem remains.
 
-**Changes Required** if any `[BLOCKER]` is unresolved.
+**Changes Required** if any `[BLOCKER]` or unresolved `[WARNING]` remains.
 
 ---
 

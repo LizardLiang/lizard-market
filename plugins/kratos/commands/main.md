@@ -22,7 +22,8 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 | Agent | Model | Domain | Stages |
 |-------|-------|--------|--------|
 | **metis** | sonnet | Project research, codebase analysis | 0 (Pre-flight) |
-| **athena** | opus | PRD creation, PM reviews | 1, 2, 6 |
+| **athena** | opus | PRD creation, PM reviews | 1, 2 (parallel), 6 |
+| **nemesis** | opus | Adversarial PRD review (devil's advocate + user advocate) | 2 (parallel) |
 | **daedalus** | sonnet | Feature decomposition | 3 (optional) |
 | **themis** | sonnet | Implementation discuss, decision locking | 4 (optional) |
 | **hephaestus** | opus | Technical specifications | 5 |
@@ -48,7 +49,7 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 |-------|-------|----------|
 | 0-research | metis | `.claude/.Arena/*` |
 | 1-prd | athena | `prd.md` |
-| 2-prd-review | athena | `prd-review.md` |
+| 2-prd-review | athena + nemesis | `prd-review.md` + `prd-challenge.md` |
 | 3-decomposition | daedalus | `decomposition.md` (optional) |
 | 4-discuss | themis | `context.md` (optional) |
 | 5-tech-spec | hephaestus | `tech-spec.md` |
@@ -105,7 +106,7 @@ After each agent completes, verify the required document was created before proc
 |-------|------------------|
 | 0-research | `.claude/.Arena/*.md` (all 5 files) |
 | 1-prd | `prd.md` |
-| 2-prd-review | `prd-review.md` |
+| 2-prd-review | `prd-review.md` + `prd-challenge.md` + `prd-user-review.md` |
 | 3-decomposition | `decomposition.md` |
 | 4-discuss | `context.md` |
 | 5-tech-spec | `tech-spec.md` |
@@ -125,8 +126,9 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 | Stage Complete | Verdict | Next |
 |----------------|---------|------|
 | 1-prd | — | 2-prd-review (athena) |
-| 2-prd-review | Approved | Complexity check → optional decomposition → optional discuss → 5-tech-spec |
-| 2-prd-review | Revisions | 1-prd (athena) |
+| 2-prd-review | All three approved | Complexity check → optional decomposition → optional discuss → 5-tech-spec |
+| 2-prd-review | Any revisions | 1-prd (athena) — all three re-review after rewrite |
+| 2-prd-review | Any rejected | Blocked — escalate to user, fundamental PRD issue |
 | 3-decomposition | Complete/Skipped | 4-discuss gate (offer Themis or skip to 5) |
 | 4-discuss | Complete/Skipped | 5-tech-spec (hephaestus) |
 | 5-tech-spec | — | 6 + 7 in parallel (athena + apollo) |
@@ -188,7 +190,7 @@ Current status: [what's missing]
 
 Feature [name] is COMPLETE!
 
-✅ prd.md  ✅ prd-review.md  ✅ tech-spec.md
+✅ prd.md  ✅ prd-review.md  ✅ prd-challenge.md  ✅ tech-spec.md
 ✅ spec-review-pm.md  ✅ spec-review-sa.md  ✅ test-plan.md
 ✅ implementation-notes.md  ✅ prd-alignment.md
 ✅ code-review.md  ✅ risk-analysis.md

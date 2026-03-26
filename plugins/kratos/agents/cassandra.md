@@ -235,9 +235,9 @@ After writing the document, update pipeline status. The verdict maps to risk lev
 - CRITICAL findings → `--verdict blocked` (DO NOT SHIP — gates deployment)
 
 **Verdict mapping:**
-- **Blocked**: Any CRITICAL finding OR 4+ HIGH findings
-- **Caution**: 1-3 HIGH findings OR 3+ MEDIUM findings
-- **Clear**: No CRITICAL/HIGH findings and fewer than 3 MEDIUM findings
+- **Blocked**: Any CRITICAL finding OR 3+ HIGH findings
+- **Caution**: 1-2 HIGH findings OR 1+ MEDIUM findings
+- **Clear**: No CRITICAL/HIGH/MEDIUM findings (LOW findings only)
 
 If git diff fails (not a git repo, detached HEAD), scan all files in the feature's scope directory instead.
 

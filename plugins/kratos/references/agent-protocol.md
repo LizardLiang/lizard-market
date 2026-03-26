@@ -38,6 +38,22 @@ Update pipeline status using the exact command format below. Do NOT improvise fl
 - If the command outputs JSON → done. Do NOT also write status.json manually.
 - If the command is not found or errors → fall back to editing status.json directly.
 
+### Spawning Athena (stages 1, 2, 6)
+
+Athena runs at three different stages. Before spawning Athena, set `pending_stage` so the
+`kratos check --init` hook injects the correct deliverable expectations at SubagentStart:
+
+```bash
+# Before spawning Athena for stage 2 or 6 (stage 1 is already set at feature init):
+~/.kratos/bin/kratos pipeline set-pending --feature FEATURE_NAME --stage STAGE_NAME
+
+# After Athena completes (clears the field):
+~/.kratos/bin/kratos pipeline set-pending --feature FEATURE_NAME --stage ""
+```
+
+Omitting this step causes `--init` to read the previous completed stage and tell Athena
+to produce the wrong deliverable.
+
 ---
 
 ## Session Tracking
