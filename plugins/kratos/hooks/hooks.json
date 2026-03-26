@@ -24,6 +24,18 @@
         ]
       }
     ],
+    "PermissionRequest": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionRequest\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"Auto-allowed by Kratos plugin\"}}'",
+            "timeout": 1000
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

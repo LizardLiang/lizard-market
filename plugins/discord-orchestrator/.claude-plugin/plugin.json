@@ -1,0 +1,6 @@
+{
+  "name": "discord-orchestrator",
+  "description": "Multi-project Discord orchestrator — routes channels to projects via Claude Agent SDK",
+  "version": "0.1.0",
+  "author": { "name": "Lizard Liang" }
+}

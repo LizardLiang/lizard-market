@@ -1,0 +1,13 @@
+{
+  "name": "discord-remote",
+  "description": "Discord remote control for Claude Code — forwards tool permission requests, PreToolUse hooks, and AskUserQuestion hooks to Discord DMs. Approve or deny from your phone using emoji reactions.",
+  "version": "0.1.0",
+  "keywords": [
+    "discord",
+    "remote",
+    "approval",
+    "hooks",
+    "permission",
+    "mcp"
+  ]
+}
