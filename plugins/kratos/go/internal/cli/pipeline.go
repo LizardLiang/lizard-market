@@ -28,6 +28,19 @@ func PipelineCmd() *cobra.Command {
 	return cmd
 }
 
+// NowCmd returns the 'now' command that prints the current ISO8601 timestamp.
+// Agents use this to get a precise timestamp for manual status.json edits.
+func NowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "now",
+		Short: "Print the current ISO8601 timestamp (RFC3339)",
+		Long:  "Prints the current time as an RFC3339 / ISO8601 timestamp. Use this whenever you need to write a timestamp into status.json manually.",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(now())
+		},
+	}
+}
+
 // gitRoot returns the git repository root directory, falling back to cwd
 func gitRoot() string {
 	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()

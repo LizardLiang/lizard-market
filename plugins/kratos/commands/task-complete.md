@@ -90,14 +90,23 @@ Check if every task in `status.json` `stages["9-implementation"].tasks` has `sta
 
 When ALL tasks are complete:
 
-1. **Update status.json**:
+1. **Update status.json** via CLI (stamps real timestamps automatically):
+   ```bash
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status complete
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-prd-alignment --status ready
+   ```
+   If the CLI is unavailable, get a real timestamp first:
+   ```bash
+   TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+   ```
+   Then write:
    ```json
    {
      "stage": "10-prd-alignment",
      "pipeline": {
        "9-implementation": {
          "status": "complete",
-         "completed": "<ISO-timestamp>"
+         "completed": "$TS"
        },
        "10-prd-alignment": {
          "status": "ready"

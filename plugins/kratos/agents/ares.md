@@ -204,7 +204,19 @@ Requirements for each task file:
 
 ### Step 7: Update status.json
 
-Set the implementation stage to User Mode:
+First, stamp the stage via CLI (handles `started` and `updated` timestamps automatically):
+
+```bash
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status in-progress --mode user
+```
+
+Then patch in the tasks array. Get a real timestamp before writing:
+
+```bash
+TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+```
+
+Merge the tasks array into status.json:
 
 ```json
 {
@@ -213,7 +225,7 @@ Set the implementation stage to User Mode:
     "9-implementation": {
       "status": "in-progress",
       "mode": "user",
-      "started": "<ISO-timestamp>",
+      "started": "<value from CLI output above>",
       "tasks": {
         "total": <N>,
         "completed": 0,

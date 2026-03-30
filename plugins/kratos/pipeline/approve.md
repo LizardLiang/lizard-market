@@ -103,24 +103,35 @@ Run /kratos:next to proceed.
 
 ### Step 4: Update status.json
 
-On approval, update:
+On approval, use the CLI (it stamps real timestamps automatically):
+
+```bash
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict approved
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 5-tech-spec --status ready
+```
+
+If the CLI is unavailable, capture a real timestamp first then edit:
+
+```bash
+TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+```
 
 ```json
 {
   "pipeline": {
     "2-prd-review": {
       "status": "approved",
-      "completed": "<ISO-timestamp>",
+      "completed": "$TS",
       "verdict": "approved",
       "approvedBy": "kratos"
     },
     "5-tech-spec": {
-      "status": "ready"  // Changed from "blocked" to "ready"
+      "status": "ready"
     }
   },
   "history": [
     {
-      "timestamp": "<ISO-timestamp>",
+      "timestamp": "$TS",
       "action": "stage-approved",
       "stage": "2-prd-review",
       "details": "PRD Review approved, Tech Spec unlocked"
