@@ -99,7 +99,7 @@ Stage 1: PRD Creation (in-progress)
 | Stage | Status | Agent | Document |
 |-------|--------|-------|----------|
 | 1. PRD | In Progress | Athena | prd.md |
-| 2. PRD Review | Blocked | Athena | prd-review.md |
+| 2. PRD Review | Blocked | Nemesis | prd-challenge.md |
 | 3. Decomposition | Blocked | Daedalus | decomposition.md |
 | 4. Discuss | Blocked | Themis | context.md |
 | 5. Tech Spec | Blocked | Hephaestus | tech-spec.md |

@@ -92,8 +92,8 @@ Requirements:
 ### Gate 2: PRD Review → Tech Spec
 ```
 Requirements:
-- prd-review.md exists
-- prd-review.md verdict = "Approved" or "Approved with Comments"
+- prd-challenge.md exists
+- prd-challenge.md verdict = "Approved" or "Approved with Comments"
 ```
 
 ### Gate 3: Tech Spec → Spec Reviews

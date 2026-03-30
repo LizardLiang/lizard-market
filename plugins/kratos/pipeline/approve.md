@@ -35,7 +35,7 @@ Each stage has different approval criteria:
 | Stage | Document | Approval Criteria |
 |-------|----------|-------------------|
 | 1-prd | prd.md | Document exists and is complete |
-| 2-prd-review | prd-review.md | Verdict = ✅ Approved |
+| 2-prd-review | prd-challenge.md | Verdict = ✅ Approved |
 | 3-decomposition | decomposition.md | Document exists (or skipped) |
 | 4-discuss | context.md | Document exists (or skipped) |
 | 5-tech-spec | tech-spec.md | Document exists and is complete |
@@ -60,7 +60,7 @@ The reviewer has requested changes. The PRD must be revised
 and re-reviewed before approval.
 
 Required Actions:
-1. Address the feedback in prd-review.md
+1. Address the feedback in prd-challenge.md
 2. Update prd.md accordingly
 3. Run /pm-expert:review-prd again
 

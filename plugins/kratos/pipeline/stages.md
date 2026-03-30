@@ -109,45 +109,32 @@ Create prd.md before completing. Verify it exists before reporting completion.",
 
 ---
 
-## Stage 2: Review PRD — Three-Agent Parallel
+## Stage 2: Review PRD
 
-Spawn all three reviewers in the same response. All three must reach `approved` before the gate passes.
+Spawn Nemesis to review the PRD.
 
 ```
 Task(
-  subagent_type: "kratos:athena",
+  subagent_type: "kratos:nemesis",
   model: "opus",
   prompt: "MISSION: Review PRD
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Create prd-review.md before completing. Verify it exists before reporting completion.
-
-Review prd.md and create prd-review.md. Update status.json with verdict.",
-  description: "athena - PRD review (PM)"
-)
-
-Task(
-  subagent_type: "kratos:nemesis",
-  model: "opus",
-  prompt: "MISSION: Challenge PRD
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-
 Create prd-challenge.md before completing. Verify it exists before reporting completion.
 
-Challenge every assumption and claim in prd.md. Create prd-challenge.md. Update status.json with nemesis_verdict.",
-  description: "nemesis - PRD challenge (devil's advocate)"
+Review prd.md and create prd-challenge.md. Update status.json with verdict.",
+  description: "nemesis - full PRD review (adversarial + user advocate)"
 )
 
 ```
 
-Wait for both to complete before proceeding.
+Wait for completion before proceeding.
 
 **Gate logic:**
-- Both verdicts `approved` → proceed to Stage 3 gate
-- Any verdict `revisions` → return to Stage 1 (Athena rewrites PRD, both re-review)
-- Any verdict `rejected` → escalate to user — fundamental PRD issue
+- Verdict `approved` → proceed to Stage 3 gate
+- Verdict `revisions` → return to Stage 1 (Athena rewrites PRD, Nemesis re-reviews)
+- Verdict `rejected` → escalate to user — fundamental PRD issue
 
 ---
 

@@ -36,11 +36,10 @@ All agents that read or update status.json MUST follow this schema.
     },
     "2-prd-review": {
       "status": "pending | in-progress | complete",
-      "agents": ["athena", "nemesis"],
+      "agents": ["nemesis"],
       "started": "<ISO8601>",
       "completed": "<ISO8601>",
-      "documents": ["prd-review.md", "prd-challenge.md"],
-      "athena_verdict": "approved | revisions | rejected",
+      "documents": ["prd-challenge.md"],
       "nemesis_verdict": "approved | revisions | rejected",
       "verdict": "approved | revisions | rejected"
     },

@@ -34,13 +34,13 @@ Metis -> Athena -> Athena(review) -> [Daedalus] -> [Themis] -> Hephaestus -> Ath
 | **Required by** | Stage 2 (PRD Review), Stage 5 (Tech Spec), Stage 6 (PM Review) |
 | **If missing** | Pipeline cannot proceed past Stage 1 |
 
-### Athena (Stage 2 - PRD Review)
+### Nemesis (Stage 2 - PRD Review)
 
 | | Details |
 |---|---|
 | **Inputs** | `prd.md` in feature folder |
-| **Outputs** | `prd-review.md` with verdict |
-| **Output format** | Markdown following `templates/prd-review-template.md` |
+| **Outputs** | `prd-challenge.md` with verdict |
+| **Output format** | Markdown following adversarial review format |
 | **Required by** | Stage 5 gate check |
 | **Verdict values** | `approved` -> proceed, `revisions` -> loop back to Stage 1 |
 

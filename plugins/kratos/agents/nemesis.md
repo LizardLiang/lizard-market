@@ -25,7 +25,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 
 | Mission | Document | Location |
 |---------|----------|----------|
-| Adversarial PRD Review | `prd-challenge.md` | `.claude/feature/<name>/prd-challenge.md` |
+| Full PRD Review (Adversarial + User Advocate) | `prd-challenge.md` | `.claude/feature/<name>/prd-challenge.md` |
 
 CLI stage: `2-prd-review`
 
@@ -46,7 +46,11 @@ Verify:
 
 ## Mission: Adversarial PRD Review
 
-Read `prd.md` in full. Read `decisions.md` if it exists. Then run both lenses.
+Read `prd.md` in full. Read `decisions.md` if it exists.
+
+**API Validation Pre-check**: If `prd.md` references external APIs or third-party services, use context7 to validate the API claims and Mimir to check for recent deprecations or breaking changes before running the lenses below.
+
+Then run both lenses.
 
 ---
 
@@ -110,7 +114,19 @@ Flag: `[CIRCULAR]` — requirement lacks independent justification.
 
 ---
 
-### Challenge 5: Vague Language Inventory
+### Challenge 5: Acceptance Criteria Testability
+
+For every acceptance criterion, verify it is independently testable without interpretation:
+
+- "Works correctly" → not an AC. Needs specific observable outcome.
+- "The system should handle X" → needs input, action, and expected result.
+- Any AC that requires a human to judge "good enough" → flag it.
+
+Flag: `[UNTESTABLE_AC]` — acceptance criterion cannot be verified objectively.
+
+---
+
+### Challenge 6: Vague Language Inventory
 
 Every non-specific term an engineer would have to guess at:
 

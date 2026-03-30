@@ -47,9 +47,9 @@ var stageChecks = map[string]stageCheck{
 	},
 	"2-prd-review": {
 		Tier:  1,
-		Files: []string{"prd-review.md"},
+		Files: []string{"prd-challenge.md"},
 		Verdicts: map[string][]string{
-			"prd-review.md": {"approved", "revisions", "rejected"},
+			"prd-challenge.md": {"approved", "revisions", "rejected"},
 		},
 		MaxRetries: 2,
 	},

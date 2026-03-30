@@ -156,7 +156,7 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 |-------|-------|-------|------------------|
 | 0-research | metis | opus | .claude/.Arena/* |
 | 1-prd | athena | opus | prd.md |
-| 2-prd-review | athena | opus | prd-review.md |
+| 2-prd-review | nemesis | opus | prd-challenge.md |
 | 3-decomposition | daedalus | sonnet | decomposition.md (optional) |
 | 4-discuss | themis | sonnet | context.md (optional) |
 | 5-tech-spec | hephaestus | opus | tech-spec.md |
@@ -326,7 +326,7 @@ Memory preserved at ~/.kratos/memory.db
 
 All documents:
 ✅ prd.md
-✅ prd-review.md
+✅ prd-challenge.md
 ✅ tech-spec.md
 ✅ spec-review-pm.md
 ✅ spec-review-sa.md

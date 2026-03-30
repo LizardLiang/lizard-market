@@ -134,9 +134,9 @@ func TestStageChecks(t *testing.T) {
 		if len(sc.Verdicts) == 0 {
 			t.Error("2-prd-review should have Verdicts")
 		}
-		v, ok := sc.Verdicts["prd-review.md"]
+		v, ok := sc.Verdicts["prd-challenge.md"]
 		if !ok {
-			t.Fatal("2-prd-review missing Verdicts for prd-review.md")
+			t.Fatal("2-prd-review missing Verdicts for prd-challenge.md")
 		}
 		wantVerdicts := map[string]bool{"approved": true, "revisions": true, "rejected": true}
 		for _, vv := range v {
@@ -243,8 +243,8 @@ func TestVerifyVerdictPresent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			writeFile(t, filepath.Join(dir, "prd-review.md"), tt.content)
-			err := verifyVerdictPresent(dir, "prd-review.md", verdicts)
+			writeFile(t, filepath.Join(dir, "prd-challenge.md"), tt.content)
+			err := verifyVerdictPresent(dir, "prd-challenge.md", verdicts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("verifyVerdictPresent() error = %v, wantErr = %v", err, tt.wantErr)
 			}
@@ -692,8 +692,8 @@ func TestCheckInit(t *testing.T) {
 			t.Fatalf("output is not valid JSON: %v", err)
 		}
 		ctx := resp.HookSpecificOutput.AdditionalContext
-		if !strings.Contains(ctx, "prd-review.md") {
-			t.Error("additionalContext should mention prd-review.md")
+		if !strings.Contains(ctx, "prd-challenge.md") {
+			t.Error("additionalContext should mention prd-challenge.md")
 		}
 		// Should mention verdict keywords
 		if !strings.Contains(ctx, "approved") && !strings.Contains(ctx, "verdict") {
@@ -1066,15 +1066,15 @@ func TestVerdictAnchoring(t *testing.T) {
 		// 50 lines × 20 bytes ≈ 1000 bytes, pushing "approved" well outside the 500-byte tail.
 		prefix := "History: the original PRD was approved in sprint 1.\n" + strings.Repeat("review content line\n", 50)
 		suffix := "\n## Verdict\n\nRevisions required."
-		writeFile(t, filepath.Join(dir, "prd-review.md"), prefix+suffix)
+		writeFile(t, filepath.Join(dir, "prd-challenge.md"), prefix+suffix)
 
 		// Should fail for "approved" (keyword not in last 500 bytes)
-		err := verifyVerdictPresent(dir, "prd-review.md", []string{"approved"})
+		err := verifyVerdictPresent(dir, "prd-challenge.md", []string{"approved"})
 		if err == nil {
 			t.Error("'approved' appearing only in early content should not pass verdict check")
 		}
 		// Should pass for "revisions" (keyword IS in last 500 bytes)
-		err = verifyVerdictPresent(dir, "prd-review.md", []string{"approved", "revisions", "rejected"})
+		err = verifyVerdictPresent(dir, "prd-challenge.md", []string{"approved", "revisions", "rejected"})
 		if err != nil {
 			t.Errorf("'revisions' in verdict section should pass: %v", err)
 		}
@@ -1083,8 +1083,8 @@ func TestVerdictAnchoring(t *testing.T) {
 	t.Run("short document searches full content", func(t *testing.T) {
 		dir := t.TempDir()
 		// Document shorter than 500 bytes — full content is the tail
-		writeFile(t, filepath.Join(dir, "prd-review.md"), "## Verdict: Approved")
-		err := verifyVerdictPresent(dir, "prd-review.md", []string{"approved", "revisions", "rejected"})
+		writeFile(t, filepath.Join(dir, "prd-challenge.md"), "## Verdict: Approved")
+		err := verifyVerdictPresent(dir, "prd-challenge.md", []string{"approved", "revisions", "rejected"})
 		if err != nil {
 			t.Errorf("short document with 'approved' should pass: %v", err)
 		}

@@ -49,7 +49,7 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 |-------|-------|----------|
 | 0-research | metis | `.claude/.Arena/*` |
 | 1-prd | athena | `prd.md` |
-| 2-prd-review | athena + nemesis | `prd-review.md` + `prd-challenge.md` |
+| 2-prd-review | nemesis | `prd-challenge.md` |
 | 3-decomposition | daedalus | `decomposition.md` (optional) |
 | 4-discuss | themis | `context.md` (optional) |
 | 5-tech-spec | hephaestus | `tech-spec.md` |
@@ -106,7 +106,7 @@ After each agent completes, verify the required document was created before proc
 |-------|------------------|
 | 0-research | `.claude/.Arena/*.md` (all 5 files) |
 | 1-prd | `prd.md` |
-| 2-prd-review | `prd-review.md` + `prd-challenge.md` + `prd-user-review.md` |
+| 2-prd-review | `prd-challenge.md` |
 | 3-decomposition | `decomposition.md` |
 | 4-discuss | `context.md` |
 | 5-tech-spec | `tech-spec.md` |
@@ -190,7 +190,7 @@ Current status: [what's missing]
 
 Feature [name] is COMPLETE!
 
-✅ prd.md  ✅ prd-review.md  ✅ prd-challenge.md  ✅ tech-spec.md
+✅ prd.md  ✅ prd-challenge.md  ✅ tech-spec.md
 ✅ spec-review-pm.md  ✅ spec-review-sa.md  ✅ test-plan.md
 ✅ implementation-notes.md  ✅ prd-alignment.md
 ✅ code-review.md  ✅ risk-analysis.md

@@ -147,10 +147,10 @@ func pipelineInit(feature, description, priority string) error {
 			},
 			"2-prd-review": map[string]interface{}{
 				"status":    "blocked",
-				"assignee":  "athena",
+				"assignee":  "nemesis",
 				"started":   nil,
 				"completed": nil,
-				"document":  "prd-review.md",
+				"document":  "prd-challenge.md",
 				"gate": map[string]interface{}{
 					"requires":  []string{"1-prd"},
 					"condition": "prd.status === 'complete'",

@@ -55,7 +55,7 @@ Update pipeline status using the exact command format below. Do NOT improvise fl
 
 # Examples:
 ~/.kratos/bin/kratos pipeline update --feature auth-system --stage 1-prd --status complete --document prd.md
-~/.kratos/bin/kratos pipeline update --feature auth-system --stage 2-prd-review --status complete --verdict approved --document prd-review.md
+~/.kratos/bin/kratos pipeline update --feature auth-system --stage 2-prd-review --status complete --verdict approved --document prd-challenge.md
 ```
 
 - If the command outputs JSON → done. Do NOT also write status.json manually.
