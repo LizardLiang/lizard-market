@@ -77,7 +77,11 @@ You can interact with Discord via the orchestrator's API at http://127.0.0.1:${a
   curl -s -X POST http://127.0.0.1:${apiPort}/create-channel -H "Content-Type: application/json" -d '{"guild_id":"GUILD_ID","name":"channel-name"}'
   Optionally pass "category_id" to place it under a category.
 
-After creating a channel, auto-bind it to the project by updating projects.json with the returned channel_id.`;
+After creating a channel, auto-bind it to the project by updating projects.json with the returned channel_id.
+
+- **Clear a project session (fresh start):**
+  curl -s -X POST http://127.0.0.1:${apiPort}/clear-session -H "Content-Type: application/json" -d '{"project_name":"PROJECT_NAME"}'
+  This aborts any active session and wipes the saved session ID so the next message starts fresh.`;
 
   const options: Record<string, any> = {
     cwd: STATE_DIR,

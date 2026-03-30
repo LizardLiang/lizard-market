@@ -46,12 +46,26 @@ const MAX_PORT_ATTEMPTS = 10
 
 const pendingRequests = new Map<string, PendingRequest>()
 
-// In-memory auto-approve set — tools the user clicked 🔒 on this session.
+// In-memory auto-approve set — keyed on tool_name + canonical input.
+// When user clicks 🔒, we store a key like "Bash:npm test" or "Read:/src/app.ts".
+// Only the exact same tool+input combo is auto-approved next time.
 // Resets when the sidecar stops. Not persisted.
-// Dangerous tools (Bash, Write, Edit) are NEVER auto-approved — each call
-// gets a fresh Discord prompt because different inputs carry different risk.
 const autoApproved = new Set<string>()
-const NEVER_AUTO_APPROVE = new Set(['Bash', 'Write', 'Edit', 'NotebookEdit'])
+
+/**
+ * Build a canonical key for the auto-approve set.
+ * Includes tool name + the most meaningful input field so that
+ * "Bash(npm test)" and "Bash(rm -rf /)" are treated as different entries.
+ */
+function autoApproveKey(toolName: string, toolInput: Record<string, unknown>): string {
+  // Extract the primary input value based on tool type
+  let inputKey = ''
+  if (toolInput.command) inputKey = String(toolInput.command)          // Bash
+  else if (toolInput.file_path) inputKey = String(toolInput.file_path) // Read, Write, Edit
+  else if (toolInput.pattern) inputKey = String(toolInput.pattern)     // Glob, Grep
+  else inputKey = JSON.stringify(toolInput)                            // fallback
+  return `${toolName}:${inputKey}`
+}
 
 // ---------------------------------------------------------------------------
 // Request body parsing
@@ -117,14 +131,15 @@ async function handleApprove(
     return
   }
 
-  // Check in-memory auto-approve list (tools previously 🔒'd this session)
-  if (autoApproved.has(body.tool_name)) {
+  // Check in-memory auto-approve list (keyed on tool_name + input)
+  const approveKey = autoApproveKey(body.tool_name, body.tool_input ?? {})
+  if (autoApproved.has(approveKey)) {
     sendJson(res, 200, {
       hookSpecificOutput: {
         hookEventName: 'PermissionRequest',
         decision: {
           behavior: 'allow',
-          reason: `Auto-approved (${body.tool_name} was always-approved this session)`,
+          reason: `Auto-approved (${approveKey} was always-approved this session)`,
         },
       },
     } satisfies PermissionResponse)
@@ -141,11 +156,10 @@ async function handleApprove(
       body.permission_suggestions,
     )
 
-    // If user clicked 🔒, save tool to auto-approve set for this session
-    // Skip dangerous tools — Bash/Write/Edit need per-call review
-    if (response.hookSpecificOutput.decision.updatedPermissions && !NEVER_AUTO_APPROVE.has(body.tool_name)) {
-      autoApproved.add(body.tool_name)
-      process.stderr.write(`discord-remote: auto-approve added: ${body.tool_name}\n`)
+    // If user clicked 🔒, save tool+input to auto-approve set for this session
+    if (response.hookSpecificOutput.decision.updatedPermissions) {
+      autoApproved.add(approveKey)
+      process.stderr.write(`discord-remote: auto-approve added: ${approveKey}\n`)
     }
 
     sendJson(res, 200, response)

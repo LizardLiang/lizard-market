@@ -1,10 +1,10 @@
 # discord-remote
 
-Remote tool approval for Claude Code via Discord.
-Approve or deny Claude Code's permission requests from your phone with emoji reactions — no terminal required.
+Remote tool approval and chat for Claude Code via Discord.
+Approve or deny Claude Code's permission requests from your phone with emoji reactions, and chat with Claude from Discord — no terminal required.
 
-Discord 遠端審批 Claude Code 工具請求。
-透過手機上的 Discord 表情符號反應來批准或拒絕 Claude Code 的權限請求，無需終端機。
+Discord 遠端審批與聊天，透過 Claude Code。
+透過手機上的 Discord 表情符號反應來批准或拒絕 Claude Code 的權限請求，也可以從 Discord 直接與 Claude 對話——無需終端機。
 
 ---
 
@@ -13,6 +13,7 @@ Discord 遠端審批 Claude Code 工具請求。
 - [What It Does / 功能說明](#what-it-does--功能說明)
 - [Prerequisites / 前置需求](#prerequisites--前置需求)
 - [Quick Start / 快速開始](#quick-start--快速開始)
+- [Auto-Approve / 自動批准](#auto-approve--自動批准)
 - [Configuration / 設定](#configuration--設定)
 - [Skills / 技能指令](#skills--技能指令)
 - [Architecture / 架構](#architecture--架構)
@@ -27,31 +28,33 @@ Discord 遠端審批 Claude Code 工具請求。
 
 ### English
 
-When Claude Code wants to run a tool (write a file, execute a command, etc.), instead of blocking at the terminal prompt, discord-remote:
+This plugin does **two things**:
 
-1. **PermissionRequest** — Sends a Discord DM with the tool name and input summary. Adds three reactions:
-   - ✅ Approve
-   - ❌ Deny
-   - 🔒 Always Approve (adds the tool to session allowlist)
-2. **AskUserQuestion** — Forwards Claude's questions to Discord:
-   - Multiple choice: number emoji reactions (1️⃣ 2️⃣ 3️⃣), tap your answer
-   - Free text: reply to the message with your answer
-3. **PreToolUse** — Checks tool invocations against a configurable deny list. Matching patterns are blocked immediately without contacting Discord.
+**1. Chat with Claude from Discord** — DM the bot with tasks like "fix the bug in auth.ts" and Claude works on it, replying through Discord. Full two-way messaging, just like the official Discord channel plugin.
+
+**2. Remote permission approval** — When Claude needs to run a tool (write a file, execute a command), instead of blocking at the terminal:
+
+- **PermissionRequest** — Sends a Discord DM with the tool name and input summary. Three reactions:
+  - ✅ Approve (one-time)
+  - ❌ Deny
+  - 🔒 Always Approve (auto-approves this tool for the rest of the session)
+- **PreToolUse** — Checks tool invocations against a configurable deny list. Matching patterns are blocked immediately without contacting Discord.
 
 If you don't respond within the timeout, the plugin falls back to the terminal prompt (configurable).
 
 ### 繁體中文
 
-當 Claude Code 需要執行工具（寫入檔案、執行指令等）時，discord-remote 不會在終端機等待，而是：
+此插件做**兩件事**：
 
-1. **權限請求（PermissionRequest）** — 發送 Discord 私訊，顯示工具名稱和輸入摘要。附上三個表情符號：
-   - ✅ 批准
-   - ❌ 拒絕
-   - 🔒 永遠批准（將該工具加入本次工作階段的允許清單）
-2. **提問（AskUserQuestion）** — 將 Claude 的問題轉發到 Discord：
-   - 選擇題：數字表情符號（1️⃣ 2️⃣ 3️⃣），點擊選擇答案
-   - 開放式問題：直接回覆訊息
-3. **預檢工具（PreToolUse）** — 依據設定的拒絕清單檢查工具呼叫，符合的模式會立即攔截，不需聯繫 Discord。
+**1. 從 Discord 與 Claude 對話** — 私訊機器人任務如「修復 auth.ts 的 bug」，Claude 會處理並透過 Discord 回覆。完整的雙向訊息，就像官方 Discord 頻道插件一樣。
+
+**2. 遠端權限審批** — 當 Claude 需要執行工具（寫入檔案、執行指令），不會在終端機等待：
+
+- **權限請求（PermissionRequest）** — 發送 Discord 私訊，顯示工具名稱和輸入摘要。三個表情符號：
+  - ✅ 批准（單次）
+  - ❌ 拒絕
+  - 🔒 永遠批准（本次工作階段自動批准此工具）
+- **預檢工具（PreToolUse）** — 依據設定的拒絕清單檢查工具呼叫，符合的模式會立即攔截。
 
 若在逾時時間內未回應，插件會回退到終端機提示（可設定）。
 
@@ -61,6 +64,7 @@ If you don't respond within the timeout, the plugin falls back to the terminal p
 
 | Requirement / 需求 | Details / 詳細 |
 |---|---|
+| Claude Code >= v2.1.80 | Channels support required / 需要頻道支援 |
 | Discord Bot Token | From [Discord Developer Portal](https://discord.com/developers/applications) / 從 [Discord 開發者入口](https://discord.com/developers/applications) 取得 |
 | Bun | Runtime for the MCP server / MCP 伺服器的執行環境。安裝：`curl -fsSL https://bun.sh/install \| bash` |
 | Node.js >= 18 | For hook scripts (cross-platform, zero npm deps) / 用於 hook 腳本（跨平台，無需 npm 套件） |
@@ -100,23 +104,29 @@ If you don't respond within the timeout, the plugin falls back to the terminal p
    - 機器人權限：View Channels、Send Messages、Send Messages in Threads、Read Message History、Attach Files、Add Reactions
    - 整合類型：Guild Install
 6. 複製產生的 URL，打開並將機器人加入你所在的伺服器
-7. （建議）關閉 **Public Bot** 開關，這樣只有你能將機器人加入其他伺服器
+7. （建議）關閉 **Public Bot** 開關
 
 ### Step 2: Install the Plugin / 步驟二：安裝插件
 
-```bash
-# Option A: Symlink into your project (recommended)
-# 選項 A：建立符號連結到你的專案（推薦）
-ln -s /path/to/discord-remote ~/.claude/plugins/discord-remote
+The plugin must be registered in a Claude Code marketplace. If your marketplace already has it:
 
-# Option B: Copy
-# 選項 B：複製
-cp -r /path/to/discord-remote ~/.claude/plugins/discord-remote
+插件必須在 Claude Code 市場中註冊。如果你的市場已經有了：
+
+```
+/plugin install discord-remote@<your-marketplace>
 ```
 
 ### Step 3: Configure the Bot Token / 步驟三：設定機器人令牌
 
-In a Claude Code session / 在 Claude Code 工作階段中：
+Start a Claude Code session with the channel. During the research preview, custom channels require a special flag:
+
+啟動帶頻道的 Claude Code 工作階段。在研究預覽期間，自訂頻道需要特殊旗標：
+
+```bash
+claude --dangerously-load-development-channels plugin:discord-remote@<your-marketplace>
+```
+
+Then configure the token / 然後設定令牌：
 
 ```
 /discord-remote:configure <your-bot-token>
@@ -126,10 +136,14 @@ The token is saved to `~/.claude/channels/discord/.env` with `0600` permissions.
 
 令牌會以 `0600` 權限儲存於 `~/.claude/channels/discord/.env`。
 
-### Step 4: Start a Session with the Channel / 步驟四：啟動帶頻道的工作階段
+### Step 4: Restart with the Channel / 步驟四：重新啟動帶頻道
+
+Exit and restart — the bot token is only read at boot:
+
+退出並重新啟動——機器人令牌只在啟動時讀取：
 
 ```bash
-claude --channels plugin:discord-remote
+claude --dangerously-load-development-channels plugin:discord-remote@<your-marketplace>
 ```
 
 ### Step 5: Pair Your Discord Account / 步驟五：配對你的 Discord 帳號
@@ -144,21 +158,65 @@ claude --channels plugin:discord-remote
 2. 在 Claude Code 中：`/discord-remote:access pair <code>`
 3. 鎖定存取：`/discord-remote:access policy allowlist`
 
-### Step 6: Verify / 步驟六：驗證
+### Step 6: Test / 步驟六：測試
 
-```
-/discord-remote:configure
-```
+**Chat test / 聊天測試：** DM the bot with "hello" — Claude should reply through Discord.
 
-This shows token status, sidecar status, paired users, and access configuration.
+**Approval test / 審批測試：** Ask Claude to write a file. You should receive a Discord DM like:
 
-這會顯示令牌狀態、側車伺服器狀態、已配對使用者和存取設定。
+私訊機器人「hello」—— Claude 應透過 Discord 回覆。然後請 Claude 寫入檔案，你會收到：
 
-### Step 7: Test It / 步驟七：測試
+> **[Permission Request]** `Write`
+>
+> **Input:**
+> ```
+> { "file_path": "/src/app.ts" }
+> ```
+>
+> React: ✅ = approve | ❌ = deny | 🔒 = always approve
+> _Timeout: 60s_
 
-Ask Claude to write a file. You should receive a Discord DM with the approval request. Tap ✅ to approve.
+Tap ✅ on your phone. Claude continues.
 
-請 Claude 寫入一個檔案。你應該會在 Discord 收到審批請求的私訊。點擊 ✅ 批准。
+---
+
+## Auto-Approve / 自動批准
+
+### English
+
+When you tap 🔒 (always approve) on a permission request, the sidecar remembers that tool for the rest of the session. Future requests for the same tool are auto-approved instantly — no Discord DM needed.
+
+**Safety restriction:** Dangerous tools are **never** auto-approved, even with 🔒:
+
+| Tool | Auto-approve? | Why |
+|---|---|---|
+| `Read`, `Glob`, `Grep`, `Agent` | ✅ Yes | Read-only or delegated |
+| `Bash` | ❌ Never | Different commands carry different risk |
+| `Write` | ❌ Never | Different files carry different risk |
+| `Edit` | ❌ Never | Different edits carry different risk |
+| `NotebookEdit` | ❌ Never | Same as Edit |
+
+Clicking 🔒 on `Bash` still approves **that specific call**, but the next `Bash` call will prompt again.
+
+The auto-approve list is **in-memory only** — it resets when the session ends. No persistence across sessions.
+
+### 繁體中文
+
+當你點擊 🔒（永遠批准）時，側車會記住該工具直到工作階段結束。之後相同工具的請求會立即自動批准——不需 Discord 私訊。
+
+**安全限制：** 危險工具**永遠不會**自動批准，即使點了 🔒：
+
+| 工具 | 自動批准？ | 原因 |
+|---|---|---|
+| `Read`、`Glob`、`Grep`、`Agent` | ✅ 是 | 唯讀或委派 |
+| `Bash` | ❌ 永不 | 不同指令有不同風險 |
+| `Write` | ❌ 永不 | 不同檔案有不同風險 |
+| `Edit` | ❌ 永不 | 不同編輯有不同風險 |
+| `NotebookEdit` | ❌ 永不 | 同 Edit |
+
+在 `Bash` 上點 🔒 仍會批准**該次呼叫**，但下次 `Bash` 呼叫會再次提示。
+
+自動批准清單**僅存在記憶體中**——工作階段結束時重置。不跨工作階段持久化。
 
 ---
 
@@ -205,7 +263,7 @@ All configuration lives at `~/.claude/channels/discord/remote-config.json`.
 | `deny_patterns` | `[]` | Substrings auto-blocked on PreToolUse. / PreToolUse 自動攔截的子字串。 |
 | `reactions.approve` | `✅` | Emoji for approve. / 批准的表情符號。 |
 | `reactions.deny` | `❌` | Emoji for deny. / 拒絕的表情符號。 |
-| `reactions.always` | `🔒` | Emoji for always approve. / 永遠批准的表情符號。 |
+| `reactions.always` | `🔒` | Emoji for always approve (session-scoped). / 永遠批准的表情符號（限本次工作階段）。 |
 
 ### Config via Skill / 透過技能指令設定
 
@@ -257,42 +315,49 @@ Access management. Pair new Discord users, manage allowlists, set DM policy, con
 ## Architecture / 架構
 
 ```
-Claude Code (hook system / hook 系統)
-    │
-    │ stdin/stdout JSON
-    ▼
-hook.mjs (Node.js, zero npm deps / 無 npm 依賴)
-    │
-    │ POST /approve | /pretool | /question
-    │ Authorization: Bearer <shared-secret>
-    ▼
-HTTP Sidecar (localhost:19275)
-    │                          ┌─────────────────────┐
-    │ discord.js DM + reactions│ MCP Channel Server   │
-    ▼                          │ (same Bun process)   │
-Discord API  ──►  Your phone   │ messages ↔ Claude    │
-                               └─────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ Claude Code                                             │
+│                                                         │
+│  PermissionRequest hook ──stdin/stdout JSON──► hook.mjs │
+│                                                  │      │
+│                              POST /approve       │      │
+│                              Authorization: Bearer│      │
+│                                                  ▼      │
+│  MCP Channel Server ◄──── HTTP Sidecar (localhost:19275)│
+│  (discord.js + MCP SDK)        │                        │
+│       │                        │ discord.js              │
+│       │ messages ↔ Claude      │ DM + reactions          │
+│       │                        ▼                        │
+└───────┼────────────────── Discord API ──────────────────┘
+        │                        │
+        ▼                        ▼
+   Discord chat              Your phone
+   (talk to Claude)          (approve/deny)
 ```
 
 ### English
 
-The MCP server and HTTP sidecar run in the **same Bun process**. The sidecar reuses the Discord gateway connection that the MCP channel server already maintains — no extra connections.
+Everything runs in a **single Bun process**: the MCP channel server (for chat) and the HTTP sidecar (for approvals) share the same Discord gateway connection.
 
-Hook scripts are thin Node.js HTTP clients. They POST to the sidecar and relay the response back to Claude Code. They use only Node.js built-ins — zero npm dependencies, works on Windows/macOS/Linux.
+**Hook script** (`hook.mjs`): A thin Node.js HTTP client. Reads the sidecar port from a file, POSTs the permission request, waits for the response, and writes it to stdout. Uses only Node.js built-ins — zero npm dependencies, cross-platform.
 
-**Port discovery:** The sidecar writes its actual port to `~/.claude/channels/discord/sidecar.port` at startup. Hook scripts read this file. It's deleted on shutdown.
+**Port discovery:** The sidecar writes its port to `~/.claude/channels/discord/sidecar.port` at startup, deletes on shutdown.
 
-**Authentication:** A shared secret is generated at first run and stored at `~/.claude/channels/discord/sidecar.secret` (0600 permissions). The hook sends it as `Authorization: Bearer <secret>`. The sidecar rejects requests without a valid secret.
+**Authentication:** A shared secret at `~/.claude/channels/discord/sidecar.secret` (256-bit random, 0600 permissions). The hook sends `Authorization: Bearer <secret>`. The sidecar rejects unauthenticated requests.
+
+**Hooks registered:** `PermissionRequest` and `PreToolUse` via the plugin's `hooks/hooks.json`. These hooks only fire for sessions that have the plugin loaded — other Claude Code sessions are unaffected.
 
 ### 繁體中文
 
-MCP 伺服器和 HTTP 側車在**同一個 Bun 程序**中執行。側車重複使用 MCP 頻道伺服器已維護的 Discord 閘道連線——不需額外連線。
+所有元件在**單一 Bun 程序**中執行：MCP 頻道伺服器（聊天用）和 HTTP 側車（審批用）共用相同的 Discord 閘道連線。
 
-Hook 腳本是輕量的 Node.js HTTP 客戶端。它們向側車發送 POST 請求，並將回應轉發回 Claude Code。只使用 Node.js 內建模組——零 npm 依賴，可在 Windows/macOS/Linux 上運作。
+**Hook 腳本**（`hook.mjs`）：輕量的 Node.js HTTP 客戶端。從檔案讀取側車埠號，POST 權限請求，等待回應，寫入 stdout。只使用 Node.js 內建模組——零 npm 依賴，跨平台。
 
-**埠號發現：** 側車啟動時將實際埠號寫入 `~/.claude/channels/discord/sidecar.port`。Hook 腳本讀取此檔案。關閉時刪除。
+**埠號發現：** 側車啟動時將埠號寫入 `~/.claude/channels/discord/sidecar.port`，關閉時刪除。
 
-**認證：** 首次執行時產生共享密鑰，儲存於 `~/.claude/channels/discord/sidecar.secret`（0600 權限）。Hook 以 `Authorization: Bearer <secret>` 發送。側車拒絕沒有有效密鑰的請求。
+**認證：** 共享密鑰存於 `~/.claude/channels/discord/sidecar.secret`（256 位元隨機，0600 權限）。Hook 發送 `Authorization: Bearer <secret>`。側車拒絕未認證的請求。
+
+**已註冊的 Hooks：** 透過插件的 `hooks/hooks.json` 註冊 `PermissionRequest` 和 `PreToolUse`。這些 hooks 只在載入此插件的工作階段中觸發——其他 Claude Code 工作階段不受影響。
 
 ---
 
@@ -306,7 +371,8 @@ Hook 腳本是輕量的 Node.js HTTP 客戶端。它們向側車發送 POST 請�
 - **User filtering** — Only the paired Discord user (first entry in `access.json` allowFrom) can approve requests. Reactions from other users are silently ignored.
 - **Deny patterns** — Read-only from config file. Cannot be modified via Discord messages (prevents prompt injection).
 - **DM only** — Approval requests are sent as DMs, not in group channels.
-- **No state exfil** — The `assertSendable()` guard (inherited from the official plugin) blocks sending `access.json`, `.env`, or `sidecar.secret` as file attachments.
+- **No state exfil** — The `assertSendable()` guard blocks sending `access.json`, `.env`, or `sidecar.secret` as file attachments.
+- **Safe auto-approve** — `Bash`, `Write`, `Edit`, `NotebookEdit` are never auto-approved. Each call gets a fresh Discord prompt regardless of 🔒.
 
 ### 繁體中文
 
@@ -316,7 +382,8 @@ Hook 腳本是輕量的 Node.js HTTP 客戶端。它們向側車發送 POST 請�
 - **使用者過濾** — 只有配對的 Discord 使用者（`access.json` allowFrom 的第一個條目）可以批准請求。其他使用者的反應會被靜默忽略。
 - **拒絕模式** — 從設定檔唯讀。無法透過 Discord 訊息修改（防止提示注入攻擊）。
 - **僅限私訊** — 審批請求以私訊發送，不在群組頻道中。
-- **禁止狀態外洩** — `assertSendable()` 防護（繼承自官方插件）阻止將 `access.json`、`.env` 或 `sidecar.secret` 作為檔案附件發送。
+- **禁止狀態外洩** — `assertSendable()` 防護阻止將 `access.json`、`.env` 或 `sidecar.secret` 作為檔案附件發送。
+- **安全的自動批准** — `Bash`、`Write`、`Edit`、`NotebookEdit` 永遠不會自動批准。無論是否點了 🔒，每次呼叫都會收到 Discord 提示。
 
 ---
 
@@ -352,27 +419,39 @@ If the sidecar is unreachable (not running, crashed), the hook falls back to `"a
 
 ### English
 
-This plugin **forks** the official `discord` channel plugin from `anthropics/claude-plugins-official`. Both plugins:
+This plugin **forks** the official `discord` channel plugin from `anthropics/claude-plugins-official`. It includes all the messaging features of the official plugin PLUS the approval sidecar.
 
-- Share the same bot token and `~/.claude/channels/discord/` state directory
-- Share `access.json` for access control
-- Can coexist — they connect to Discord independently
+You do **NOT** need both plugins installed. discord-remote replaces the official Discord plugin entirely:
 
-discord-remote adds the **HTTP sidecar** and **hook system** on top of the channel messaging features. You can use either plugin alone, or both together.
+| Feature | Official `discord` | `discord-remote` |
+|---|---|---|
+| Chat with Claude via Discord | ✅ | ✅ |
+| Pairing / access control | ✅ | ✅ |
+| Guild channel support | ✅ | ✅ |
+| File attachments | ✅ | ✅ |
+| Remote permission approval | ❌ | ✅ |
+| PreToolUse deny patterns | ❌ | ✅ |
+| Session auto-approve | ❌ | ✅ |
 
-> **Note:** With both plugins active, you'll receive both channel messages and approval DMs. This is expected behavior. The official plugin handles conversational messages; discord-remote handles permission approvals.
+Both plugins share the same state directory (`~/.claude/channels/discord/`) and `access.json`. If you switch between them, your pairing and access config carries over.
 
 ### 繁體中文
 
-此插件**分叉**自 `anthropics/claude-plugins-official` 的官方 `discord` 頻道插件。兩個插件：
+此插件**分叉**自 `anthropics/claude-plugins-official` 的官方 `discord` 頻道插件。它包含官方插件的所有訊息功能，外加審批側車。
 
-- 共用相同的機器人令牌和 `~/.claude/channels/discord/` 狀態目錄
-- 共用 `access.json` 進行存取控制
-- 可以共存——它們各自獨立連線到 Discord
+你**不需要**同時安裝兩個插件。discord-remote 完全取代官方 Discord 插件：
 
-discord-remote 在頻道訊息功能之上增加了 **HTTP 側車** 和 **hook 系統**。你可以單獨使用任一插件，或同時使用兩者。
+| 功能 | 官方 `discord` | `discord-remote` |
+|---|---|---|
+| 透過 Discord 與 Claude 對話 | ✅ | ✅ |
+| 配對 / 存取控制 | ✅ | ✅ |
+| 伺服器頻道支援 | ✅ | ✅ |
+| 檔案附件 | ✅ | ✅ |
+| 遠端權限審批 | ❌ | ✅ |
+| PreToolUse 拒絕模式 | ❌ | ✅ |
+| 工作階段自動批准 | ❌ | ✅ |
 
-> **注意：** 同時啟用兩個插件時，你會同時收到頻道訊息和審批私訊。這是預期行為。官方插件處理對話訊息；discord-remote 處理權限審批。
+兩個插件共用相同的狀態目錄（`~/.claude/channels/discord/`）和 `access.json`。切換時，配對和存取設定會保留。
 
 ---
 
@@ -380,55 +459,75 @@ discord-remote 在頻道訊息功能之上增加了 **HTTP 側車** 和 **hook �
 
 ### Sidecar not running / 側車未執行
 
-The sidecar starts only after the Discord gateway connects. Check that your bot token is valid and Claude Code shows the `discord-remote` MCP server as connected.
+Check if `~/.claude/channels/discord/sidecar.port` exists. If not, the sidecar didn't start. Common causes:
+- Bot token missing or invalid → check `/discord-remote:configure`
+- Discord intents not enabled → enable **Message Content Intent** in Developer Portal
+- Port conflict → check `remote-config.json` for `sidecar.port`
 
-側車只在 Discord 閘道連線後才啟動。確認你的機器人令牌有效，且 Claude Code 顯示 `discord-remote` MCP 伺服器已連線。
+檢查 `~/.claude/channels/discord/sidecar.port` 是否存在。若不存在，側車未啟動。常見原因：
+- 機器人令牌遺失或無效 → 檢查 `/discord-remote:configure`
+- Discord 意圖未啟用 → 在開發者入口啟用 **Message Content Intent**
+- 埠號衝突 → 檢查 `remote-config.json` 的 `sidecar.port`
 
-### Port conflict / 埠號衝突
+### Approval DM not appearing / 審批私訊未出現
 
-If port 19275 is busy, the sidecar tries 19276..19285. Check `~/.claude/channels/discord/sidecar.port` for the actual port. If all ports are busy, configure a different base port in `remote-config.json`.
+The hook fires but no Discord message:
+- Check sidecar.port exists: `cat ~/.claude/channels/discord/sidecar.port`
+- Check sidecar.secret exists: `ls -la ~/.claude/channels/discord/sidecar.secret`
+- Test sidecar health: `curl http://127.0.0.1:<port>/health`
 
-若埠號 19275 被佔用，側車會嘗試 19276..19285。查看 `~/.claude/channels/discord/sidecar.port` 確認實際埠號。若所有埠號都被佔用，在 `remote-config.json` 中設定不同的基礎埠號。
+Hook 觸發但沒有 Discord 訊息：
+- 檢查 sidecar.port 存在：`cat ~/.claude/channels/discord/sidecar.port`
+- 檢查 sidecar.secret 存在：`ls -la ~/.claude/channels/discord/sidecar.secret`
+- 測試側車健康：`curl http://127.0.0.1:<port>/health`
 
-### No paired user / 未配對使用者
+### Reaction not detected / 反應未偵測
 
-Run `/discord-remote:access` to see the allowFrom list. If empty, DM your bot to start pairing.
+You react but Claude doesn't continue:
+- Ensure the bot has **Add Reactions** permission in your shared server
+- Only the paired user's reactions are collected — check `/discord-remote:access`
+- The bot's own reactions (it adds ✅❌🔒 to the message) are filtered out
 
-執行 `/discord-remote:access` 查看允許清單。若為空，私訊你的機器人開始配對。
+你反應了但 Claude 沒有繼續：
+- 確認機器人在共享伺服器中有 **Add Reactions** 權限
+- 只收集已配對使用者的反應——檢查 `/discord-remote:access`
+- 機器人自己的反應（它在訊息上加的 ✅❌🔒）會被過濾掉
 
-### Reactions not collected / 無法收集反應
+### Hooks not loading / Hooks 未載入
 
-The bot needs these intents enabled in the [Discord Developer Portal](https://discord.com/developers/applications) → Bot settings:
-- **Message Content Intent**
-- **Server Members Intent** (for guild channels)
+Run `/hooks` in Claude Code. If `PermissionRequest` doesn't show the discord-remote hook:
+- Plugin must be installed: `/plugin install discord-remote@<marketplace>`
+- Session must be started with the channel flag
+- Run `claude plugin validate .` from the plugin cache directory to check for errors
 
-The gateway intents `GuildMessageReactions` and `DirectMessageReactions` are already configured in the server code.
+在 Claude Code 中執行 `/hooks`。若 `PermissionRequest` 沒有顯示 discord-remote hook：
+- 插件必須已安裝：`/plugin install discord-remote@<marketplace>`
+- 工作階段必須以頻道旗標啟動
+- 從插件快取目錄執行 `claude plugin validate .` 檢查錯誤
 
-機器人需要在 [Discord 開發者入口](https://discord.com/developers/applications) → Bot 設定中啟用以下意圖：
-- **Message Content Intent**
-- **Server Members Intent**（用於伺服器頻道）
+### "Used disallowed intents" error / 「Used disallowed intents」錯誤
 
-閘道意圖 `GuildMessageReactions` 和 `DirectMessageReactions` 已在伺服器程式碼中設定。
+The bot requests Gateway Intents that aren't enabled. Go to [Discord Developer Portal](https://discord.com/developers/applications) → your app → **Bot** → **Privileged Gateway Intents** and enable **Message Content Intent**.
 
-### Hook timeout exceeded / Hook 逾時
+機器人請求未啟用的閘道意圖。前往 [Discord 開發者入口](https://discord.com/developers/applications) → 你的應用 → **Bot** → **Privileged Gateway Intents** 並啟用 **Message Content Intent**。
 
-The hook timeout in `hooks.json` (120s for PermissionRequest, 180s for AskUserQuestion) must exceed your configured `approval_ms` / `question_ms`. If you increase the approval timeout beyond 120s, also update `hooks.json`.
+### Other sessions affected / 其他工作階段受影響
 
-`hooks.json` 中的 hook 逾時（PermissionRequest 120 秒，AskUserQuestion 180 秒）必須超過你設定的 `approval_ms` / `question_ms`。若你將審批逾時增加到 120 秒以上，也需更新 `hooks.json`。
+The plugin hooks only fire for sessions that load the discord-remote channel. Other Claude Code sessions are unaffected — they don't have the hooks registered.
 
-### Approval falls back to terminal every time / 審批總是回退到終端機
+插件 hooks 只在載入 discord-remote 頻道的工作階段中觸發。其他 Claude Code 工作階段不受影響——它們沒有註冊這些 hooks。
 
-Check that:
-1. The sidecar is running (`/discord-remote:configure` shows status)
-2. `sidecar.port` file exists and contains the correct port
-3. `sidecar.secret` file exists and is readable by the hook process
-4. The hook script can reach `127.0.0.1:<port>`
+---
 
-檢查：
-1. 側車正在執行（`/discord-remote:configure` 顯示狀態）
-2. `sidecar.port` 檔案存在且包含正確的埠號
-3. `sidecar.secret` 檔案存在且 hook 程序可讀取
-4. Hook 腳本可以連線到 `127.0.0.1:<port>`
+## Known Limitations / 已知限制
+
+- **AskUserQuestion** hooks are not supported by Claude Code's plugin hook system. Questions from Claude go to the terminal, not Discord.
+- **Single session per bot** — only one Claude Code session can use the same Discord bot at a time (Discord gateway limitation).
+- **Research preview** — requires `--dangerously-load-development-channels` flag until the channel is added to the approved allowlist.
+
+- **AskUserQuestion** hooks 不被 Claude Code 的插件 hook 系統支援。Claude 的問題會到終端機，不會到 Discord。
+- **每個機器人單一工作階段** — 同一時間只有一個 Claude Code 工作階段可以使用同一個 Discord 機器人（Discord 閘道限制）。
+- **研究預覽** — 在頻道加入已核准允許清單之前，需要 `--dangerously-load-development-channels` 旗標。
 
 ---
 

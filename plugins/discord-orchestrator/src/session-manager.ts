@@ -125,6 +125,8 @@ export class SessionManager {
       // Load plugins via local path — SDK only supports type: "local"
       plugins: [
         { type: "local", path: homedir() + "/.claude/plugins/marketplaces/claude-plugins-official/external_plugins/linear" },
+        { type: "local", path: homedir() + "/.claude/plugins/cache/lizard-plugins/kratos/2.29.0" },
+        { type: "local", path: homedir() + "/.claude/plugins/cache/claude-plugins-official/frontend-design/b10b583de281" },
       ],
     };
 
@@ -244,5 +246,11 @@ export class SessionManager {
 
   hasSession(projectName: string): boolean {
     return this.sessions.has(projectName);
+  }
+
+  async clearSession(projectName: string): Promise<void> {
+    await this.closeSession(projectName);
+    delete this.savedSessions[projectName];
+    this.queueSave();
   }
 }

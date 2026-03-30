@@ -160,6 +160,20 @@ export class OrchestratorBot {
           }
         }
 
+        if (req.method === "POST" && url.pathname === "/clear-session") {
+          try {
+            const body = await req.json() as { project_name?: string };
+            if (!body.project_name) {
+              return Response.json({ ok: false, error: "project_name is required" }, { status: 400 });
+            }
+            const project_name = body.project_name;
+            await this.sessionManager.clearSession(project_name);
+            return Response.json({ ok: true, project_name });
+          } catch (err: any) {
+            return Response.json({ ok: false, error: err.message }, { status: 400 });
+          }
+        }
+
         return new Response("Not found", { status: 404 });
       },
     });
