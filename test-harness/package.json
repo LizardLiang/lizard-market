@@ -1,0 +1,20 @@
+{
+  "name": "kratos-test-harness",
+  "version": "1.0.0",
+  "description": "Node.js SDK test harness for Kratos plugin performance evaluation",
+  "type": "module",
+  "scripts": {
+    "test": "node src/run.mjs",
+    "test:implementation": "node src/run.mjs --task implementation",
+    "test:debug": "node src/run.mjs --task debug",
+    "test:research-metis": "node src/run.mjs --task research-metis",
+    "test:research-mimir": "node src/run.mjs --task research-mimir",
+    "test:research-clio": "node src/run.mjs --task research-clio",
+    "test:brainstorming": "node src/run.mjs --task brainstorming",
+    "test:timestamps": "node src/run.mjs --task timestamp-athena timestamp-nemesis timestamp-hephaestus timestamp-apollo timestamp-artemis timestamp-ares timestamp-hermes",
+    "validate:authenticity": "node src/authenticity-validator.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.0"
+  }
+}
