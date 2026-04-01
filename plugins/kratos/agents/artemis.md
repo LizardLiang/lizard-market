@@ -100,10 +100,6 @@ Read the template at `plugins/kratos/templates/test-plan-template.md` and follow
    ```bash
    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-test-plan --status complete --document test-plan.md
    ```
-   
-   Additional status updates:
-   - Set `9-implementation.status` to "ready"
-   - Add document entry
 
 ---
 

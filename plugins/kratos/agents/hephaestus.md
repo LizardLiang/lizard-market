@@ -76,11 +76,6 @@ Read the template at `plugins/kratos/templates/tech-spec-template.md` and follow
    ```bash
    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 5-tech-spec --status complete --document tech-spec.md
    ```
-   
-   Additional status updates:
-   - Set `6-spec-review-pm.status` to "ready"
-   - Set `7-spec-review-sa.status` to "ready"  
-   - Add document entry with `based_on: prd.md`
 
 ---
 
