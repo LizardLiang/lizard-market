@@ -48,15 +48,37 @@ The `kratos now` command outputs RFC3339 with local timezone offset (e.g., `2026
 
 Update pipeline status using the exact command format below. Do NOT improvise flags or invent new ones.
 
-```bash
-# Valid flags: --feature, --stage, --status, --document, --verdict
-# There is NO --path flag. Always use --feature with the feature name (not a file path).
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage STAGE_NAME --status STATUS --document DOC_NAME
+**CRITICAL**: For authentic timestamps, always use the two-step process:
 
-# Examples:
-~/.kratos/bin/kratos pipeline update --feature auth-system --stage 1-prd --status complete --document prd.md
-~/.kratos/bin/kratos pipeline update --feature auth-system --stage 2-prd-review --status complete --verdict approved --document prd-challenge.md
+### Step 1: Mark Work as Started
+```bash
+# When you BEGIN work, immediately mark as in-progress
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage STAGE_NAME --status in-progress
 ```
+
+### Step 2: Mark Work as Complete  
+```bash
+# When you FINISH work, mark as complete with deliverables
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage STAGE_NAME --status complete --document DOC_NAME
+
+# For review stages, include verdict:
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage STAGE_NAME --status complete --verdict VERDICT --document DOC_NAME
+```
+
+### Examples
+```bash
+# PRD Creation (two steps):
+~/.kratos/bin/kratos pipeline update --feature auth-system --stage 1-prd --status in-progress
+# ... do the actual PRD work ...
+~/.kratos/bin/kratos pipeline update --feature auth-system --stage 1-prd --status complete --document prd.md
+
+# Review (two steps):
+~/.kratos/bin/kratos pipeline update --feature auth-system --stage 2-prd-review --status in-progress
+# ... do the actual review work ...
+~/.kratos/bin/kratos pipeline update --feature auth-system --stage 2-prd-review --status complete --verdict approved --document prd-review.md
+```
+
+**Why Two Steps**: This ensures `started` and `completed` have different timestamps, preventing zero-duration work periods that appear fabricated.
 
 - If the command outputs JSON → done. Do NOT also write status.json manually.
 - If the command is not found or errors → fall back to editing status.json directly using `kratos now` for timestamps.

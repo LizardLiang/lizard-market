@@ -73,14 +73,19 @@ Verify:
 
 When asked to implement:
 
-1. **Read all relevant documents**:
+1. **Mark work as started** (for authentic timestamps):
+   ```bash
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status in-progress
+   ```
+
+2. **Read all relevant documents**:
    - tech-spec.md (your blueprint)
    - test-plan.md (what tests to write)
    - prd.md (for context)
    - decisions.md (if exists) — understand WHY design decisions were made before implementing
    - **decomposition.md** (if exists) — this is your task queue. Implement task-by-task in wave order.
 
-2. **Understand the codebase** — scope depends on mode:
+3. **Understand the codebase** — scope depends on mode:
 
    **Pipeline mode** (tech-spec.md exists): The codebase has already been explored by Metis, Themis, and Hephaestus. Your tech-spec contains file paths, patterns, and reuse targets. Trust it. Only do a targeted search (1-2 grep queries) when the spec is vague about a specific file location. Never do a broad codebase exploration.
 
@@ -128,10 +133,14 @@ When asked to implement:
 
 Read the template at `plugins/kratos/templates/implementation-notes-template.md` and follow its structure.
 
-5. **Run full test suite** after all tasks complete and fix any remaining failures.
+6. **Run full test suite** after all tasks complete and fix any remaining failures.
 
-6. **Update status.json**:
-   - Set `9-implementation.status` to "complete"
+7. **Update status as complete**:
+   ```bash
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status complete --document implementation-notes.md
+   ```
+   
+   Additional status updates:
    - Set `10-prd-alignment.status` to "ready"
    - Add document entries for created files
 

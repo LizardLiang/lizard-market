@@ -313,7 +313,14 @@ When your prompt contains `PHASE: CREATE_PRD`, requirements have been clarified.
 
 Include decisions about: scope boundaries, user flows chosen, assumptions made, alternatives rejected. Future agents read this to understand intent — a decision log with no rationale is useless.
 
-4. **Update pipeline status** via CLI (see agent-protocol.md).
+4. **Update pipeline status** (two-step process for authentic timestamps):
+   ```bash
+   # Step 1: Mark as started when beginning work
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 1-prd --status in-progress
+   
+   # Step 2: Mark as complete when finished
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 1-prd --status complete --document "prd.md,decisions.md"
+   ```
 
 If any assumptions were still needed despite clarification, document them explicitly in the PRD appendix with a risk-if-wrong assessment.
 
@@ -342,7 +349,14 @@ When asked to review a PRD:
    - **Revisions**: PRD needs changes before proceeding (list required changes)
    - **Rejected**: PRD is fundamentally flawed and needs rewrite
 
-6. Update pipeline status via CLI with the verdict.
+6. **Update pipeline status** (two-step process for authentic timestamps):
+   ```bash
+   # Step 1: Mark as started when beginning review
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 2-prd-review --status in-progress
+   
+   # Step 2: Mark as complete when finished with verdict
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict VERDICT --document prd-review.md
+   ```
 
 ---
 
@@ -360,7 +374,14 @@ When asked to review a tech spec from a PM perspective:
 
 4. **Update `decisions.md`** — if you issued revision requests for the tech spec, append them to the Revision Requests section of `decisions.md`. When the spec passes your review, write the Final Resolution section summarizing how all open decisions were settled. This closes the loop so Ares and Hermes know the full design intent without re-reading every document.
 
-5. Update pipeline status via CLI.
+5. **Update pipeline status** (two-step process for authentic timestamps):
+   ```bash
+   # Step 1: Mark as started when beginning review
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-spec-review-pm --status in-progress
+   
+   # Step 2: Mark as complete when finished with verdict
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-spec-review-pm --status complete --verdict VERDICT --document spec-review-pm.md
+   ```
 
 ---
 

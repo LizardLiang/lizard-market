@@ -75,24 +75,33 @@ Verify:
 
 When asked to create a test plan:
 
-1. **Read all relevant documents**:
+1. **Mark work as started** (for authentic timestamps):
+   ```bash
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-test-plan --status in-progress
+   ```
+
+2. **Read all relevant documents**:
    - prd.md (requirements to test)
    - tech-spec.md (technical details)
    - Both spec reviews (for context)
    - **decomposition.md** (if exists) — organize test suites by decomposition phases
 
-2. **Identify test coverage needs**:
+3. **Identify test coverage needs**:
    - Map each requirement to test cases
    - Identify edge cases
    - Plan integration tests
    - Define acceptance criteria verification
 
-3. **Create test-plan.md** at `.claude/feature/<name>/test-plan.md`:
+4. **Create test-plan.md** at `.claude/feature/<name>/test-plan.md`:
 
 Read the template at `plugins/kratos/templates/test-plan-template.md` and follow its structure.
 
-4. **Update status.json**:
-   - Set `8-test-plan.status` to "complete"
+5. **Update status as complete**:
+   ```bash
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-test-plan --status complete --document test-plan.md
+   ```
+   
+   Additional status updates:
    - Set `9-implementation.status` to "ready"
    - Add document entry
 

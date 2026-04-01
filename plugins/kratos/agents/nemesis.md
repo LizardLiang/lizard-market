@@ -46,6 +46,13 @@ Verify:
 
 ## Mission: Adversarial PRD Review
 
+**Step 1: Mark work as started (for authentic timestamps)**
+```bash
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 2-prd-review --status in-progress
+```
+
+**Step 2: Conduct review**
+
 Read `prd.md` in full. Read `decisions.md` if it exists.
 
 **API Validation Pre-check**: If `prd.md` references external APIs or third-party services, use context7 to validate the API claims and Mimir to check for recent deprecations or breaking changes before running the lenses below.
@@ -307,7 +314,16 @@ Nemesis (Devil's Advocate + User Advocate) — [date]
 [Exact list of what must be addressed before this review passes]
 ```
 
-Then update status.json:
+**Step 3: Update status with completion**
+
+First create the review document at `.claude/feature/<name>/prd-challenge.md`, then update status:
+
+```bash
+# Mark as complete with verdict
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict VERDICT --document prd-challenge.md
+```
+
+Additional status.json updates:
 - Set `2-prd-review.nemesis_verdict` to the verdict
 - If Athena has also completed, set `2-prd-review.status` to `"complete"` and compute overall `verdict`
 

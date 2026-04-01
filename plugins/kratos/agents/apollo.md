@@ -70,12 +70,17 @@ Verify:
 
 When asked to review a tech spec from architecture perspective:
 
-1. **Read all relevant documents**:
+1. **Mark work as started** (for authentic timestamps):
+   ```bash
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 7-spec-review-sa --status in-progress
+   ```
+
+2. **Read all relevant documents**:
    - tech-spec.md (primary focus)
    - prd.md (for context)
    - Existing codebase (for patterns)
 
-2. **Evaluate these dimensions**:
+3. **Evaluate these dimensions**:
 
 **Priority order**: Security > Performance > Architecture > Maintainability > Integration. A security issue blocks the review regardless of other dimensions passing.
 
@@ -117,11 +122,11 @@ Review the tech spec against: (1) the PRD requirements, (2) codebase conventions
 - Are API contracts clear?
 - Are error cases handled?
 
-3. **Create review** at `.claude/feature/<name>/spec-review-sa.md`:
+4. **Create review** at `.claude/feature/<name>/spec-review-sa.md`:
 
 Read the template at `plugins/kratos/templates/spec-review-sa-template.md` and follow its structure.
 
-4. **If verdict is Concerns or Unsound**, append your revision requests to `decisions.md` at `.claude/feature/<name>/decisions.md`. This creates a traceable record of WHY the spec was sent back, so Hephaestus and Athena understand the architectural intent behind your requests — not just the what, but the why.
+5. **If verdict is Concerns or Unsound**, append your revision requests to `decisions.md` at `.claude/feature/<name>/decisions.md`. This creates a traceable record of WHY the spec was sent back, so Hephaestus and Athena understand the architectural intent behind your requests — not just the what, but the why.
 
 Append this block under `## Revision Requests`:
 ```markdown
@@ -131,8 +136,12 @@ Append this block under `## Revision Requests`:
 | [issue] | [Critical/High/Medium] | [why this matters architecturally] | [what must change] |
 ```
 
-5. **Update status.json**:
-   - Set `7-spec-review-sa.status` to "complete"
+6. **Update status as complete**:
+   ```bash
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 7-spec-review-sa --status complete --verdict VERDICT --document spec-review-sa.md
+   ```
+   
+   Additional status updates:
    - Record verdict
    - If both reviews pass, set `8-test-plan.status` to "ready"
 

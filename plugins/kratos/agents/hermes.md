@@ -110,7 +110,12 @@ In standalone mode, target is provided by the mission prompt — skip this step.
 
 ## Step 3: Review
 
-### For Pipeline Mode — read context documents:
+**3.1: Mark work as started** (for authentic timestamps):
+```bash
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 11-review --status in-progress
+```
+
+**3.2: Read context documents** (Pipeline Mode):
    - implementation-notes.md (what was implemented)
    - tech-spec.md (what should have been implemented)
    - test-plan.md (what tests should exist)
@@ -325,8 +330,12 @@ Append this block under `## Revision Requests`:
 | [file:line — title] | [Tier N] | [why this violates the standard] | [what change is required] |
 ```
 
-Then update status.json:
-- Set `11-review.status` to "complete"
+Then update status as complete:
+```bash
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 11-review --status complete --verdict VERDICT --document code-review.md
+```
+
+Additional status updates:
 - Record verdict
 - If approved, feature is COMPLETE
 
