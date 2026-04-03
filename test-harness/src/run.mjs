@@ -25,7 +25,7 @@ import { generateReport } from "./report.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HARNESS_ROOT = path.resolve(__dirname, "..");
-const KRATOS_PLUGIN_PATH = path.resolve(__dirname, "../../"); // plugins/kratos/
+const KRATOS_PLUGIN_PATH = path.resolve(__dirname, "../../plugins/kratos");
 
 // ── CLI arg parsing ──────────────────────────────────────────────────────────
 

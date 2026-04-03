@@ -44,6 +44,8 @@ FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 REQUIREMENTS: [user's requirements]
 
+Read plugins/kratos/agents/athena.md for the full instruction set before starting.
+
 Analyze these requirements for gaps and ambiguities. Score clarity (Step 2b) and include CLARITY_SCORES in output. Return structured questions in the GAP_ANALYSIS_RESULT format targeting the weakest dimension. Do NOT write the PRD yet.",
   description: "athena - gap analysis"
 )
@@ -96,6 +98,8 @@ FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 REQUIREMENTS: [user's original requirements]
 
+Read plugins/kratos/agents/athena.md for the full instruction set before starting.
+
 CLARIFIED_REQUIREMENTS:
 [All user answers from the clarification loop:]
 - [Q1 header]: [user's answer]
@@ -120,6 +124,8 @@ Task(
   prompt: "MISSION: Review PRD
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+
+Read plugins/kratos/agents/nemesis.md for the full instruction set before starting.
 
 Create prd-challenge.md before completing. Verify it exists before reporting completion.
 
@@ -176,6 +182,8 @@ FOLDER: .claude/feature/[feature-name]/
 INPUT: Read prd.md in the feature folder
 OUTPUT_TARGETS: [user selection]
 
+Read plugins/kratos/agents/daedalus.md for the full instruction set before starting.
+
 Create decomposition.md at .claude/feature/[feature-name]/decomposition.md (for local target).
 
 Read the decomposition template at plugins/kratos/templates/decomposition-template.md for the local file format.
@@ -219,6 +227,8 @@ Task(
 PHASE: IDENTIFY_GRAY_AREAS
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+
+Read plugins/kratos/agents/themis.md for the full instruction set before starting.
 
 Read prd.md, scout the codebase for existing patterns, load any prior context.md files from other features. Score clarity (Step 3b), then identify implementation choices Hephaestus would otherwise guess — target the weakest clarity dimension first (up to 4 per batch). Set MORE_QUESTIONS based on ambiguity score (true if > 0.20).
 
@@ -274,6 +284,8 @@ GRAY_AREA: [Q1_TITLE]
 ORIGINAL_CONTEXT: [Q1_CONTEXT]
 USER_WANTS: [user's answer]
 
+Read plugins/kratos/agents/themis.md for the full instruction set before starting.
+
 Return THEMIS_FOLLOWUP_RESULT. Concrete options only — no further explore.",
   description: "themis - follow-up [Q1_TITLE]"
 )
@@ -325,6 +337,8 @@ PHASE: WRITE_CONTEXT
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
+Read plugins/kratos/agents/themis.md for the full instruction set before starting.
+
 DECISIONS:
 [Q1_TITLE]
 Answer: [user's answer]
@@ -360,6 +374,8 @@ FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 PRD: Approved and ready at prd.md
 
+Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
+
 Create tech-spec.md before completing. Verify it exists before reporting completion.
 
 Create tech-spec.md based on the approved PRD. If context.md exists, read it first — it contains locked implementation decisions. Update status.json.",
@@ -381,6 +397,8 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
+Read plugins/kratos/agents/athena.md for the full instruction set before starting.
+
 Create spec-review-pm.md before completing. Verify it exists before reporting completion.
 
 Verify tech-spec.md aligns with prd.md requirements. Create spec-review-pm.md. Update status.json.",
@@ -393,6 +411,8 @@ Task(
   prompt: "MISSION: Review Tech Spec (Architecture)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+
+Read plugins/kratos/agents/apollo.md for the full instruction set before starting.
 
 Create spec-review-sa.md before completing. Verify it exists before reporting completion.
 
@@ -415,6 +435,8 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
+Read plugins/kratos/agents/artemis.md for the full instruction set before starting.
+
 Create test-plan.md before completing. Verify it exists before reporting completion.
 
 Create comprehensive test-plan.md based on prd.md and tech-spec.md. Update status.json.",
@@ -436,6 +458,8 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
+Read plugins/kratos/agents/ares.md for the full instruction set before starting.
+
 Create implementation-notes.md before completing. Verify it exists before reporting completion.
 
 Implement according to tech-spec.md. Write tests per test-plan.md. Create implementation-notes.md. Update status.json.",
@@ -454,6 +478,8 @@ Task(
   prompt: "MISSION: Create Implementation Tasks (User Mode)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+
+Read plugins/kratos/agents/ares.md for the full instruction set before starting.
 
 You are in USER MODE — create task files, do not implement code yourself.
 
@@ -481,6 +507,8 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
+Read plugins/kratos/agents/hera.md for the full instruction set before starting.
+
 Create prd-alignment.md before completing. Verify it exists before reporting completion.
 
 Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Create prd-alignment.md with verdict. Update status.json.",
@@ -502,6 +530,8 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
+Read plugins/kratos/agents/hermes.md for the full instruction set before starting.
+
 Create code-review.md before completing. Verify it exists before reporting completion.
 
 Review implementation code. Create code-review.md with verdict. Update status.json.",
@@ -515,6 +545,8 @@ Task(
 MODE: pipeline
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+
+Read plugins/kratos/agents/cassandra.md for the full instruction set before starting.
 
 Create risk-analysis.md before completing. Verify it exists before reporting completion.
 

@@ -65,7 +65,16 @@ CREATE TABLE table_name (
 
 ## 4. API Design
 
-### Endpoints
+### Endpoint Summary
+
+| Method | Path | Purpose | Auth |
+|--------|------|---------|------|
+| POST | /api/resource | [What it does] | [Required/None] |
+| GET | /api/resource/:id | [What it does] | [Required/None] |
+
+### Detailed Example
+
+Pick the most complex or representative endpoint and document it fully. All other endpoints use the summary table above — only add a detailed block if an endpoint has genuinely unusual request/response shape.
 
 #### POST /api/resource
 **Purpose**: [What it does]

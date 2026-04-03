@@ -144,6 +144,13 @@ Read the template at `plugins/kratos/templates/implementation-notes-template.md`
    - Set `10-prd-alignment.status` to "ready"
    - Add document entries for created files
 
+8. **Write a summary into status.json** — patch the `summary` field on the `9-implementation` stage object. Keep it to 2–3 sentences covering: files created/modified, tests written, and any deviations from the spec. Downstream agents will read this before deciding whether to open `implementation-notes.md`.
+
+   Example:
+   ```json
+   { "pipeline": { "9-implementation": { "summary": "Created 8 files, modified 4. 23 tests written, all passing. Deviated from spec on error handling in PaymentService — used existing AppError class instead of new type." } } }
+   ```
+
 ---
 
 ## Mission: Create Implementation Tasks (User Mode)

@@ -64,7 +64,8 @@ All agents that read or update status.json MUST follow this schema.
       "started": "<ISO8601>",
       "completed": "<ISO8601>",
       "documents": ["tech-spec.md"],
-      "based_on_prd_version": "<ISO8601 of prd.md last modified>"
+      "based_on_prd_version": "<ISO8601 of prd.md last modified>",
+      "summary": "<2-3 sentence digest: key architectural decisions, file count, major components>"
     },
     "6-spec-review-pm": {
       "status": "pending | in-progress | complete",
@@ -87,7 +88,8 @@ All agents that read or update status.json MUST follow this schema.
       "agent": "artemis",
       "started": "<ISO8601>",
       "completed": "<ISO8601>",
-      "documents": ["test-plan.md"]
+      "documents": ["test-plan.md"],
+      "summary": "<2-3 sentence digest: total test cases, P0 coverage, key risk areas targeted>"
     },
     "9-implementation": {
       "status": "pending | in-progress | complete | waiting-user",
@@ -96,6 +98,7 @@ All agents that read or update status.json MUST follow this schema.
       "started": "<ISO8601>",
       "completed": "<ISO8601>",
       "documents": ["implementation-notes.md"],
+      "summary": "<2-3 sentence digest: files created/modified, tests written, any deviations from spec>",
       "tasks": [
         {
           "id": "01",
@@ -164,6 +167,16 @@ All agents that read or update status.json MUST follow this schema.
 | `complete` | Stage finished successfully |
 | `waiting-user` | Stage 9 User Mode only — waiting for user to complete tasks |
 | `blocked` | Cannot proceed due to failed gate check |
+
+### Summary Field
+
+Stages 5, 8, and 9 include a `summary` string. The producing agent writes this when marking the stage complete — 2–3 sentences that capture the essence of the deliverable. Downstream agents should read `status.json` summaries first and only open the full document when they need detail beyond what the summary provides.
+
+| Stage | Who writes | What to capture |
+|-------|-----------|-----------------|
+| `5-tech-spec` | Hephaestus | Key architectural decisions, component count, file count |
+| `8-test-plan` | Artemis | Total test cases, P0 coverage fraction, key risk areas |
+| `9-implementation` | Ares | Files created/modified, tests written, deviations |
 
 ### Review Verdicts
 
@@ -241,11 +254,11 @@ Each stage object in `pipeline` may optionally contain a `check_failures` array.
 | Kratos | All fields | `stage`, `pipeline_status`, `updated`, `history` |
 | Athena | `stage`, stage status | Stage 1, 2, 6 status + verdict |
 | Themis | `stage`, PRD | Stage 4 status |
-| Hephaestus | `stage`, PRD version | Stage 5 status + `based_on_prd_version` |
+| Hephaestus | `stage`, PRD version | Stage 5 status + `based_on_prd_version` + `summary` |
 | Apollo | `stage` | Stage 7 status + verdict |
-| Artemis | `stage` | Stage 8 status |
+| Artemis | `stage` | Stage 8 status + `summary` |
 | Daedalus | `stage` | Stage 3 status + `output_targets` |
-| Ares | `stage`, `implementation_mode` | Stage 9 status + tasks array |
+| Ares | `stage`, `implementation_mode` | Stage 9 status + tasks array + `summary` |
 | Hera | `stage` | Stage 10 `alignment_verdict` + coverage fields |
 | Hermes | `stage` | Stage 11 `code_review_verdict` |
 | Cassandra | `stage` | Stage 11 `risk_verdict` |

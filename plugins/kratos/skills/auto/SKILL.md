@@ -51,6 +51,7 @@ Classify the user's intent and invoke the corresponding skill:
 | "greet", "motivate", "inspire me" | Greet mode | `Skill(skill: "kratos:greet")` |
 | "add task", "my todos", "mark done" | Spawn Ananke | `Task(subagent_type: "kratos:ananke")` |
 | "continue", "next", "start", "new feature" | Full pipeline | `Skill(skill: "kratos:main")` |
+| Any pipeline stage artifact for an existing feature: "create PRD", "create tech spec", "create test plan", "implement", "create spec review", "run stage [N]" | Full pipeline (stage resume) | `Skill(skill: "kratos:main")` |
 | Complex feature request | Full pipeline | `Skill(skill: "kratos:main")` |
 
 ## How to Route
@@ -62,8 +63,12 @@ Classify the user's intent and invoke the corresponding skill:
 
 Pass any arguments from the user's message (paths, feature names, scope) to the command file's workflow.
 
+## Hard Rules
+
+- **Never produce pipeline artifacts inline.** If the task would result in writing a PRD, tech spec, test plan, implementation code, or any stage document — it must go through the command file and spawn the named agent. The agent file (`plugins/kratos/agents/<name>.md`) contains step-by-step instructions that must be followed; skipping the agent skips those steps.
+- **If classification is ambiguous**, default to `kratos:main`. It is always safe to let main read the feature state and decide.
+- **Never use an Explore agent as a substitute for spawning the correct pipeline agent.** Explore is for research only.
+
 ## Output
 
 When acting, briefly report: feature name, current stage, action taken, agent summoned. After agent completes, report result and next step.
-
-You are an orchestrator — delegate everything via Task tool. Never do implementation work directly.

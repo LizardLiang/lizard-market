@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-04-02T09-48-25-027Z",
+  "results": {
+    "original": {
+      "inputTokens": 30815,
+      "outputTokens": 8628,
+      "totalTokens": 39443,
+      "duration": 207049,
+      "messages": 45,
+      "success": true
+    },
+    "optimized": {
+      "inputTokens": 4215,
+      "outputTokens": 3829,
+      "totalTokens": 8044,
+      "duration": 65988,
+      "messages": 6,
+      "success": true
+    }
+  },
+  "savings": {
+    "inputTokens": 26600,
+    "inputPercent": "86.3",
+    "totalTokens": 31399,
+    "totalPercent": "79.6"
+  }
+}

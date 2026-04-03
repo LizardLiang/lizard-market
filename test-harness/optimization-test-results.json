@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-04-02T13:10:47.644Z",
+  "baseline": {
+    "approach": "original",
+    "inputTokens": 34690,
+    "outputTokens": 3056,
+    "totalTokens": 37746,
+    "duration": 129.2,
+    "messages": 36
+  },
+  "optimized": {
+    "approach": "context-optimized",
+    "inputTokens": 3889,
+    "outputTokens": 2125,
+    "totalTokens": 6014,
+    "duration": 57.79,
+    "messages": 16
+  },
+  "savings": {
+    "inputTokens": 30801,
+    "inputPercent": "88.8",
+    "totalTokens": 31732,
+    "totalPercent": "84.1",
+    "speedPercent": "55.3"
+  },
+  "verdict": "SUCCESS"
+}
