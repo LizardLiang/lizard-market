@@ -18,7 +18,7 @@ export const TASKS = [
     type: "full-pipeline",
     description: "Triggers the full 11-stage Kratos pipeline via /kratos:main",
     prompt:
-      "/kratos:main build a CLI utility in Go that reads a JSON config file and prints a formatted summary table to stdout. It should support --config flag and --output flag for plain or json formats.",
+      "/kratos:main build a CLI utility in Go named `cfg-summary` that reads a flat key-value JSON config file (e.g. {\"app\": \"myapp\", \"version\": \"1.0\", \"port\": 8080}) and prints a two-column ASCII table (Key | Value) to stdout. Requirements: --config <path> flag (required), --output flag accepting \"plain\" (default) or \"json\" (prints JSON array of {key, value} objects). On missing file or invalid JSON, print error to stderr and exit code 1. No external dependencies — stdlib only. Target: Linux/macOS/Windows.",
   },
   {
     name: "debug",
@@ -105,34 +105,20 @@ export const TASKS = [
     prompt:
       "/kratos:main review the code for timestamp-test-athena feature. Ensure your review process maintains correct timestamp integrity.",
   },
-  // Context optimization comparison tests
+  // Context optimization comparison tests (same task, different pipeline routes)
   {
-    name: "implementation-original",
+    name: "compare-original",
     type: "full-pipeline-original",
-    description: "Original Kratos pipeline for token comparison baseline",
+    description: "Baseline: standard /kratos:main pipeline",
     prompt:
-      "Kratos, build a simple user registration API with email validation and password hashing. Include basic user CRUD endpoints.",
+      "/kratos:main build a key-value store CLI in Go named `kv` with set/get/delete/list commands backed by a local JSON file. Support --file flag to specify storage path. Stdlib only.",
   },
   {
-    name: "implementation-optimized",
+    name: "compare-optimized",
     type: "full-pipeline-optimized",
-    description: "Context-optimized Kratos pipeline for token comparison",
+    description: "Optimized: /kratos:test-optimized pipeline with context curation",
     prompt:
-      "/kratos:test-optimized Build a simple user registration API with email validation and password hashing. Include basic user CRUD endpoints.",
-  },
-  {
-    name: "spec-original",
-    type: "stage-5-hephaestus-original",
-    description: "Original Hephaestus for token comparison baseline",
-    prompt:
-      "Kratos, create a technical specification for a real-time chat API with WebSocket support and message persistence.",
-  },
-  {
-    name: "spec-optimized",
-    type: "stage-5-hephaestus-optimized",
-    description: "Context-optimized Hephaestus for token comparison",
-    prompt:
-      "/kratos:test-optimized Create a technical specification for a real-time chat API with WebSocket support and message persistence.",
+      "/kratos:test-optimized build a key-value store CLI in Go named `kv` with set/get/delete/list commands backed by a local JSON file. Support --file flag to specify storage path. Stdlib only.",
   },
 ];
 

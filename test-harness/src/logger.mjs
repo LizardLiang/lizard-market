@@ -172,7 +172,10 @@ export class TaskLogger {
     };
 
     let sessionId = null;
+    // Per-message token accumulation (covers all agents in the stream)
     let inputTokens = 0;
+    let cacheCreateTokens = 0;
+    let cacheReadTokens = 0;
     let outputTokens = 0;
     const agentsSpawned = new Set();
 
@@ -182,12 +185,17 @@ export class TaskLogger {
           counts.system++;
           if (msg.subtype === "init") sessionId = msg.session_id ?? null;
           break;
-        case "assistant":
+        case "assistant": {
           counts.assistant++;
+          // Sum usage from every assistant turn (includes subagents)
+          const u = msg.message?.usage ?? {};
+          inputTokens += u.input_tokens ?? 0;
+          cacheCreateTokens += u.cache_creation_input_tokens ?? 0;
+          cacheReadTokens += u.cache_read_input_tokens ?? 0;
+          outputTokens += u.output_tokens ?? 0;
           for (const block of msg.message?.content ?? []) {
             if (block.type === "tool_use") {
               counts.tool_use++;
-              // Detect agent spawns via Task tool
               if (block.name === "Task" && block.input?.subagent_type) {
                 agentsSpawned.add(block.input.subagent_type);
               }
@@ -196,6 +204,7 @@ export class TaskLogger {
             }
           }
           break;
+        }
         case "user":
           for (const block of msg.message?.content ?? []) {
             if (block.type === "tool_result") counts.tool_result++;
@@ -203,13 +212,13 @@ export class TaskLogger {
           break;
         case "result":
           counts.result++;
-          inputTokens += msg.usage?.input_tokens ?? 0;
-          outputTokens += msg.usage?.output_tokens ?? 0;
           break;
         default:
           counts.other++;
       }
     }
+
+    const totalInput = inputTokens + cacheCreateTokens + cacheReadTokens;
 
     return {
       task: this.taskName,
@@ -219,7 +228,14 @@ export class TaskLogger {
       durationSec: +(durationMs / 1000).toFixed(1),
       sessionId,
       messageCounts: counts,
-      tokens: { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens },
+      tokens: {
+        input: totalInput,
+        inputRaw: inputTokens,
+        cacheCreate: cacheCreateTokens,
+        cacheRead: cacheReadTokens,
+        output: outputTokens,
+        total: totalInput + outputTokens,
+      },
       agentsSpawned: [...agentsSpawned],
       agentCount: agentsSpawned.size,
       errors: this.errors,

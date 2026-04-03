@@ -93,6 +93,16 @@ async function runTask(task, runDir, projectDir, model) {
     console.log(`✓ Done — ${summary.durationSec}s, ${msgCount} messages, ${summary.agentCount} agents spawned`);
     return summary;
   } catch (err) {
+    // If a success result was already recorded, the pipeline completed —
+    // the process exit error is from post-session cleanup, not the task itself.
+    const hadSuccess = logger.messages.some(
+      (m) => m.type === "result" && m.subtype === "success"
+    );
+    if (hadSuccess) {
+      const summary = logger.finish();
+      console.log(`✓ Done — ${summary.durationSec}s, ${summary.messageCounts.total} messages, ${summary.agentCount} agents spawned`);
+      return summary;
+    }
     console.error(`✗ Error in task "${task.name}": ${err.message}`);
     const summary = logger.finish(err);
     return summary;
@@ -125,7 +135,7 @@ async function main() {
     kratosVersion = pluginJson.version ?? "unknown";
   } catch {}
 
-  // Ensure test project exists
+  // Ensure test project exists and reset its state
   let projectDir;
   try {
     if (args.cwd) {
@@ -136,6 +146,27 @@ async function main() {
       if (!fs.existsSync(path.join(projectDir, ".git"))) {
         execSync("git init", { cwd: projectDir, stdio: "ignore" });
         execSync('git commit --allow-empty -m "init"', { cwd: projectDir, stdio: "ignore" });
+      }
+      // Reset project state: remove feature artifacts and implementation dirs
+      // so each run starts clean and Kratos always runs the full pipeline.
+      const toClean = [
+        path.join(projectDir, ".claude", "feature"),
+        path.join(projectDir, ".claude", ".Arena"),
+      ];
+      for (const dir of toClean) {
+        if (fs.existsSync(dir)) {
+          fs.rmSync(dir, { recursive: true, force: true });
+          console.log(`  Cleaned: ${path.relative(projectDir, dir)}`);
+        }
+      }
+      // Remove any top-level implementation directories (non-hidden, non-.git)
+      for (const entry of fs.readdirSync(projectDir)) {
+        if (entry.startsWith(".")) continue;
+        const full = path.join(projectDir, entry);
+        if (fs.statSync(full).isDirectory()) {
+          fs.rmSync(full, { recursive: true, force: true });
+          console.log(`  Cleaned: ${entry}/`);
+        }
       }
     }
   } catch (err) {
@@ -178,13 +209,25 @@ async function main() {
   console.log("RESULTS");
   console.log(`${"═".repeat(60)}`);
   console.log(
-    `${"Task".padEnd(18)} ${"Status".padEnd(9)} ${"Duration".padEnd(10)} ${"Agents".padEnd(8)} ${"Tokens"}`
+    `${"Task".padEnd(18)} ${"Status".padEnd(9)} ${"Duration".padEnd(10)} ${"Agents".padEnd(8)} ${"In(raw+cache)".padEnd(20)} Out`
   );
-  console.log("─".repeat(60));
+  console.log("─".repeat(75));
   for (const row of report.comparison) {
     const status = row.status === "success" ? "✓ ok    " : "✗ error ";
+    // Re-read summary for cache breakdown detail
+    const summaryPath = path.join(runDir, row.task, "summary.json");
+    let cacheDetail = "";
+    try {
+      const s = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+      const raw = s.tokens?.inputRaw ?? 0;
+      const cc = s.tokens?.cacheCreate ?? 0;
+      const cr = s.tokens?.cacheRead ?? 0;
+      cacheDetail = `${raw}+${cc}cc+${cr}cr`;
+    } catch {
+      cacheDetail = String(row.inputTokens);
+    }
     console.log(
-      `${row.task.padEnd(18)} ${status.padEnd(9)} ${String(row.durationSec + "s").padEnd(10)} ${String(row.agentsSpawned).padEnd(8)} ${row.inputTokens}+${row.outputTokens}`
+      `${row.task.padEnd(18)} ${status.padEnd(9)} ${String(row.durationSec + "s").padEnd(10)} ${String(row.agentsSpawned).padEnd(8)} ${cacheDetail.padEnd(20)} ${row.outputTokens}`
     );
   }
   console.log("─".repeat(60));
