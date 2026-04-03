@@ -300,9 +300,8 @@ When your prompt contains `PHASE: CREATE_PRD`, requirements have been clarified.
 # Decisions Log — [Feature Name]
 
 ## Product Decisions (Athena — PRD Creation)
-| Decision | Rationale | Trade-offs Considered |
-|----------|-----------|----------------------|
-| [What was decided] | [Why this choice] | [What alternatives were rejected and why] |
+- [Decision]: [rationale]. Rejected: [alternative] — [why].
+- [Decision]: [rationale]. Rejected: [alternative] — [why].
 
 ## Revision Requests
 <!-- Reviewers (Apollo, Hermes) append here when requesting changes -->

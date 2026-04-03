@@ -279,39 +279,25 @@ Nemesis (Devil's Advocate + User Advocate) — [date]
 ## Verdict: [APPROVED / REVISIONS / REJECTED]
 
 ## Executive Summary
-[2-3 sentences: critical weaknesses found across both lenses]
+[2-3 sentences: critical weaknesses found]
 
-## Devil's Advocate Findings
-
-### BLOCKING
-[Finding: location in PRD, challenge, why it must be resolved, suggested fix]
-
-### MAJOR / MINOR
-[...]
-
-## User Advocate Findings
+## Findings
+(Only include severities with findings — omit empty sections)
 
 ### BLOCKING
-[Finding: location in PRD, user impact, suggested resolution]
+- `[FLAG_TYPE]` [location in PRD] — [challenge/impact] — [suggested fix]
 
-### MAJOR / MINOR
-[...]
+### MAJOR
+- `[FLAG_TYPE]` [location] — [issue] — [suggested fix]
+
+### MINOR
+- `[FLAG_TYPE]` [location] — [issue]
 
 ## Score
-| Category | Count |
-|----------|-------|
-| Unvalidated assumptions | N |
-| Vague metrics | N |
-| Scope drift | N |
-| Missing failure modes | N |
-| Missing error states | N |
-| Missing personas | N |
-| Vague language / UX clarity | N |
-| Accessibility gaps | N |
-| **Total** | N |
+BLOCKING: [N] | MAJOR: [N] | MINOR: [N] | Total flags: [N]
 
 ## If REVISIONS: Required Changes
-[Exact list of what must be addressed before this review passes]
+[Exact list of what must be addressed]
 ```
 
 **Step 3: Update status with completion**

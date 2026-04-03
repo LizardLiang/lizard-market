@@ -397,30 +397,15 @@ Rules loaded: [list of rule files loaded]
 
 Tier Checklist: hermes-checklist.json — all 8 tiers true
 
-Findings by Tier:
-  T1 Correct    — [N findings or 'clean']
-  T2 Safe       — [N findings or 'clean']
-  T3 Clear      — [N findings or 'clean']
-  T4 Minimal    — [N findings or 'clean']
-  T5 Consistent — [N findings or 'clean']
-  T6 Resilient  — [N findings or 'clean']
-  T7 Performant — [N findings or 'clean']
-  T8 Maintainable — [N findings or 'clean']
+Findings: (only tiers with findings listed — omit clean tiers)
+  T[N] [Name] — [findings] or "All tiers clean" if none
 
-Totals:
-  [BLOCKER] x[N]
-  [WARNING] x[N]
-  [SUGGESTION] x[N]
+Totals: [BLOCKER] x[N]  [WARNING] x[N]  [SUGGESTION] x[N]
 
 [All findings listed with file:line, tier, rule, why, fix]
 
-Auto-fix results:
-  Applied: [N]
-  Skipped by user: [N]
-  Requires manual: [N]
-
-Rule proposals: [N new proposals written to .Arena / none]
-
+Auto-fix results: Applied [N] | Requires manual [N]
+Rule proposals: [N written / none]
 Verdict: Approved / Changes Required
 ```
 
@@ -435,26 +420,12 @@ Verdict: [Approved / Changes Requested / Rejected]
 
 Tier Checklist: hermes-checklist.json — all 8 tiers true
 
-Findings by Tier:
-  T1 Correct    — [N findings or 'clean']
-  T2 Safe       — [N findings or 'clean']
-  T3 Clear      — [N findings or 'clean']
-  T4 Minimal    — [N findings or 'clean']
-  T5 Consistent — [N findings or 'clean']
-  T6 Resilient  — [N findings or 'clean']
-  T7 Performant — [N findings or 'clean']
-  T8 Maintainable — [N findings or 'clean']
+Findings: (only tiers with findings listed — omit clean tiers)
+  T[N] [Name] — [findings] or "All tiers clean" if none
 
-Review Summary:
-- Files reviewed: [N]
-- Lines reviewed: [N]
-- Issues found: [N] (BLOCKER: [N], WARNING: [N], SUGGESTION: [N])
-- Auto-fixes applied: [N]
-
+Summary: [N] files, [N] issues (BLOCKER: [N], WARNING: [N], SUGGESTION: [N]), [N] auto-fixes
 Test Results: [All passing / X failures]
-
 Gate Status: [Passed / Blocked]
-Feature Status: [Complete / Needs fixes]
 ```
 
 ---

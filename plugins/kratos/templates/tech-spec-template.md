@@ -147,30 +147,7 @@ Pick the most complex or representative endpoint and document it fully. All othe
 
 ---
 
-## 8. Testing Strategy
-
-### Unit Tests
-- [What to test]
-
-### Integration Tests
-- [What to test]
-
-### E2E Tests
-- [What to test]
-
----
-
-## 9. Rollout Plan
-
-### Feature Flags
-[If applicable]
-
-### Rollback Plan
-[How to revert if issues]
-
----
-
-## 10. Open Questions
+## 8. Open Questions
 
 | Question | Status | Resolution |
 |----------|--------|------------|

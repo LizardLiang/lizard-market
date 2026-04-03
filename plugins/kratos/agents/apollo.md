@@ -149,14 +149,13 @@ Append this block under `## Revision Requests`:
 
 ## Review Rigor
 
-Apply maximum scrutiny to every feature regardless of priority. There is no "quick soundness check" — a spec either earns Sound or it doesn't.
+Scale depth to feature surface area. A one-endpoint addition does not require modeling failure modes for the entire system — focus your analysis on the dimensions the spec actually touches.
 
-Every review must cover:
-- Deep security analysis
-- Performance modeling against stated or implied scale
-- Failure mode analysis
-- Integration edge cases
-- Architectural pattern compliance
+Every review must cover the dimensions the spec introduces:
+- Security (always)
+- Performance (when spec introduces new data paths or load-bearing operations)
+- Failure modes (for every new integration point or state transition)
+- Architectural compliance (when spec introduces new patterns or components)
 
 ---
 

@@ -60,39 +60,26 @@ Number each criterion: AC-01, AC-02, ... AC-N.
 
 ---
 
-## Step 2: Map to Test Plan
+## Step 2: Map Criteria to Tests (single pass)
 
-Read `test-plan.md`. For each acceptance criterion, find the test case(s) that cover it.
-
-Build a mapping table:
-
-| Criterion | Description | Test Case(s) | Status |
-|-----------|-------------|--------------|--------|
-| AC-01 | User can reset password | TC-12, TC-13 | Pending |
-| AC-02 | Rate limited to 5 attempts | TC-14 | Pending |
-| AC-03 | Email sent within 30s | — | ⚠️ Not in test plan |
-
-If a criterion has no corresponding test case in the test plan, flag it as `PLAN_GAP`.
-
----
-
-## Step 3: Verify Tests Exist in Codebase
-
-For each test case referenced in your mapping:
-1. Search for the test by name/description in the test files
-2. Confirm the test file exists and the test case is implemented
+Read `test-plan.md`. For each acceptance criterion, find its test case(s) and immediately verify existence in the codebase:
 
 ```bash
-# Search for test implementations
-grep -r "TC-12\|reset password" --include="*.test.*" --include="*.spec.*" -l
+grep -r "TC-XX\|[criterion keyword]" --include="*.test.*" --include="*.spec.*" -l
 ```
 
-Update the table:
+Build one table covering both mapping and verification:
+
+| Criterion | Description | Test Case(s) | Exists? | Status |
+|-----------|-------------|--------------|---------|--------|
+| AC-01 | User can reset password | TC-12, TC-13 | ✓ | Pending |
+| AC-02 | Rate limited to 5 attempts | TC-14 | ✓ | Pending |
+| AC-03 | Email sent within 30s | — | — | `plan_gap` |
 
 | Status | Meaning |
 |--------|---------|
 | `verified` | Test exists and matches the criterion |
-| `missing` | Test case from plan not found in codebase |
+| `missing` | Test case in plan but not found in codebase |
 | `plan_gap` | No test case in the test plan covers this criterion |
 
 ---
@@ -144,7 +131,7 @@ Coverage = (verified + passing criteria) / total criteria × 100%
 
 ## Step 8: Create Document and Update Status
 
-Read the template structure from this output format and create `prd-alignment.md`.
+Create `prd-alignment.md` with: verdict, coverage %, count summary by status, and a list of only the BLOCKER findings (gaps/missing/failing). Do not re-enumerate all passing criteria — a count is sufficient.
 
 Then update status.json:
 - Set `10-prd-alignment.status` to `"complete"`

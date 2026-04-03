@@ -112,7 +112,7 @@
 ---
 
 ## 8. External API Dependencies
-(Include if feature involves external integrations - gathered via context7)
+(Include only if feature involves external integrations)
 
 ### [API Name]
 | Aspect | Details |
@@ -126,53 +126,10 @@
 ---
 
 ## 9. External Research Summary
+(Include only if Mimir was summoned)
 
-This section documents research conducted by Mimir to inform this PRD.
+| Topic | Key Finding | Recommended Approach |
+|-------|-------------|---------------------|
+| [Topic] | [Finding] | [What to use and why] |
 
-### Research Conducted
-| Topic | Source | Key Finding |
-|-------|--------|-------------|
-| [Topic researched] | Mimir (GitHub, docs, web) | [Summary of findings] |
-| [Topic 2] | context7 API docs | [API details] |
-
-### Recommended Approach
-[Based on Mimir's research, the recommended implementation approach]
-
-**Why this approach:**
-- [Reason 1 from research]
-- [Reason 2 from research]
-
-**Alternatives considered:**
-- [Alternative 1] - [Why not chosen]
-- [Alternative 2] - [Why not chosen]
-
-### Cached Insights
-[If Mimir cached any research]
-- `.claude/.Arena/insights/[topic]-[date].md` - [What it contains]
-
----
-
-## 10. Requirements Analysis (Appendix)
-
-This section documents the analytical process used to gather requirements.
-
-### Gaps Identified During Analysis
-| Area | Gap Identified | Resolution |
-|------|----------------|------------|
-| [Category] | [What was missing from initial requirement] | User clarified / Assumption made / Open question |
-
-### Assumptions Made
-| Assumption | Basis | Risk if Wrong |
-|------------|-------|---------------|
-| [What we assumed] | [Why this seemed reasonable] | [What could go wrong] |
-
-### Open Questions
-| Question | Impact if Unresolved | Owner |
-|----------|---------------------|-------|
-| [Unanswered question] | [What could fail or need rework] | [Who should answer] |
-
-### Requirements Completeness
-- **Initial requirement detail level**: Sparse / Moderate / Detailed
-- **Questions asked**: [N] questions across [M] rounds
-- **Gaps filled**: [X] of [Y] identified gaps resolved
-- **Confidence level**: Low / Medium / High
+**Alternatives considered:** [Alt 1] — [why not chosen]; [Alt 2] — [why not chosen]
