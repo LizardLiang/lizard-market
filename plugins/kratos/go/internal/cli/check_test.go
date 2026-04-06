@@ -88,10 +88,10 @@ func makeStartStdin(agentID, agentType, cwd string) string {
 // ---------- TC-050/051: Stage mapping ----------
 
 func TestStageChecks(t *testing.T) {
-	t.Run("all 9 tier1 stages present", func(t *testing.T) {
+	t.Run("all 8 tier1 stages present", func(t *testing.T) {
 		expected := []string{
 			"1-prd", "2-prd-review", "3-decomposition", "4-discuss",
-			"6-spec-review-pm", "7-spec-review-sa", "8-test-plan",
+			"7-spec-review-sa", "8-test-plan",
 			"10-prd-alignment", "11-review",
 		}
 		for _, s := range expected {

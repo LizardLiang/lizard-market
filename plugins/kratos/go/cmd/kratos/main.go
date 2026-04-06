@@ -8,7 +8,7 @@ import (
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/cli"
 )
 
-var version = "2.10.0-go"
+var version = "2.41.0-go"
 
 func main() {
 	rootCmd := &cobra.Command{

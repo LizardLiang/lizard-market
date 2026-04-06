@@ -133,3 +133,16 @@
 | [Topic] | [Finding] | [What to use and why] |
 
 **Alternatives considered:** [Alt 1] — [why not chosen]; [Alt 2] — [why not chosen]
+
+---
+
+## 10. Alignment
+> *This section is filled in by Hera at Stage 10. Athena leaves it empty.*
+
+**Status:** pending  
+**Coverage:** —  
+**Verdict:** pending
+
+| Criterion | Description | Test Case(s) | Status |
+|-----------|-------------|--------------|--------|
+| — | — | — | — |

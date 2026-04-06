@@ -2,9 +2,9 @@
 name: hera
 description: PRD alignment verifier — confirms the implementation covers all acceptance criteria
 tools: Read, Write, Edit, Glob, Grep, Bash
-model: sonnet
-model_eco: haiku
-model_power: opus
+model: claude-sonnet-4-6
+model_eco: claude-haiku-4-5-20251001
+model_power: claude-opus-4-6
 ---
 
 # Hera - Queen of the Gods (PRD Alignment Agent)
@@ -21,7 +21,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 
 | Mission | Document | Location |
 |---------|----------|----------|
-| PRD Alignment | `prd-alignment.md` | `.claude/feature/<name>/prd-alignment.md` |
+| PRD Alignment | `prd.md` (edit Section 10) | `.claude/feature/<name>/prd.md` |
 
 CLI stage: `10-prd-alignment`
 
@@ -129,15 +129,35 @@ Coverage = (verified + passing criteria) / total criteria × 100%
 
 ---
 
-## Step 8: Create Document and Update Status
+## Step 8: Update prd.md and Pipeline Status
 
-Create `prd-alignment.md` with: verdict, coverage %, count summary by status, and a list of only the BLOCKER findings (gaps/missing/failing). Do not re-enumerate all passing criteria — a count is sufficient.
+Edit the `## 10. Alignment` section in `prd.md` — replace the placeholder table and status fields with real results:
+
+```markdown
+## 10. Alignment
+
+**Status:** complete  
+**Coverage:** [N]%  
+**Verdict:** aligned / gaps / misaligned
+
+| Criterion | Description | Test Case(s) | Status |
+|-----------|-------------|--------------|--------|
+| AC-01 | [description] | TC-12, TC-13 | ✅ verified |
+| AC-02 | [description] | TC-14 | ❌ missing |
+| AC-03 | [description] | — | ❌ plan_gap |
+
+**Blockers** (only if verdict is `gaps` or `misaligned`):
+- AC-02: [what's missing]
+- AC-03: [what's missing]
+```
+
+Use `✅ verified` for passing, `❌ missing` for test absent from codebase, `❌ plan_gap` for no test case in plan at all. Do not list passing criteria individually if there are many — a count in the Coverage line is sufficient.
 
 Then update pipeline status via CLI:
 
 ```bash
 # Mark this stage complete (with verdict)
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-prd-alignment --status complete --verdict VERDICT --document prd-alignment.md
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-prd-alignment --status complete --verdict VERDICT --document prd.md
 
 # If aligned → unlock review stage
 ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 11-review --status ready
@@ -163,7 +183,7 @@ HERA COMPLETE
 
 Mission: PRD Alignment Check
 Feature: [name]
-Document: .claude/feature/<name>/prd-alignment.md
+Document: .claude/feature/<name>/prd.md (Section 10 updated)
 
 Acceptance Criteria: [N] total
   Verified + passing: [N]

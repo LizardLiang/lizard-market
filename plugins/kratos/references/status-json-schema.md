@@ -67,14 +67,6 @@ All agents that read or update status.json MUST follow this schema.
       "based_on_prd_version": "<ISO8601 of prd.md last modified>",
       "summary": "<2-3 sentence digest: key architectural decisions, file count, major components>"
     },
-    "6-spec-review-pm": {
-      "status": "pending | in-progress | complete",
-      "agent": "athena",
-      "started": "<ISO8601>",
-      "completed": "<ISO8601>",
-      "documents": ["spec-review-pm.md"],
-      "verdict": "approved | revisions"
-    },
     "7-spec-review-sa": {
       "status": "pending | in-progress | complete",
       "agent": "apollo",
@@ -114,7 +106,7 @@ All agents that read or update status.json MUST follow this schema.
       "agent": "hera",
       "started": "<ISO8601>",
       "completed": "<ISO8601>",
-      "documents": ["prd-alignment.md"],
+      "documents": ["prd.md"],
       "alignment_verdict": "aligned | gaps | misaligned",
       "criteria_total": 0,
       "criteria_verified": 0,
@@ -183,7 +175,6 @@ Stages 5, 8, and 9 include a `summary` string. The producing agent writes this w
 | Agent | Field | Values | Meaning |
 |-------|-------|--------|---------|
 | Athena (stage 2) | `verdict` | `approved` / `revisions` | PRD quality assessment |
-| Athena (stage 6) | `verdict` | `approved` / `revisions` | Tech spec aligns with PRD |
 | Apollo (stage 7) | `verdict` | `sound` / `concerns` / `unsound` | Architecture quality |
 | Hera (stage 10) | `alignment_verdict` | `aligned` / `gaps` / `misaligned` | PRD coverage |
 | Hermes (stage 11) | `code_review_verdict` | `approved` / `changes-required` | Code quality |
@@ -252,7 +243,7 @@ Each stage object in `pipeline` may optionally contain a `check_failures` array.
 | Agent | Reads | Updates |
 |-------|-------|---------|
 | Kratos | All fields | `stage`, `pipeline_status`, `updated`, `history` |
-| Athena | `stage`, stage status | Stage 1, 2, 6 status + verdict |
+| Athena | `stage`, stage status | Stage 1, 2 status + verdict |
 | Themis | `stage`, PRD | Stage 4 status |
 | Hephaestus | `stage`, PRD version | Stage 5 status + `based_on_prd_version` + `summary` |
 | Apollo | `stage` | Stage 7 status + verdict |

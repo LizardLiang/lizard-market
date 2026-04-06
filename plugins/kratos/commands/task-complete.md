@@ -90,15 +90,15 @@ When ALL tasks are complete:
    ```
    Task(
      subagent_type: "kratos:hera",
-     model: "sonnet",
+     model: "claude-sonnet-4-6",
      prompt: "MISSION: PRD Alignment Check
    FEATURE: [feature-name]
    FOLDER: .claude/feature/[feature-name]/
    MODE: User Mode (implementation done by user)
 
-   CRITICAL: You MUST create the file prd-alignment.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+   CRITICAL: You MUST edit the '## 10. Alignment' section in prd.md before completing. Verify prd.md exists before reporting completion.
 
-   Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Create prd-alignment.md with verdict. Update status.json.",
+   Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Update the Alignment section in prd.md with checkboxes and verdict. Update status.json.",
      description: "hera - prd alignment check (user mode)"
    )
    ```
@@ -107,7 +107,7 @@ When ALL tasks are complete:
    ```
    Task(
      subagent_type: "kratos:hermes",
-     model: "opus",
+     model: "claude-opus-4-6",
      prompt: "MISSION: Code Review
    FEATURE: [feature-name]
    FOLDER: .claude/feature/[feature-name]/
@@ -121,7 +121,7 @@ When ALL tasks are complete:
 
    Task(
      subagent_type: "kratos:cassandra",
-     model: "sonnet",
+     model: "claude-sonnet-4-6",
      prompt: "MISSION: Risk Analysis
    MODE: pipeline
    FEATURE: [feature-name]

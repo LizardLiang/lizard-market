@@ -31,11 +31,11 @@ In power mode, ALL agents use Opus:
 | **Metis** | sonnet | **opus** | Research |
 | **Athena** | opus | **opus** | PRD |
 | **Hephaestus** | opus | **opus** | Tech Spec |
-| **Apollo** | opus | **opus** | SA Review |
+| **Apollo** | sonnet | **opus** | SA Review |
 | **Artemis** | sonnet | **opus** | Test Planning |
 | **Ares** | sonnet | **opus** | Implementation |
 | **Hera** | sonnet | **opus** | PRD Alignment |
-| **Hermes** | opus | **opus** | Code Review |
+| **Hermes** | sonnet | **opus** | Code Review |
 
 **Summary**: 8 Opus / 0 Sonnet / 0 Haiku
 
@@ -68,12 +68,11 @@ For full pipeline features in power mode:
 | 3-decomposition | Daedalus | sonnet | **opus** |
 | 4-discuss | Themis | sonnet | **opus** |
 | 5-tech-spec | Hephaestus | opus | **opus** |
-| 6-spec-review-pm | Athena | opus | **opus** |
-| 7-spec-review-sa | Apollo | opus | **opus** |
+| 7-spec-review-sa | Apollo | sonnet | **opus** |
 | 8-test-plan | Artemis | sonnet | **opus** |
 | 9-implementation | Ares | sonnet | **opus** |
 | 10-prd-alignment | Hera | sonnet | **opus** |
-| 11-review | Hermes | opus | **opus** |
+| 11-review | Hermes | sonnet | **opus** |
 
 ---
 
@@ -97,7 +96,7 @@ Use `opus` for ALL agents:
 ```
 Task(
   subagent_type: "kratos:[agent]",
-  model: "opus",
+  model: "claude-opus-4-6",
   prompt: "POWER MODE. Execute:
 
 MISSION: [task]

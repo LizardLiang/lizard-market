@@ -30,10 +30,12 @@
 ### System Context
 [How this feature fits into the overall system]
 
-### Component Diagram
-```
-[ASCII diagram of components and their relationships]
-```
+### Components
+*(Skip this subsection if the feature touches fewer than 3 components)*
+
+| Component | Role |
+|-----------|------|
+| [Name] | [What it does] |
 
 ### Key Design Decisions
 | Decision | Rationale | Alternatives Considered |
@@ -43,8 +45,9 @@
 ---
 
 ## 3. Data Model
+*(Skip this entire section if the feature introduces no new or modified database schema)*
 
-### Database Schema
+### Schema
 ```sql
 -- Table definitions
 CREATE TABLE table_name (
@@ -53,17 +56,14 @@ CREATE TABLE table_name (
 );
 ```
 
-### Entity Relationships
-```
-[Entity relationship diagram]
-```
-
-### Data Migration
-[Migration strategy if modifying existing data]
+### Migration Strategy
+*(Skip if no existing data is affected)*
+[How existing data will be migrated]
 
 ---
 
 ## 4. API Design
+*(Skip this entire section if the feature introduces no new or modified endpoints)*
 
 ### Endpoint Summary
 
@@ -73,8 +73,7 @@ CREATE TABLE table_name (
 | GET | /api/resource/:id | [What it does] | [Required/None] |
 
 ### Detailed Example
-
-Pick the most complex or representative endpoint and document it fully. All other endpoints use the summary table above — only add a detailed block if an endpoint has genuinely unusual request/response shape.
+*(Document only the most complex endpoint. All others use the summary table above.)*
 
 #### POST /api/resource
 **Purpose**: [What it does]
@@ -102,29 +101,24 @@ Pick the most complex or representative endpoint and document it fully. All othe
 ---
 
 ## 5. Security Considerations
+*(Skip this entire section if the feature reuses existing auth middleware and handles no new sensitive data)*
 
-### Authentication
-[How auth is handled]
-
-### Authorization
-[Permission model]
-
-### Data Protection
-[Sensitive data handling]
+| Concern | Approach |
+|---------|----------|
+| Authentication | [How auth is handled] |
+| Authorization | [Permission model] |
+| Data protection | [Sensitive data handling] |
 
 ---
 
 ## 6. Performance Considerations
+*(Skip this entire section if the PRD has no explicit performance requirements)*
 
-### Expected Load
-[Traffic estimates]
-
-### Optimization Strategies
-- [Strategy 1]
-- [Strategy 2]
-
-### Caching
-[Caching approach]
+| Concern | Approach |
+|---------|----------|
+| Expected load | [Traffic estimate] |
+| Caching | [Strategy] |
+| Key optimizations | [What and why] |
 
 ---
 

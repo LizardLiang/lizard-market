@@ -66,14 +66,6 @@ var stageChecks = map[string]stageCheck{
 		Optional:   true,
 	},
 	// 5-tech-spec excluded from Tier 1 -- see tech-spec Section 3 "Hephaestus Exclusion"
-	"6-spec-review-pm": {
-		Tier:  1,
-		Files: []string{"spec-review-pm.md"},
-		Verdicts: map[string][]string{
-			"spec-review-pm.md": {"approved", "revisions", "rejected"},
-		},
-		MaxRetries: 2,
-	},
 	"7-spec-review-sa": {
 		Tier:  1,
 		Files: []string{"spec-review-sa.md"},

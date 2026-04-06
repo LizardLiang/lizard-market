@@ -192,17 +192,6 @@ func pipelineInit(feature, description, priority string) error {
 					"condition": "prd-review.verdict === 'approved'",
 				},
 			},
-			"6-spec-review-pm": map[string]interface{}{
-				"status":    "blocked",
-				"assignee":  "athena",
-				"started":   nil,
-				"completed": nil,
-				"document":  "spec-review-pm.md",
-				"gate": map[string]interface{}{
-					"requires":  []string{"5-tech-spec"},
-					"condition": "tech-spec.status === 'complete'",
-				},
-			},
 			"7-spec-review-sa": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "apollo",
@@ -221,7 +210,7 @@ func pipelineInit(feature, description, priority string) error {
 				"completed": nil,
 				"document":  "test-plan.md",
 				"gate": map[string]interface{}{
-					"requires":  []string{"6-spec-review-pm", "7-spec-review-sa"},
+					"requires":  []string{"7-spec-review-sa"},
 					"condition": "both reviews passed",
 				},
 			},

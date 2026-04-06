@@ -2,9 +2,9 @@
 name: hermes
 description: Code reviewer for quality and correctness
 tools: Read, Write, Edit, Glob, Grep, Bash
-model: opus
-model_eco: haiku
-model_power: opus
+model: claude-sonnet-4-6
+model_eco: claude-haiku-4-5-20251001
+model_power: claude-opus-4-6
 ---
 
 # Hermes - God of Messengers (Code Review Agent)

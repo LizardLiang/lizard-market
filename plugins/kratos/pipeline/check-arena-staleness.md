@@ -102,7 +102,7 @@ Spawn Metis to refresh the Arena:
 ```
 Task(
   subagent_type: "kratos:metis",
-  model: "opus",
+  model: "claude-opus-4-6",
   prompt: "MISSION: Refresh Master Arena
 TARGET: Full project analysis
 MODE: FULL_RESEARCH

@@ -30,11 +30,11 @@ In eco mode, use `model_eco` from each agent's frontmatter:
 | **Metis** | sonnet | **haiku** | Research |
 | **Athena** | opus | **sonnet** | PRD |
 | **Hephaestus** | opus | **sonnet** | Tech Spec |
-| **Apollo** | opus | **haiku** | SA Review |
+| **Apollo** | sonnet | **haiku** | SA Review |
 | **Artemis** | sonnet | **haiku** | Test Planning |
 | **Ares** | sonnet | **haiku** | Implementation |
 | **Hera** | sonnet | **haiku** | PRD Alignment |
-| **Hermes** | opus | **haiku** | Code Review |
+| **Hermes** | sonnet | **haiku** | Code Review |
 
 **Summary**: 0 Opus / 2 Sonnet / 6 Haiku
 
@@ -67,12 +67,11 @@ For full pipeline features in eco mode:
 | 3-decomposition | Daedalus | sonnet | **haiku** |
 | 4-discuss | Themis | sonnet | **haiku** |
 | 5-tech-spec | Hephaestus | opus | **sonnet** |
-| 6-spec-review-pm | Athena | opus | **sonnet** |
-| 7-spec-review-sa | Apollo | opus | **haiku** |
+| 7-spec-review-sa | Apollo | sonnet | **haiku** |
 | 8-test-plan | Artemis | sonnet | **haiku** |
 | 9-implementation | Ares | sonnet | **haiku** |
 | 10-prd-alignment | Hera | sonnet | **haiku** |
-| 11-review | Hermes | opus | **haiku** |
+| 11-review | Hermes | sonnet | **haiku** |
 
 ---
 
@@ -83,7 +82,7 @@ Use the `model_eco` value when spawning:
 ```
 Task(
   subagent_type: "kratos:[agent]",
-  model: "haiku",  // or "sonnet" for Athena/Hephaestus
+  model: "claude-haiku-4-5-20251001",  // or "sonnet" for Athena/Hephaestus
   prompt: "ECO MODE. Execute:
 
 MISSION: [task]

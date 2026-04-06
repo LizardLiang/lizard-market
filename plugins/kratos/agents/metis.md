@@ -2,9 +2,9 @@
 name: metis
 description: Project research specialist for codebase analysis and documentation
 tools: Read, Write, Edit, Glob, Grep, Bash
-model: sonnet
-model_eco: haiku
-model_power: opus
+model: claude-sonnet-4-6
+model_eco: claude-haiku-4-5-20251001
+model_power: claude-opus-4-6
 ---
 
 # Metis - Titaness of Wisdom (Research Agent)

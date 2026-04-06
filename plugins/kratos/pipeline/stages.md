@@ -14,7 +14,7 @@ This file contains the exact Task tool calls for each pipeline stage. Read the r
 ```
 Task(
   subagent_type: "kratos:metis",
-  model: "sonnet",
+  model: "claude-sonnet-4-6",
   prompt: "MISSION: Research Project
 TARGET: [project root or specific area]
 OUTPUT: .claude/.Arena/
@@ -32,12 +32,12 @@ Analyze the codebase and document findings in the Arena. This knowledge will gui
 
 Stage 1 is multi-step because Athena cannot ask the user questions directly (AskUserQuestion is unavailable to subagents). Kratos handles the clarification loop.
 
-### Phase 1: Gap Analysis
+### Phase 1: Gap Analysis (with auto-write on clear requirements)
 
 ```
 Task(
   subagent_type: "kratos:athena",
-  model: "opus",
+  model: "claude-opus-4-6",
   prompt: "MISSION: Gap Analysis
 PHASE: GAP_ANALYSIS
 FEATURE: [feature-name]
@@ -46,7 +46,7 @@ REQUIREMENTS: [user's requirements]
 
 Read plugins/kratos/agents/athena.md for the full instruction set before starting.
 
-Analyze these requirements for gaps and ambiguities. Score clarity (Step 2b) and include CLARITY_SCORES in output. Return structured questions in the GAP_ANALYSIS_RESULT format targeting the weakest dimension. Do NOT write the PRD yet.",
+Score requirement clarity. If ambiguity ≤ 0.20, write prd.md and decisions.md immediately and return PRD_WRITTEN: true. If ambiguity > 0.20, return gap questions only and PRD_WRITTEN: false.",
   description: "athena - gap analysis"
 )
 ```
@@ -56,7 +56,8 @@ Analyze these requirements for gaps and ambiguities. Score clarity (Step 2b) and
 When Athena returns her gap analysis:
 
 1. Parse the `GAP_ANALYSIS_RESULT`
-2. Display **clarity progress** to the user:
+2. If `PRD_WRITTEN: true` → PRD already created, skip Phase 2 entirely and proceed to Stage 2 (spawn Nemesis)
+3. Display **clarity progress** to the user:
 
 ```
 📊 Requirements Clarity
@@ -72,8 +73,7 @@ When Athena returns her gap analysis:
 Target: ≤ 0.20 | Current: [ambiguity] | Weakest: [dimension]
 ```
 
-3. If `WRITE_READY: true` (ambiguity ≤ 0.20) → skip to Phase 2
-4. If questions exist → call `AskUserQuestion` for each question **one at a time**:
+4. Ask questions → call `AskUserQuestion` for each question **one at a time**:
 
 ```
 AskUserQuestion(
@@ -91,7 +91,7 @@ After answers are collected: if ambiguity is still > 0.20, re-spawn Athena for a
 ```
 Task(
   subagent_type: "kratos:athena",
-  model: "opus",
+  model: "claude-opus-4-6",
   prompt: "MISSION: Create PRD
 PHASE: CREATE_PRD
 FEATURE: [feature-name]
@@ -120,7 +120,7 @@ Spawn Nemesis to review the PRD.
 ```
 Task(
   subagent_type: "kratos:nemesis",
-  model: "opus",
+  model: "claude-sonnet-4-6",
   prompt: "MISSION: Review PRD
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -368,7 +368,7 @@ Write context.md with these locked decisions. Update status.json.",
 ```
 Task(
   subagent_type: "kratos:hephaestus",
-  model: "opus",
+  model: "claude-opus-4-6",
   prompt: "MISSION: Create Technical Specification
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -385,29 +385,12 @@ Create tech-spec.md based on the approved PRD. If context.md exists, read it fir
 
 ---
 
-## Stages 6 + 7: Spec Reviews — Run in Parallel
-
-Spawn both agents in the same response:
+## Stage 7: Spec Review — Architecture (Apollo)
 
 ```
 Task(
-  subagent_type: "kratos:athena",
-  model: "opus",
-  prompt: "MISSION: Review Tech Spec (PM Perspective)
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-
-Read plugins/kratos/agents/athena.md for the full instruction set before starting.
-
-Create spec-review-pm.md before completing. Verify it exists before reporting completion.
-
-Verify tech-spec.md aligns with prd.md requirements. Create spec-review-pm.md. Update status.json.",
-  description: "athena - PM spec review"
-)
-
-Task(
   subagent_type: "kratos:apollo",
-  model: "opus",
+  model: "claude-sonnet-4-6",
   prompt: "MISSION: Review Tech Spec (Architecture)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -421,8 +404,6 @@ Review tech-spec.md for technical soundness. Create spec-review-sa.md. Update st
 )
 ```
 
-Wait for both to complete before proceeding.
-
 ---
 
 ## Stage 8: Create Test Plan (Artemis)
@@ -430,7 +411,7 @@ Wait for both to complete before proceeding.
 ```
 Task(
   subagent_type: "kratos:artemis",
-  model: "sonnet",
+  model: "claude-sonnet-4-6",
   prompt: "MISSION: Create Test Plan
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -453,7 +434,7 @@ After Stage 8 completes: read `plugins/kratos/pipeline/pre-implementation.md` an
 ```
 Task(
   subagent_type: "kratos:ares",
-  model: "sonnet",
+  model: "claude-sonnet-4-6",
   prompt: "MISSION: Implement Feature
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -474,7 +455,7 @@ Implement according to tech-spec.md. Write tests per test-plan.md. Create implem
 ```
 Task(
   subagent_type: "kratos:ares",
-  model: "sonnet",
+  model: "claude-sonnet-4-6",
   prompt: "MISSION: Create Implementation Tasks (User Mode)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -502,16 +483,16 @@ After User Mode completes: do NOT spawn Hermes automatically. Tell the user to w
 ```
 Task(
   subagent_type: "kratos:hera",
-  model: "sonnet",
+  model: "claude-sonnet-4-6",
   prompt: "MISSION: PRD Alignment Check
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/hera.md for the full instruction set before starting.
 
-Create prd-alignment.md before completing. Verify it exists before reporting completion.
+Edit the '## 10. Alignment' section in prd.md with results. Verify prd.md exists before reporting completion.
 
-Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Create prd-alignment.md with verdict. Update status.json.",
+Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Update the Alignment section in prd.md with checkboxes and verdict. Update status.json.",
   description: "hera - prd alignment check"
 )
 ```
@@ -525,7 +506,7 @@ Spawn both agents in the same response:
 ```
 Task(
   subagent_type: "kratos:hermes",
-  model: "opus",
+  model: "claude-sonnet-4-6",
   prompt: "MISSION: Code Review
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -540,7 +521,7 @@ Review implementation code. Create code-review.md with verdict. Update status.js
 
 Task(
   subagent_type: "kratos:cassandra",
-  model: "sonnet",
+  model: "claude-sonnet-4-6",
   prompt: "MISSION: Risk Analysis
 MODE: pipeline
 FEATURE: [feature-name]

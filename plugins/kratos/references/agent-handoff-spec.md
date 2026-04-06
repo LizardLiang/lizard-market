@@ -7,7 +7,7 @@ Defines what each agent produces, what each expects as input, and how to handle 
 ## Pipeline Flow
 
 ```
-Metis -> Athena -> Athena(review) -> [Daedalus] -> [Themis] -> Hephaestus -> Athena+Apollo -> Artemis -> Ares -> Hera -> Hermes+Cassandra
+Metis -> Athena -> Nemesis -> [Daedalus] -> [Themis] -> Hephaestus -> Apollo -> Artemis -> Ares -> Hera -> Hermes+Cassandra
 ```
 
 ---
@@ -75,15 +75,6 @@ Metis -> Athena -> Athena(review) -> [Daedalus] -> [Themis] -> Hephaestus -> Ath
 | **If missing** | Pipeline cannot proceed past Stage 5 |
 | **context.md note** | If `context.md` exists, Hephaestus reads `<decisions>` and `<canonical_refs>` before speccing — these are locked choices that must not be deviated from without explicit note |
 
-### Athena (Stage 6 - PM Spec Review)
-
-| | Details |
-|---|---|
-| **Inputs** | `tech-spec.md`, `prd.md` |
-| **Outputs** | `spec-review-pm.md` with verdict |
-| **Output format** | Markdown following `templates/prd-review-template.md` |
-| **Verdict values** | `approved` -> proceed, `revisions` -> loop back to Stage 5 |
-
 ### Apollo (Stage 7 - SA Spec Review)
 
 | | Details |
@@ -120,8 +111,8 @@ Metis -> Athena -> Athena(review) -> [Daedalus] -> [Themis] -> Hephaestus -> Ath
 | | Details |
 |---|---|
 | **Inputs** | `prd.md`, `test-plan.md`, `implementation-notes.md`, test files in codebase |
-| **Outputs** | `prd-alignment.md` with verdict |
-| **Output format** | Markdown with criterion-to-test mapping table |
+| **Outputs** | `prd.md` — Section 10 (Alignment) updated with checkboxes and verdict |
+| **Output format** | Edits `## 10. Alignment` section in prd.md with criterion table and verdict |
 | **Verdict values** | `aligned` / `gaps` / `misaligned` |
 | **If `aligned`** | Proceed to stage 11 (Hermes + Cassandra) |
 | **If `gaps`** | Return to stage 9 (Ares) to add missing test coverage |

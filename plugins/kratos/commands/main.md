@@ -22,8 +22,8 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 | Agent | Model | Domain | Stages |
 |-------|-------|--------|--------|
 | **metis** | sonnet | Project research, codebase analysis | 0 (Pre-flight) |
-| **athena** | opus | PRD creation, PM reviews | 1, 2 (parallel), 6 |
-| **nemesis** | opus | Adversarial PRD review (devil's advocate + user advocate) | 2 (parallel) |
+| **athena** | opus | PRD creation | 1 |
+| **nemesis** | sonnet | Adversarial PRD review (devil's advocate + user advocate) | 2 (parallel) |
 | **daedalus** | sonnet | Feature decomposition | 3 (optional) |
 | **themis** | sonnet | Implementation discuss, decision locking | 4 (optional) |
 | **hephaestus** | opus | Technical specifications | 5 |
@@ -40,9 +40,8 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 
 ```
 [0] Research (opt) → [1] PRD → [2] PRD Review → [3] Decompose (opt)
-  → [4] Discuss/Themis (opt) → [5] Tech Spec → [6] Spec Review PM
-  → [7] Spec Review SA → [8] Test Plan → [9] Implement
-  → [10] PRD Alignment → [11] Review → VICTORY
+  → [4] Discuss/Themis (opt) → [5] Tech Spec → [7] Spec Review SA
+  → [8] Test Plan → [9] Implement → [10] PRD Alignment → [11] Review → VICTORY
 ```
 
 | Stage | Agent | Document |
@@ -53,11 +52,10 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 | 3-decomposition | daedalus | `decomposition.md` (optional) |
 | 4-discuss | themis | `context.md` (optional) |
 | 5-tech-spec | hephaestus | `tech-spec.md` |
-| 6-spec-review-pm | athena | `spec-review-pm.md` |
 | 7-spec-review-sa | apollo | `spec-review-sa.md` |
 | 8-test-plan | artemis | `test-plan.md` |
 | 9-implementation | ares | `implementation-notes.md` + code |
-| 10-prd-alignment | hera | `prd-alignment.md` |
+| 10-prd-alignment | hera | `prd.md` (Section 10 updated) |
 | 11-review | hermes + cassandra | `code-review.md` + `risk-analysis.md` |
 
 ---
@@ -110,11 +108,10 @@ After each agent completes, verify the required document was created before proc
 | 3-decomposition | `decomposition.md` |
 | 4-discuss | `context.md` |
 | 5-tech-spec | `tech-spec.md` |
-| 6-spec-review-pm | `spec-review-pm.md` |
 | 7-spec-review-sa | `spec-review-sa.md` |
 | 8-test-plan | `test-plan.md` |
 | 9-implementation | `implementation-notes.md` or `tasks/*.md` |
-| 10-prd-alignment | `prd-alignment.md` |
+| 10-prd-alignment | `prd.md` (Section 10 updated) |
 | 11-review | `code-review.md` + `risk-analysis.md` |
 
 If the document is missing, re-spawn the same agent — agents sometimes fail silently. Never proceed to the next stage with a missing artifact.
@@ -131,9 +128,9 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 | 2-prd-review | Any rejected | Blocked — escalate to user, fundamental PRD issue |
 | 3-decomposition | Complete/Skipped | 4-discuss gate (offer Themis or skip to 5) |
 | 4-discuss | Complete/Skipped | 5-tech-spec (hephaestus) |
-| 5-tech-spec | — | 6 + 7 in parallel (athena + apollo) |
-| 6 + 7 reviews | Both pass | 8-test-plan (artemis) |
-| 6 or 7 | Issues | 5-tech-spec (hephaestus) |
+| 5-tech-spec | — | 7-spec-review-sa (apollo) |
+| 7-spec-review-sa | sound/concerns | 8-test-plan (artemis) |
+| 7-spec-review-sa | unsound | 5-tech-spec (hephaestus) |
 | 8-test-plan | — | Pre-implementation gate → 9 |
 | 9-implementation | Ares Mode | 10-prd-alignment (hera) |
 | 9-implementation | User Mode | Wait — user completes tasks, then `/kratos:task-complete all` |
@@ -169,7 +166,7 @@ Summoning: [AGENT] (model: [opus/sonnet])
 Document: [path]
 Verdict: [if applicable]
 
-Pipeline: [1]✅ → [2]✅ → [3]🔄 → [4]⏳ → [5]⏳ → [6]🔒 → [7]🔒 → [8]🔒 → [9]🔒 → [10]🔒 → [11]🔒
+Pipeline: [1]✅ → [2]✅ → [3]🔄 → [4]⏳ → [5]⏳ → [7]🔒 → [8]🔒 → [9]🔒 → [10]🔒 → [11]🔒
 
 Next: [stage] — [agent]
 Continue?
@@ -191,8 +188,8 @@ Current status: [what's missing]
 Feature [name] is COMPLETE!
 
 ✅ prd.md  ✅ prd-challenge.md  ✅ tech-spec.md
-✅ spec-review-pm.md  ✅ spec-review-sa.md  ✅ test-plan.md
-✅ implementation-notes.md  ✅ prd-alignment.md
+✅ spec-review-sa.md  ✅ test-plan.md
+✅ implementation-notes.md  ✅ prd.md (alignment section)
 ✅ code-review.md  ✅ risk-analysis.md
 ```
 

@@ -2,9 +2,9 @@
 name: hephaestus
 description: Technical architect for specifications and system design
 tools: Read, Write, Edit, Glob, Grep, Bash
-model: opus
-model_eco: sonnet
-model_power: opus
+model: claude-opus-4-6
+model_eco: claude-sonnet-4-6
+model_power: claude-opus-4-6
 ---
 
 # Hephaestus - God of the Forge (Tech Spec Agent)
@@ -70,7 +70,7 @@ When asked to create a technical specification:
 6. **Design the solution** - make technical decisions
 7. **Create tech-spec.md** at `.claude/feature/<name>/tech-spec.md`:
 
-Read the template at `plugins/kratos/templates/tech-spec-template.md` and follow its structure.
+Read the template at `plugins/kratos/templates/tech-spec-template.md` and follow its structure. **Omit any section marked "Skip if…" when that condition applies — do not write placeholder text, "N/A", or empty tables.** A shorter spec with only applicable sections is always better than a padded one.
 
 8. **Update status as complete** — include a 2–3 sentence summary covering: key architectural decisions, number of files to create/modify, and significant constraints or trade-offs. Downstream agents read this before deciding whether to open `tech-spec.md`.
    ```bash

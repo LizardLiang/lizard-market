@@ -41,7 +41,7 @@ Check user input for mode keywords FIRST:
 |-------|--------|-----|-------|
 | **Artemis** (tests) | sonnet | haiku | opus |
 | **Ares** (fix/refactor/docs) | sonnet | haiku | opus |
-| **Hermes** (review) | opus | haiku | opus |
+| **Hermes** (review) | sonnet | haiku | opus |
 | **Metis** (research) | sonnet | haiku | opus |
 | **Daedalus** (decompose) | sonnet | haiku | opus |
 | **Hades** (debug) | sonnet | haiku | opus |
@@ -100,14 +100,18 @@ Use the Task tool to spawn the appropriate agent directly:
 Task(
   subagent_type: "kratos:artemis",
   model: "[sonnet|haiku|opus based on mode]",
-  prompt: "MISSION: Quick Test Writing
+  prompt: "MISSION: Quick Test Planning
 TARGET: [file/function to test]
 REQUIREMENTS: [user's specific test requirements]
 
-Write comprehensive tests for the specified target. Focus on:
-- Unit tests for core functionality
-- Edge cases and error handling
-- Clear test descriptions
+Create a structured test plan for the specified target. For each test case, provide:
+- Test name
+- Scenario description
+- Input values
+- Expected result
+- Edge cases and error conditions
+
+List acceptance criteria per area of functionality. Do not write runnable test code or full function bodies — define what to test and how to verify it.
 
 No PRD or tech spec needed - work directly from the code.",
   description: "artemis - quick tests"
@@ -334,7 +338,7 @@ QUICK TASK
 
 Request: Review payment module changes
 Classification: Code Review
-Target Agent: Hermes (model: opus)
+Target Agent: Hermes (model: sonnet)
 
 Summoning Hermes...
 

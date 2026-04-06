@@ -103,7 +103,6 @@ Use /kratos:recall in the project directory for details.
 | 3 | Decomposition | Daedalus |
 | 4 | Discuss | Themis |
 | 5 | Tech Spec | Hephaestus |
-| 6 | PM Spec Review | Athena |
 | 7 | SA Spec Review | Apollo |
 | 8 | Test Plan | Artemis |
 | 9 | Implementation | Ares |

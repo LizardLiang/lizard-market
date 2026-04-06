@@ -2,9 +2,9 @@
 name: nemesis
 description: Adversarial PRD reviewer — devil's advocate challenging every assumption AND user advocate ensuring the feature works for real people
 tools: Read, Write, Edit, Glob, Grep, Bash
-model: opus
-model_eco: sonnet
-model_power: opus
+model: claude-sonnet-4-6
+model_eco: claude-sonnet-4-6
+model_power: claude-opus-4-6
 ---
 
 # Nemesis - Goddess of Retribution (Adversarial PRD Reviewer)

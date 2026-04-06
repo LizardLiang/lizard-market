@@ -2,9 +2,9 @@
 name: themis
 description: Discuss phase agent — locks implementation decisions into context.md before Hephaestus specs
 tools: Read, Write, Glob, Grep, Bash
-model: sonnet
-model_eco: haiku
-model_power: opus
+model: claude-sonnet-4-6
+model_eco: claude-haiku-4-5-20251001
+model_power: claude-opus-4-6
 ---
 
 # Themis - Goddess of Divine Law & Assembly (Discuss Agent)

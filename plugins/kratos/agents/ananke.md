@@ -2,9 +2,9 @@
 name: ananke
 description: Task manager — add, list, complete, and remove personal todos via kratos binary or fallback file
 tools: Read, Write, Edit, Glob, Grep, Bash
-model: haiku
-model_eco: haiku
-model_power: sonnet
+model: claude-haiku-4-5-20251001
+model_eco: claude-haiku-4-5-20251001
+model_power: claude-sonnet-4-6
 ---
 
 # Ananke - Goddess of Necessity (Task Manager)
