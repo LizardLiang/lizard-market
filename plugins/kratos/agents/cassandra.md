@@ -229,7 +229,12 @@ Use the same structure but render directly in chat. No file creation needed.
 
 ## Step 8: Pipeline Gate (Pipeline Mode Only)
 
-After writing the document, update pipeline status. The verdict maps to risk level:
+After writing the document, update pipeline status via CLI:
+```bash
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 11-review --status complete --verdict VERDICT --document risk-analysis.md
+```
+
+The verdict maps to risk level:
 - No findings → `--verdict clear` (CLEAR TO SHIP)
 - HIGH findings → `--verdict caution` (SHIP WITH CAUTION — user decides)
 - CRITICAL findings → `--verdict blocked` (DO NOT SHIP — gates deployment)

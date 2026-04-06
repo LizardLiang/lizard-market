@@ -21,27 +21,6 @@ Your primary deliverable is a document file. Kratos verifies this file exists af
 
 ---
 
-## Timestamp Standard
-
-**Never write `<ISO-timestamp>` placeholders.** Always use a real timestamp.
-
-**Preferred**: Let `kratos pipeline update` stamp timestamps automatically (it always uses real time).
-
-**When you must write a timestamp manually** (e.g., fallback JSON edits or nested fields the CLI doesn't cover):
-
-```bash
-# Capture a precise ISO8601 timestamp
-TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
-```
-
-Then use `$TS` wherever the schema expects `<ISO8601>`:
-
-```json
-{ "started": "2026-03-30T14:05:00Z", "completed": "2026-03-30T14:07:30Z" }
-```
-
-The `kratos now` command outputs RFC3339 with local timezone offset (e.g., `2026-03-30T22:05:00+08:00`). The `date` fallback outputs UTC. Both are valid ISO8601.
-
 ---
 
 ## Status Updates via Kratos CLI
@@ -80,8 +59,8 @@ Update pipeline status using the exact command format below. Do NOT improvise fl
 
 **Why Two Steps**: This ensures `started` and `completed` have different timestamps, preventing zero-duration work periods that appear fabricated.
 
-- If the command outputs JSON → done. Do NOT also write status.json manually.
-- If the command is not found or errors → fall back to editing status.json directly using `kratos now` for timestamps.
+- If the command outputs JSON → done.
+- **Never edit status.json directly.** The CLI is the only sanctioned write path — it enforces schema consistency and real timestamps.
 
 ### Spawning Athena (stages 1, 2, 6)
 

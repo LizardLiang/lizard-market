@@ -24,17 +24,18 @@ func PipelineCmd() *cobra.Command {
 	cmd.AddCommand(pipelineUpdateCmd())
 	cmd.AddCommand(pipelineGetCmd())
 	cmd.AddCommand(pipelineSetPendingCmd())
+	cmd.AddCommand(pipelineSetTasksCmd())
+	cmd.AddCommand(pipelineTaskDoneCmd())
 
 	return cmd
 }
 
 // NowCmd returns the 'now' command that prints the current ISO8601 timestamp.
-// Agents use this to get a precise timestamp for manual status.json edits.
 func NowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "now",
 		Short: "Print the current ISO8601 timestamp (RFC3339)",
-		Long:  "Prints the current time as an RFC3339 / ISO8601 timestamp. Use this whenever you need to write a timestamp into status.json manually.",
+		Long:  "Prints the current time as an RFC3339 / ISO8601 timestamp.",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println(now())
 		},
@@ -277,13 +278,13 @@ func pipelineInit(feature, description, priority string) error {
 // --- pipeline update ---
 
 func pipelineUpdateCmd() *cobra.Command {
-	var feature, stage, status, mode, verdict, document string
+	var feature, stage, status, mode, verdict, document, summary string
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update a pipeline stage status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return pipelineUpdate(feature, stage, status, mode, verdict, document)
+			return pipelineUpdate(feature, stage, status, mode, verdict, document, summary)
 		},
 	}
 
@@ -293,6 +294,7 @@ func pipelineUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&mode, "mode", "", "Implementation mode: ares or user (stage 9 only)")
 	cmd.Flags().StringVar(&verdict, "verdict", "", "Review verdict: approved, revisions, sound, concerns, unsound, changes-requested, rejected")
 	cmd.Flags().StringVar(&document, "document", "", "Document path to record")
+	cmd.Flags().StringVar(&summary, "summary", "", "2-3 sentence summary of work done (written to stage summary field)")
 	cmd.MarkFlagRequired("feature")
 	cmd.MarkFlagRequired("stage")
 	cmd.MarkFlagRequired("status")
@@ -300,7 +302,7 @@ func pipelineUpdateCmd() *cobra.Command {
 	return cmd
 }
 
-func pipelineUpdate(feature, stage, newStatus, mode, verdict, document string) error {
+func pipelineUpdate(feature, stage, newStatus, mode, verdict, document, summary string) error {
 	path := statusPath(feature)
 
 	statusJSON, err := readStatusJSON(path)
@@ -350,6 +352,9 @@ func pipelineUpdate(feature, stage, newStatus, mode, verdict, document string) e
 	}
 	if document != "" {
 		stageMap["document"] = document
+	}
+	if summary != "" {
+		stageMap["summary"] = summary
 	}
 
 	// Update top-level fields
@@ -472,5 +477,186 @@ func pipelineSetPending(feature, stage string) error {
 	} else {
 		fmt.Printf(`{"feature":%q,"pending_stage":%q}`+"\n", feature, stage)
 	}
+	return nil
+}
+
+// --- pipeline set-tasks ---
+
+func pipelineSetTasksCmd() *cobra.Command {
+	var feature, tasksJSON string
+
+	cmd := &cobra.Command{
+		Use:   "set-tasks",
+		Short: "Initialize the tasks array for stage 9 (User Mode)",
+		Long: `Set the tasks array on the 9-implementation stage. Call this after
+'pipeline update --stage 9-implementation --status in-progress --mode user'
+to register the task list. Pass tasks as a JSON array of objects with
+id, name, and file fields.
+
+Example:
+  kratos pipeline set-tasks --feature my-feature \
+    --tasks '[{"id":"01","name":"Create model","file":"01-create-model.md"},{"id":"02","name":"Add migrations","file":"02-migrations.md"}]'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return pipelineSetTasks(feature, tasksJSON)
+		},
+	}
+
+	cmd.Flags().StringVar(&feature, "feature", "", "Feature name (required)")
+	cmd.Flags().StringVar(&tasksJSON, "tasks", "", "JSON array of task objects: [{\"id\":\"01\",\"name\":\"...\",\"file\":\"01-name.md\"}] (required)")
+	cmd.MarkFlagRequired("feature")
+	cmd.MarkFlagRequired("tasks")
+
+	return cmd
+}
+
+func pipelineSetTasks(feature, tasksJSON string) error {
+	path := statusPath(feature)
+
+	statusData, err := readStatusJSON(path)
+	if err != nil {
+		return err
+	}
+
+	// Parse tasks JSON
+	var items []map[string]interface{}
+	if err := json.Unmarshal([]byte(tasksJSON), &items); err != nil {
+		return fmt.Errorf("invalid tasks JSON: %w", err)
+	}
+
+	// Add status: pending to each item if missing
+	for _, item := range items {
+		if _, ok := item["status"]; !ok {
+			item["status"] = "pending"
+		}
+	}
+
+	// Navigate to stage
+	pipeline, ok := statusData["pipeline"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid pipeline structure in status.json")
+	}
+	stageData, ok := pipeline["9-implementation"]
+	if !ok {
+		return fmt.Errorf("stage 9-implementation not found in pipeline")
+	}
+	stageMap, ok := stageData.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid stage data for 9-implementation")
+	}
+
+	// Build tasks object
+	itemsInterface := make([]interface{}, len(items))
+	for i, item := range items {
+		itemsInterface[i] = item
+	}
+	stageMap["tasks"] = map[string]interface{}{
+		"total":     len(items),
+		"completed": 0,
+		"items":     itemsInterface,
+	}
+
+	statusData["updated"] = now()
+
+	if err := writeStatusJSON(path, statusData); err != nil {
+		return err
+	}
+
+	out, _ := json.MarshalIndent(statusData, "", "  ")
+	fmt.Println(string(out))
+	return nil
+}
+
+// --- pipeline task-done ---
+
+func pipelineTaskDoneCmd() *cobra.Command {
+	var feature, taskID string
+
+	cmd := &cobra.Command{
+		Use:   "task-done",
+		Short: "Mark a User Mode implementation task as complete",
+		Long: `Mark a single task as complete in the 9-implementation tasks array.
+Updates the item's status to 'complete' and increments the completed counter.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return pipelineTaskDone(feature, taskID)
+		},
+	}
+
+	cmd.Flags().StringVar(&feature, "feature", "", "Feature name (required)")
+	cmd.Flags().StringVar(&taskID, "task-id", "", "Task ID to mark complete, e.g. 01 (required)")
+	cmd.MarkFlagRequired("feature")
+	cmd.MarkFlagRequired("task-id")
+
+	return cmd
+}
+
+func pipelineTaskDone(feature, taskID string) error {
+	path := statusPath(feature)
+
+	statusData, err := readStatusJSON(path)
+	if err != nil {
+		return err
+	}
+
+	pipeline, ok := statusData["pipeline"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid pipeline structure in status.json")
+	}
+	stageData, ok := pipeline["9-implementation"]
+	if !ok {
+		return fmt.Errorf("stage 9-implementation not found")
+	}
+	stageMap, ok := stageData.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid stage data for 9-implementation")
+	}
+
+	tasksData, ok := stageMap["tasks"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("no tasks array found on 9-implementation — run 'pipeline set-tasks' first")
+	}
+
+	items, ok := tasksData["items"].([]interface{})
+	if !ok {
+		return fmt.Errorf("tasks.items is not an array")
+	}
+
+	found := false
+	completed := 0
+	for _, itemRaw := range items {
+		item, ok := itemRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		id, _ := item["id"].(string)
+		if id == taskID {
+			item["status"] = "complete"
+			found = true
+		}
+		if s, _ := item["status"].(string); s == "complete" {
+			completed++
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("task ID %q not found in tasks array", taskID)
+	}
+
+	tasksData["completed"] = completed
+	statusData["updated"] = now()
+
+	if err := writeStatusJSON(path, statusData); err != nil {
+		return err
+	}
+
+	total, _ := tasksData["total"].(int)
+	if total == 0 {
+		// total may be float64 from JSON round-trip
+		if tf, ok := tasksData["total"].(float64); ok {
+			total = int(tf)
+		}
+	}
+
+	fmt.Printf(`{"feature":%q,"task_id":%q,"status":"complete","completed":%d,"total":%d}`+"\n",
+		feature, taskID, completed, total)
 	return nil
 }

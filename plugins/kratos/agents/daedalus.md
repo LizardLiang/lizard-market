@@ -164,9 +164,10 @@ When outputting to local files:
 
 3. **Create `decomposition.md`** at `.claude/feature/<name>/decomposition.md` following the template structure
 
-4. **Update `status.json`** (if in pipeline mode):
-   - Set `3-decomposition.status` to "complete"
-   - Add document entry for `decomposition.md`
+4. **Update pipeline status** (if in pipeline mode):
+   ```bash
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 3-decomposition --status complete --document decomposition.md
+   ```
 
 ---
 

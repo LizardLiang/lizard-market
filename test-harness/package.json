@@ -12,7 +12,18 @@
     "test:research-clio": "node src/run.mjs --task research-clio",
     "test:brainstorming": "node src/run.mjs --task brainstorming",
     "test:timestamps": "node src/run.mjs --task timestamp-athena timestamp-nemesis timestamp-hephaestus timestamp-apollo timestamp-artemis timestamp-ares timestamp-hermes",
-    "validate:authenticity": "node src/authenticity-validator.mjs"
+    "validate:authenticity": "node src/authenticity-validator.mjs",
+    "test:cli-compliance": "node src/run.mjs --task cli-compliance-athena,cli-compliance-nemesis,cli-compliance-hephaestus,cli-compliance-apollo,cli-compliance-artemis,cli-compliance-ares,cli-compliance-hera,cli-compliance-hermes,cli-compliance-cassandra",
+    "test:cli-compliance-athena": "node src/run.mjs --task cli-compliance-athena",
+    "test:cli-compliance-nemesis": "node src/run.mjs --task cli-compliance-nemesis",
+    "test:cli-compliance-hephaestus": "node src/run.mjs --task cli-compliance-hephaestus",
+    "test:cli-compliance-apollo": "node src/run.mjs --task cli-compliance-apollo",
+    "test:cli-compliance-artemis": "node src/run.mjs --task cli-compliance-artemis",
+    "test:cli-compliance-ares": "node src/run.mjs --task cli-compliance-ares",
+    "test:cli-compliance-hera": "node src/run.mjs --task cli-compliance-hera",
+    "test:cli-compliance-hermes": "node src/run.mjs --task cli-compliance-hermes",
+    "test:cli-compliance-cassandra": "node src/run.mjs --task cli-compliance-cassandra",
+    "validate:cli-compliance": "node src/cli-compliance-validator.mjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0"

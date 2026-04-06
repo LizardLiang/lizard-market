@@ -55,6 +55,71 @@ export const TASKS = [
     prompt:
       "/kratos:plan a plugin marketplace search feature that lets users discover and install Claude Code plugins from a central registry via CLI.",
   },
+  // CLI compliance tests — verify each pipeline agent uses CLI (not direct JSON writes) for status.json
+  // These run sequentially against the shared _test-project so each stage builds on the previous.
+  {
+    name: "cli-compliance-athena",
+    type: "cli-compliance-stage-1",
+    description: "Tests Athena (Stage 1) uses CLI to init and update status.json",
+    prompt:
+      "/kratos:main build a minimal HTTP health-check endpoint in Go. Feature name: cli-compliance-test. This is a CLI compliance test — ensure all status.json updates go through the kratos CLI.",
+  },
+  {
+    name: "cli-compliance-nemesis",
+    type: "cli-compliance-stage-2",
+    description: "Tests Nemesis (Stage 2) uses CLI to record verdict in status.json",
+    prompt:
+      "/kratos:main the cli-compliance-test feature needs its PRD reviewed. Advance to the next stage.",
+  },
+  {
+    name: "cli-compliance-hephaestus",
+    type: "cli-compliance-stage-5",
+    description: "Tests Hephaestus (Stage 5) uses CLI to update status.json with tech spec",
+    prompt:
+      "/kratos:main create the technical specification for cli-compliance-test. Advance through any pending stages.",
+  },
+  {
+    name: "cli-compliance-apollo",
+    type: "cli-compliance-stage-6",
+    description: "Tests Apollo (Stage 6) uses CLI to record spec review in status.json",
+    prompt:
+      "/kratos:main review the technical spec for cli-compliance-test. Advance to the next stage.",
+  },
+  {
+    name: "cli-compliance-artemis",
+    type: "cli-compliance-stage-8",
+    description: "Tests Artemis (Stage 8) uses CLI to update status.json with test plan",
+    prompt:
+      "/kratos:main create the test plan for cli-compliance-test. Advance through any pending stages.",
+  },
+  {
+    name: "cli-compliance-ares",
+    type: "cli-compliance-stage-9",
+    description: "Tests Ares (Stage 9) uses CLI to update status.json during implementation",
+    prompt:
+      "/kratos:main implement the cli-compliance-test feature. Use Ares mode (AI implementation).",
+  },
+  {
+    name: "cli-compliance-hera",
+    type: "cli-compliance-stage-10",
+    description: "Tests Hera (Stage 10) uses CLI to record PRD alignment verdict in status.json",
+    prompt:
+      "/kratos:main run the PRD alignment check for cli-compliance-test. Advance to the next stage.",
+  },
+  {
+    name: "cli-compliance-hermes",
+    type: "cli-compliance-stage-11",
+    description: "Tests Hermes (Stage 11) uses CLI to record code review verdict in status.json",
+    prompt:
+      "/kratos:main run the code review for cli-compliance-test. Advance to the next stage.",
+  },
+  {
+    name: "cli-compliance-cassandra",
+    type: "cli-compliance-stage-11b",
+    description: "Tests Cassandra (Stage 11) uses CLI to record risk analysis in status.json",
+    prompt:
+      "/kratos:main run the risk analysis audit for cli-compliance-test.",
+  },
   // Timestamp validation tests for status.json updating agents
   {
     name: "timestamp-athena",

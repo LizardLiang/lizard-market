@@ -135,20 +135,10 @@ Read the template at `plugins/kratos/templates/implementation-notes-template.md`
 
 6. **Run full test suite** after all tasks complete and fix any remaining failures.
 
-7. **Update status as complete**:
+7. **Update status as complete** — include a 2–3 sentence summary covering: files created/modified, tests written, and any deviations from the spec. Downstream agents read this before deciding whether to open `implementation-notes.md`.
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status complete --document implementation-notes.md
-   ```
-   
-   Additional status updates:
-   - Set `10-prd-alignment.status` to "ready"
-   - Add document entries for created files
-
-8. **Write a summary into status.json** — patch the `summary` field on the `9-implementation` stage object. Keep it to 2–3 sentences covering: files created/modified, tests written, and any deviations from the spec. Downstream agents will read this before deciding whether to open `implementation-notes.md`.
-
-   Example:
-   ```json
-   { "pipeline": { "9-implementation": { "summary": "Created 8 files, modified 4. 23 tests written, all passing. Deviated from spec on error handling in PaymentService — used existing AppError class instead of new type." } } }
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status complete --document implementation-notes.md --summary "Created 8 files, modified 4. 23 tests written, all passing. Deviated from spec on error handling in PaymentService — used existing AppError class instead of new type."
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-prd-alignment --status ready
    ```
 
 ---
@@ -218,52 +208,20 @@ Requirements for each task file:
 6. **Code Explanation is required** - Explain every significant section
 7. **Acceptance Criteria must be testable** - Specific, verifiable items
 
-### Step 7: Update status.json
+### Step 7: Register tasks via CLI
 
-First, stamp the stage via CLI (handles `started` and `updated` timestamps automatically):
+Mark the stage started and register the task list — both via CLI:
 
 ```bash
+# Mark stage in-progress (user mode)
 ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status in-progress --mode user
+
+# Register the tasks array (one JSON array argument)
+~/.kratos/bin/kratos pipeline set-tasks --feature FEATURE_NAME \
+  --tasks '[{"id":"01","name":"<Task title>","file":"01-<name>.md"},{"id":"02","name":"<Task title>","file":"02-<name>.md"}]'
 ```
 
-Then patch in the tasks array. Get a real timestamp before writing:
-
-```bash
-TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
-```
-
-Merge the tasks array into status.json:
-
-```json
-{
-  "stage": "9-implementation",
-  "pipeline": {
-    "9-implementation": {
-      "status": "in-progress",
-      "mode": "user",
-      "started": "<value from CLI output above>",
-      "tasks": {
-        "total": <N>,
-        "completed": 0,
-        "items": [
-          {
-            "id": "01",
-            "name": "<Task title>",
-            "file": "01-<name>.md",
-            "status": "pending"
-          },
-          {
-            "id": "02",
-            "name": "<Task title>",
-            "file": "02-<name>.md",
-            "status": "pending"
-          }
-        ]
-      }
-    }
-  }
-}
-```
+Build the JSON array to match all tasks you created in Step 6, in dependency order.
 
 ### Step 8: Output Format
 

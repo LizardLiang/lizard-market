@@ -96,16 +96,9 @@ When asked to create a test plan:
 
 Read the template at `plugins/kratos/templates/test-plan-template.md` and follow its structure.
 
-5. **Update status as complete**:
+5. **Update status as complete** — include a 2–3 sentence summary covering: total test cases, P0 coverage fraction, and the highest-risk area targeted. Downstream agents read this before deciding whether to open `test-plan.md`.
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-test-plan --status complete --document test-plan.md
-   ```
-
-6. **Write a summary into status.json** — patch the `summary` field on the `8-test-plan` stage object. Keep it to 2–3 sentences covering: total test cases, P0 coverage fraction, and the highest-risk area targeted. Downstream agents will read this before deciding whether to open `test-plan.md`.
-
-   Example:
-   ```json
-   { "pipeline": { "8-test-plan": { "summary": "42 test cases: 18 unit, 14 integration, 10 E2E. All 7 P0 requirements covered. Auth boundary and concurrent-write race conditions are the primary risk areas." } } }
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-test-plan --status complete --document test-plan.md --summary "42 test cases: 18 unit, 14 integration, 10 E2E. All 7 P0 requirements covered. Auth boundary and concurrent-write race conditions are the primary risk areas."
    ```
 
 ---

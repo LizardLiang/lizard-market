@@ -336,12 +336,13 @@ After all discussions, write `context.md` at `.claude/feature/<name>/context.md`
 
 ---
 
-## Update status.json
+## Update Pipeline Status
 
-After writing context.md, update status.json:
-- Set `4-discuss.status` to "complete"
-- Set `5-tech-spec.status` to "ready"
-- Add document entry for `context.md`
+After writing context.md, update via CLI:
+```bash
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 4-discuss --status complete --document context.md
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 5-tech-spec --status ready
+```
 
 ---
 

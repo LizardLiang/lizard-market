@@ -309,9 +309,7 @@ First create the review document at `.claude/feature/<name>/prd-challenge.md`, t
 ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict VERDICT --document prd-challenge.md
 ```
 
-Additional status.json updates:
-- Set `2-prd-review.nemesis_verdict` to the verdict
-- If Athena has also completed, set `2-prd-review.status` to `"complete"` and compute overall `verdict`
+The `--verdict` flag records the verdict in the pipeline stage. Do not edit status.json directly.
 
 ---
 

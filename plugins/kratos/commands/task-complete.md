@@ -58,19 +58,9 @@ For each task ID provided:
 
 For each valid task:
 
-1. **Update status.json**:
-   ```json
-   {
-     "pipeline": {
-       "9-implementation": {
-         "tasks": {
-           "items": [
-             { "id": "01", "name": "...", "status": "complete" }
-           ]
-         }
-       }
-     }
-   }
+1. **Mark the task done via CLI**:
+   ```bash
+   ~/.kratos/bin/kratos pipeline task-done --feature FEATURE_NAME --task-id 01
    ```
 
 2. **Update task file** (optional):
@@ -84,35 +74,16 @@ For each valid task:
 
 After updating, check if ALL tasks are complete:
 
-Check if every task in `status.json` `stages["9-implementation"].tasks` has `status: "complete"`.
+The CLI outputs `{"completed":N,"total":M,...}` — compare `completed == total`. Or read `status.json` and check that every item in `pipeline["9-implementation"].tasks.items` has `status: "complete"`.
 
 ### Step 6: Handle All Complete
 
 When ALL tasks are complete:
 
-1. **Update status.json** via CLI (stamps real timestamps automatically):
+1. **Update pipeline status via CLI**:
    ```bash
    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status complete
    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-prd-alignment --status ready
-   ```
-   If the CLI is unavailable, get a real timestamp first:
-   ```bash
-   TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
-   ```
-   Then write:
-   ```json
-   {
-     "stage": "10-prd-alignment",
-     "pipeline": {
-       "9-implementation": {
-         "status": "complete",
-         "completed": "$TS"
-       },
-       "10-prd-alignment": {
-         "status": "ready"
-       }
-     }
-   }
    ```
 
 2. **Spawn Hera** (PRD alignment check, stage 10):
@@ -255,31 +226,6 @@ Required stage: 9-implementation
 ```
 
 ---
-
-## Status JSON Updates
-
-### Task Structure in status.json
-
-```json
-{
-  "pipeline": {
-    "9-implementation": {
-      "status": "in-progress",
-      "mode": "user",
-      "tasks": {
-        "total": 10,
-        "completed": 3,
-        "items": [
-          { "id": "01", "name": "Create user model", "file": "01-create-user-model.md", "status": "complete" },
-          { "id": "02", "name": "Add migrations", "file": "02-add-migrations.md", "status": "complete" },
-          { "id": "03", "name": "User service", "file": "03-user-service.md", "status": "complete" },
-          { "id": "04", "name": "Auth middleware", "file": "04-auth-middleware.md", "status": "pending" }
-        ]
-      }
-    }
-  }
-}
-```
 
 ---
 

@@ -133,11 +133,18 @@ Coverage = (verified + passing criteria) / total criteria × 100%
 
 Create `prd-alignment.md` with: verdict, coverage %, count summary by status, and a list of only the BLOCKER findings (gaps/missing/failing). Do not re-enumerate all passing criteria — a count is sufficient.
 
-Then update status.json:
-- Set `10-prd-alignment.status` to `"complete"`
-- Record `alignment_verdict`
-- If `aligned`, set `11-review.status` to `"ready"`
-- If `gaps`, set `9-implementation.status` back to `"ready"` and record which criteria need coverage
+Then update pipeline status via CLI:
+
+```bash
+# Mark this stage complete (with verdict)
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-prd-alignment --status complete --verdict VERDICT --document prd-alignment.md
+
+# If aligned → unlock review stage
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 11-review --status ready
+
+# If gaps → send implementation back to ready
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status ready
+```
 
 Append to `decisions.md` if verdict is `gaps` or `misaligned`:
 ```markdown

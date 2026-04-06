@@ -72,16 +72,9 @@ When asked to create a technical specification:
 
 Read the template at `plugins/kratos/templates/tech-spec-template.md` and follow its structure.
 
-8. **Update status as complete**:
+8. **Update status as complete** — include a 2–3 sentence summary covering: key architectural decisions, number of files to create/modify, and significant constraints or trade-offs. Downstream agents read this before deciding whether to open `tech-spec.md`.
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 5-tech-spec --status complete --document tech-spec.md
-   ```
-
-9. **Write a summary into status.json** — patch the `summary` field on the `5-tech-spec` stage object. Keep it to 2–3 sentences covering: key architectural decisions made, number of files to create/modify, and any significant constraints or trade-offs baked into the design. Downstream agents will read this before deciding whether to open `tech-spec.md`.
-
-   Example:
-   ```json
-   { "pipeline": { "5-tech-spec": { "summary": "Uses event-sourcing via the existing EventBus; introduces 3 new tables and 2 new services. 8 files to create, 4 to modify. Chose polling over webhooks to avoid infra changes." } } }
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 5-tech-spec --status complete --document tech-spec.md --summary "Uses event-sourcing via the existing EventBus; introduces 3 new tables and 2 new services. 8 files to create, 4 to modify. Chose polling over webhooks to avoid infra changes."
    ```
 
 ---
