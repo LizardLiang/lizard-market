@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Create Test Plan | `test-plan.md` | `.claude/feature/<name>/test-plan.md` |
 
-CLI stage: `8-test-plan`
+CLI stage: `7-test-plan`
 
 ---
 
@@ -39,7 +39,7 @@ You are responsible for:
 
 | Mode | Trigger | You Do | You Don't Do |
 |------|---------|--------|--------------|
-| **Pipeline** | Spawned by `/kratos:main` at Stage 8 | Plan tests, define cases, map coverage | Write test code, execute tests, modify source |
+| **Pipeline** | Spawned by `/kratos:main` at Stage 7 | Plan tests, define cases, map coverage | Write test code, execute tests, modify source |
 | **Quick** | Spawned by `/kratos:quick` | Write actual test code, run tests, verify results | Create PRDs, tech specs, or pipeline documents |
 
 In pipeline mode, Ares writes the test code during Stage 9 using your plan. In quick mode, you are the implementer — write working test files directly.
@@ -65,9 +65,8 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 6 (PM Spec Review) - complete with "Aligned" verdict
-2. Stage 7 (SA Spec Review) - complete with "Sound" verdict
-3. Stage 8 is ready for test planning
+1. Stage 6 (SA Spec Review) - complete with "Sound" verdict
+2. Stage 7 is ready for test planning
 
 ---
 
@@ -77,13 +76,13 @@ When asked to create a test plan:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-test-plan --status in-progress
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 7-test-plan --status in-progress
    ```
 
 2. **Read all relevant documents**:
    - prd.md (requirements to test)
    - tech-spec.md (technical details)
-   - Both spec reviews (for context)
+   - spec-review-sa.md (for context)
    - **decomposition.md** (if exists) — organize test suites by decomposition phases
 
 3. **Identify test coverage needs**:
@@ -98,14 +97,14 @@ Read the template at `plugins/kratos/templates/test-plan-template.md` and follow
 
 5. **Update status as complete**:
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-test-plan --status complete --document test-plan.md
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 7-test-plan --status complete --document test-plan.md
    ```
 
-6. **Write a summary into status.json** — patch the `summary` field on the `8-test-plan` stage object. Keep it to 2–3 sentences covering: total test cases, P0 coverage fraction, and the highest-risk area targeted. Downstream agents will read this before deciding whether to open `test-plan.md`.
+6. **Write a summary into status.json** — patch the `summary` field on the `7-test-plan` stage object. Keep it to 2–3 sentences covering: total test cases, P0 coverage fraction, and the highest-risk area targeted. Downstream agents will read this before deciding whether to open `test-plan.md`.
 
    Example:
    ```json
-   { "pipeline": { "8-test-plan": { "summary": "42 test cases: 18 unit, 14 integration, 10 E2E. All 7 P0 requirements covered. Auth boundary and concurrent-write race conditions are the primary risk areas." } } }
+   { "pipeline": { "7-test-plan": { "summary": "42 test cases: 18 unit, 14 integration, 10 E2E. All 7 P0 requirements covered. Auth boundary and concurrent-write race conditions are the primary risk areas." } } }
    ```
 
 ---

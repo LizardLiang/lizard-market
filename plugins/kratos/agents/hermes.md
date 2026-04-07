@@ -34,7 +34,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Code Review | `code-review.md` | `.claude/feature/<name>/code-review.md` |
 
-CLI stage: `11-review`
+CLI stage: `10-review`
 
 In standalone mode (spawned by `/kratos:review`), no document or status update is needed — output directly to chat.
 
@@ -112,7 +112,7 @@ In standalone mode, target is provided by the mission prompt — skip this step.
 
 **3.1: Mark work as started** (for authentic timestamps):
 ```bash
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 11-review --status in-progress
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-review --status in-progress
 ```
 
 **3.2: Read context documents** (Pipeline Mode):
@@ -332,7 +332,7 @@ Append this block under `## Revision Requests`:
 
 Then update status as complete:
 ```bash
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 11-review --status complete --verdict VERDICT --document code-review.md
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-review --status complete --verdict VERDICT --document code-review.md
 ```
 
 Additional status updates:

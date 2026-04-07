@@ -384,27 +384,11 @@ Create tech-spec.md based on the approved PRD. If context.md exists, read it fir
 ```
 
 ---
+## Stage 6: Spec Review (Architecture)
 
-## Stages 6 + 7: Spec Reviews — Run in Parallel
-
-Spawn both agents in the same response:
+Spawn Apollo to review the tech spec:
 
 ```
-Task(
-  subagent_type: "kratos:athena",
-  model: "opus",
-  prompt: "MISSION: Review Tech Spec (PM Perspective)
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-
-Read plugins/kratos/agents/athena.md for the full instruction set before starting.
-
-Create spec-review-pm.md before completing. Verify it exists before reporting completion.
-
-Verify tech-spec.md aligns with prd.md requirements. Create spec-review-pm.md. Update status.json.",
-  description: "athena - PM spec review"
-)
-
 Task(
   subagent_type: "kratos:apollo",
   model: "opus",
@@ -421,11 +405,11 @@ Review tech-spec.md for technical soundness. Create spec-review-sa.md. Update st
 )
 ```
 
-Wait for both to complete before proceeding.
+Wait for completion before proceeding.
 
 ---
 
-## Stage 8: Create Test Plan (Artemis)
+## Stage 7: Create Test Plan (Artemis)
 
 ```
 Task(
@@ -444,11 +428,11 @@ Create comprehensive test-plan.md based on prd.md and tech-spec.md. Update statu
 )
 ```
 
-After Stage 8 completes: read `plugins/kratos/pipeline/pre-implementation.md` and execute its procedure.
+After Stage 7 completes: read `plugins/kratos/pipeline/pre-implementation.md` and execute its procedure.
 
 ---
 
-## Stage 9a: Implement Feature — Ares Mode
+## Stage 8a: Implement Feature — Ares Mode
 
 ```
 Task(
@@ -469,7 +453,7 @@ Implement according to tech-spec.md. Write tests per test-plan.md. Create implem
 
 ---
 
-## Stage 9b: Create Implementation Tasks — User Mode
+## Stage 8b: Create Implementation Tasks — User Mode
 
 ```
 Task(
@@ -497,7 +481,7 @@ After User Mode completes: do NOT spawn Hermes automatically. Tell the user to w
 
 ---
 
-## Stage 10: PRD Alignment Check (Hera)
+## Stage 9: PRD Alignment Check (Hera)
 
 ```
 Task(
@@ -518,7 +502,7 @@ Verify every acceptance criterion in prd.md is covered by a test and that tests 
 
 ---
 
-## Stage 11: Code Review + Risk Analysis — Parallel
+## Stage 10: Code Review + Risk Analysis — Parallel
 
 Spawn both agents in the same response:
 

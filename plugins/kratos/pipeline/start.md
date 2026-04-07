@@ -103,12 +103,11 @@ Stage 1: PRD Creation (in-progress)
 | 3. Decomposition | Blocked | Daedalus | decomposition.md |
 | 4. Discuss | Blocked | Themis | context.md |
 | 5. Tech Spec | Blocked | Hephaestus | tech-spec.md |
-| 6. PM Spec Review | Blocked | Athena | spec-review-pm.md |
-| 7. SA Spec Review | Blocked | Apollo | spec-review-sa.md |
-| 8. Test Plan | Blocked | Artemis | test-plan.md |
-| 9. Implementation | Blocked | Ares | implementation-notes.md |
-| 10. PRD Alignment | Blocked | Hera | prd-alignment.md |
-| 11. Review | Blocked | Hermes + Cassandra | code-review.md + risk-analysis.md |
+| 6. SA Spec Review | Blocked | Apollo | spec-review-sa.md |
+| 7. Test Plan | Blocked | Artemis | test-plan.md |
+| 8. Implementation | Blocked | Ares | implementation-notes.md |
+| 9. PRD Alignment | Blocked | Hera | prd-alignment.md |
+| 10. Review | Blocked | Hermes + Cassandra | code-review.md + risk-analysis.md |
 
 ## History
 - <timestamp>: Feature created by Kratos
@@ -130,11 +129,11 @@ Priority: <priority>
 Battlefield: .claude/feature/<feature-name>/
 
 Pipeline Initialized:
-[1]PRD -> [2]Review -> [3]Decompose -> [4]Discuss -> [5]Spec -> [6-7]Reviews -> [8]Test -> [9]Impl -> [10]Align -> [11]Review -> VICTORY
+[1]PRD -> [2]Review -> [3]Decompose -> [4]Discuss -> [5]Spec -> [6]Review -> [7]Test -> [8]Impl -> [9]Align -> [10]Review -> VICTORY
 
 Current Stage: 1 - PRD Creation
 Agent: Athena (opus)
-
+```
 Proceeding to gap analysis...
 ```
 

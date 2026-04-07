@@ -400,12 +400,12 @@ func findActiveFeatureDir(cwd string) (string, error) {
 			continue
 		}
 
-		// Navigate: stages["11-review"].status
-		stages, ok := statusJSON["stages"].(map[string]interface{})
+		// Navigate: pipeline["10-review"].status
+		pipeline, ok := statusJSON["pipeline"].(map[string]interface{})
 		if !ok {
 			continue
 		}
-		reviewStage, ok := stages["11-review"].(map[string]interface{})
+		reviewStage, ok := pipeline["10-review"].(map[string]interface{})
 		if !ok {
 			continue
 		}

@@ -5,7 +5,7 @@ description: Ensure decomposition exists and select implementation mode before s
 
 # Pre-Implementation Gate
 
-This procedure runs between Stage 8 (Test Plan) and Stage 9 (Implementation). It ensures Ares receives a structured task queue rather than a monolithic spec, which prevents context rot and produces a bisectable git history.
+This procedure runs between Stage 7 (Test Plan) and Stage 8 (Implementation). It ensures Ares receives a structured task queue rather than a monolithic spec, which prevents context rot and produces a bisectable git history.
 
 ---
 
@@ -56,11 +56,11 @@ AskUserQuestion(
 )
 ```
 
-Update status.json: set `stages["9-implementation"].status` to `"in-progress"` and `stages["9-implementation"].mode` to `"ares"` or `"user"`. See `plugins/kratos/references/status-json-schema.md` for schema.
+Update status.json: set `stages["8-implementation"].status` to `"in-progress"` and `stages["8-implementation"].mode` to `"ares"` or `"user"`. See `plugins/kratos/references/status-json-schema.md` for schema.
 
 ---
 
 ## Returns
 
-- `"ares-mode"` — proceed to Stage 9a
-- `"user-mode"` — proceed to Stage 9b
+- `"ares-mode"` — proceed to Stage 8a
+- `"user-mode"` — proceed to Stage 8b

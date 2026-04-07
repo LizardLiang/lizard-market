@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Implement Feature | `implementation-notes.md` | `.claude/feature/<name>/implementation-notes.md` |
 
-CLI stage: `9-implementation`
+CLI stage: `8-implementation`
 
 ---
 
@@ -61,8 +61,8 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 8 (Test Plan) is complete
-2. Stage 9 is ready for implementation
+1. Stage 7 (Test Plan) is complete
+2. Stage 8 is ready for implementation
 3. All prerequisite documents exist:
    - tech-spec.md
    - test-plan.md
@@ -75,7 +75,7 @@ When asked to implement:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status in-progress
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-implementation --status in-progress
    ```
 
 2. **Read all relevant documents**:
@@ -137,18 +137,18 @@ Read the template at `plugins/kratos/templates/implementation-notes-template.md`
 
 7. **Update status as complete**:
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status complete --document implementation-notes.md
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-implementation --status complete --document implementation-notes.md
    ```
    
    Additional status updates:
-   - Set `10-prd-alignment.status` to "ready"
+   - Set `9-prd-alignment.status` to "ready"
    - Add document entries for created files
 
-8. **Write a summary into status.json** — patch the `summary` field on the `9-implementation` stage object. Keep it to 2–3 sentences covering: files created/modified, tests written, and any deviations from the spec. Downstream agents will read this before deciding whether to open `implementation-notes.md`.
+8. **Write a summary into status.json** — patch the `summary` field on the `8-implementation` stage object. Keep it to 2–3 sentences covering: files created/modified, tests written, and any deviations from the spec. Downstream agents will read this before deciding whether to open `implementation-notes.md`.
 
    Example:
    ```json
-   { "pipeline": { "9-implementation": { "summary": "Created 8 files, modified 4. 23 tests written, all passing. Deviated from spec on error handling in PaymentService — used existing AppError class instead of new type." } } }
+   { "pipeline": { "8-implementation": { "summary": "Created 8 files, modified 4. 23 tests written, all passing. Deviated from spec on error handling in PaymentService — used existing AppError class instead of new type." } } }
    ```
 
 ---
@@ -223,7 +223,7 @@ Requirements for each task file:
 First, stamp the stage via CLI (handles `started` and `updated` timestamps automatically):
 
 ```bash
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status in-progress --mode user
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-implementation --status in-progress --mode user
 ```
 
 Then patch in the tasks array. Get a real timestamp before writing:
@@ -236,9 +236,9 @@ Merge the tasks array into status.json:
 
 ```json
 {
-  "stage": "9-implementation",
+  "stage": "8-implementation",
   "pipeline": {
-    "9-implementation": {
+    "8-implementation": {
       "status": "in-progress",
       "mode": "user",
       "started": "<value from CLI output above>",
@@ -354,7 +354,7 @@ Test Results:
 
 Deviations: [None / List]
 
-Next: Code Review (Hermes)
+Next: PRD Alignment (Hera)
 ```
 
 ---
@@ -367,4 +367,3 @@ Next: Code Review (Hermes)
 - Document what you do
 - Leave the code better than you found it
 - See `plugins/kratos/references/status-json-schema.md` for status.json update schema.
-

@@ -191,18 +191,7 @@ func pipelineInit(feature, description, priority string) error {
 					"condition": "prd-review.verdict === 'approved'",
 				},
 			},
-			"6-spec-review-pm": map[string]interface{}{
-				"status":    "blocked",
-				"assignee":  "athena",
-				"started":   nil,
-				"completed": nil,
-				"document":  "spec-review-pm.md",
-				"gate": map[string]interface{}{
-					"requires":  []string{"5-tech-spec"},
-					"condition": "tech-spec.status === 'complete'",
-				},
-			},
-			"7-spec-review-sa": map[string]interface{}{
+			"6-spec-review-sa": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "apollo",
 				"started":   nil,
@@ -213,18 +202,18 @@ func pipelineInit(feature, description, priority string) error {
 					"condition": "tech-spec.status === 'complete'",
 				},
 			},
-			"8-test-plan": map[string]interface{}{
+			"7-test-plan": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "artemis",
 				"started":   nil,
 				"completed": nil,
 				"document":  "test-plan.md",
 				"gate": map[string]interface{}{
-					"requires":  []string{"6-spec-review-pm", "7-spec-review-sa"},
-					"condition": "both reviews passed",
+					"requires":  []string{"6-spec-review-sa"},
+					"condition": "review passed",
 				},
 			},
-			"9-implementation": map[string]interface{}{
+			"8-implementation": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "ares",
 				"started":   nil,
@@ -233,29 +222,29 @@ func pipelineInit(feature, description, priority string) error {
 				"mode":      nil,
 				"tasks":     nil,
 				"gate": map[string]interface{}{
-					"requires":  []string{"8-test-plan"},
+					"requires":  []string{"7-test-plan"},
 					"condition": "test-plan exists",
 				},
 			},
-			"10-prd-alignment": map[string]interface{}{
+			"9-prd-alignment": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "hera",
 				"started":   nil,
 				"completed": nil,
 				"document":  "prd-alignment.md",
 				"gate": map[string]interface{}{
-					"requires":  []string{"9-implementation"},
+					"requires":  []string{"8-implementation"},
 					"condition": "implementation complete",
 				},
 			},
-			"11-review": map[string]interface{}{
+			"10-review": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "hermes",
 				"started":   nil,
 				"completed": nil,
 				"document":  "code-review.md",
 				"gate": map[string]interface{}{
-					"requires":  []string{"10-prd-alignment"},
+					"requires":  []string{"9-prd-alignment"},
 					"condition": "prd-alignment verdict === 'aligned'",
 				},
 			},

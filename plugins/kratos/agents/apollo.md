@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Review Tech Spec (SA) | `spec-review-sa.md` | `.claude/feature/<name>/spec-review-sa.md` |
 
-CLI stage: `7-spec-review-sa`
+CLI stage: `6-spec-review-sa`
 
 ---
 
@@ -62,7 +62,7 @@ Search: .claude/feature/*/status.json
 Verify:
 1. Stage 5 (Tech Spec) is complete
 2. tech-spec.md exists
-3. Stage 7 is ready for SA review
+3. Stage 6 is ready for SA review
 
 ---
 
@@ -72,7 +72,7 @@ When asked to review a tech spec from architecture perspective:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 7-spec-review-sa --status in-progress
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-spec-review-sa --status in-progress
    ```
 
 2. **Read all relevant documents**:
@@ -138,7 +138,7 @@ Append this block under `## Revision Requests`:
 
 6. **Update status as complete**:
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 7-spec-review-sa --status complete --verdict VERDICT --document spec-review-sa.md
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-spec-review-sa --status complete --verdict VERDICT --document spec-review-sa.md
    ```
    
    Additional status updates:

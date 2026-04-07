@@ -66,15 +66,7 @@ var stageChecks = map[string]stageCheck{
 		Optional:   true,
 	},
 	// 5-tech-spec excluded from Tier 1 -- see tech-spec Section 3 "Hephaestus Exclusion"
-	"6-spec-review-pm": {
-		Tier:  1,
-		Files: []string{"spec-review-pm.md"},
-		Verdicts: map[string][]string{
-			"spec-review-pm.md": {"approved", "revisions", "rejected"},
-		},
-		MaxRetries: 2,
-	},
-	"7-spec-review-sa": {
+	"6-spec-review-sa": {
 		Tier:  1,
 		Files: []string{"spec-review-sa.md"},
 		Verdicts: map[string][]string{
@@ -82,13 +74,13 @@ var stageChecks = map[string]stageCheck{
 		},
 		MaxRetries: 2,
 	},
-	"8-test-plan": {
+	"7-test-plan": {
 		Tier:       1,
 		Files:      []string{"test-plan.md"},
 		MaxRetries: 2,
 	},
-	// 9-implementation excluded from Tier 1 (Tier 2 deferred; existing Ares gate remains)
-	"10-prd-alignment": {
+	// 8-implementation excluded from Tier 1 (Tier 2 deferred; existing Ares gate remains)
+	"9-prd-alignment": {
 		Tier:  1,
 		Files: []string{"prd-alignment.md"},
 		Verdicts: map[string][]string{
@@ -96,7 +88,7 @@ var stageChecks = map[string]stageCheck{
 		},
 		MaxRetries: 2,
 	},
-	"11-review": {
+	"10-review": {
 		Tier: 1,
 		AgentDispatch: map[string]stageCheck{
 			"kratos:cassandra": {

@@ -67,15 +67,7 @@ All agents that read or update status.json MUST follow this schema.
       "based_on_prd_version": "<ISO8601 of prd.md last modified>",
       "summary": "<2-3 sentence digest: key architectural decisions, file count, major components>"
     },
-    "6-spec-review-pm": {
-      "status": "pending | in-progress | complete",
-      "agent": "athena",
-      "started": "<ISO8601>",
-      "completed": "<ISO8601>",
-      "documents": ["spec-review-pm.md"],
-      "verdict": "approved | revisions"
-    },
-    "7-spec-review-sa": {
+    "6-spec-review-sa": {
       "status": "pending | in-progress | complete",
       "agent": "apollo",
       "started": "<ISO8601>",
@@ -83,7 +75,7 @@ All agents that read or update status.json MUST follow this schema.
       "documents": ["spec-review-sa.md"],
       "verdict": "sound | concerns | unsound"
     },
-    "8-test-plan": {
+    "7-test-plan": {
       "status": "pending | in-progress | complete",
       "agent": "artemis",
       "started": "<ISO8601>",
@@ -91,7 +83,7 @@ All agents that read or update status.json MUST follow this schema.
       "documents": ["test-plan.md"],
       "summary": "<2-3 sentence digest: total test cases, P0 coverage, key risk areas targeted>"
     },
-    "9-implementation": {
+    "8-implementation": {
       "status": "pending | in-progress | complete | waiting-user",
       "agent": "ares",
       "mode": "ares | user",
@@ -109,7 +101,7 @@ All agents that read or update status.json MUST follow this schema.
         }
       ]
     },
-    "10-prd-alignment": {
+    "9-prd-alignment": {
       "status": "pending | in-progress | complete",
       "agent": "hera",
       "started": "<ISO8601>",
@@ -120,7 +112,7 @@ All agents that read or update status.json MUST follow this schema.
       "criteria_verified": 0,
       "coverage_pct": 0
     },
-    "11-review": {
+    "10-review": {
       "status": "pending | in-progress | complete",
       "agents": ["hermes", "cassandra"],
       "started": "<ISO8601>",
@@ -155,7 +147,7 @@ All agents that read or update status.json MUST follow this schema.
 | `stage` | string | yes | Current active stage ID (e.g., "5-tech-spec") |
 | `pipeline_status` | enum | yes | Overall pipeline status |
 | `mode` | enum | yes | Execution mode (affects model assignments) |
-| `implementation_mode` | enum | no | Set at stage 9; "ares" (AI implements) or "user" (task files created) |
+| `implementation_mode` | enum | no | Set at stage 8; "ares" (AI implements) or "user" (task files created) |
 
 ### Stage Status Values
 
@@ -165,29 +157,28 @@ All agents that read or update status.json MUST follow this schema.
 | `skipped` | Intentionally bypassed (research, decomposition, discuss) |
 | `in-progress` | Agent currently working on this stage |
 | `complete` | Stage finished successfully |
-| `waiting-user` | Stage 9 User Mode only — waiting for user to complete tasks |
+| `waiting-user` | Stage 8 User Mode only — waiting for user to complete tasks |
 | `blocked` | Cannot proceed due to failed gate check |
 
 ### Summary Field
 
-Stages 5, 8, and 9 include a `summary` string. The producing agent writes this when marking the stage complete — 2–3 sentences that capture the essence of the deliverable. Downstream agents should read `status.json` summaries first and only open the full document when they need detail beyond what the summary provides.
+Stages 5, 7, and 8 include a `summary` string. The producing agent writes this when marking the stage complete — 2–3 sentences that capture the essence of the deliverable. Downstream agents should read `status.json` summaries first and only open the full document when they need detail beyond what the summary provides.
 
 | Stage | Who writes | What to capture |
 |-------|-----------|-----------------|
 | `5-tech-spec` | Hephaestus | Key architectural decisions, component count, file count |
-| `8-test-plan` | Artemis | Total test cases, P0 coverage fraction, key risk areas |
-| `9-implementation` | Ares | Files created/modified, tests written, deviations |
+| `7-test-plan` | Artemis | Total test cases, P0 coverage fraction, key risk areas |
+| `8-implementation` | Ares | Files created/modified, tests written, deviations |
 
 ### Review Verdicts
 
 | Agent | Field | Values | Meaning |
 |-------|-------|--------|---------|
 | Athena (stage 2) | `verdict` | `approved` / `revisions` | PRD quality assessment |
-| Athena (stage 6) | `verdict` | `approved` / `revisions` | Tech spec aligns with PRD |
-| Apollo (stage 7) | `verdict` | `sound` / `concerns` / `unsound` | Architecture quality |
-| Hera (stage 10) | `alignment_verdict` | `aligned` / `gaps` / `misaligned` | PRD coverage |
-| Hermes (stage 11) | `code_review_verdict` | `approved` / `changes-required` | Code quality |
-| Cassandra (stage 11) | `risk_verdict` | `clear` / `caution` / `blocked` | Risk assessment |
+| Apollo (stage 6) | `verdict` | `sound` / `concerns` / `unsound` | Architecture quality |
+| Hera (stage 9) | `alignment_verdict` | `aligned` / `gaps` / `misaligned` | PRD coverage |
+| Hermes (stage 10) | `code_review_verdict` | `approved` / `changes-required` | Code quality |
+| Cassandra (stage 10) | `risk_verdict` | `clear` / `caution` / `blocked` | Risk assessment |
 
 ### Verdict Thresholds
 
@@ -228,7 +219,7 @@ Each stage object in `pipeline` may optionally contain a `check_failures` array.
 ```json
 {
   "pipeline": {
-    "7-spec-review-sa": {
+    "6-spec-review-sa": {
       "status": "complete",
       "assignee": "apollo",
       "document": "spec-review-sa.md",
@@ -252,16 +243,16 @@ Each stage object in `pipeline` may optionally contain a `check_failures` array.
 | Agent | Reads | Updates |
 |-------|-------|---------|
 | Kratos | All fields | `stage`, `pipeline_status`, `updated`, `history` |
-| Athena | `stage`, stage status | Stage 1, 2, 6 status + verdict |
+| Athena | `stage`, stage status | Stage 1, 2 status + verdict |
 | Themis | `stage`, PRD | Stage 4 status |
 | Hephaestus | `stage`, PRD version | Stage 5 status + `based_on_prd_version` + `summary` |
-| Apollo | `stage` | Stage 7 status + verdict |
-| Artemis | `stage` | Stage 8 status + `summary` |
+| Apollo | `stage` | Stage 6 status + verdict |
+| Artemis | `stage` | Stage 7 status + `summary` |
 | Daedalus | `stage` | Stage 3 status + `output_targets` |
-| Ares | `stage`, `implementation_mode` | Stage 9 status + tasks array + `summary` |
-| Hera | `stage` | Stage 10 `alignment_verdict` + coverage fields |
-| Hermes | `stage` | Stage 11 `code_review_verdict` |
-| Cassandra | `stage` | Stage 11 `risk_verdict` |
+| Ares | `stage`, `implementation_mode` | Stage 8 status + tasks array + `summary` |
+| Hera | `stage` | Stage 9 `alignment_verdict` + coverage fields |
+| Hermes | `stage` | Stage 10 `code_review_verdict` |
+| Cassandra | `stage` | Stage 10 `risk_verdict` |
 
 ---
 
