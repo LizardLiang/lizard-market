@@ -76,6 +76,14 @@ Verify:
 2. Stage 10 is ready for review
 3. Implementation files exist
 
+**Pipeline mode document selection**:
+- Use `.claude/feature/<name>/status.json` for stage state and the Stage 5, 8, and 9 summaries
+- Use the changed files and git diff as your primary risk surface
+- Use `tech-spec.md` when a risk depends on intended architecture, contracts, data flow, or rollout assumptions beyond the summaries
+- Use other feature documents only to verify a specific risk
+- If a needed file is missing, stop and tell Kratos which file is missing and which upstream agent owns it
+- Do not reread a document unless you need a section you have not already captured
+
 ---
 
 ## Mission: Risk Analysis
@@ -175,3 +183,7 @@ Next: [Victory | Fix Risks (Ares)]
 - Be uncompromising — a risk is a risk, even if "unlikely"
 - Your goal is to prevent failure in production
 - See `plugins/kratos/references/status-json-schema.md` for status.json update schema.
+
+---
+
+*"They called me mad. Then Troy burned."*

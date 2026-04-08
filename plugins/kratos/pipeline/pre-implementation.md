@@ -24,7 +24,7 @@ Task(
   prompt: "MISSION: Decompose Feature (Pre-Implementation)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
-INPUT: Read tech-spec.md (primary) and prd.md (context)
+INPUT: Use status.json and its Stage 5 summary first. Consult tech-spec.md when decomposition detail is needed. Consult prd.md for requirement context. If a needed file is missing, stop and tell Kratos to summon the owning upstream agent.
 OUTPUT_TARGETS: local
 
 Create decomposition.md at .claude/feature/[feature-name]/decomposition.md

@@ -21,7 +21,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 
 | Mission | Document | Location |
 |---------|----------|----------|
-| Create Tech Spec | `tech-spec.md` | `.claude/feature/<name>/tech-spec.md` |
+| Create Tech Spec | Stage 5 specification document | `.claude/feature/<name>/spec output` |
 
 CLI stage: `5-tech-spec`
 
@@ -77,7 +77,7 @@ Read the template at `plugins/kratos/templates/tech-spec-template.md` and follow
    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 5-tech-spec --status complete --document tech-spec.md
    ```
 
-9. **Write a summary into status.json** — patch the `summary` field on the `5-tech-spec` stage object. Keep it to 2–3 sentences covering: key architectural decisions made, number of files to create/modify, and any significant constraints or trade-offs baked into the design. Downstream agents will read this before deciding whether to open `tech-spec.md`.
+9. **Write a summary into status.json** — patch the `summary` field on the `5-tech-spec` stage object. Keep it to 2–3 sentences covering: key architectural decisions made, number of files to create/modify, and any significant constraints or trade-offs baked into the design. Downstream agents will read this before deciding whether to open the full specification document.
 
    Example:
    ```json
@@ -165,7 +165,7 @@ When completing work:
 HEPHAESTUS COMPLETE
 
 Mission: Technical Specification Created
-Document: .claude/feature/<name>/tech-spec.md
+Document: .claude/feature/<name>/[stage-5-spec-document]
 Based On: prd.md (v[version])
 
 Key Decisions:

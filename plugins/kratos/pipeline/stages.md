@@ -106,7 +106,7 @@ CLARIFIED_REQUIREMENTS:
 - [Q2 header]: [user's answer]
 - ... (all answers from all rounds)
 
-Create prd.md before completing. Verify it exists before reporting completion.",
+Create prd.md before completing. Kratos validates the deliverable after you finish.",
   description: "athena - create PRD"
 )
 ```
@@ -127,7 +127,7 @@ FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/nemesis.md for the full instruction set before starting.
 
-Create prd-challenge.md before completing. Verify it exists before reporting completion.
+Create prd-challenge.md before completing. Kratos validates the deliverable after you finish.
 
 Review prd.md and create prd-challenge.md. Update status.json with verdict.",
   description: "nemesis - full PRD review (adversarial + user advocate)"
@@ -376,7 +376,7 @@ PRD: Approved and ready at prd.md
 
 Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
 
-Create tech-spec.md before completing. Verify it exists before reporting completion.
+Create tech-spec.md before completing. Kratos validates the deliverable after you finish.
 
 Create tech-spec.md based on the approved PRD. If context.md exists, read it first — it contains locked implementation decisions. Update status.json.",
   description: "hephaestus - create tech spec"
@@ -398,9 +398,9 @@ FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/apollo.md for the full instruction set before starting.
 
-Create spec-review-sa.md before completing. Verify it exists before reporting completion.
+Create spec-review-sa.md before completing. Kratos validates the deliverable after you finish.
 
-Review tech-spec.md for technical soundness. Create spec-review-sa.md. Update status.json.",
+Use Apollo's document-selection policy. If a needed prerequisite file is missing, stop and report the owning upstream agent to Kratos. Create spec-review-sa.md. Update status.json.",
   description: "apollo - SA spec review"
 )
 ```
@@ -421,9 +421,9 @@ FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/artemis.md for the full instruction set before starting.
 
-Create test-plan.md before completing. Verify it exists before reporting completion.
+Create test-plan.md before completing. Kratos validates the deliverable after you finish.
 
-Create comprehensive test-plan.md based on prd.md and tech-spec.md. Update status.json.",
+Use Artemis's document-selection policy. If a needed prerequisite file is missing, stop and report the owning upstream agent to Kratos. Create comprehensive test-plan.md. Update status.json.",
   description: "artemis - create test plan"
 )
 ```
@@ -444,9 +444,9 @@ FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/ares.md for the full instruction set before starting.
 
-Create implementation-notes.md before completing. Verify it exists before reporting completion.
+Create implementation-notes.md before completing. Kratos validates the deliverable after you finish.
 
-Implement according to tech-spec.md. Write tests per test-plan.md. Create implementation-notes.md. Update status.json.",
+Use Ares's document-selection policy. If a needed prerequisite file is missing, stop and report the owning upstream agent to Kratos. Create implementation-notes.md. Update status.json.",
   description: "ares - implement feature"
 )
 ```
@@ -493,7 +493,7 @@ FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/hera.md for the full instruction set before starting.
 
-Create prd-alignment.md before completing. Verify it exists before reporting completion.
+Create prd-alignment.md before completing. If `prd.md` is missing when you need it, stop and report Athena as the owning upstream agent to Kratos.
 
 Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Create prd-alignment.md with verdict. Update status.json.",
   description: "hera - prd alignment check"
@@ -516,9 +516,9 @@ FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/hermes.md for the full instruction set before starting.
 
-Create code-review.md before completing. Verify it exists before reporting completion.
+Create code-review.md before completing. Kratos validates the deliverable after you finish.
 
-Review implementation code. Create code-review.md with verdict. Update status.json.",
+Use Hermes's document-selection policy. If a needed prerequisite file is missing, stop and report the owning upstream agent to Kratos. Create code-review.md with verdict. Update status.json.",
   description: "hermes - code review"
 )
 
@@ -532,9 +532,9 @@ FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/cassandra.md for the full instruction set before starting.
 
-Create risk-analysis.md before completing. Verify it exists before reporting completion.
+Create risk-analysis.md before completing. Kratos validates the deliverable after you finish.
 
-Analyze changed files for security, breaking changes, edge cases, scalability, and dependency risks. Create risk-analysis.md with severity-rated findings. Update status.json.",
+Use Cassandra's document-selection policy. If a needed prerequisite file is missing, stop and report the owning upstream agent to Kratos. Create risk-analysis.md with severity-rated findings. Update status.json.",
   description: "cassandra - risk analysis"
 )
 ```

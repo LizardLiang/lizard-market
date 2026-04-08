@@ -231,7 +231,7 @@ For each stage, follow this pattern:
    $KRATOS_CMD file-change "$SESSION_ID" "<path>" "created" "<description>"
    ```
 
-5. **VERIFY DOCUMENT EXISTS** — Use Glob/Read to confirm required document was created. If missing, re-spawn the agent.
+5. **VALIDATE DELIVERABLE** — Use Glob/Read to confirm the required document was created. If missing, treat the stage as failed and re-spawn the responsible agent.
 
 ### Step 3: End Session on Completion or User Exit
 

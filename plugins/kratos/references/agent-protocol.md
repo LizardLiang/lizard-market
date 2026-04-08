@@ -10,6 +10,35 @@ All paths in agent instructions (e.g., `plugins/kratos/templates/...`, `plugins/
 
 ---
 
+## Document Selection
+
+Choose documents based on the decision you are making; do not mechanically read every possible input.
+
+- Use `status.json` for stage state, summaries, and quick context
+- Use `prd.md` for requirements, acceptance criteria, and product intent
+- Use `tech-spec.md` for architecture, interfaces, sequencing, and implementation constraints
+- Use `test-plan.md` for expected coverage and verification scope
+- Use `decomposition.md` for task ordering, waves, and phase boundaries
+- Use Arena/codebase reads only to verify a specific convention, dependency, or implementation pattern
+
+Avoid rereading the same document unless you need a section you have not already captured.
+
+---
+
+## Missing Required Input
+
+If you need a file and it is missing, do not improvise, recreate it, or continue with assumptions unless you are the agent responsible for producing that file.
+
+1. Stop the current task
+2. Report the blocker to Kratos/orchestrator
+3. Name the missing file
+4. State why you need it right now
+5. Name the responsible upstream stage/agent from `references/agent-handoff-spec.md`
+
+Optional files (`context.md`, `decomposition.md`, Arena shards, language-specific review rules, etc.) only block you if the current task genuinely requires them.
+
+---
+
 ## Document Creation
 
 Your primary deliverable is a document file. Kratos verifies this file exists after you complete — if it's missing, Kratos will re-spawn you to try again, wasting time and tokens. To avoid this:
