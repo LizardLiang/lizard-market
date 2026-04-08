@@ -1,6 +1,6 @@
 # Agent Handoff Specification
 
-Defines what each agent produces, what each expects as input, and how to handle missing prerequisites.
+Defines what each agent produces, what each consults, and which upstream agent owns each artifact when a prerequisite is missing.
 
 ---
 
@@ -9,6 +9,26 @@ Defines what each agent produces, what each expects as input, and how to handle 
 ```
 Metis -> Athena -> Nemesis -> [Daedalus] -> [Themis] -> Hephaestus -> Apollo -> Artemis -> Ares -> Hera -> Hermes+Cassandra
 ```
+
+---
+
+## Artifact Ownership
+
+If an agent needs one of these files and it is missing, the agent should stop and tell Kratos to summon the owner.
+
+| Artifact | Owned by | Stage |
+|---|---|---|
+| `prd.md` | Athena | 1-prd |
+| `prd-challenge.md` | Nemesis | 2-prd-review |
+| `decomposition.md` | Daedalus | 3-decomposition |
+| `context.md` | Themis | 4-discuss |
+| `tech-spec.md` | Hephaestus | 5-tech-spec |
+| `spec-review-pm.md` | Athena | 6-spec-review-pm |
+| `spec-review-sa.md` | Apollo | 7-spec-review-sa |
+| `test-plan.md` | Artemis | 8-test-plan |
+| `implementation-notes.md` | Ares | 9-implementation |
+| `code-review.md` | Hermes | 11-review |
+| `risk-analysis.md` | Cassandra | 11-review |
 
 ---
 
@@ -79,7 +99,8 @@ Metis -> Athena -> Nemesis -> [Daedalus] -> [Themis] -> Hephaestus -> Apollo -> 
 
 | | Details |
 |---|---|
-| **Inputs** | `tech-spec.md`, Arena context, codebase patterns |
+| **Consult when needed** | Use `status.json` for stage state and summary, `prd.md` for requirements, `tech-spec.md` for design detail when the summary is insufficient, and Arena/codebase only for targeted verification |
+| **If a needed file is missing** | Stop and tell Kratos to summon the owning agent from the Artifact Ownership table |
 | **Outputs** | `spec-review-sa.md` with verdict |
 | **Output format** | Markdown following `templates/spec-review-sa-template.md` |
 | **Verdict values** | `sound` / `concerns` / `unsound` |
@@ -90,7 +111,8 @@ Metis -> Athena -> Nemesis -> [Daedalus] -> [Themis] -> Hephaestus -> Apollo -> 
 
 | | Details |
 |---|---|
-| **Inputs** | `prd.md`, `tech-spec.md`, `decomposition.md` (if exists), codebase test conventions |
+| **Consult when needed** | Use `status.json` for stage state and summary, `prd.md` for requirements, both spec reviews for known concerns, `tech-spec.md` for technical behavior when needed, and `decomposition.md` for phase-aware planning |
+| **If a needed file is missing** | Stop and tell Kratos to summon the owning agent from the Artifact Ownership table |
 | **Outputs** | `test-plan.md` |
 | **Output format** | Markdown following `templates/test-plan-template.md` |
 | **Required by** | Stage 9 (Ares references for test writing) |
@@ -100,7 +122,8 @@ Metis -> Athena -> Nemesis -> [Daedalus] -> [Themis] -> Hephaestus -> Apollo -> 
 
 | | Details |
 |---|---|
-| **Inputs** | `tech-spec.md`, `test-plan.md`, `decomposition.md` (if exists) |
+| **Consult when needed** | Use `status.json` for stage state and summaries, `test-plan.md` for verification goals, `tech-spec.md` for implementation detail when summaries are insufficient, `prd.md` for requirement context, `decisions.md` for rationale, and `decomposition.md` for task sequencing |
+| **If a needed file is missing** | Stop and tell Kratos to summon the owning agent from the Artifact Ownership table |
 | **Outputs (Ares Mode)** | Implementation code + `implementation-notes.md` |
 | **Outputs (User Mode)** | `tasks/*.md` + `tasks/00-overview.md` |
 | **Output format** | Code files + markdown notes following `templates/implementation-notes-template.md` |
@@ -111,6 +134,7 @@ Metis -> Athena -> Nemesis -> [Daedalus] -> [Themis] -> Hephaestus -> Apollo -> 
 | | Details |
 |---|---|
 | **Inputs** | `prd.md`, `test-plan.md`, `implementation-notes.md`, test files in codebase |
+| **If a needed file is missing** | Stop and tell Kratos to summon the owning agent from the Artifact Ownership table |
 | **Outputs** | `prd.md` — Section 10 (Alignment) updated with checkboxes and verdict |
 | **Output format** | Edits `## 10. Alignment` section in prd.md with criterion table and verdict |
 | **Verdict values** | `aligned` / `gaps` / `misaligned` |
@@ -122,7 +146,8 @@ Metis -> Athena -> Nemesis -> [Daedalus] -> [Themis] -> Hephaestus -> Apollo -> 
 
 | | Details |
 |---|---|
-| **Inputs** | All feature documents + implementation code (git diff) |
+| **Consult when needed** | Use `status.json` for stage state and summaries, `implementation-notes.md` for delivered work, `test-plan.md` for expected coverage, `prd.md` for requirement alignment, `tech-spec.md` for intended design when needed, and `decomposition.md` for phase verification |
+| **If a needed file is missing** | Stop and tell Kratos to summon the owning agent from the Artifact Ownership table |
 | **Outputs** | `code-review.md` with verdict |
 | **Output format** | Markdown following `templates/code-review-template.md` |
 | **Verdict values** | `approved` / `changes-required` |
@@ -133,7 +158,8 @@ Metis -> Athena -> Nemesis -> [Daedalus] -> [Themis] -> Hephaestus -> Apollo -> 
 
 | | Details |
 |---|---|
-| **Inputs** | Implementation code (git diff), `tech-spec.md` |
+| **Consult when needed** | Use `status.json` for stage state and summaries, inspect implementation code and git diff as the primary risk surface, and open `tech-spec.md` only when intended architecture or contract detail matters to a risk |
+| **If a needed file is missing** | Stop and tell Kratos to summon the owning agent from the Artifact Ownership table |
 | **Outputs** | `risk-analysis.md` with verdict |
 | **Output format** | Markdown following `templates/risk-analysis-template.md` |
 | **Verdict values** | `clear` / `caution` / `blocked` |
@@ -155,9 +181,9 @@ Metis -> Athena -> Nemesis -> [Daedalus] -> [Themis] -> Hephaestus -> Apollo -> 
 
 All agents create documents using the Write tool. Agents have Write access in their tool list. The Task tool prompt should include:
 - `FOLDER: .claude/feature/<name>/` — the target directory
-- `CRITICAL: You MUST create the file <name>.md before completing.`
+- `CRITICAL: You are responsible for producing <name>.md before completing.`
 
-Agents verify file creation by reading it back before reporting completion.
+Kratos validates required deliverables after the agent finishes.
 
 ---
 

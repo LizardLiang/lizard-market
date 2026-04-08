@@ -61,7 +61,7 @@ Search: .claude/feature/*/status.json
 
 Verify:
 1. Stage 5 (Tech Spec) is complete
-2. tech-spec.md exists
+2. The specification file exists
 3. Stage 7 is ready for SA review
 
 ---
@@ -75,10 +75,13 @@ When asked to review a tech spec from architecture perspective:
    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 7-spec-review-sa --status in-progress
    ```
 
-2. **Read all relevant documents**:
-   - tech-spec.md (primary focus)
-   - prd.md (for context)
-   - Existing codebase (for patterns)
+2. **Use documents purposefully**:
+    - Use `.claude/feature/<name>/status.json` for stage state and the Stage 5 summary
+    - Use `prd.md` when you need requirement detail
+    - Use `tech-spec.md` when you need architecture, interface, security, or performance detail beyond the summary
+    - Use Arena/codebase patterns only to verify a specific concern or convention
+    - If a needed file is missing, stop and tell Kratos which file is missing and that Hephaestus or the owning upstream agent must handle it
+    - Do not reread a document unless you need a section you have not already captured
 
 3. **Evaluate these dimensions**:
 
@@ -91,7 +94,7 @@ When asked to review a tech spec from architecture perspective:
 
 Default to **Concerns** when uncertain. A spec that might have a problem has a problem.
 
-Review the tech spec against: (1) the PRD requirements, (2) codebase conventions from Arena (if exists), and (3) general architecture best practices.
+Review the specification against: (1) the PRD requirements, (2) codebase conventions from Arena (if exists), and (3) general architecture best practices.
 
 ### Architecture Soundness
 - Is the design appropriate for the requirements?

@@ -115,12 +115,15 @@ In standalone mode, target is provided by the mission prompt — skip this step.
 ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 11-review --status in-progress
 ```
 
-**3.2: Read context documents** (Pipeline Mode):
-   - implementation-notes.md (what was implemented)
-   - tech-spec.md (what should have been implemented)
-   - test-plan.md (what tests should exist)
-   - prd.md (requirements context)
-   - decomposition.md (if exists) — verify all phases and acceptance criteria
+**3.2: Use documents purposefully** (Pipeline Mode):
+   - Use `.claude/feature/<name>/status.json` for stage state and Stage 5, 8, and 9 summaries
+   - Use `implementation-notes.md` to verify what was actually built
+   - Use `test-plan.md` to verify expected test coverage
+   - Use `prd.md` to verify requirement alignment
+   - Use `tech-spec.md` when you need intended-design detail beyond the summaries
+   - Use `decomposition.md` when phase verification matters
+   - If a needed file is missing, stop and tell Kratos which file is missing and which upstream agent owns it
+   - Do not reread a document unless you need a section you have not already captured
 
 ### 3a: Tier Checklist File (Hook-Enforced)
 

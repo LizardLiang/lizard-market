@@ -96,7 +96,7 @@ When ALL tasks are complete:
    FOLDER: .claude/feature/[feature-name]/
    MODE: User Mode (implementation done by user)
 
-   CRITICAL: You MUST edit the '## 10. Alignment' section in prd.md before completing. Verify prd.md exists before reporting completion.
+    CRITICAL: You MUST edit the '## 10. Alignment' section in prd.md before completing. If `prd.md` is missing when you need it, stop and report Athena as the owning upstream agent to Kratos.
 
    Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Update the Alignment section in prd.md with checkboxes and verdict. Update status.json.",
      description: "hera - prd alignment check (user mode)"
@@ -113,7 +113,7 @@ When ALL tasks are complete:
    FOLDER: .claude/feature/[feature-name]/
    MODE: User Mode (implementation done by user)
 
-   CRITICAL: You MUST create the file code-review.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+    CRITICAL: You MUST create the file code-review.md before completing. Kratos validates the deliverable after you finish.
 
    Review implementation code. Create code-review.md with verdict. Update status.json.",
      description: "hermes - code review (user mode)"
@@ -127,7 +127,7 @@ When ALL tasks are complete:
    FEATURE: [feature-name]
    FOLDER: .claude/feature/[feature-name]/
 
-   CRITICAL: You MUST create the file risk-analysis.md before completing. Document creation is MANDATORY - verify it exists before reporting completion.
+    CRITICAL: You MUST create the file risk-analysis.md before completing. Kratos validates the deliverable after you finish.
 
    Analyze changed files in this feature for security, breaking changes, edge cases, scalability, and dependency risks.
    Create risk-analysis.md with severity-rated findings. Update status.json.",

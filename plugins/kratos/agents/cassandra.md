@@ -76,6 +76,14 @@ git diff main...HEAD --name-only 2>/dev/null || git diff master...HEAD --name-on
 - Path provided → scan that path
 - No path → scan entire codebase
 
+**Pipeline mode document selection**:
+- Use `.claude/feature/<name>/status.json` for stage state and the Stage 5, 8, and 9 summaries
+- Use the changed files and git diff as your primary risk surface
+- Use `tech-spec.md` when a risk depends on intended architecture, contracts, data flow, or rollout assumptions beyond the summaries
+- Use other feature documents only to verify a specific risk
+- If a needed file is missing, stop and tell Kratos which file is missing and which upstream agent owns it
+- Do not reread a document unless you need a section you have not already captured
+
 ---
 
 ## Step 2: Security Audit (OWASP Top 10)

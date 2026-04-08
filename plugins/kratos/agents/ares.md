@@ -64,7 +64,7 @@ Verify:
 1. Stage 8 (Test Plan) is complete
 2. Stage 9 is ready for implementation
 3. All prerequisite documents exist:
-   - tech-spec.md
+   - the stage 5 specification document
    - test-plan.md
 
 ---
@@ -78,16 +78,19 @@ When asked to implement:
    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status in-progress
    ```
 
-2. **Read all relevant documents**:
-   - tech-spec.md (your blueprint)
-   - test-plan.md (what tests to write)
-   - prd.md (for context)
-   - decisions.md (if exists) — understand WHY design decisions were made before implementing
-   - **decomposition.md** (if exists) — this is your task queue. Implement task-by-task in wave order.
+2. **Use documents purposefully**:
+    - Use `.claude/feature/<name>/status.json` for stage state and the Stage 5 and Stage 8 summaries
+    - Use `test-plan.md` to understand what must be tested
+    - Use `tech-spec.md` when you need file paths, change sequence, reuse targets, or implementation constraints beyond the summaries
+    - Use `prd.md` when you need requirement context not captured in the summaries
+    - Use `decisions.md` when rationale matters before coding
+    - Use `decomposition.md` when task sequencing or wave order matters
+    - If a needed file is missing, stop and tell Kratos which file is missing and which upstream agent owns it
+    - Do not reread a document unless you need a section you have not already captured
 
 3. **Understand the codebase** — scope depends on mode:
 
-   **Pipeline mode** (tech-spec.md exists): The codebase has already been explored by Metis, Themis, and Hephaestus. Your tech-spec contains file paths, patterns, and reuse targets. Trust it. Only do a targeted search (1-2 grep queries) when the spec is vague about a specific file location. Never do a broad codebase exploration.
+   **Pipeline mode** (the specification exists): The codebase has already been explored by Metis, Themis, and Hephaestus. Start from the available summaries and consult the full blueprint only when you need exact file paths, patterns, or reuse targets. Only do a targeted search (1-2 grep queries) when the available documents are still vague about a specific file location. Never do a broad codebase exploration.
 
    **Quick mode** (no tech-spec): You're working without upstream docs. Explore what you need:
    - Identify files to modify
@@ -158,10 +161,13 @@ Read: plugins/kratos/templates/task-overview-template.md
 
 ### Step 2: Read All Relevant Documents
 
-Read the same documents as Ares Mode:
-- tech-spec.md (your blueprint)
-- test-plan.md (what tests to write)
-- prd.md (for context)
+Use the same document-selection rules as Ares Mode:
+- start from `.claude/feature/<name>/status.json`
+- consult `test-plan.md` for verification goals
+- consult the stage 5 specification document only when summaries are not enough for task breakdown details
+- consult `prd.md` only when you need requirement context not captured in the summaries
+- consult `decisions.md` and `decomposition.md` only when they affect task structure
+- if a needed file is missing, stop and tell Kratos which upstream agent owns it
 
 ### Step 3: Create Tasks Folder
 
@@ -325,4 +331,3 @@ Next: Code Review (Hermes)
 - Document what you do
 - Leave the code better than you found it
 - See `plugins/kratos/references/status-json-schema.md` for status.json update schema.
-

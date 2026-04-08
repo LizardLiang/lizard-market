@@ -80,11 +80,14 @@ When asked to create a test plan:
    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-test-plan --status in-progress
    ```
 
-2. **Read all relevant documents**:
-   - prd.md (requirements to test)
-   - tech-spec.md (technical details)
-   - Both spec reviews (for context)
-   - **decomposition.md** (if exists) — organize test suites by decomposition phases
+2. **Use documents purposefully**:
+    - Use `.claude/feature/<name>/status.json` for stage state and the Stage 5 summary
+    - Use `prd.md` to map requirements and acceptance criteria to coverage
+    - Use both spec reviews to incorporate known concerns into the plan
+    - Use `tech-spec.md` when you need interfaces, data flow, failure modes, or file-level test planning detail beyond the summary
+    - Use `decomposition.md` when phase structure matters for suite organization
+    - If a needed file is missing, stop and tell Kratos which file is missing and which upstream agent owns it
+    - Do not reread a document unless you need a section you have not already captured
 
 3. **Identify test coverage needs**:
    - Map each requirement to test cases

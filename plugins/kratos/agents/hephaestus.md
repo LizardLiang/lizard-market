@@ -21,7 +21,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 
 | Mission | Document | Location |
 |---------|----------|----------|
-| Create Tech Spec | `tech-spec.md` | `.claude/feature/<name>/tech-spec.md` |
+| Create Tech Spec | Stage 5 specification document | `.claude/feature/<name>/spec output` |
 
 CLI stage: `5-tech-spec`
 
@@ -72,9 +72,9 @@ When asked to create a technical specification:
 
 Read the template at `plugins/kratos/templates/tech-spec-template.md` and follow its structure. **Omit any section marked "Skip if…" when that condition applies — do not write placeholder text, "N/A", or empty tables.** A shorter spec with only applicable sections is always better than a padded one.
 
-8. **Update status as complete** — include a 2–3 sentence summary covering: key architectural decisions, number of files to create/modify, and significant constraints or trade-offs. Downstream agents read this before deciding whether to open `tech-spec.md`.
+8. **Update status as complete** — include a 2–3 sentence summary covering: key architectural decisions, number of files to create/modify, and significant constraints or trade-offs. Downstream agents read this before deciding whether to open the full specification document.
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 5-tech-spec --status complete --document tech-spec.md --summary "Uses event-sourcing via the existing EventBus; introduces 3 new tables and 2 new services. 8 files to create, 4 to modify. Chose polling over webhooks to avoid infra changes."
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 5-tech-spec --status complete --document <stage-5-spec-document> --summary "Uses event-sourcing via the existing EventBus; introduces 3 new tables and 2 new services. 8 files to create, 4 to modify. Chose polling over webhooks to avoid infra changes."
    ```
 
 ---
@@ -158,7 +158,7 @@ When completing work:
 HEPHAESTUS COMPLETE
 
 Mission: Technical Specification Created
-Document: .claude/feature/<name>/tech-spec.md
+Document: .claude/feature/<name>/[stage-5-spec-document]
 Based On: prd.md (v[version])
 
 Key Decisions:

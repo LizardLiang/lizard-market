@@ -117,8 +117,8 @@ This is a standalone decomposition. Output the complete breakdown with phases, d
 After Daedalus completes:
 
 **For local target:**
-1. Use Glob to verify `decomposition.md` exists at the expected path
-2. If missing, report failure and re-spawn Daedalus
+1. Use Glob to validate that `decomposition.md` exists at the expected path
+2. If missing, report failure and re-spawn Daedalus as the responsible agent
 3. Read the file to confirm it has complete content
 
 **For Notion target:**
