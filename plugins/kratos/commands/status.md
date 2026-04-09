@@ -60,13 +60,15 @@ Flag any problems:
 Pipeline:
 ┌────────────────────────────────────────────────────────────────┐
 │ [1] PRD          ✅ Complete    │ prd.md                       │
-│ [2] PRD Review   ✅ Approved    │ prd-review.md (v2)           │
-│ [3] Tech Spec    ✅ Complete    │ tech-spec.md                 │
-│ [4] PM Review    🔄 In Progress │ spec-review-pm.md            │
-│ [5] SA Review    ⏳ Waiting     │ -                            │
-│ [6] Test Plan    🔒 Blocked     │ Gate: Reviews must pass      │
-│ [7] Implementation 🔒 Blocked   │ Gate: Test plan required     │
-│ [8] Code Review  🔒 Blocked     │ Gate: Implementation needed  │
+│ [2] PRD Review   ✅ Approved    │ prd-challenge.md             │
+│ [3] Decompose    ⏭ Skipped      │ -                            │
+│ [4] Discuss      ⏭ Skipped      │ -                            │
+│ [5] Tech Spec    ✅ Complete    │ tech-spec.md                 │
+│ [6] SA Review    ✅ Sound       │ spec-review-sa.md            │
+│ [7] Test Plan    ✅ Complete    │ test-plan.md                 │
+│ [8] Implementation 🔄 In Progress │ implementation-notes.md    │
+│ [9] PRD Alignment ⏳ Waiting     │ -                            │
+│ [10] Review      🔒 Blocked     │ Gate: Alignment required     │
 └────────────────────────────────────────────────────────────────┘
 
 Health: 🟢 Healthy

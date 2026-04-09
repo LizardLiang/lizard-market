@@ -68,8 +68,8 @@ func pipeStdin(content string, fn func()) {
 // makeStopStdin returns a JSON string for a SubagentStop event (properly escaped paths).
 func makeStopStdin(agentType, cwd string, stopHookActive bool) string {
 	b, _ := json.Marshal(map[string]interface{}{
-		"agent_type":      agentType,
-		"cwd":             cwd,
+		"agent_type":       agentType,
+		"cwd":              cwd,
 		"stop_hook_active": stopHookActive,
 	})
 	return string(b)
@@ -88,11 +88,10 @@ func makeStartStdin(agentID, agentType, cwd string) string {
 // ---------- TC-050/051: Stage mapping ----------
 
 func TestStageChecks(t *testing.T) {
-	t.Run("all 9 tier1 stages present", func(t *testing.T) {
+	t.Run("all 8 tier1 stages present", func(t *testing.T) {
 		expected := []string{
 			"1-prd", "2-prd-review", "3-decomposition", "4-discuss",
-			"6-spec-review-pm", "7-spec-review-sa", "8-test-plan",
-			"10-prd-alignment", "11-review",
+			"6-spec-review-sa", "7-test-plan", "9-prd-alignment", "10-review",
 		}
 		for _, s := range expected {
 			if _, ok := stageChecks[s]; !ok {
@@ -102,7 +101,7 @@ func TestStageChecks(t *testing.T) {
 	})
 
 	t.Run("excluded stages not present", func(t *testing.T) {
-		excluded := []string{"0-research", "5-tech-spec", "9-implementation"}
+		excluded := []string{"5-tech-spec", "8-implementation"}
 		for _, s := range excluded {
 			if _, ok := stageChecks[s]; ok {
 				t.Errorf("stageChecks should NOT contain excluded stage %q", s)
@@ -160,24 +159,24 @@ func TestStageChecks(t *testing.T) {
 		}
 	})
 
-	t.Run("8-test-plan has correct file", func(t *testing.T) {
-		sc := stageChecks["8-test-plan"]
+	t.Run("7-test-plan has correct file", func(t *testing.T) {
+		sc := stageChecks["7-test-plan"]
 		if len(sc.Files) != 1 || sc.Files[0] != "test-plan.md" {
-			t.Errorf("8-test-plan Files = %v, want [test-plan.md]", sc.Files)
+			t.Errorf("7-test-plan Files = %v, want [test-plan.md]", sc.Files)
 		}
 	})
 
-	t.Run("11-review uses AgentDispatch", func(t *testing.T) {
-		sc := stageChecks["11-review"]
+	t.Run("10-review uses AgentDispatch", func(t *testing.T) {
+		sc := stageChecks["10-review"]
 		if len(sc.Files) != 0 {
-			t.Errorf("11-review should have no direct Files, got %v", sc.Files)
+			t.Errorf("10-review should have no direct Files, got %v", sc.Files)
 		}
 		if len(sc.AgentDispatch) == 0 {
-			t.Error("11-review should have AgentDispatch")
+			t.Error("10-review should have AgentDispatch")
 		}
 		cassandra, ok := sc.AgentDispatch["kratos:cassandra"]
 		if !ok {
-			t.Fatal("11-review missing AgentDispatch[kratos:cassandra]")
+			t.Fatal("10-review missing AgentDispatch[kratos:cassandra]")
 		}
 		if len(cassandra.Files) != 1 || cassandra.Files[0] != "risk-analysis.md" {
 			t.Errorf("cassandra sub-check Files = %v, want [risk-analysis.md]", cassandra.Files)
@@ -319,7 +318,7 @@ func TestRetry(t *testing.T) {
 	t.Run("per-stage isolation", func(t *testing.T) {
 		dir := t.TempDir()
 		// Pre-populate two stages
-		initial := map[string]int{"1-prd": 1, "8-test-plan": 0}
+		initial := map[string]int{"1-prd": 1, "7-test-plan": 0}
 		if err := writeCheckState(dir, initial); err != nil {
 			t.Fatalf("writeCheckState: %v", err)
 		}
@@ -329,8 +328,8 @@ func TestRetry(t *testing.T) {
 		if state["1-prd"] != 2 {
 			t.Errorf("1-prd after increment = %d, want 2", state["1-prd"])
 		}
-		if state["8-test-plan"] != 0 {
-			t.Errorf("8-test-plan should be unchanged at 0, got %d", state["8-test-plan"])
+		if state["7-test-plan"] != 0 {
+			t.Errorf("7-test-plan should be unchanged at 0, got %d", state["7-test-plan"])
 		}
 	})
 
@@ -365,10 +364,10 @@ func TestFindFeatureDir(t *testing.T) {
 		featureDir := filepath.Join(root, ".claude", "feature", "my-feature")
 		os.MkdirAll(featureDir, 0o755)
 		// Top-level stage does NOT match, but pipeline has in-progress
-		statusJSON := `{"feature":"my-feature","stage":"5-tech-spec","pipeline":{"8-test-plan":{"status":"in-progress"}}}`
+		statusJSON := `{"feature":"my-feature","stage":"5-tech-spec","pipeline":{"7-test-plan":{"status":"in-progress"}}}`
 		writeFile(t, filepath.Join(featureDir, "status.json"), statusJSON)
 
-		got, err := findFeatureDirByStage(root, "8-test-plan")
+		got, err := findFeatureDirByStage(root, "7-test-plan")
 		if err != nil {
 			t.Fatalf("findFeatureDirByStage: %v", err)
 		}
@@ -429,17 +428,17 @@ func TestFindFeatureDir(t *testing.T) {
 	})
 }
 
-// ---------- TC-060/061/062/063: Stage 11 dispatch ----------
+// ---------- TC-060/061/062/063: Stage 10 dispatch ----------
 
 func TestDispatch(t *testing.T) {
 	t.Run("cassandra with risk-analysis.md passes", func(t *testing.T) {
-		root, featureDir := makeFeatureDir(t, "review-feature", "11-review")
+		root, featureDir := makeFeatureDir(t, "review-feature", "10-review")
 		writeFile(t, filepath.Join(featureDir, "risk-analysis.md"), "Risk analysis content")
 
 		var output string
 		pipeStdin(makeStopStdin("kratos:cassandra", root, false), func() {
 			output = captureStdout(func() {
-				handleCheckVerify("11-review", "review-feature")
+				handleCheckVerify("10-review", "review-feature")
 			})
 		})
 
@@ -453,13 +452,13 @@ func TestDispatch(t *testing.T) {
 	})
 
 	t.Run("hermes returns ok immediately (no Tier 1 check)", func(t *testing.T) {
-		root, _ := makeFeatureDir(t, "review-feature", "11-review")
+		root, _ := makeFeatureDir(t, "review-feature", "10-review")
 		// No risk-analysis.md or code-review.md in featureDir
 
 		var output string
 		pipeStdin(makeStopStdin("kratos:hermes", root, false), func() {
 			output = captureStdout(func() {
-				handleCheckVerify("11-review", "review-feature")
+				handleCheckVerify("10-review", "review-feature")
 			})
 		})
 
@@ -468,18 +467,18 @@ func TestDispatch(t *testing.T) {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
 		if !resp.OK {
-			t.Errorf("hermes at stage 11 should return ok=true (no Tier 1 check), got ok=false")
+			t.Errorf("hermes at stage 10 should return ok=true (no Tier 1 check), got ok=false")
 		}
 	})
 
 	t.Run("cassandra fails when risk-analysis.md missing", func(t *testing.T) {
-		root, _ := makeFeatureDir(t, "review-feature", "11-review")
+		root, _ := makeFeatureDir(t, "review-feature", "10-review")
 		// No risk-analysis.md
 
 		var output string
 		pipeStdin(makeStopStdin("kratos:cassandra", root, false), func() {
 			output = captureStdout(func() {
-				handleCheckVerify("11-review", "review-feature")
+				handleCheckVerify("10-review", "review-feature")
 			})
 		})
 
@@ -495,13 +494,13 @@ func TestDispatch(t *testing.T) {
 		}
 	})
 
-	t.Run("unknown agent_type at stage 11 returns ok (fail-open)", func(t *testing.T) {
-		root, _ := makeFeatureDir(t, "review-feature", "11-review")
+	t.Run("unknown agent_type at stage 10 returns ok (fail-open)", func(t *testing.T) {
+		root, _ := makeFeatureDir(t, "review-feature", "10-review")
 
 		var output string
 		pipeStdin(makeStopStdin("kratos:unknown-agent", root, false), func() {
 			output = captureStdout(func() {
-				handleCheckVerify("11-review", "review-feature")
+				handleCheckVerify("10-review", "review-feature")
 			})
 		})
 
@@ -510,7 +509,7 @@ func TestDispatch(t *testing.T) {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
 		if !resp.OK {
-			t.Error("unknown agent_type at stage 11 should fail-open (ok=true)")
+			t.Error("unknown agent_type at stage 10 should fail-open (ok=true)")
 		}
 	})
 }
@@ -740,11 +739,11 @@ func TestCheckInit(t *testing.T) {
 		}
 	})
 
-	t.Run("stage 11 cassandra sees only risk-analysis.md", func(t *testing.T) {
+	t.Run("stage 10 cassandra sees only risk-analysis.md", func(t *testing.T) {
 		var output string
 		pipeStdin(makeStartStdin("x", "kratos:cassandra", t.TempDir()), func() {
 			output = captureStdout(func() {
-				handleCheckInit("11-review", "")
+				handleCheckInit("10-review", "")
 			})
 		})
 
@@ -761,11 +760,11 @@ func TestCheckInit(t *testing.T) {
 		}
 	})
 
-	t.Run("stage 11 unknown agent type returns empty context (fail-open)", func(t *testing.T) {
+	t.Run("stage 10 unknown agent type returns empty context (fail-open)", func(t *testing.T) {
 		var output string
 		pipeStdin(makeStartStdin("x", "kratos:unknown-agent", t.TempDir()), func() {
 			output = captureStdout(func() {
-				handleCheckInit("11-review", "")
+				handleCheckInit("10-review", "")
 			})
 		})
 
@@ -774,7 +773,7 @@ func TestCheckInit(t *testing.T) {
 			t.Fatalf("output is not valid JSON: %v", err)
 		}
 		if resp.HookSpecificOutput.AdditionalContext != "" {
-			t.Errorf("unknown agent at stage 11 should have empty context, got: %q",
+			t.Errorf("unknown agent at stage 10 should have empty context, got: %q",
 				resp.HookSpecificOutput.AdditionalContext)
 		}
 	})
@@ -877,14 +876,14 @@ func TestCheckIntegration(t *testing.T) {
 	})
 
 	t.Run("TC-101: block then succeed lifecycle", func(t *testing.T) {
-		root, featureDir := makeFeatureDir(t, "test-feature", "8-test-plan")
+		root, featureDir := makeFeatureDir(t, "test-feature", "7-test-plan")
 		stopStdin := makeStopStdin("kratos:artemis", root, false)
 
 		// First verify: no test-plan.md → should block
 		var out1 string
 		pipeStdin(stopStdin, func() {
 			out1 = captureStdout(func() {
-				handleCheckVerify("8-test-plan", "test-feature")
+				handleCheckVerify("7-test-plan", "test-feature")
 			})
 		})
 
@@ -906,7 +905,7 @@ func TestCheckIntegration(t *testing.T) {
 		var out2 string
 		pipeStdin(stopStdin, func() {
 			out2 = captureStdout(func() {
-				handleCheckVerify("8-test-plan", "test-feature")
+				handleCheckVerify("7-test-plan", "test-feature")
 			})
 		})
 
@@ -920,20 +919,20 @@ func TestCheckIntegration(t *testing.T) {
 
 		// Counter should be reset
 		state, _ := readCheckState(featureDir)
-		if _, ok := state["8-test-plan"]; ok {
-			t.Errorf("counter should be removed after success, got %d", state["8-test-plan"])
+		if _, ok := state["7-test-plan"]; ok {
+			t.Errorf("counter should be removed after success, got %d", state["7-test-plan"])
 		}
 	})
 
 	t.Run("TC-102: max retries exhausted records failure and returns ok", func(t *testing.T) {
-		root, featureDir := makeFeatureDir(t, "test-feature", "8-test-plan")
+		root, featureDir := makeFeatureDir(t, "test-feature", "7-test-plan")
 		stopStdin := makeStopStdin("kratos:artemis", root, false)
 
 		// Attempt 1 → ok=false (attempt 1/2)
 		var out1 string
 		pipeStdin(stopStdin, func() {
 			out1 = captureStdout(func() {
-				handleCheckVerify("8-test-plan", "test-feature")
+				handleCheckVerify("7-test-plan", "test-feature")
 			})
 		})
 		var r1 subagentStopOutput
@@ -946,7 +945,7 @@ func TestCheckIntegration(t *testing.T) {
 		var out2 string
 		pipeStdin(stopStdin, func() {
 			out2 = captureStdout(func() {
-				handleCheckVerify("8-test-plan", "test-feature")
+				handleCheckVerify("7-test-plan", "test-feature")
 			})
 		})
 		var r2 subagentStopOutput
@@ -962,7 +961,7 @@ func TestCheckIntegration(t *testing.T) {
 		var out3 string
 		pipeStdin(stopStdin, func() {
 			out3 = captureStdout(func() {
-				handleCheckVerify("8-test-plan", "test-feature")
+				handleCheckVerify("7-test-plan", "test-feature")
 			})
 		})
 		var r3 subagentStopOutput
@@ -977,7 +976,7 @@ func TestCheckIntegration(t *testing.T) {
 			t.Fatalf("readStatusJSON: %v", err)
 		}
 		pipeline, _ := status["pipeline"].(map[string]interface{})
-		stageData, _ := pipeline["8-test-plan"].(map[string]interface{})
+		stageData, _ := pipeline["7-test-plan"].(map[string]interface{})
 		failures, ok := stageData["check_failures"].([]interface{})
 		if !ok || len(failures) == 0 {
 			t.Fatal("check_failures should be recorded in status.json after max retries")
@@ -992,8 +991,8 @@ func TestCheckIntegration(t *testing.T) {
 
 		// Counter should be reset
 		state, _ := readCheckState(featureDir)
-		if _, ok := state["8-test-plan"]; ok {
-			t.Errorf("counter should be reset after exhaustion, got %d", state["8-test-plan"])
+		if _, ok := state["7-test-plan"]; ok {
+			t.Errorf("counter should be reset after exhaustion, got %d", state["7-test-plan"])
 		}
 	})
 
@@ -1107,15 +1106,15 @@ func TestDetectCurrentStageOrdering(t *testing.T) {
 			`{"feature":"aaa-feature","stage":"1-prd","updated":"2026-01-01T00:00:00Z"}`)
 		// zzz-feature is lexicographically last but updated more recently
 		writeFile(t, filepath.Join(featureB, "status.json"),
-			`{"feature":"zzz-feature","stage":"8-test-plan","updated":"2026-03-25T00:00:00Z"}`)
+			`{"feature":"zzz-feature","stage":"7-test-plan","updated":"2026-03-25T00:00:00Z"}`)
 
 		stage, err := detectCurrentStage(root, "")
 		if err != nil {
 			t.Fatalf("detectCurrentStage: %v", err)
 		}
-		// Should return "8-test-plan" from zzz-feature (most recently updated), not "1-prd" from aaa-feature
-		if stage != "8-test-plan" {
-			t.Errorf("detectCurrentStage = %q, want %q (most recently updated feature)", stage, "8-test-plan")
+		// Should return "7-test-plan" from zzz-feature (most recently updated), not "1-prd" from aaa-feature
+		if stage != "7-test-plan" {
+			t.Errorf("detectCurrentStage = %q, want %q (most recently updated feature)", stage, "7-test-plan")
 		}
 	})
 }
@@ -1162,8 +1161,8 @@ func TestBackwardCompatibility(t *testing.T) {
 	})
 
 	t.Run("stageChecks does not contain ares stage", func(t *testing.T) {
-		if _, ok := stageChecks["9-implementation"]; ok {
-			t.Error("9-implementation should NOT be in stageChecks (Tier 2 deferred)")
+		if _, ok := stageChecks["8-implementation"]; ok {
+			t.Error("8-implementation should NOT be in stageChecks (Tier 2 deferred)")
 		}
 	})
 }

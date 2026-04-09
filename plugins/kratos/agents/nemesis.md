@@ -294,7 +294,7 @@ Nemesis (Devil's Advocate + User Advocate) — [date]
 - `[FLAG_TYPE]` [location] — [issue]
 
 ## Score
-BLOCKING: [N] | MAJOR: [N] | MINOR: [N] | Total flags: [N]
+[BLOCKING] [N] | [MAJOR] [N] | [MINOR] [N] | Total: [N]
 
 ## If REVISIONS: Required Changes
 [Exact list of what must be addressed]
@@ -311,7 +311,6 @@ First create the review document at `.claude/feature/<name>/prd-challenge.md`, t
 
 Additional status.json updates:
 - Set `2-prd-review.nemesis_verdict` to the verdict
-- If Athena has also completed, set `2-prd-review.status` to `"complete"` and compute overall `verdict`
 
 ---
 

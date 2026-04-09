@@ -107,7 +107,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 7-spec-review-sa 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 7-spec-review-sa",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 6-spec-review-sa 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 6-spec-review-sa",
             "timeout": 3000
           }
         ]
@@ -117,7 +117,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 8-test-plan 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 8-test-plan",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 7-test-plan 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 7-test-plan",
             "timeout": 3000
           }
         ]
@@ -127,7 +127,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 10-prd-alignment 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 10-prd-alignment",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 9-prd-alignment 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 9-prd-alignment",
             "timeout": 3000
           }
         ]
@@ -137,7 +137,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 11-review 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 11-review",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --init --stage 10-review 2>/dev/null || ~/.kratos/bin/kratos check --init --stage 10-review",
             "timeout": 3000
           }
         ]
@@ -209,7 +209,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 7-spec-review-sa 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 7-spec-review-sa",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 6-spec-review-sa 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 6-spec-review-sa",
             "timeout": 5000
           }
         ]
@@ -219,7 +219,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 8-test-plan 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 8-test-plan",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 7-test-plan 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 7-test-plan",
             "timeout": 5000
           }
         ]
@@ -229,7 +229,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 10-prd-alignment 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 10-prd-alignment",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 9-prd-alignment 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 9-prd-alignment",
             "timeout": 5000
           }
         ]
@@ -239,7 +239,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 11-review 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 11-review",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/kratos\" check --verify --stage 10-review 2>/dev/null || ~/.kratos/bin/kratos check --verify --stage 10-review",
             "timeout": 5000
           }
         ]

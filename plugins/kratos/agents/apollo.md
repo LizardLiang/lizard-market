@@ -146,7 +146,7 @@ Append this block under `## Revision Requests`:
    
    Additional status updates:
    - Record verdict
-   - If both reviews pass, set `8-test-plan.status` to "ready"
+   - If review passes, set `7-test-plan.status` to "ready"
 
 ---
 

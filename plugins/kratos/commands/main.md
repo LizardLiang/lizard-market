@@ -47,7 +47,6 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 
 | Stage | Agent | Document |
 |-------|-------|----------|
-| 0-research | metis | `.claude/.Arena/*` |
 | 1-prd | athena | `prd.md` |
 | 2-prd-review | nemesis | `prd-challenge.md` |
 | 3-decomposition | daedalus | `decomposition.md` (optional) |
@@ -58,6 +57,8 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 | 8-implementation | ares | `implementation-notes.md` + code |
 | 9-prd-alignment | hera | `prd-alignment.md` |
 | 10-review | hermes + cassandra | `code-review.md` + `risk-analysis.md` |
+
+Optional pre-pipeline research: metis -> `.claude/.Arena/*`
 
 ---
 
@@ -103,7 +104,6 @@ After each agent completes, verify the required document was created before proc
 
 | Stage | Required Document |
 |-------|------------------|
-| 0-research | `.claude/.Arena/*.md` (all 5 files) |
 | 1-prd | `prd.md` |
 | 2-prd-review | `prd-challenge.md` |
 | 3-decomposition | `decomposition.md` |
@@ -123,15 +123,15 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 
 | Stage Complete | Verdict | Next |
 |----------------|---------|------|
-| 1-prd | — | 2-prd-review (athena) |
-| 2-prd-review | All three approved | Complexity check → optional decomposition → optional discuss → 5-tech-spec |
-| 2-prd-review | Any revisions | 1-prd (athena) — all three re-review after rewrite |
-| 2-prd-review | Any rejected | Blocked — escalate to user, fundamental PRD issue |
+| 1-prd | — | 2-prd-review (nemesis) |
+| 2-prd-review | Approved | Complexity check → optional decomposition → optional discuss → 5-tech-spec |
+| 2-prd-review | Revisions | 1-prd (athena) — revise PRD and re-review |
+| 2-prd-review | Rejected | Blocked — escalate to user, fundamental PRD issue |
 | 3-decomposition | Complete/Skipped | 4-discuss gate (offer Themis or skip to 5) |
 | 4-discuss | Complete/Skipped | 5-tech-spec (hephaestus) |
 | 5-tech-spec | — | 6 (apollo) |
-| 6-review | Pass | 7-test-plan (artemis) |
-| 6-review | Issues | 5-tech-spec (hephaestus) |
+| 6-spec-review-sa | Sound | 7-test-plan (artemis) |
+| 6-spec-review-sa | Concerns/Unsound | 5-tech-spec (hephaestus) |
 | 7-test-plan | — | Pre-implementation gate → 8 |
 | 8-implementation | Ares Mode | 9-prd-alignment (hera) |
 | 8-implementation | User Mode | Wait — user completes tasks, then `/kratos:task-complete all` |

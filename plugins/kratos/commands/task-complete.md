@@ -44,7 +44,7 @@ Search for the active feature:
 
 Verify:
 1. Feature exists
-2. Stage 9 (implementation) is active
+2. Stage 8 (implementation) is active
 3. Mode is "user" (User Mode)
 
 ### Step 3: Validate Tasks
@@ -62,7 +62,7 @@ For each valid task:
    ```json
    {
      "pipeline": {
-       "9-implementation": {
+        "8-implementation": {
          "tasks": {
            "items": [
              { "id": "01", "name": "...", "status": "complete" }
@@ -84,7 +84,7 @@ For each valid task:
 
 After updating, check if ALL tasks are complete:
 
-Check if every task in `status.json` `stages["9-implementation"].tasks` has `status: "complete"`.
+Check if every task in `status.json` `pipeline["8-implementation"].tasks` has `status: "complete"`.
 
 ### Step 6: Handle All Complete
 
@@ -92,8 +92,8 @@ When ALL tasks are complete:
 
 1. **Update status.json** via CLI (stamps real timestamps automatically):
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status complete
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-prd-alignment --status ready
+    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-implementation --status complete
+    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-prd-alignment --status ready
    ```
    If the CLI is unavailable, get a real timestamp first:
    ```bash
@@ -102,20 +102,20 @@ When ALL tasks are complete:
    Then write:
    ```json
    {
-     "stage": "10-prd-alignment",
-     "pipeline": {
-       "9-implementation": {
-         "status": "complete",
-         "completed": "$TS"
-       },
-       "10-prd-alignment": {
-         "status": "ready"
-       }
-     }
+      "stage": "9-prd-alignment",
+      "pipeline": {
+        "8-implementation": {
+          "status": "complete",
+          "completed": "$TS"
+        },
+        "9-prd-alignment": {
+          "status": "ready"
+        }
+      }
    }
    ```
 
-2. **Spawn Hera** (PRD alignment check, stage 10):
+2. **Spawn Hera** (PRD alignment check, stage 9):
    ```
    Task(
      subagent_type: "kratos:hera",
@@ -132,7 +132,7 @@ When ALL tasks are complete:
    )
    ```
 
-   If Hera returns **aligned**, immediately spawn Hermes + Cassandra in parallel (stage 11):
+    If Hera returns **aligned**, immediately spawn Hermes + Cassandra in parallel (stage 10):
    ```
    Task(
      subagent_type: "kratos:hermes",
@@ -239,7 +239,7 @@ Available tasks:
 This feature is using Ares Mode (AI implementation).
 The /kratos:task-complete command is only available in User Mode.
 
-Current stage: 9-implementation
+Current stage: 8-implementation
 Mode: ares
 ```
 
@@ -250,8 +250,8 @@ Mode: ares
 
 Cannot mark tasks complete - not in implementation stage.
 
-Current stage: 8-test-plan
-Required stage: 9-implementation
+Current stage: 7-test-plan
+Required stage: 8-implementation
 ```
 
 ---
@@ -263,7 +263,7 @@ Required stage: 9-implementation
 ```json
 {
   "pipeline": {
-    "9-implementation": {
+    "8-implementation": {
       "status": "in-progress",
       "mode": "user",
       "tasks": {

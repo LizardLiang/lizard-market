@@ -18,14 +18,7 @@ All agents that read or update status.json MUST follow this schema.
   "mode": "normal | eco | power",
   "implementation_mode": "ares | user | null",
 
-  "pipeline": {
-    "0-research": {
-      "status": "skipped | in-progress | complete",
-      "agent": "metis",
-      "started": "<ISO8601>",
-      "completed": "<ISO8601>",
-      "documents": ["project-overview.md", "tech-stack.md", "architecture.md", "file-structure.md", "conventions.md"]
-    },
+    "pipeline": {
     "1-prd": {
       "status": "pending | in-progress | complete",
       "agent": "athena",

@@ -71,11 +71,11 @@ func init() {
 
 // Patterns to strip before keyword matching (prevent false positives)
 var stripPatterns = []*regexp.Regexp{
-	regexp.MustCompile("(?s)```.*?```"),                // fenced code blocks
-	regexp.MustCompile("`[^`]+`"),                      // inline code
-	regexp.MustCompile(`<[^>]+>[^<]*</[^>]+>`),         // XML tags with content
-	regexp.MustCompile(`https?://\S+`),                 // URLs
-	regexp.MustCompile(`(?:^|\s)[/\\]\S+`),             // file paths
+	regexp.MustCompile("(?s)```.*?```"),                              // fenced code blocks
+	regexp.MustCompile("`[^`]+`"),                                    // inline code
+	regexp.MustCompile(`<[^>]+>[^<]*</[^>]+>`),                       // XML tags with content
+	regexp.MustCompile(`https?://\S+`),                               // URLs
+	regexp.MustCompile(`(?:^|\s)[/\\]\S+`),                           // file paths
 	regexp.MustCompile(`(?s)<system-reminder>.*?</system-reminder>`), // system reminders
 }
 
@@ -112,7 +112,7 @@ type subagentStopOutput struct {
 
 // preToolUseInput is the JSON Claude Code sends for PreToolUse
 type preToolUseInput struct {
-	ToolName  string             `json:"tool_name"`
+	ToolName  string              `json:"tool_name"`
 	ToolInput preToolUseToolInput `json:"tool_input"`
 }
 
@@ -340,13 +340,13 @@ func handleHermesStart(input subagentStartInput) error {
 	checklist := map[string]interface{}{
 		"agent_id": input.AgentID,
 		"tiers": map[string]bool{
-			"T1_correct":     false,
-			"T2_safe":        false,
-			"T3_clear":       false,
-			"T4_minimal":     false,
-			"T5_consistent":  false,
-			"T6_resilient":   false,
-			"T7_performant":  false,
+			"T1_correct":      false,
+			"T2_safe":         false,
+			"T3_clear":        false,
+			"T4_minimal":      false,
+			"T5_consistent":   false,
+			"T6_resilient":    false,
+			"T7_performant":   false,
 			"T8_maintainable": false,
 		},
 	}
@@ -373,7 +373,7 @@ func handleHermesStart(input subagentStartInput) error {
 }
 
 // findActiveFeatureDir scans .claude/feature/*/status.json and returns the feature folder
-// for the first feature where stage 11-review has status pending, in-progress, or ready.
+// for the first feature where stage 10-review has status pending, in-progress, or ready.
 func findActiveFeatureDir(cwd string) (string, error) {
 	pattern := filepath.Join(cwd, ".claude", "feature", "*", "status.json")
 	matches, err := filepath.Glob(pattern)

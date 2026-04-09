@@ -154,18 +154,18 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 
 | Stage | Agent | Model | Document Created |
 |-------|-------|-------|------------------|
-| 0-research | metis | opus | .claude/.Arena/* |
 | 1-prd | athena | opus | prd.md |
 | 2-prd-review | nemesis | opus | prd-challenge.md |
 | 3-decomposition | daedalus | sonnet | decomposition.md (optional) |
 | 4-discuss | themis | sonnet | context.md (optional) |
 | 5-tech-spec | hephaestus | opus | tech-spec.md |
-| 6-spec-review-pm | athena | opus | spec-review-pm.md |
-| 7-spec-review-sa | apollo | opus | spec-review-sa.md |
-| 8-test-plan | artemis | sonnet | test-plan.md |
-| 9-implementation | ares | sonnet | implementation-notes.md + code |
-| 10-prd-alignment | hera | sonnet | prd-alignment.md |
-| 11-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
+| 6-spec-review-sa | apollo | opus | spec-review-sa.md |
+| 7-test-plan | artemis | sonnet | test-plan.md |
+| 8-implementation | ares | sonnet | implementation-notes.md + code |
+| 9-prd-alignment | hera | sonnet | prd-alignment.md |
+| 10-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
+
+Optional pre-pipeline research: metis -> .claude/.Arena/*
 
 ---
 
@@ -211,13 +211,13 @@ For each stage, follow this pattern:
    - If user accepts, spawn Daedalus → record completion
    - If declined, mark 3-decomposition as skipped
 
-   **Stage 8→9 transition requires mode selection:**
+   **Stage 7→8 transition requires mode selection:**
    - Use AskUserQuestion: "Ares Mode" vs "User Mode"
    - Record decision in memory
 
-   **Stage 10 spawns Hera:**
+   **Stage 9 spawns Hera:**
    - Hera (PRD alignment check) — record spawn and completion
-   - If aligned, Stage 11 spawns two agents in parallel:
+   - If aligned, Stage 10 spawns two agents in parallel:
    - Hermes (code review) + Cassandra (risk analysis) — record both spawns and completions
 
 3. **RECORD POST-COMPLETION**:
@@ -247,25 +247,25 @@ This matches `commands/main.md` exactly:
 
 | Stage Complete | If Verdict | Next Stage | Agent to Spawn |
 |----------------|------------|------------|----------------|
-| 1-prd | - | 2-prd-review | athena (opus) |
+| 1-prd | - | 2-prd-review | nemesis (opus) |
 | 2-prd-review | Approved | DECOMPOSITION CHECK | Kratos judges complexity |
 | 2-prd-review | Revisions | 1-prd | athena (opus) |
 | 3-decomposition | Complete or Skipped | 4-discuss gate | Offer Themis or skip to 5 |
 | 4-discuss | Complete or Skipped | 5-tech-spec | hephaestus (opus) |
-| 5-tech-spec | - | 6 + 7 parallel | athena + apollo (opus) |
-| 6+7 reviews | Both pass | 8-test-plan | artemis (sonnet) |
-| 6 or 7 | Issues | 5-tech-spec | hephaestus (opus) |
-| 8-test-plan | - | ASK MODE | Ask user: Ares Mode vs User Mode |
-| 8-test-plan | Ares Mode | 9-implementation | ares (sonnet) - implement |
-| 8-test-plan | User Mode | 9-implementation | ares (sonnet) - create tasks |
-| 9-implementation | Ares Mode | 10-prd-alignment | hera (sonnet) |
-| 9-implementation | User Mode | WAIT | User completes tasks, then /kratos:task-complete all |
-| 10-prd-alignment | Aligned | 11-review | hermes (opus) + cassandra (sonnet) in parallel |
-| 10-prd-alignment | Gaps | 9-implementation | ares (sonnet) — add missing test coverage |
-| 10-prd-alignment | Misaligned | BLOCKED | Escalate to user |
-| 11-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
-| 11-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first |
-| 11-review | Changes | 9-implementation | ares (sonnet) |
+| 5-tech-spec | - | 6-spec-review-sa | apollo (opus) |
+| 6-spec-review-sa | Sound | 7-test-plan | artemis (sonnet) |
+| 6-spec-review-sa | Concerns/Unsound | 5-tech-spec | hephaestus (opus) |
+| 7-test-plan | - | ASK MODE | Ask user: Ares Mode vs User Mode |
+| 7-test-plan | Ares Mode | 8-implementation | ares (sonnet) - implement |
+| 7-test-plan | User Mode | 8-implementation | ares (sonnet) - create tasks |
+| 8-implementation | Ares Mode | 9-prd-alignment | hera (sonnet) |
+| 8-implementation | User Mode | WAIT | User completes tasks, then /kratos:task-complete all |
+| 9-prd-alignment | Aligned | 10-review | hermes (opus) + cassandra (sonnet) in parallel |
+| 9-prd-alignment | Gaps | 8-implementation | ares (sonnet) - add missing test coverage |
+| 9-prd-alignment | Misaligned | BLOCKED | Escalate to user |
+| 10-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
+| 10-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first |
+| 10-review | Changes | 8-implementation | ares (sonnet) |
 
 ---
 
@@ -328,10 +328,10 @@ All documents:
 ✅ prd.md
 ✅ prd-challenge.md
 ✅ tech-spec.md
-✅ spec-review-pm.md
 ✅ spec-review-sa.md
 ✅ test-plan.md
 ✅ implementation-notes.md
+✅ prd-alignment.md
 ✅ code-review.md
 ✅ risk-analysis.md
 

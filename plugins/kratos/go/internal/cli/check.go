@@ -31,14 +31,14 @@ type stageCheck struct {
 	Files         []string            // files that must exist and be non-empty
 	Verdicts      map[string][]string // file -> accepted verdict strings (lowercase)
 	MaxRetries    int
-	Optional      bool                    // true for stages 3, 4 (skip if status == "skipped")
-	AgentDispatch map[string]stageCheck   // for stage 11: agent_type -> sub-check
+	Optional      bool                  // true for stages 3, 4 (skip if status == "skipped")
+	AgentDispatch map[string]stageCheck // for stage 11: agent_type -> sub-check
 }
 
 // stageChecks is the declarative stage-to-deliverable mapping for all Tier 1 stages.
-// Stage 0-research: excluded (produces Arena files, not feature-scoped deliverables)
+// Optional pre-pipeline research is excluded (produces Arena files, not feature-scoped deliverables)
 // Stage 5-tech-spec: excluded from Tier 1 (dual-hook retry counter interaction risk)
-// Stage 9-implementation: excluded from Tier 1 (Tier 2 deferred; existing Ares gate remains)
+// Stage 8-implementation: excluded from Tier 1 (Tier 2 deferred; existing Ares gate remains)
 var stageChecks = map[string]stageCheck{
 	"1-prd": {
 		Tier:       1,

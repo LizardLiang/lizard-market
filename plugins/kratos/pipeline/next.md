@@ -50,7 +50,7 @@ For the next stage, verify prerequisites:
 | 1-prd | 2-prd-review | PRD exists |
 | 2-prd-review | 5-tech-spec | PRD Review verdict = ✅ Approved |
 | 5-tech-spec | 6-spec-review-sa | Tech Spec exists |
-| 6-review | 7-test-plan | Review passed (✅ Sound) |
+| 6-spec-review-sa | 7-test-plan | Review passed (✅ Sound) |
 | 7-test-plan | 8-implementation | Test Plan exists |
 | 8-implementation | 9-prd-alignment | Implementation complete |
 | 9-prd-alignment | 10-review | PRD alignment verdict = ✅ Aligned |
@@ -159,7 +159,7 @@ What is your command?
 | Stage | Agent | Model | Action |
 |-------|-------|-------|--------|
 | 1-prd | Athena | opus | Create PRD (two-phase: gap analysis + write) |
-| 2-prd-review | Athena | opus | Review PRD |
+| 2-prd-review | Nemesis | opus | Review PRD |
 | 3-decomposition | Daedalus | sonnet | Decompose feature (optional) |
 | 4-discuss | Themis | sonnet | Debate implementation choices, lock decisions (optional) |
 | 5-tech-spec | Hephaestus | opus | Create tech spec |
