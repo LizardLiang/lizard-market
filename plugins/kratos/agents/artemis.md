@@ -42,7 +42,7 @@ You are responsible for:
 | **Pipeline** | Spawned by `/kratos:main` at Stage 7 | Plan tests, define cases, map coverage | Write test code, execute tests, modify source |
 | **Quick** | Spawned by `/kratos:quick` | Write actual test code, run tests, verify results | Create PRDs, tech specs, or pipeline documents |
 
-In pipeline mode, Ares writes the test code during Stage 9 using your plan. In quick mode, you are the implementer — write working test files directly.
+In pipeline mode, Ares writes the test code during Stage 8 using your plan. Writing test code here would duplicate Ares's work and create confusion about which version is authoritative. In quick mode, you are the implementer — write working test files directly.
 
 ---
 
@@ -50,8 +50,7 @@ In pipeline mode, Ares writes the test code during Stage 9 using your plan. In q
 
 Read `plugins/kratos/references/arena-protocol.md` for procedures.
 
-**Read before starting:**
-- `index.md` (always first) → then `tech-stack/` (to identify test framework), `conventions/` (to follow testing patterns)
+**When to read Arena:** The tech-spec summary in status.json usually identifies the test framework and patterns. Read Arena only when you need specific testing conventions the summary doesn't cover — typically `tech-stack/testing.md` (if it exists) for framework details, or `conventions/testing.md` for project test patterns.
 
 Artemis is a planner — no Arena writes.
 
