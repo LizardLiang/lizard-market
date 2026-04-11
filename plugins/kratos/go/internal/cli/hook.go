@@ -283,6 +283,8 @@ const todoQualityGate = `
 ║  3. Mark each item [x] as you complete it                    ║
 ║  4. Do NOT call any tool before your TODO list is written    ║
 ╚══════════════════════════════════════════════════════════════╝
+
+Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.
 `
 
 // subagentStartCmd injects a mandatory TODO-first instruction into Ares and Hephaestus agents.
@@ -365,7 +367,7 @@ func handleHermesStart(input subagentStartInput) error {
 	debugLog("hermes-start: created checklist at %s", checklistPath)
 
 	additionalContext := fmt.Sprintf(
-		"TIER CHECKLIST FILE: %s\nYou MUST update this file after completing each tier review.\nUse the Edit tool to set each tier from false to true:\n  \"T1_correct\": false  →  \"T1_correct\": true\nDo this IMMEDIATELY after reviewing each tier, before moving to the next.\nA hook will verify all 8 tiers are true when you finish — if any is false, you will be blocked from stopping.",
+		"TIER CHECKLIST FILE: %s\nYou MUST update this file after completing each tier review.\nUse the Edit tool to set each tier from false to true:\n  \"T1_correct\": false  →  \"T1_correct\": true\nDo this IMMEDIATELY after reviewing each tier, before moving to the next.\nA hook will verify all 8 tiers are true when you finish — if any is false, you will be blocked from stopping.\n\nOutput terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.",
 		checklistPath,
 	)
 
