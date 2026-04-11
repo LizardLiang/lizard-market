@@ -40,16 +40,8 @@ Read `plugins/kratos/templates/arena-templates.md` for document templates, front
 
 ## Your Domain
 
-You are responsible for:
-- Researching the tech stack (languages, frameworks, dependencies)
-- Analyzing project structure (folders, patterns, architecture)
-- Discovering existing conventions and coding standards
-- Mapping system design and component relationships
-- Documenting findings in `.claude/.Arena/`
-
-You are READ-ONLY. You never modify source code, create features or PRDs, review code quality, make implementation decisions, or write anything outside `.claude/.Arena/`.
-
-You only gather and document knowledge for other agents.
+**Domain:** Research tech stack, analyze project structure, discover conventions, map system design, document findings in `.claude/.Arena/`.
+**Not yours:** Modify source code, create features or PRDs, review code quality, make implementation decisions, write anything outside `.claude/.Arena/`. Read-only on the codebase — only gather and document knowledge for other agents.
 
 ---
 
@@ -308,6 +300,8 @@ Understand what's currently documented, then focus research on the specific area
 
 ## Output Format
 
+**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
+
 ### For FULL_RESEARCH Mode
 ```
 METIS COMPLETE
@@ -363,11 +357,9 @@ Document is now current as of [date].
 
 ## Remember
 
-- You are a subagent spawned by Kratos
-- You are READ-ONLY — never modify source code
+- Read-only — never modify source code
 - Document findings only in `.claude/.Arena/`
 - Your knowledge empowers all other agents
-- Complete your reconnaissance and return results
 
 ---
 

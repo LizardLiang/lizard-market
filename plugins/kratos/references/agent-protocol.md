@@ -1,18 +1,18 @@
 # Agent Protocol — Shared Procedures
 
-This document contains procedures shared across all Kratos agents. Read the sections relevant to your mission.
+Procedures shared across all Kratos agents. Read sections relevant to your mission.
 
 ---
 
 ## Path Resolution
 
-All paths in agent instructions (e.g., `plugins/kratos/templates/...`, `plugins/kratos/references/...`, `.claude/feature/...`) are relative to the **project root** (the git repository root). When reading templates, references, or feature files, resolve paths from the project root, not from the plugin directory.
+All paths in agent instructions (e.g., `plugins/kratos/templates/...`, `plugins/kratos/references/...`, `.claude/feature/...`) are relative to the **project root** (git repository root). Resolve from project root, not plugin directory.
 
 ---
 
 ## Document Selection
 
-Choose documents based on the decision you are making; do not mechanically read every possible input.
+Choose documents based on the decision you are making; don't mechanically read every input.
 
 - Use `status.json` for stage state, summaries, and quick context
 - Use `prd.md` for requirements, acceptance criteria, and product intent
@@ -21,13 +21,13 @@ Choose documents based on the decision you are making; do not mechanically read 
 - Use `decomposition.md` for task ordering, waves, and phase boundaries
 - Use Arena/codebase reads only to verify a specific convention, dependency, or implementation pattern
 
-Avoid rereading the same document unless you need a section you have not already captured.
+Avoid rereading the same document unless you need a section not already captured.
 
 ---
 
 ## Missing Required Input
 
-If you need a file and it is missing, do not improvise, recreate it, or continue with assumptions unless you are the agent responsible for producing that file.
+If you need a file and it is missing, don't improvise, recreate it, or continue with assumptions unless you are the agent responsible for producing that file.
 
 1. Stop the current task
 2. Report the blocker to Kratos/orchestrator
@@ -41,12 +41,12 @@ Optional files (`context.md`, `decomposition.md`, Arena shards, language-specifi
 
 ## Document Creation
 
-Your primary deliverable is a document file. Kratos verifies this file exists after you complete — if it's missing, Kratos will re-spawn you to try again, wasting time and tokens. To avoid this:
+Your primary deliverable is a document file. Kratos verifies this file exists after you complete — if missing, Kratos will re-spawn you, wasting time and tokens.
 
-1. Create the document file early in your mission (even a skeleton) and fill it as you work
+1. Create the document file early (even a skeleton) and fill it as you work
 2. Before reporting completion, verify the file EXISTS using `Read` or `Glob`
 3. Verify the document has complete content (not empty or partial)
-4. Update `status.json` via the CLI (see below) and confirm the stage status is `complete`
+4. Update `status.json` via the CLI (see below) and confirm stage status is `complete`
 
 ---
 
@@ -54,7 +54,7 @@ Your primary deliverable is a document file. Kratos verifies this file exists af
 
 **Never write `<ISO-timestamp>` placeholders.** Always use a real timestamp.
 
-**Preferred**: Let `kratos pipeline update` stamp timestamps automatically (it always uses real time).
+**Preferred**: Let `kratos pipeline update` stamp timestamps automatically (always uses real time).
 
 **When you must write a timestamp manually** (e.g., fallback JSON edits or nested fields the CLI doesn't cover):
 
@@ -69,7 +69,7 @@ Then use `$TS` wherever the schema expects `<ISO8601>`:
 { "started": "2026-03-30T14:05:00Z", "completed": "2026-03-30T14:07:30Z" }
 ```
 
-The `kratos now` command outputs RFC3339 with local timezone offset (e.g., `2026-03-30T22:05:00+08:00`). The `date` fallback outputs UTC. Both are valid ISO8601.
+`kratos now` outputs RFC3339 with local timezone offset (e.g., `2026-03-30T22:05:00+08:00`). `date` fallback outputs UTC. Both are valid ISO8601.
 
 ---
 
@@ -107,7 +107,7 @@ Update pipeline status using the exact command format below. Do NOT improvise fl
 ~/.kratos/bin/kratos pipeline update --feature auth-system --stage 2-prd-review --status complete --verdict approved --document prd-review.md
 ```
 
-**Why Two Steps**: This ensures `started` and `completed` have different timestamps, preventing zero-duration work periods that appear fabricated.
+**Why Two Steps**: Ensures `started` and `completed` have different timestamps, preventing zero-duration work periods that appear fabricated.
 
 - If the command outputs JSON → done. Do NOT also write status.json manually.
 - If the command is not found or errors → fall back to editing status.json directly using `kratos now` for timestamps.
@@ -145,4 +145,10 @@ SESSION_ID=$(~/.kratos/bin/kratos session active "$PROJECT" 2>/dev/null | grep -
 ~/.kratos/bin/kratos step record-file "$SESSION_ID" "path/to/file" "created"
 ```
 
-If the binary is unavailable, skip session tracking silently — it's useful but not critical.
+If the binary is unavailable, skip session tracking silently — useful but not critical.
+
+---
+
+## Boundaries (all agents)
+
+Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.md`. Complete mission and return.
