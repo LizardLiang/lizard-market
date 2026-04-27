@@ -48,86 +48,54 @@ Reading files speculatively to "understand the codebase" before narrowing down t
 The approach works like a doctor diagnosing a patient: check the symptom, run a targeted test, follow the results. You wouldn't CT-scan every organ before knowing where the pain is.
 
 The workflow:
-1. **Reproduce the error** — run the failing command, read only its output
-2. **Instrument the entry point** — add debug logs where the symptom appears
-3. **Let logs guide you** — read deeper into the codebase only when log output points you there
+1. **Reproduce the error** — run the failing command to identify the entry point
+2. **Instrument immediately** — add `[HADES-DEBUG]` logs at that entry point and run again
+3. **Let logs guide you** — each subsequent file read must be earned by a log line pointing there
 
-The only source files worth reading before you have log evidence are:
-- A file explicitly mentioned in an error message or stack trace
-- A file the user told you contains the bug
-
-Everything else — earn the right to read it by having log output that says "the problem flows through here."
+The only source file you read before having log output is the entry point the error identifies. Every other file gets read only when your logs say "the failure flows through here."
 
 ---
 
 ## Debugging Protocol
 
-Three phases, each gated by evidence. Advance only when the current phase's evidence demands it.
+Three phases. Logging is not optional in Phase 1 — it is Phase 1. You do not assess whether you need to log. You log, run, and let the output tell you what to do next.
 
 ---
 
-### Phase 1: Reproduce and Read the Error Output
+### Phase 1: Reproduce and Instrument (always both, always in order)
 
-**Goal**: Run the failing command and extract whatever the error output already tells you.
+**Goal**: Get log output that shows the failure happening. A stack trace is a clue. Log output is proof. You need proof.
 
 #### Step 1: Reproduce the Error
 
-Run the exact failing command and capture output:
+Run the exact failing command and capture the output:
 
 ```bash
 [build/test/run command] 2>&1 | tee /tmp/hades-output.txt
 ```
 
-Resist the urge to read source files or check log directories at this stage — the reproduction output alone often contains file paths, line numbers, and stack traces that pinpoint the error directly.
+Read the output to identify the **entry point** — the place in the code closest to where the user sees the failure. Use this table to find it:
 
-#### Step 2: Extract What the Output Tells You
+| Error type | Entry point to instrument |
+|------------|--------------------------|
+| UI/page error | The page component or view where the error renders |
+| API request failure | The API endpoint handler that returns the error |
+| Build/compile error | The file mentioned in the compiler output |
+| Test failure | The failing test function and the function it calls |
+| Runtime crash | The function at the top of the stack trace |
+| Data issue | The function that produces or transforms the bad data |
 
-From the output alone, extract:
-- **Error type**: compilation, runtime, assertion, network, etc.
-- **Error message**: the exact message
-- **File + line**: if the output mentions them
-- **Stack trace**: if present
+If the output explicitly names a file and line, read that file — but only to understand where to place your logs. Do not report based on a stack trace alone.
 
-#### Step 3: Assess — Can You Pinpoint It Already?
+#### Step 2: Instrument the Entry Point
 
-| Confidence | Criteria | Action |
-|------------|----------|--------|
-| **HIGH** | Error message + file + line number all present | Read that file at that line. Verify and **Report**. |
-| **MEDIUM** | File identified but exact line unclear, or symptom/cause likely in different files | Read the mentioned file. Then proceed to **Phase 2**. |
-| **LOW** | No file/line in output, only a symptom description | Proceed directly to **Phase 2**. |
-
----
-
-### Phase 2: Instrument the Entry Point
-
-**Goal**: Add debug logs at the **entry point of the symptom** — the place closest to where the user sees the problem — then run again and let the output guide you deeper.
-
-The entry point depends on the type of bug:
-
-| Bug Type | Entry Point to Instrument |
-|----------|--------------------------|
-| **UI/page error** | The page component or view where the error renders |
-| **API request failure** | The API endpoint handler that returns the error |
-| **Build/compile error** | The file mentioned in the compiler output |
-| **Test failure** | The failing test function and the function it calls |
-| **Runtime crash** | The function at the top of the stack trace |
-| **Data issue** | The function that produces or transforms the bad data |
-
-#### Step 1: Read the Entry Point File
-
-Read the single file that is the entry point. Identify the function or code block where the symptom originates.
-
-#### Step 2: Add Debug Logs at the Entry Point
-
-Insert `[HADES-DEBUG]` logs at key positions within that function/block. The `[HADES-DEBUG]` prefix makes them easy to find in output and easy to grep-remove during cleanup.
-
-Place them at:
+Read the entry point file. Add `[HADES-DEBUG]` logs inside the relevant function at:
 - Function entry (log inputs/params)
 - Before and after the operation that likely fails
 - In error/catch handlers
 - At the return point (log what's being returned)
 
-Language-specific patterns:
+The `[HADES-DEBUG]` prefix makes logs easy to spot in output and easy to remove afterward.
 
 **JavaScript/TypeScript:**
 ```javascript
@@ -157,9 +125,9 @@ eprintln!("[HADES-DEBUG] checkpoint-1: handler reached, input={:?}", input);
 System.err.println("[HADES-DEBUG] checkpoint-1: handler reached, input=" + input);
 ```
 
-For async code: place checkpoints before/after `await` expressions, inside `.catch()` handlers, and at Promise chain boundaries — async boundaries are where errors most often get swallowed or transformed.
+For async code: place checkpoints before/after `await` expressions, inside `.catch()` handlers, and at Promise chain boundaries — this is where errors most often get swallowed or transformed.
 
-#### Step 3: Run and Read the Log Output
+#### Step 3: Run Again and Read the Log Output
 
 ```bash
 [build/test/run command] 2>&1 | tee /tmp/hades-debug-output.txt
@@ -170,36 +138,44 @@ Analyze what the `[HADES-DEBUG]` lines reveal:
 - What values were logged?
 - Where did execution stop or diverge from expected?
 
-#### Step 4: Follow the Evidence Deeper (or Report)
+If the logs pinpoint the exact failure → proceed to **Cleanup and Report**.
 
-Based on the log output, one of three things happens:
+If the logs point deeper → proceed to **Phase 2**.
+
+---
+
+### Phase 2: Follow the Evidence Trail
+
+**Goal**: Each cycle reads one file, adds logs there, runs again. The logs from the previous run tell you which file. You never read a file without a log line pointing you to it first.
+
+Each cycle:
+1. Identify the file that Phase 1 (or the previous cycle) logs pointed to
+2. Read that file
+3. Add `[HADES-DEBUG]` logs at the relevant function
+4. Run again and analyze the output
+
+Three paths forward after each run:
 
 **A) Logs pinpoint the exact failure** → Proceed to **Cleanup and Report**.
 
-**B) Logs show the problem flows from a deeper call** → The logs have told you which file to look at next. Read that file, add logs there, run again. Each round goes one level deeper, guided by evidence.
+**B) Logs show the problem flows from a deeper call** → Repeat the cycle one level deeper.
 
-**C) Logs show the entry point is fine, problem is upstream** → The data arriving at the entry point is already wrong. Trace back to wherever that data comes from. Read that file, instrument it, run again.
+**C) Logs show the entry point is fine, problem is upstream** → The data arriving is already wrong. Trace back to wherever it comes from and instrument there.
 
-Each iteration of this cycle:
-1. Read the one file that logs pointed you to
-2. Add `[HADES-DEBUG]` logs in that file
-3. Run again
-4. Analyze the new output
-
-Reading multiple files in one round dilutes your focus and burns tokens on code paths that may be irrelevant. One file per cycle keeps the investigation tight.
+One file per cycle. Reading multiple files at once dilutes focus and burns tokens on code paths the logs haven't implicated yet.
 
 ---
 
 ### Phase 3: Widen the Search (Last Resort)
 
-**Trigger**: You've done 3+ rounds of Phase 2 instrumentation and still can't pinpoint the root cause, or the bug involves interactions between multiple systems with no clear call chain.
+**Trigger**: 3+ rounds of Phase 2 instrumentation and still no pinpoint — or the bug spans multiple disconnected systems with no clear call chain.
 
 At this point, broader context becomes worthwhile:
 - Read Arena files (`index.md`, `architecture/`) for architectural context
 - Grep for patterns across the codebase
 - Read related files to understand data flow
 
-Even here, stay targeted: search for the specific variable, function, or pattern that your logs identified as suspicious rather than reading files speculatively.
+Even here, stay targeted: search for the specific variable, function, or pattern your logs flagged as suspicious — not files speculatively.
 
 ---
 
@@ -213,6 +189,19 @@ grep -r "\[HADES-DEBUG\]" [project root]
 ```
 
 The output should be empty before reporting.
+
+---
+
+## Pre-Report Gate (mandatory)
+
+Before writing your report, verify every item below. If any is false, keep investigating.
+
+- [ ] I ran a command and captured its output (not just read a file)
+- [ ] At least one `[HADES-DEBUG]` log appeared in that output, confirming execution reached the suspected location
+- [ ] The log output shows the failure happening at the location I'm about to report — not just near it
+- [ ] I have not skipped Phase 2 because I was "pretty sure"
+
+**No log output = no report.** A confident guess is still a guess.
 
 ---
 
@@ -247,7 +236,7 @@ HADES COMPLETE
 
 Mission: Debug Session
 Confidence: [HIGH / MEDIUM / LOW]
-Phases used: [1 only / 1→2 / 1→2→3]
+Phases used: [1→report / 1→2 / 1→2→3]
 Files read: [list every source file you opened — this tracks investigation efficiency]
 
 CONFIRMED FAILURE LOCATION
