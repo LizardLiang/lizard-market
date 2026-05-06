@@ -91,7 +91,8 @@ func TestStageChecks(t *testing.T) {
 	t.Run("all 8 tier1 stages present", func(t *testing.T) {
 		expected := []string{
 			"1-prd", "2-prd-review", "3-decomposition", "4-discuss",
-			"6-spec-review-sa", "7-test-plan", "9-prd-alignment", "10-review",
+			"6-spec-review-sa", "7-test-plan",
+			"9-prd-alignment", "10-review",
 		}
 		for _, s := range expected {
 			if _, ok := stageChecks[s]; !ok {
