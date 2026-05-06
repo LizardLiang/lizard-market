@@ -31,11 +31,11 @@ In power mode, ALL agents use Opus:
 | **Metis** | sonnet | **opus** | Research |
 | **Athena** | opus | **opus** | PRD |
 | **Hephaestus** | opus | **opus** | Tech Spec |
-| **Apollo** | sonnet | **opus** | SA Review |
+| **Apollo** | opus | **opus** | SA Review |
 | **Artemis** | sonnet | **opus** | Test Planning |
 | **Ares** | sonnet | **opus** | Implementation |
 | **Hera** | sonnet | **opus** | PRD Alignment |
-| **Hermes** | sonnet | **opus** | Code Review |
+| **Hermes** | opus | **opus** | Code Review |
 
 **Summary**: 8 Opus / 0 Sonnet / 0 Haiku
 
@@ -62,17 +62,17 @@ For full pipeline features in power mode:
 
 | Stage | Agent | Normal | Power |
 |-------|-------|--------|-------|
-| 0-research | Metis | sonnet | **opus** |
 | 1-prd | Athena | opus | **opus** |
-| 2-prd-review | Athena | opus | **opus** |
+| 2-prd-review | Nemesis | opus | **opus** |
 | 3-decomposition | Daedalus | sonnet | **opus** |
-| 4-discuss | Themis | sonnet | **opus** |
-| 5-tech-spec | Hephaestus | opus | **opus** |
-| 7-spec-review-sa | Apollo | sonnet | **opus** |
-| 8-test-plan | Artemis | sonnet | **opus** |
-| 9-implementation | Ares | sonnet | **opus** |
-| 10-prd-alignment | Hera | sonnet | **opus** |
-| 11-review | Hermes | sonnet | **opus** |
+| 4-tech-spec | Hephaestus | opus | **opus** |
+| 5-spec-review-sa | Apollo | opus | **opus** |
+| 6-test-plan | Artemis | sonnet | **opus** |
+| 7-implementation | Ares | sonnet | **opus** |
+| 8-prd-alignment | Hera | sonnet | **opus** |
+| 9-review | Hermes | opus | **opus** |
+
+Optional pre-pipeline research: Metis -> **opus**
 
 ---
 
@@ -96,7 +96,7 @@ Use `opus` for ALL agents:
 ```
 Task(
   subagent_type: "kratos:[agent]",
-  model: "claude-opus-4-6",
+  model: "opus",
   prompt: "POWER MODE. Execute:
 
 MISSION: [task]

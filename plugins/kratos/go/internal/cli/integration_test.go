@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -296,11 +297,11 @@ func TestQueryPerformance(t *testing.T) {
 	err := InitCmd().Execute()
 	require.NoError(t, err)
 
-	// Create many sessions
+	// Create many sessions (each on a unique project path to avoid active-session conflict)
 	numSessions := 100
 	for i := 0; i < numSessions; i++ {
 		startCmd := SessionStartCmd()
-		startCmd.SetArgs([]string{"/test/project", "feature-" + string(rune(i))})
+		startCmd.SetArgs([]string{"/test/project-" + strconv.Itoa(i), "feature-" + strconv.Itoa(i)})
 		var output bytes.Buffer
 		startCmd.SetOut(&output)
 		err := startCmd.Execute()

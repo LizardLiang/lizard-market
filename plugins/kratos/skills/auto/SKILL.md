@@ -1,15 +1,10 @@
 ---
 name: auto
 description: >-
-  Kratos orchestrator that MUST be used whenever the user mentions "Kratos",
-  any Greek god-agent name (Athena, Ares, Metis, Apollo, Artemis, Hermes,
-  Hephaestus, Daedalus, Clio, Mimir), or says "continue", "next stage", "next
-  step" when a Kratos feature pipeline is active (has .claude/feature/*/status.json).
-  Also use this skill when the user asks about features, PRDs, specs,
-  tech specs, code reviews, or implementation pipelines — even if they don't
-  explicitly say "Kratos". This is the primary entry point for all multi-agent
-  orchestrated development work. When in doubt about whether to activate this
-  skill, activate it.
+  Kratos orchestrator activated by: "Kratos" keyword, god-agent names (Athena,
+  Ares, Metis, Apollo, Artemis, Hermes, Hephaestus, Daedalus, Clio, Mimir),
+  "continue"/"next stage" during active pipelines, or queries about features,
+  PRDs, specs, code reviews, and implementation. When unsure, activate.
 ---
 
 # Kratos: Auto Mode

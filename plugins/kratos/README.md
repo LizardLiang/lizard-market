@@ -173,22 +173,22 @@ Tailor Kratos's power to your needs by prefixing any request:
 
 ## The Pipeline (Complex Features)
 
-For building new features, Kratos follows an 11-stage divine path:
+For building new features, Kratos follows a 10-stage divine path:
 
 ```
-[0] Research (Metis, optional)
 [1] PRD (Athena)
-[2] PRD Review (Athena)
+[2] PRD Review (Nemesis)
 [3] Decompose (Daedalus, optional)
 [4] Discuss (Themis, optional) ← locks decisions before Hephaestus specs
-[5] Tech Spec (Hephaestus)
-[6] PM Review (Athena) ─┐ parallel
-[7] SA Review (Apollo)  ─┘
-[8] Test Plan (Artemis)
-[9] Implementation (Ares)
-[10] PRD Alignment (Hera)
-[11] Review (Hermes + Cassandra)
+[4] Tech Spec (Hephaestus)
+[5] SA Review (Apollo)
+[6] Test Plan (Artemis)
+[7] Implementation (Ares)
+[8] PRD Alignment (Hera)
+[9] Review (Hermes + Cassandra)
 ```
+
+Optional pre-pipeline research: Metis
 
 Pipeline state is tracked in `.claude/feature/<name>/status.json`. When the Kratos binary is installed, agents use `kratos pipeline update` to write real timestamps and maintain history. Without the binary, agents fall back to editing the file directly.
 

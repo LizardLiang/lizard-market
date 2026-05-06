@@ -29,7 +29,7 @@
 
 ### Cassandra — Risk Analyst
 - **Purpose**: Pre-ship risk analysis. Surfaces security holes (OWASP), breaking changes, edge cases, scalability cliffs (N+1, unbounded loops), dependency CVEs.
-- **Pipeline position**: Stage 8 — spawned in parallel with Hermes by the parent orchestrator. Both results merged before returning to user.
+- **Pipeline position**: Stage 7 — spawned in parallel with Hermes by the parent orchestrator. Both results merged before returning to user.
 - **Also available standalone**: `/kratos:audit` for on-demand deep scans outside the pipeline.
 - **Scope**: changed files in pipeline mode; full codebase in audit mode.
 - **Output**: severity-rated findings (Critical / High / Medium / Low)

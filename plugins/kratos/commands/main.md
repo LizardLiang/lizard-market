@@ -22,17 +22,16 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 | Agent | Model | Domain | Stages |
 |-------|-------|--------|--------|
 | **metis** | sonnet | Project research, codebase analysis | 0 (Pre-flight) |
-| **athena** | opus | PRD creation | 1 |
-| **nemesis** | sonnet | Adversarial PRD review (devil's advocate + user advocate) | 2 (parallel) |
+| **athena** | opus | PRD creation, PM reviews | 1, 2 (parallel) |
+| **nemesis** | opus | Adversarial PRD review (devil's advocate + user advocate) | 2 (parallel) |
 | **daedalus** | sonnet | Feature decomposition | 3 (optional) |
-| **themis** | sonnet | Implementation discuss, decision locking | 4 (optional) |
 | **hephaestus** | opus | Technical specifications | 5 |
-| **apollo** | opus | Architecture review | 7 |
-| **artemis** | sonnet | Test planning | 8 |
-| **ares** | sonnet | Implementation | 9 |
-| **hera** | sonnet | PRD alignment verification | 10 |
-| **hermes** | opus | Code review | 11 |
-| **cassandra** | sonnet | Risk analysis | 11 (parallel with hermes) |
+| **apollo** | opus | Architecture review | 6 |
+| **artemis** | sonnet | Test planning | 7 |
+| **ares** | sonnet | Implementation | 8 |
+| **hera** | sonnet | PRD alignment verification | 9 |
+| **hermes** | opus | Code review | 10 |
+| **cassandra** | sonnet | Risk analysis | 10 (parallel with hermes) |
 
 ---
 
@@ -40,23 +39,24 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 
 ```
 [0] Research (opt) → [1] PRD → [2] PRD Review → [3] Decompose (opt)
-  → [4] Discuss/Themis (opt) → [5] Tech Spec → [7] Spec Review SA
-  → [8] Test Plan → [9] Implement → [10] PRD Alignment → [11] Review → VICTORY
+  → [4] Tech Spec → [5] Spec Review SA 
+  → [6] Test Plan → [7] Implement → [8] PRD Alignment 
+  → [9] Review → VICTORY
 ```
 
 | Stage | Agent | Document |
 |-------|-------|----------|
-| 0-research | metis | `.claude/.Arena/*` |
 | 1-prd | athena | `prd.md` |
 | 2-prd-review | nemesis | `prd-challenge.md` |
 | 3-decomposition | daedalus | `decomposition.md` (optional) |
-| 4-discuss | themis | `context.md` (optional) |
-| 5-tech-spec | hephaestus | `tech-spec.md` |
-| 7-spec-review-sa | apollo | `spec-review-sa.md` |
-| 8-test-plan | artemis | `test-plan.md` |
-| 9-implementation | ares | `implementation-notes.md` + code |
-| 10-prd-alignment | hera | `prd.md` (Section 10 updated) |
-| 11-review | hermes + cassandra | `code-review.md` + `risk-analysis.md` |
+| 4-tech-spec | hephaestus | `tech-spec.md` |
+| 5-spec-review-sa | apollo | `spec-review-sa.md` |
+| 6-test-plan | artemis | `test-plan.md` |
+| 7-implementation | ares | `implementation-notes.md` + code |
+| 8-prd-alignment | hera | `prd-alignment.md` |
+| 9-review | hermes + cassandra | `code-review.md` + `risk-analysis.md` |
+
+Optional pre-pipeline research: metis -> `.claude/.Arena/*`
 
 ---
 
@@ -102,17 +102,15 @@ After each agent completes, verify the required document was created before proc
 
 | Stage | Required Document |
 |-------|------------------|
-| 0-research | `.claude/.Arena/*.md` (all 5 files) |
 | 1-prd | `prd.md` |
 | 2-prd-review | `prd-challenge.md` |
 | 3-decomposition | `decomposition.md` |
-| 4-discuss | `context.md` |
-| 5-tech-spec | `tech-spec.md` |
-| 7-spec-review-sa | `spec-review-sa.md` |
-| 8-test-plan | `test-plan.md` |
-| 9-implementation | `implementation-notes.md` or `tasks/*.md` |
-| 10-prd-alignment | `prd.md` (Section 10 updated) |
-| 11-review | `code-review.md` + `risk-analysis.md` |
+| 4-tech-spec | `tech-spec.md` |
+| 5-spec-review-sa | `spec-review-sa.md` |
+| 6-test-plan | `test-plan.md` |
+| 7-implementation | `implementation-notes.md` or `tasks/*.md` |
+| 8-prd-alignment | `prd-alignment.md` |
+| 9-review | `code-review.md` + `risk-analysis.md` |
 
 If the document is missing, re-spawn the same agent — agents sometimes fail silently. Never proceed to the next stage with a missing artifact.
 
@@ -122,28 +120,27 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 
 | Stage Complete | Verdict | Next |
 |----------------|---------|------|
-| 1-prd | — | 2-prd-review (athena) |
-| 2-prd-review | All three approved | Complexity check → optional decomposition → optional discuss → 5-tech-spec |
-| 2-prd-review | Any revisions | 1-prd (athena) — all three re-review after rewrite |
-| 2-prd-review | Any rejected | Blocked — escalate to user, fundamental PRD issue |
-| 3-decomposition | Complete/Skipped | 4-discuss gate (offer Themis or skip to 5) |
-| 4-discuss | Complete/Skipped | 5-tech-spec (hephaestus) |
-| 5-tech-spec | — | 7-spec-review-sa (apollo) |
-| 7-spec-review-sa | sound/concerns | 8-test-plan (artemis) |
-| 7-spec-review-sa | unsound | 5-tech-spec (hephaestus) |
-| 8-test-plan | — | Pre-implementation gate → 9 |
-| 9-implementation | Ares Mode | 10-prd-alignment (hera) |
-| 9-implementation | User Mode | Wait — user completes tasks, then `/kratos:task-complete all` |
-| 10-prd-alignment | Aligned | 11-review (hermes + cassandra parallel) |
-| 10-prd-alignment | Gaps | 9-implementation (ares) — add missing test coverage |
-| 10-prd-alignment | Misaligned | Blocked — escalate to user, fundamental scope issue |
-| 11-review | Approved + risk CLEAR/CAUTION | VICTORY |
-| 11-review | Approved + risk CRITICAL | Blocked — fix risks, re-run stage 11 |
-| 11-review | Changes Required | 9-implementation (ares) |
+| 1-prd | — | 2-prd-review (nemesis) |
+| 2-prd-review | Approved | Complexity check → optional decomposition → optional discuss → 4-tech-spec |
+| 2-prd-review | Revisions | 1-prd (athena) — revise PRD and re-review |
+| 2-prd-review | Rejected | Blocked — escalate to user, fundamental PRD issue |
+| 3-decomposition | Complete/Skipped | 4-tech-spec (hephaestus — 4-sub-phase: directive → metis scan → approaches + gray areas → spec) |
+| 4-tech-spec | — | 6 (apollo) |
+| 5-spec-review-sa | Sound | 6-test-plan (artemis) |
+| 5-spec-review-sa | Concerns/Unsound | 4-tech-spec (hephaestus) |
+| 6-test-plan | — | Pre-implementation gate → 8 |
+| 7-implementation | Ares Mode | 8-prd-alignment (hera) |
+| 7-implementation | User Mode | Wait — user completes tasks, then `/kratos:task-complete all` |
+| 8-prd-alignment | Aligned | 9-review (hermes + cassandra parallel) |
+| 8-prd-alignment | Gaps | 7-implementation (ares) — add missing test coverage |
+| 8-prd-alignment | Misaligned | Blocked — escalate to user, fundamental scope issue |
+| 9-review | Approved + risk CLEAR/CAUTION | VICTORY |
+| 9-review | Approved + risk CRITICAL | Blocked — fix risks, re-run stage 9 |
+| 9-review | Changes Required | 7-implementation (ares) |
 
-### Optional Stage Gates (3 and 4)
+### Optional Stage Gates (3)
 
-After Stage 2 APPROVED verdict, Kratos offers Stage 3 (Decompose) based on complexity signals. After Stage 3 (complete or skipped), Kratos offers Stage 4 (Discuss) for decision locking. Both are optional — the user may skip either and proceed directly to Stage 5.
+After Stage 2 APPROVED verdict, Kratos offers Stage 3 (Decompose) based on complexity signals. Stage 3 is optional — the user may skip it and proceed directly to Stage 4.
 
 ---
 
@@ -166,7 +163,7 @@ Summoning: [AGENT] (model: [opus/sonnet])
 Document: [path]
 Verdict: [if applicable]
 
-Pipeline: [1]✅ → [2]✅ → [3]🔄 → [4]⏳ → [5]⏳ → [7]🔒 → [8]🔒 → [9]🔒 → [10]🔒 → [11]🔒
+Pipeline: [1]✅ → [2]✅ → [3]🔄 → [4]⏳ → [4]⏳ → [5]🔒 → [6]🔒 → [7]🔒 → [8]🔒 → [9]🔒
 
 Next: [stage] — [agent]
 Continue?
@@ -189,9 +186,48 @@ Feature [name] is COMPLETE!
 
 ✅ prd.md  ✅ prd-challenge.md  ✅ tech-spec.md
 ✅ spec-review-sa.md  ✅ test-plan.md
-✅ implementation-notes.md  ✅ prd.md (alignment section)
+✅ implementation-notes.md  ✅ prd-alignment.md
 ✅ code-review.md  ✅ risk-analysis.md
 ```
+
+---
+
+## Dispatch Handler
+
+After spawning any agent, check if the result contains `DISPATCH_TO:`. This signals an intra-stage sub-delegation — the agent needs a specialist before it can continue.
+
+**When `DISPATCH_TO:` is present:**
+
+1. Extract from the result:
+   - `DISPATCH_TO` — which agent to spawn next
+   - `DISPATCH_PHASE` — which phase/mission to give them
+   - `DISPATCH_RETURN_TO` — which agent gets the result
+   - `DISPATCH_RETURN_PHASE` — which phase to resume with
+   - `METIS_SEARCH_DIRECTIVE` (or equivalent `DISPATCH_CONTEXT` block)
+   - `RESUME_CONTEXT` — store this; it gets re-injected when the return agent is spawned
+
+2. Spawn the dispatch target using model `haiku` (dispatch targets are always cost-optimized specialists):
+   ```
+   Task(
+     subagent_type: "kratos:[DISPATCH_TO]",
+     model: "haiku",
+     prompt: "MISSION: [DISPATCH_PHASE]
+   [DISPATCH_CONTEXT block pasted verbatim]"
+   )
+   ```
+
+3. When the target returns, spawn the return agent:
+   ```
+   Task(
+     subagent_type: "kratos:[DISPATCH_RETURN_TO]",
+     model: "[normal model for that agent]",
+     prompt: "PHASE: [DISPATCH_RETURN_PHASE]
+   [RESUME_CONTEXT pasted verbatim]
+   [target agent result pasted verbatim]"
+   )
+   ```
+
+This handler is generic — it works for any future agent that includes a `DISPATCH_TO:` block, not just Hephaestus→Metis.
 
 ---
 

@@ -48,14 +48,13 @@ For the next stage, verify prerequisites:
 | Current Stage | Next Stage | Gate Requirement |
 |---------------|------------|------------------|
 | 1-prd | 2-prd-review | PRD exists |
-| 2-prd-review | 5-tech-spec | PRD Review verdict = ✅ Approved |
-| 5-tech-spec | 6-spec-review-pm | Tech Spec exists |
-| 5-tech-spec | 7-spec-review-sa | Tech Spec exists |
-| 6+7-reviews | 8-test-plan | Both reviews passed (✅ Aligned + ✅ Sound) |
-| 8-test-plan | 9-implementation | Test Plan exists |
-| 9-implementation | 10-prd-alignment | Implementation complete |
-| 10-prd-alignment | 11-review | PRD alignment verdict = ✅ Aligned |
-| 11-review | DONE | Code Review verdict = ✅ Approved |
+| 2-prd-review | 4-tech-spec | PRD Review verdict = ✅ Approved |
+| 4-tech-spec | 5-spec-review-sa | Tech Spec exists |
+| 5-spec-review-sa | 6-test-plan | Review passed (✅ Sound) |
+| 6-test-plan | 7-implementation | Test Plan exists |
+| 7-implementation | 8-prd-alignment | Implementation complete |
+| 8-prd-alignment | 9-review | PRD alignment verdict = ✅ Aligned |
+| 9-review | DONE | Code Review verdict = ✅ Approved |
 
 ### Step 4: Take Action
 
@@ -81,20 +80,16 @@ Then actually invoke the appropriate skill/command.
 ```
 ⚔️ KRATOS: GATE BLOCKED ⚔️
 
-Current Stage: 3 - Tech Spec (complete)
-Next Stage: 6 - Test Plan
+Current Stage: 5 - Tech Spec (complete)
+Next Stage: 6 - Spec Review SA
 
 Gate Check: ❌ BLOCKED
 
 Requirements not met:
-- [4] PM Spec Review: 🔄 In Progress (need: ✅ Aligned)
 - [5] SA Spec Review: ⏳ Not Started (need: ✅ Sound)
 
 Action Required:
-1. Complete PM Spec Review: /pm-expert:review-spec
-2. Start SA Spec Review: /sa-expert:review-spec
-
-These reviews can run in PARALLEL. Shall I trigger both?
+1. Start SA Spec Review: /sa-expert:review-spec
 ```
 
 **If conflict detected** → Warn before proceeding:
@@ -164,16 +159,14 @@ What is your command?
 | Stage | Agent | Model | Action |
 |-------|-------|-------|--------|
 | 1-prd | Athena | opus | Create PRD (two-phase: gap analysis + write) |
-| 2-prd-review | Athena | opus | Review PRD |
+| 2-prd-review | Nemesis | opus | Review PRD |
 | 3-decomposition | Daedalus | sonnet | Decompose feature (optional) |
-| 4-discuss | Themis | sonnet | Debate implementation choices, lock decisions (optional) |
-| 5-tech-spec | Hephaestus | opus | Create tech spec |
-| 6-spec-review-pm | Athena | opus | PM spec review |
-| 7-spec-review-sa | Apollo | opus | SA spec review |
-| 8-test-plan | Artemis | sonnet | Create test plan |
-| 9-implementation | Ares | sonnet | Implement (Ares Mode) or create tasks (User Mode) |
-| 10-prd-alignment | Hera | sonnet | Verify acceptance criteria coverage |
-| 11-review | Hermes + Cassandra | opus + sonnet | Code review + risk analysis (parallel) |
+| 4-tech-spec | Hephaestus | opus | Create tech spec |
+| 5-spec-review-sa | Apollo | opus | SA spec review |
+| 6-test-plan | Artemis | sonnet | Create test plan |
+| 7-implementation | Ares | sonnet | Implement (Ares Mode) or create tasks (User Mode) |
+| 8-prd-alignment | Hera | sonnet | Verify acceptance criteria coverage |
+| 9-review | Hermes + Cassandra | opus + sonnet | Code review + risk analysis (parallel) |
 
 All agents are spawned via Task tool: `Task(subagent_type: "kratos:[agent]", ...)`
 
@@ -182,26 +175,8 @@ All agents are spawned via Task tool: `Task(subagent_type: "kratos:[agent]", ...
 ## Parallel Stages
 
 Some stages can run in parallel:
-- **4 + 5**: PM Spec Review and SA Spec Review can run simultaneously
-- Kratos should offer to trigger both when reaching this point
-
-```
-⚔️ KRATOS: PARALLEL MISSIONS AVAILABLE ⚔️
-
-The Tech Spec is complete. Two reviews are now possible:
-
-1. PM Spec Review - Verify requirements alignment
-2. SA Spec Review - Verify technical soundness
-
-These can run in PARALLEL to save time.
-
-Options:
-[A] Trigger both reviews now
-[B] Start with PM review only
-[C] Start with SA review only
-
-Your command?
-```
+- **10**: Code Review and Risk Analysis can run simultaneously
+- Kratos should trigger both when reaching Stage 9.
 
 ---
 

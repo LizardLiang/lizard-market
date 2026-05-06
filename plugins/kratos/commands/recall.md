@@ -68,7 +68,7 @@ Last Actions:
 - [Action 3]
 
 Pipeline:
-[1]OK -> [2]OK -> [3]OK -> [4]>> -> [5].. -> [6].. -> [7].. -> [8]..
+[1]OK -> [2]OK -> [3]OK -> [4]>> -> [4].. -> [5].. -> [6].. -> [7]..
 
 Pipeline symbols: `✅` = complete, `>>` = current/in-progress, `..` = pending/not started, `⏭️` = skipped, `❌` = blocked
 
@@ -224,9 +224,9 @@ Last Actions:
 - Updated status.json
 
 Pipeline:
-[1]OK -> [2]OK -> [5]OK -> [6]>> -> [7].. -> [8].. -> [9].. -> [10].. -> [11]..
+[1]OK -> [2]OK -> [4]OK -> [5]>> -> [6].. -> [7].. -> [8].. -> [9].. -> [11]..
 
-Recommendation: Continue with Stage 7 (Apollo - SA Spec Review)?
+Recommendation: Continue with Stage 6 (Apollo - SA Spec Review)?
 
 Ready to continue? Say "continue" or "/kratos" to resume.
 ```
@@ -241,8 +241,8 @@ KRATOS RECALL (Global)
 
 Recent sessions across all projects:
 
-1. kratos/memory-recall-system - Stage 6/11 - 2 hours ago
-2. lizard-market/payment-integration - Stage 9/11 - 1 day ago
+1. kratos/memory-recall-system - Stage 5/11 - 2 hours ago
+2. lizard-market/payment-integration - Stage 8/11 - 1 day ago
 3. my-app/user-dashboard - Completed - 3 days ago
 4. api-server/rate-limiting - Stage 2/11 - 5 days ago
 

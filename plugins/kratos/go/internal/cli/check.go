@@ -31,14 +31,14 @@ type stageCheck struct {
 	Files         []string            // files that must exist and be non-empty
 	Verdicts      map[string][]string // file -> accepted verdict strings (lowercase)
 	MaxRetries    int
-	Optional      bool                    // true for stages 3, 4 (skip if status == "skipped")
-	AgentDispatch map[string]stageCheck   // for stage 11: agent_type -> sub-check
+	Optional      bool                  // true for stages 3, 4 (skip if status == "skipped")
+	AgentDispatch map[string]stageCheck // for stage 11: agent_type -> sub-check
 }
 
 // stageChecks is the declarative stage-to-deliverable mapping for all Tier 1 stages.
-// Stage 0-research: excluded (produces Arena files, not feature-scoped deliverables)
-// Stage 5-tech-spec: excluded from Tier 1 (dual-hook retry counter interaction risk)
-// Stage 9-implementation: excluded from Tier 1 (Tier 2 deferred; existing Ares gate remains)
+// Optional pre-pipeline research is excluded (produces Arena files, not feature-scoped deliverables)
+// Stage 4-tech-spec: excluded from Tier 1 (dual-hook retry counter interaction risk)
+// Stage 6-implementation: excluded from Tier 1 (Tier 2 deferred; existing Ares gate remains)
 var stageChecks = map[string]stageCheck{
 	"1-prd": {
 		Tier:       1,
@@ -59,14 +59,8 @@ var stageChecks = map[string]stageCheck{
 		MaxRetries: 2,
 		Optional:   true,
 	},
-	"4-discuss": {
-		Tier:       1,
-		Files:      []string{"context.md"},
-		MaxRetries: 2,
-		Optional:   true,
-	},
-	// 5-tech-spec excluded from Tier 1 -- see tech-spec Section 3 "Hephaestus Exclusion"
-	"7-spec-review-sa": {
+	// 4-tech-spec excluded from Tier 1 -- see tech-spec Section 3 "Hephaestus Exclusion"
+	"5-spec-review-sa": {
 		Tier:  1,
 		Files: []string{"spec-review-sa.md"},
 		Verdicts: map[string][]string{
@@ -74,13 +68,13 @@ var stageChecks = map[string]stageCheck{
 		},
 		MaxRetries: 2,
 	},
-	"8-test-plan": {
+	"6-test-plan": {
 		Tier:       1,
 		Files:      []string{"test-plan.md"},
 		MaxRetries: 2,
 	},
-	// 9-implementation excluded from Tier 1 (Tier 2 deferred; existing Ares gate remains)
-	"10-prd-alignment": {
+	// 7-implementation excluded from Tier 1 (Tier 2 deferred; existing Ares gate remains)
+	"8-prd-alignment": {
 		Tier:  1,
 		Files: []string{"prd-alignment.md"},
 		Verdicts: map[string][]string{
@@ -88,7 +82,7 @@ var stageChecks = map[string]stageCheck{
 		},
 		MaxRetries: 2,
 	},
-	"11-review": {
+	"9-review": {
 		Tier: 1,
 		AgentDispatch: map[string]stageCheck{
 			"kratos:cassandra": {
@@ -124,7 +118,7 @@ func CheckCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&initFlag, "init", false, "Initialize verification context (SubagentStart)")
 	cmd.Flags().BoolVar(&verifyFlag, "verify", false, "Run verification checks (SubagentStop)")
-	cmd.Flags().StringVar(&stage, "stage", "", "Pipeline stage (e.g., 1-prd, 5-tech-spec)")
+	cmd.Flags().StringVar(&stage, "stage", "", "Pipeline stage (e.g., 1-prd, 4-tech-spec)")
 	cmd.Flags().StringVar(&feature, "feature", "", "Feature name (optional, auto-discovers if omitted)")
 
 	return cmd

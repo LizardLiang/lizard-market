@@ -14,7 +14,7 @@ This file contains the exact Task tool calls for each pipeline stage. Read the r
 ```
 Task(
   subagent_type: "kratos:metis",
-  model: "claude-sonnet-4-6",
+  model: "sonnet",
   prompt: "MISSION: Research Project
 TARGET: [project root or specific area]
 OUTPUT: .claude/.Arena/
@@ -32,12 +32,12 @@ Analyze the codebase and document findings in the Arena. This knowledge will gui
 
 Stage 1 is multi-step because Athena cannot ask the user questions directly (AskUserQuestion is unavailable to subagents). Kratos handles the clarification loop.
 
-### Phase 1: Gap Analysis (with auto-write on clear requirements)
+### Phase 1: Gap Analysis
 
 ```
 Task(
   subagent_type: "kratos:athena",
-  model: "claude-opus-4-6",
+  model: "opus",
   prompt: "MISSION: Gap Analysis
 PHASE: GAP_ANALYSIS
 FEATURE: [feature-name]
@@ -46,7 +46,7 @@ REQUIREMENTS: [user's requirements]
 
 Read plugins/kratos/agents/athena.md for the full instruction set before starting.
 
-Score requirement clarity. If ambiguity ≤ 0.20, write prd.md and decisions.md immediately and return PRD_WRITTEN: true. If ambiguity > 0.20, return gap questions only and PRD_WRITTEN: false.",
+Analyze these requirements for gaps and ambiguities. Score clarity (Step 2b) and include CLARITY_SCORES in output. Return structured questions in the GAP_ANALYSIS_RESULT format targeting the weakest dimension. Do NOT write the PRD yet.",
   description: "athena - gap analysis"
 )
 ```
@@ -56,8 +56,7 @@ Score requirement clarity. If ambiguity ≤ 0.20, write prd.md and decisions.md 
 When Athena returns her gap analysis:
 
 1. Parse the `GAP_ANALYSIS_RESULT`
-2. If `PRD_WRITTEN: true` → PRD already created, skip Phase 2 entirely and proceed to Stage 2 (spawn Nemesis)
-3. Display **clarity progress** to the user:
+2. Display **clarity progress** to the user:
 
 ```
 📊 Requirements Clarity
@@ -73,7 +72,8 @@ When Athena returns her gap analysis:
 Target: ≤ 0.20 | Current: [ambiguity] | Weakest: [dimension]
 ```
 
-4. Ask questions → call `AskUserQuestion` for each question **one at a time**:
+3. If `WRITE_READY: true` (ambiguity ≤ 0.20) → skip to Phase 2
+4. If questions exist → call `AskUserQuestion` for each question **one at a time**:
 
 ```
 AskUserQuestion(
@@ -91,7 +91,7 @@ After answers are collected: if ambiguity is still > 0.20, re-spawn Athena for a
 ```
 Task(
   subagent_type: "kratos:athena",
-  model: "claude-opus-4-6",
+  model: "opus",
   prompt: "MISSION: Create PRD
 PHASE: CREATE_PRD
 FEATURE: [feature-name]
@@ -120,7 +120,7 @@ Spawn Nemesis to review the PRD.
 ```
 Task(
   subagent_type: "kratos:nemesis",
-  model: "claude-sonnet-4-6",
+  model: "opus",
   prompt: "MISSION: Review PRD
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -199,198 +199,150 @@ If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status
 
 ---
 
-## Stage 3 → 4 Transition: Optional Discuss (Themis)
+## Stage 4: Tech Spec (Hephaestus) — Four Sub-Phases
 
-After Stage 3 (complete or skipped), offer the Discuss phase before spawning Hephaestus:
+Stage 4 runs as four sequential sub-phases. Kratos orchestrates all spawns — agents cannot spawn each other directly.
 
-```
-AskUserQuestion(
-  question: "Before Hephaestus specs, would you like to lock down implementation decisions? Themis will surface every choice Hephaestus would otherwise guess.",
-  options: [
-    { label: "Yes, lock decisions first", description: "Themis will surface implementation choices in batches until everything is locked" },
-    { label: "No, proceed to tech spec", description: "Skip to Hephaestus — faster but he'll make assumptions" }
-  ]
-)
-```
+---
 
-If user says No: set `stages["4-discuss"].status` to `"skipped"` in status.json.
+### Sub-Phase 0: Produce Directive
 
-If user chooses Discuss, Stage 4 runs in two phases. **Themis cannot call AskUserQuestion — Kratos handles all user interaction.**
-
-### Phase 1: Identify Gray Areas
+Hephaestus reads the PRD and outputs a targeted scan directive for Metis, plus a resume context payload for his own Phase 1.
 
 ```
 Task(
-  subagent_type: "kratos:themis",
-  model: "[sonnet|haiku|opus based on mode]",
-  prompt: "MISSION: Identify Gray Areas (Pipeline Stage 4)
+  subagent_type: "kratos:hephaestus",
+  model: "sonnet",
+  prompt: "MISSION: Produce Codebase Scan Directive
+PHASE: PRODUCE_DIRECTIVE
+FEATURE: [feature-name]
+FOLDER: .claude/feature/[feature-name]/
+
+Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
+
+Read prd.md. Identify what the codebase must answer before you can propose implementation approaches. Return HEPHAESTUS_DIRECTIVE_RESULT. Do not scan the codebase yourself.",
+  description: "hephaestus - produce directive (sonnet)"
+)
+```
+
+---
+
+### Sub-Phase 0.5: Dispatch Handler (Kratos)
+
+After Phase 0 completes, parse `HEPHAESTUS_DIRECTIVE_RESULT`:
+
+1. Extract `METIS_SEARCH_DIRECTIVE` block
+2. Store `RESUME_CONTEXT` block (Kratos holds this for Phase 1 re-injection)
+3. Read `DISPATCH_TO` / `DISPATCH_PHASE` / `DISPATCH_RETURN_TO` / `DISPATCH_RETURN_PHASE`
+4. Spawn Metis:
+
+```
+Task(
+  subagent_type: "kratos:metis",
+  model: "haiku",
+  prompt: "MISSION: Codebase Scan
+PHASE: CODEBASE_SCAN
+FEATURE: [feature-name]
+
+Read plugins/kratos/agents/metis.md for the full instruction set before starting.
+
+METIS_SEARCH_DIRECTIVE:
+[paste METIS_SEARCH_DIRECTIVE block from Hephaestus Phase 0 verbatim]
+
+Return CODEBASE_SCAN_RESULT inline. Do not create any files.",
+  description: "metis - codebase scan (haiku)"
+)
+```
+
+---
+
+### Sub-Phase 1: Approach Proposal + Gray Areas
+
+When Metis returns, merge RESUME_CONTEXT + CODEBASE_SCAN_RESULT and spawn Hephaestus Phase 1:
+
+```
+Task(
+  subagent_type: "kratos:hephaestus",
+  model: "opus",
+  prompt: "MISSION: Propose Approaches + Identify Gray Areas
 PHASE: IDENTIFY_GRAY_AREAS
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/themis.md for the full instruction set before starting.
+Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
 
-Read prd.md, scout the codebase for existing patterns, load any prior context.md files from other features. Score clarity (Step 3b), then identify implementation choices Hephaestus would otherwise guess — target the weakest clarity dimension first (up to 4 per batch). Set MORE_QUESTIONS based on ambiguity score (true if > 0.20).
+[paste RESUME_CONTEXT from Phase 0 verbatim]
 
-Return THEMIS_QUESTIONS_RESULT with CLARITY_SCORES. Do NOT write context.md yet.",
-  description: "themis - identify gray areas"
+[paste CODEBASE_SCAN_RESULT from Metis verbatim]
+
+First return HEPHAESTUS_APPROACH_RESULT (2-3 named approaches). Then return HEPHAESTUS_QUESTIONS_RESULT (gray areas). Return both blocks.",
+  description: "hephaestus - approach proposal + gray areas (opus)"
 )
 ```
 
-### Phase 1.5: Question Loop (Kratos handles this)
+---
 
-This loop continues until Themis returns `MORE_QUESTIONS: false` (ambiguity ≤ 0.20). Max 5 rounds total to prevent runaway loops.
+### Sub-Phase 1.5: Approach Selection + Clarification Loop (Kratos)
 
-**After each Themis response**, display the clarity progress to the user:
+When Hephaestus Phase 1 returns, parse both result blocks:
 
-```
-📊 Clarity Progress
-
-| Dimension   | Score | Weight | Contribution | Gap  |
-|-------------|-------|--------|-------------|------|
-| Goal        | [X]   | 0.40   | [X×0.40]    | [remaining] |
-| Constraints | [X]   | 0.30   | [X×0.30]    | [remaining] |
-| Criteria    | [X]   | 0.30   | [X×0.30]    | [remaining] |
-| **Total**   |       |        | [sum]       |      |
-| **Ambiguity** |     |        | [1 - sum]   |      |
-
-Target: ≤ 0.20 | Current: [ambiguity] | Weakest: [dimension]
-```
-
-**Each round:**
-
-**Step A — ask this batch:**
-
-For each Q[N] in the current `THEMIS_QUESTIONS_RESULT`, ask and resolve one at a time:
+**Step A — Present approaches:**
 
 ```
 AskUserQuestion(
-  question: "[Q1_TITLE]\n\n[Q1_CONTEXT]\n\n[If debate mode + recommendation: 'I recommend [Label] — ']",
-  options: [mapped from Q1_OPTIONS]
+  question: "Hephaestus proposes [N] implementation approaches:\n\n[APPROACH_A.NAME]: [DESCRIPTION]\n[APPROACH_B.NAME]: [DESCRIPTION]\n[...]\n\nRecommended: [RECOMMENDED] — [RATIONALE]",
+  options: [
+    { label: "[APPROACH_A.NAME]", description: "Effort: [EFFORT] | [key pro]" },
+    { label: "[APPROACH_B.NAME]", description: "Effort: [EFFORT] | [key pro]" },
+    [APPROACH_C if present],
+    { label: "Defer to Hephaestus", description: "Use recommended approach" }
+  ]
 )
 ```
 
-**If answer is a concrete choice** → record it, move to next question in batch.
+Record the chosen approach as `CHOSEN_APPROACH`.
 
-**If answer is "Tell me more" / "Explore further"** → spawn Themis FOLLOW_UP for that area:
+**Step B — Gray area Q&A loop:**
 
-```
-Task(
-  subagent_type: "kratos:themis",
-  model: "[sonnet|haiku|opus based on mode]",
-  prompt: "PHASE: FOLLOW_UP
-FEATURE: [feature-name]
-GRAY_AREA: [Q1_TITLE]
-ORIGINAL_CONTEXT: [Q1_CONTEXT]
-USER_WANTS: [user's answer]
+If `HEPHAESTUS_QUESTIONS_RESULT` contains questions, run the same clarification loop as before (AskUserQuestion per gray area, max 3 rounds, stop when ambiguity ≤ 0.20).
 
-Read plugins/kratos/agents/themis.md for the full instruction set before starting.
+---
 
-Return THEMIS_FOLLOWUP_RESULT. Concrete options only — no further explore.",
-  description: "themis - follow-up [Q1_TITLE]"
-)
-```
-
-Ask the follow-up, record the final answer. Maximum one follow-up per question.
-
-**Step B — check ambiguity and decide:**
-
-After the batch is fully answered, check `MORE_QUESTIONS` (driven by `CLARITY_SCORES.AMBIGUITY`):
-
-- `MORE_QUESTIONS: false` (ambiguity ≤ 0.20) → proceed to Phase 2
-- `MORE_QUESTIONS: true` (ambiguity > 0.20) → re-spawn Themis with all answers so far:
+### Sub-Phase 2: Write Tech Spec
 
 ```
 Task(
-  subagent_type: "kratos:themis",
-  model: "[sonnet|haiku|opus based on mode]",
-  prompt: "PHASE: IDENTIFY_GRAY_AREAS
+  subagent_type: "kratos:hephaestus",
+  model: "opus",
+  prompt: "MISSION: Create Technical Specification
+PHASE: CREATE_TECH_SPEC
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-ANSWERED_SO_FAR:
-[Q1_TITLE]
-Answer: [answer]
+Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
 
-[Q2_TITLE]
-Answer: [answer]
-
-[...all answers from all previous rounds...]
-
-Surface the next batch of gray areas not yet covered. Return THEMIS_QUESTIONS_RESULT.",
-  description: "themis - identify gray areas (round N)"
-)
-```
-
-Then repeat from Step A with the new batch.
-
-### Phase 2: Write context.md
-
-After all answers are collected, re-spawn Themis with the decisions:
-
-```
-Task(
-  subagent_type: "kratos:themis",
-  model: "[sonnet|haiku|opus based on mode]",
-  prompt: "MISSION: Write context.md (Pipeline Stage 4)
-PHASE: WRITE_CONTEXT
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-
-Read plugins/kratos/agents/themis.md for the full instruction set before starting.
+CHOSEN_APPROACH: [approach name and one-line description]
 
 DECISIONS:
 [Q1_TITLE]
 Answer: [user's answer]
 
-[Q2_TITLE]
-Answer: [user's answer]
+[...all answers from all rounds...]
 
-[...all answers...]
-
-CONTEXT_DATA from Phase 1:
-SCOPE_BOUNDARY: [from THEMIS_QUESTIONS_RESULT]
-CANONICAL_REFS: [from THEMIS_QUESTIONS_RESULT]
-EXISTING_PATTERNS: [from THEMIS_QUESTIONS_RESULT]
-REUSABLE_ASSETS: [from THEMIS_QUESTIONS_RESULT]
-INTEGRATION_POINTS: [from THEMIS_QUESTIONS_RESULT]
-PRIOR_DECISIONS_IMPORTED: [from THEMIS_QUESTIONS_RESULT]
-
-Write context.md with these locked decisions. Update status.json.",
-  description: "themis - write context.md"
+Create tech-spec.md. Kratos validates the deliverable after you finish.",
+  description: "hephaestus - create tech spec (opus)"
 )
 ```
 
 ---
+## Stage 5: Spec Review (Architecture)
 
-## Stage 5: Create Tech Spec (Hephaestus)
-
-```
-Task(
-  subagent_type: "kratos:hephaestus",
-  model: "claude-opus-4-6",
-  prompt: "MISSION: Create Technical Specification
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-PRD: Approved and ready at prd.md
-
-Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
-
-Create tech-spec.md before completing. Kratos validates the deliverable after you finish.
-
-Create tech-spec.md based on the approved PRD. If context.md exists, read it first — it contains locked implementation decisions. Update status.json.",
-  description: "hephaestus - create tech spec"
-)
-```
-
----
-
-## Stage 7: Spec Review — Architecture (Apollo)
+Spawn Apollo to review the tech spec:
 
 ```
 Task(
   subagent_type: "kratos:apollo",
-  model: "claude-sonnet-4-6",
+  model: "opus",
   prompt: "MISSION: Review Tech Spec (Architecture)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -404,14 +356,16 @@ Use Apollo's document-selection policy. If a needed prerequisite file is missing
 )
 ```
 
+Wait for completion before proceeding.
+
 ---
 
-## Stage 8: Create Test Plan (Artemis)
+## Stage 6: Create Test Plan (Artemis)
 
 ```
 Task(
   subagent_type: "kratos:artemis",
-  model: "claude-sonnet-4-6",
+  model: "sonnet",
   prompt: "MISSION: Create Test Plan
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -425,16 +379,16 @@ Use Artemis's document-selection policy. If a needed prerequisite file is missin
 )
 ```
 
-After Stage 8 completes: read `plugins/kratos/pipeline/pre-implementation.md` and execute its procedure.
+After Stage 6 completes: read `plugins/kratos/pipeline/pre-implementation.md` and execute its procedure.
 
 ---
 
-## Stage 9a: Implement Feature — Ares Mode
+## Stage 7a: Implement Feature — Ares Mode
 
 ```
 Task(
   subagent_type: "kratos:ares",
-  model: "claude-sonnet-4-6",
+  model: "sonnet",
   prompt: "MISSION: Implement Feature
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -450,12 +404,12 @@ Use Ares's document-selection policy. If a needed prerequisite file is missing, 
 
 ---
 
-## Stage 9b: Create Implementation Tasks — User Mode
+## Stage 7b: Create Implementation Tasks — User Mode
 
 ```
 Task(
   subagent_type: "kratos:ares",
-  model: "claude-sonnet-4-6",
+  model: "sonnet",
   prompt: "MISSION: Create Implementation Tasks (User Mode)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -478,35 +432,35 @@ After User Mode completes: do NOT spawn Hermes automatically. Tell the user to w
 
 ---
 
-## Stage 10: PRD Alignment Check (Hera)
+## Stage 8: PRD Alignment Check (Hera)
 
 ```
 Task(
   subagent_type: "kratos:hera",
-  model: "claude-sonnet-4-6",
+  model: "sonnet",
   prompt: "MISSION: PRD Alignment Check
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/hera.md for the full instruction set before starting.
 
-Edit the '## 10. Alignment' section in prd.md with results. If `prd.md` is missing when you need it, stop and report Athena as the owning upstream agent to Kratos.
+Create prd-alignment.md before completing. If `prd.md` is missing when you need it, stop and report Athena as the owning upstream agent to Kratos.
 
-Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Update the Alignment section in prd.md with checkboxes and verdict. Update status.json.",
+Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Create prd-alignment.md with verdict. Update status.json.",
   description: "hera - prd alignment check"
 )
 ```
 
 ---
 
-## Stage 11: Code Review + Risk Analysis — Parallel
+## Stage 9: Code Review + Risk Analysis — Parallel
 
 Spawn both agents in the same response:
 
 ```
 Task(
   subagent_type: "kratos:hermes",
-  model: "claude-sonnet-4-6",
+  model: "opus",
   prompt: "MISSION: Code Review
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -521,7 +475,7 @@ Use Hermes's document-selection policy. If a needed prerequisite file is missing
 
 Task(
   subagent_type: "kratos:cassandra",
-  model: "claude-sonnet-4-6",
+  model: "sonnet",
   prompt: "MISSION: Risk Analysis
 MODE: pipeline
 FEATURE: [feature-name]

@@ -44,7 +44,7 @@ Search for the active feature:
 
 Verify:
 1. Feature exists
-2. Stage 9 (implementation) is active
+2. Stage 7 (implementation) is active
 3. Mode is "user" (User Mode)
 
 ### Step 3: Validate Tasks
@@ -58,9 +58,19 @@ For each task ID provided:
 
 For each valid task:
 
-1. **Mark the task done via CLI**:
-   ```bash
-   ~/.kratos/bin/kratos pipeline task-done --feature FEATURE_NAME --task-id 01
+1. **Update status.json**:
+   ```json
+   {
+     "pipeline": {
+        "7-implementation": {
+         "tasks": {
+           "items": [
+             { "id": "01", "name": "...", "status": "complete" }
+           ]
+         }
+       }
+     }
+   }
    ```
 
 2. **Update task file** (optional):
@@ -74,40 +84,59 @@ For each valid task:
 
 After updating, check if ALL tasks are complete:
 
-The CLI outputs `{"completed":N,"total":M,...}` — compare `completed == total`. Or read `status.json` and check that every item in `pipeline["9-implementation"].tasks.items` has `status: "complete"`.
+Check if every task in `status.json` `pipeline["7-implementation"].tasks` has `status: "complete"`.
 
 ### Step 6: Handle All Complete
 
 When ALL tasks are complete:
 
-1. **Update pipeline status via CLI**:
+1. **Update status.json** via CLI (stamps real timestamps automatically):
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 9-implementation --status complete
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-prd-alignment --status ready
+    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-implementation --status complete
+    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 7-prd-alignment --status ready
+   ```
+   If the CLI is unavailable, get a real timestamp first:
+   ```bash
+   TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+   ```
+   Then write:
+   ```json
+   {
+      "stage": "8-prd-alignment",
+      "pipeline": {
+        "7-implementation": {
+          "status": "complete",
+          "completed": "$TS"
+        },
+        "8-prd-alignment": {
+          "status": "ready"
+        }
+      }
+   }
    ```
 
-2. **Spawn Hera** (PRD alignment check, stage 10):
+2. **Spawn Hera** (PRD alignment check, stage 8):
    ```
    Task(
      subagent_type: "kratos:hera",
-     model: "claude-sonnet-4-6",
+     model: "sonnet",
      prompt: "MISSION: PRD Alignment Check
    FEATURE: [feature-name]
    FOLDER: .claude/feature/[feature-name]/
    MODE: User Mode (implementation done by user)
 
-    CRITICAL: You MUST edit the '## 10. Alignment' section in prd.md before completing. If `prd.md` is missing when you need it, stop and report Athena as the owning upstream agent to Kratos.
+   CRITICAL: You MUST create the file prd-alignment.md before completing. If `prd.md` is missing when you need it, stop and report Athena as the owning upstream agent to Kratos.
 
-   Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Update the Alignment section in prd.md with checkboxes and verdict. Update status.json.",
+   Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Create prd-alignment.md with verdict. Update status.json.",
      description: "hera - prd alignment check (user mode)"
    )
    ```
 
-   If Hera returns **aligned**, immediately spawn Hermes + Cassandra in parallel (stage 11):
+    If Hera returns **aligned**, immediately spawn Hermes + Cassandra in parallel (stage 9):
    ```
    Task(
      subagent_type: "kratos:hermes",
-     model: "claude-opus-4-6",
+     model: "opus",
      prompt: "MISSION: Code Review
    FEATURE: [feature-name]
    FOLDER: .claude/feature/[feature-name]/
@@ -121,7 +150,7 @@ When ALL tasks are complete:
 
    Task(
      subagent_type: "kratos:cassandra",
-     model: "claude-sonnet-4-6",
+     model: "sonnet",
      prompt: "MISSION: Risk Analysis
    MODE: pipeline
    FEATURE: [feature-name]
@@ -183,7 +212,7 @@ All 10 implementation tasks have been marked complete.
 
 Progress: [████████████████████] 100% (10/10 tasks)
 
-Advancing to Stage 10: PRD Alignment Check
+Advancing to Stage 9: PRD Alignment Check
 Summoning: HERA (model: sonnet)
 
 [TASK TOOL INVOCATION FOR HERMES]
@@ -210,7 +239,7 @@ Available tasks:
 This feature is using Ares Mode (AI implementation).
 The /kratos:task-complete command is only available in User Mode.
 
-Current stage: 9-implementation
+Current stage: 7-implementation
 Mode: ares
 ```
 
@@ -221,11 +250,36 @@ Mode: ares
 
 Cannot mark tasks complete - not in implementation stage.
 
-Current stage: 8-test-plan
-Required stage: 9-implementation
+Current stage: 6-test-plan
+Required stage: 7-implementation
 ```
 
 ---
+
+## Status JSON Updates
+
+### Task Structure in status.json
+
+```json
+{
+  "pipeline": {
+    "7-implementation": {
+      "status": "in-progress",
+      "mode": "user",
+      "tasks": {
+        "total": 10,
+        "completed": 3,
+        "items": [
+          { "id": "01", "name": "Create user model", "file": "01-create-user-model.md", "status": "complete" },
+          { "id": "02", "name": "Add migrations", "file": "02-add-migrations.md", "status": "complete" },
+          { "id": "03", "name": "User service", "file": "03-user-service.md", "status": "complete" },
+          { "id": "04", "name": "Auth middleware", "file": "04-auth-middleware.md", "status": "pending" }
+        ]
+      }
+    }
+  }
+}
+```
 
 ---
 

@@ -90,7 +90,7 @@ node plugins/kratos/hooks/install.cjs
 
 ## Implementation Modes
 
-At Stage 7, Kratos asks how you want implementation handled:
+At Stage 6, Kratos asks how you want implementation handled:
 
 | Mode | Description | Output |
 |------|-------------|--------|
@@ -117,10 +117,10 @@ At Stage 7, Kratos asks how you want implementation handled:
 | **Metis** | Project knowledge, Arena documentation | Inquiry mode, research |
 | **Athena** | PRD creation, requirements, PM reviews | Pipeline Stage 1, 2, 4 |
 | **Hephaestus** | Technical specifications, architecture | Pipeline Stage 3 |
-| **Apollo** | Architecture review | Pipeline Stage 5 |
-| **Artemis** | Test planning, QA strategy | Pipeline Stage 6 |
-| **Ares** | Implementation, coding | Pipeline Stage 7 |
-| **Hermes** | Code review, quality gate | Pipeline Stage 8 |
+| **Apollo** | Architecture review | Pipeline Stage 4 |
+| **Artemis** | Test planning, QA strategy | Pipeline Stage 5 |
+| **Ares** | Implementation, coding | Pipeline Stage 6 |
+| **Hermes** | Code review, quality gate | Pipeline Stage 7 |
 
 ---
 

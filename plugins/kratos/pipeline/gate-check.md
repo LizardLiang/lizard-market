@@ -42,18 +42,11 @@ For each requirement:
 ⚔️ KRATOS: GATE CHECK REPORT ⚔️
 
 Feature: user-authentication
-Current Stage: 3 - Tech Spec (complete)
+Current Stage: 5 - Tech Spec (complete)
 Target Gate: Stage 6 - Test Plan
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                        GATE REQUIREMENTS                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Required: PM Spec Review must be ✅ Aligned                    │
-│  Status:   spec-review-pm.md exists                             │
-│  Verdict:  ✅ Aligned (v1)                                      │
-│  Result:   ✅ PASSED                                            │
-│                                                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Required: SA Spec Review must be ✅ Sound                      │
@@ -96,7 +89,7 @@ Requirements:
 - prd-challenge.md verdict = "Approved" or "Approved with Comments"
 ```
 
-### Gate 3: Tech Spec → Spec Reviews
+### Gate 3: Tech Spec → Spec Review
 ```
 Requirements:
 - tech-spec.md exists
@@ -104,22 +97,21 @@ Requirements:
 - No conflict: tech-spec based on current PRD
 ```
 
-### Gate 4+5: Spec Reviews → Test Plan
+### Gate 4: Spec Review → Test Plan
 ```
 Requirements:
-- spec-review-pm.md verdict = "Aligned"
 - spec-review-sa.md verdict = "Sound"
 - No conflicts with tech-spec.md
 ```
 
-### Gate 6: Test Plan → Implementation
+### Gate 5: Test Plan → Implementation
 ```
 Requirements:
 - test-plan.md exists
 - Test cases defined for all requirements
 ```
 
-### Gate 7: Implementation → Code Review
+### Gate 6: Implementation → Code Review
 ```
 Requirements:
 - implementation-notes.md exists
@@ -127,7 +119,7 @@ Requirements:
 - Tests written (per test-plan.md)
 ```
 
-### Gate 8: Code Review → Done
+### Gate 7: Code Review → Done
 ```
 Requirements:
 - code-review.md verdict = "Approved"
@@ -147,7 +139,6 @@ Conflict Detection:
 │ Document          │ Based On      │ Source Current │ OK │
 ├────────────────────────────────────────────────────────┤
 │ tech-spec.md      │ prd.md (1/15) │ prd.md (1/15)  │ ✅ │
-│ spec-review-pm.md │ spec (1/16)   │ spec (1/16)    │ ✅ │
 │ spec-review-sa.md │ spec (1/16)   │ spec (1/18)    │ ⚠️ │
 └────────────────────────────────────────────────────────┘
 
@@ -176,14 +167,13 @@ Feature: user-authentication
 │  1   │ PRD             │ ✅     │ None   │
 │  2   │ PRD Review      │ ✅     │ None   │
 │  3   │ Tech Spec       │ ✅     │ None   │
-│  4   │ PM Spec Review  │ ✅     │ None   │
-│  5   │ SA Spec Review  │ ⚠️     │ 1      │
-│  6   │ Test Plan       │ 🔒     │ -      │
-│  7   │ Implementation  │ 🔒     │ -      │
-│  8   │ Code Review     │ 🔒     │ -      │
+│  4   │ SA Spec Review  │ ⚠️     │ 1      │
+│  5   │ Test Plan       │ 🔒     │ -      │
+│  6   │ Implementation  │ 🔒     │ -      │
+│  7   │ Code Review     │ 🔒     │ -      │
 
 Issues Found: 1
-- Gate 5: SA review verdict is "Concerns", not "Sound"
+- Gate 4: SA review verdict is "Concerns", not "Sound"
 
 Pipeline Health: 🟡 WARNING
 ```

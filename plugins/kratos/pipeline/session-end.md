@@ -175,7 +175,7 @@ Generating journey summary...
 STEPS=$(python kratos_memory.py query steps "$SESSION")
 
 # End session
-python kratos_memory.py session end "$SESSION" "Completed PRD and tech spec for user-auth feature. Stage 5 (SA review) ready to begin next session." "in_progress"
+python kratos_memory.py session end "$SESSION" "Completed PRD and tech spec for user-auth feature. Stage 4 (SA review) ready to begin next session." "in_progress"
 
 ⚔️ SESSION COMPLETE ⚔️
 
@@ -186,7 +186,7 @@ Agents: 4 (athena x2, hephaestus, apollo)
 
 Summary:
 Completed PRD and tech spec for user-auth feature.
-Stage 5 (SA review) ready to begin next session.
+Stage 4 (SA review) ready to begin next session.
 
 Files Created:
 - .claude/feature/user-auth/prd.md

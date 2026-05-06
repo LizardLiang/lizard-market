@@ -71,11 +71,11 @@ func init() {
 
 // Patterns to strip before keyword matching (prevent false positives)
 var stripPatterns = []*regexp.Regexp{
-	regexp.MustCompile("(?s)```.*?```"),                // fenced code blocks
-	regexp.MustCompile("`[^`]+`"),                      // inline code
-	regexp.MustCompile(`<[^>]+>[^<]*</[^>]+>`),         // XML tags with content
-	regexp.MustCompile(`https?://\S+`),                 // URLs
-	regexp.MustCompile(`(?:^|\s)[/\\]\S+`),             // file paths
+	regexp.MustCompile("(?s)```.*?```"),                              // fenced code blocks
+	regexp.MustCompile("`[^`]+`"),                                    // inline code
+	regexp.MustCompile(`<[^>]+>[^<]*</[^>]+>`),                       // XML tags with content
+	regexp.MustCompile(`https?://\S+`),                               // URLs
+	regexp.MustCompile(`(?:^|\s)[/\\]\S+`),                           // file paths
 	regexp.MustCompile(`(?s)<system-reminder>.*?</system-reminder>`), // system reminders
 }
 
@@ -112,7 +112,7 @@ type subagentStopOutput struct {
 
 // preToolUseInput is the JSON Claude Code sends for PreToolUse
 type preToolUseInput struct {
-	ToolName  string             `json:"tool_name"`
+	ToolName  string              `json:"tool_name"`
 	ToolInput preToolUseToolInput `json:"tool_input"`
 }
 
@@ -283,6 +283,8 @@ const todoQualityGate = `
 ║  3. Mark each item [x] as you complete it                    ║
 ║  4. Do NOT call any tool before your TODO list is written    ║
 ╚══════════════════════════════════════════════════════════════╝
+
+Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.
 `
 
 // subagentStartCmd injects a mandatory TODO-first instruction into Ares and Hephaestus agents.
@@ -340,13 +342,13 @@ func handleHermesStart(input subagentStartInput) error {
 	checklist := map[string]interface{}{
 		"agent_id": input.AgentID,
 		"tiers": map[string]bool{
-			"T1_correct":     false,
-			"T2_safe":        false,
-			"T3_clear":       false,
-			"T4_minimal":     false,
-			"T5_consistent":  false,
-			"T6_resilient":   false,
-			"T7_performant":  false,
+			"T1_correct":      false,
+			"T2_safe":         false,
+			"T3_clear":        false,
+			"T4_minimal":      false,
+			"T5_consistent":   false,
+			"T6_resilient":    false,
+			"T7_performant":   false,
 			"T8_maintainable": false,
 		},
 	}
@@ -365,7 +367,7 @@ func handleHermesStart(input subagentStartInput) error {
 	debugLog("hermes-start: created checklist at %s", checklistPath)
 
 	additionalContext := fmt.Sprintf(
-		"TIER CHECKLIST FILE: %s\nYou MUST update this file after completing each tier review.\nUse the Edit tool to set each tier from false to true:\n  \"T1_correct\": false  →  \"T1_correct\": true\nDo this IMMEDIATELY after reviewing each tier, before moving to the next.\nA hook will verify all 8 tiers are true when you finish — if any is false, you will be blocked from stopping.",
+		"TIER CHECKLIST FILE: %s\nYou MUST update this file after completing each tier review.\nUse the Edit tool to set each tier from false to true:\n  \"T1_correct\": false  →  \"T1_correct\": true\nDo this IMMEDIATELY after reviewing each tier, before moving to the next.\nA hook will verify all 8 tiers are true when you finish — if any is false, you will be blocked from stopping.\n\nOutput terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.",
 		checklistPath,
 	)
 
@@ -373,7 +375,7 @@ func handleHermesStart(input subagentStartInput) error {
 }
 
 // findActiveFeatureDir scans .claude/feature/*/status.json and returns the feature folder
-// for the first feature where stage 11-review has status pending, in-progress, or ready.
+// for the first feature where stage 8-review has status pending, in-progress, or ready.
 func findActiveFeatureDir(cwd string) (string, error) {
 	pattern := filepath.Join(cwd, ".claude", "feature", "*", "status.json")
 	matches, err := filepath.Glob(pattern)
@@ -400,12 +402,12 @@ func findActiveFeatureDir(cwd string) (string, error) {
 			continue
 		}
 
-		// Navigate: stages["11-review"].status
-		stages, ok := statusJSON["stages"].(map[string]interface{})
+		// Navigate: pipeline["9-review"].status
+		pipeline, ok := statusJSON["pipeline"].(map[string]interface{})
 		if !ok {
 			continue
 		}
-		reviewStage, ok := stages["11-review"].(map[string]interface{})
+		reviewStage, ok := pipeline["9-review"].(map[string]interface{})
 		if !ok {
 			continue
 		}
