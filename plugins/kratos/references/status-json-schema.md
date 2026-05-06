@@ -44,14 +44,7 @@ All agents that read or update status.json MUST follow this schema.
       "documents": ["decomposition.md"],
       "output_targets": ["local", "notion", "linear"]
     },
-    "4-discuss": {
-      "status": "skipped | in-progress | complete",
-      "agent": "themis",
-      "started": "<ISO8601>",
-      "completed": "<ISO8601>",
-      "documents": ["context.md"]
-    },
-    "5-tech-spec": {
+    "4-tech-spec": {
       "status": "pending | in-progress | complete",
       "agent": "hephaestus",
       "started": "<ISO8601>",
@@ -60,7 +53,7 @@ All agents that read or update status.json MUST follow this schema.
       "based_on_prd_version": "<ISO8601 of prd.md last modified>",
       "summary": "<2-3 sentence digest: key architectural decisions, file count, major components>"
     },
-    "6-spec-review-sa": {
+    "5-spec-review-sa": {
       "status": "pending | in-progress | complete",
       "agent": "apollo",
       "started": "<ISO8601>",
@@ -68,7 +61,7 @@ All agents that read or update status.json MUST follow this schema.
       "documents": ["spec-review-sa.md"],
       "verdict": "sound | concerns | unsound"
     },
-    "7-test-plan": {
+    "6-test-plan": {
       "status": "pending | in-progress | complete",
       "agent": "artemis",
       "started": "<ISO8601>",
@@ -76,7 +69,7 @@ All agents that read or update status.json MUST follow this schema.
       "documents": ["test-plan.md"],
       "summary": "<2-3 sentence digest: total test cases, P0 coverage, key risk areas targeted>"
     },
-    "8-implementation": {
+    "7-implementation": {
       "status": "pending | in-progress | complete | waiting-user",
       "agent": "ares",
       "mode": "ares | user",
@@ -94,7 +87,7 @@ All agents that read or update status.json MUST follow this schema.
         }
       ]
     },
-    "9-prd-alignment": {
+    "8-prd-alignment": {
       "status": "pending | in-progress | complete",
       "agent": "hera",
       "started": "<ISO8601>",
@@ -105,7 +98,7 @@ All agents that read or update status.json MUST follow this schema.
       "criteria_verified": 0,
       "coverage_pct": 0
     },
-    "10-review": {
+    "9-review": {
       "status": "pending | in-progress | complete",
       "agents": ["hermes", "cassandra"],
       "started": "<ISO8601>",
@@ -137,10 +130,10 @@ All agents that read or update status.json MUST follow this schema.
 | `feature` | string | yes | Feature name (matches directory name) |
 | `created` | ISO8601 | yes | When pipeline was initialized |
 | `updated` | ISO8601 | yes | Last modification timestamp |
-| `stage` | string | yes | Current active stage ID (e.g., "5-tech-spec") |
+| `stage` | string | yes | Current active stage ID (e.g., "4-tech-spec") |
 | `pipeline_status` | enum | yes | Overall pipeline status |
 | `mode` | enum | yes | Execution mode (affects model assignments) |
-| `implementation_mode` | enum | no | Set at stage 8; "ares" (AI implements) or "user" (task files created) |
+| `implementation_mode` | enum | no | Set at stage 7; "ares" (AI implements) or "user" (task files created) |
 
 ### Stage Status Values
 
@@ -150,7 +143,7 @@ All agents that read or update status.json MUST follow this schema.
 | `skipped` | Intentionally bypassed (research, decomposition, discuss) |
 | `in-progress` | Agent currently working on this stage |
 | `complete` | Stage finished successfully |
-| `waiting-user` | Stage 8 User Mode only — waiting for user to complete tasks |
+| `waiting-user` | Stage 7 User Mode only — waiting for user to complete tasks |
 | `blocked` | Cannot proceed due to failed gate check |
 
 ### Summary Field
@@ -159,19 +152,19 @@ Stages 5, 7, and 8 include a `summary` string. The producing agent writes this w
 
 | Stage | Who writes | What to capture |
 |-------|-----------|-----------------|
-| `5-tech-spec` | Hephaestus | Key architectural decisions, component count, file count |
-| `7-test-plan` | Artemis | Total test cases, P0 coverage fraction, key risk areas |
-| `8-implementation` | Ares | Files created/modified, tests written, deviations |
+| `4-tech-spec` | Hephaestus | Key architectural decisions, component count, file count |
+| `6-test-plan` | Artemis | Total test cases, P0 coverage fraction, key risk areas |
+| `7-implementation` | Ares | Files created/modified, tests written, deviations |
 
 ### Review Verdicts
 
 | Agent | Field | Values | Meaning |
 |-------|-------|--------|---------|
 | Athena (stage 2) | `verdict` | `approved` / `revisions` | PRD quality assessment |
-| Apollo (stage 6) | `verdict` | `sound` / `concerns` / `unsound` | Architecture quality |
-| Hera (stage 9) | `alignment_verdict` | `aligned` / `gaps` / `misaligned` | PRD coverage |
-| Hermes (stage 10) | `code_review_verdict` | `approved` / `changes-required` | Code quality |
-| Cassandra (stage 10) | `risk_verdict` | `clear` / `caution` / `blocked` | Risk assessment |
+| Apollo (stage 5) | `verdict` | `sound` / `concerns` / `unsound` | Architecture quality |
+| Hera (stage 8) | `alignment_verdict` | `aligned` / `gaps` / `misaligned` | PRD coverage |
+| Hermes (stage 9) | `code_review_verdict` | `approved` / `changes-required` | Code quality |
+| Cassandra (stage 9) | `risk_verdict` | `clear` / `caution` / `blocked` | Risk assessment |
 
 ### Verdict Thresholds
 
@@ -212,7 +205,7 @@ Each stage object in `pipeline` may optionally contain a `check_failures` array.
 ```json
 {
   "pipeline": {
-    "6-spec-review-sa": {
+    "5-spec-review-sa": {
       "status": "complete",
       "assignee": "apollo",
       "document": "spec-review-sa.md",
@@ -237,27 +230,26 @@ Each stage object in `pipeline` may optionally contain a `check_failures` array.
 |-------|-------|---------|
 | Kratos | All fields | `stage`, `pipeline_status`, `updated`, `history` |
 | Athena | `stage`, stage status | Stage 1, 2 status + verdict |
-| Themis | `stage`, PRD | Stage 4 status |
-| Hephaestus | `stage`, PRD version | Stage 5 status + `based_on_prd_version` + `summary` |
-| Apollo | `stage` | Stage 6 status + verdict |
-| Artemis | `stage` | Stage 7 status + `summary` |
+| Hephaestus | `stage`, PRD version | Stage 4 status + `based_on_prd_version` + `summary` |
+| Apollo | `stage` | Stage 5 status + verdict |
+| Artemis | `stage` | Stage 6 status + `summary` |
 | Daedalus | `stage` | Stage 3 status + `output_targets` |
-| Ares | `stage`, `implementation_mode` | Stage 8 status + tasks array + `summary` |
-| Hera | `stage` | Stage 9 `alignment_verdict` + coverage fields |
-| Hermes | `stage` | Stage 10 `code_review_verdict` |
-| Cassandra | `stage` | Stage 10 `risk_verdict` |
+| Ares | `stage`, `implementation_mode` | Stage 7 status + tasks array + `summary` |
+| Hera | `stage` | Stage 8 `alignment_verdict` + coverage fields |
+| Hermes | `stage` | Stage 9 `code_review_verdict` |
+| Cassandra | `stage` | Stage 9 `risk_verdict` |
 
 ---
 
 ## Conflict Detection
 
 A **stale conflict** exists when:
-- `pipeline["5-tech-spec"].based_on_prd_version` < `pipeline["1-prd"].completed`
+- `pipeline["4-tech-spec"].based_on_prd_version` < `pipeline["1-prd"].completed`
   (Tech spec was written against an older PRD)
 
 A **gate failure** exists when:
 - Target stage prerequisites are not `complete`
-- Example: Cannot start stage 5 if stage 2 verdict is not `approved`
+- Example: Cannot start stage 4 if stage 2 verdict is not `approved`
 
 ---
 

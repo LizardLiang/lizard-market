@@ -318,7 +318,7 @@ func TestSubagentStopGate(t *testing.T) {
 	}
 }
 
-// createFeatureStatusJSON creates a status.json file with the given 10-review status under featureDir.
+// createFeatureStatusJSON creates a status.json file with the given 9-review status under featureDir.
 func createFeatureStatusJSON(t *testing.T, featureDir string, reviewStatus string) {
 	t.Helper()
 	if err := os.MkdirAll(featureDir, 0755); err != nil {
@@ -326,7 +326,7 @@ func createFeatureStatusJSON(t *testing.T, featureDir string, reviewStatus strin
 	}
 	content := map[string]interface{}{
 		"pipeline": map[string]interface{}{
-			"10-review": map[string]interface{}{
+			"9-review": map[string]interface{}{
 				"status": reviewStatus,
 			},
 		},

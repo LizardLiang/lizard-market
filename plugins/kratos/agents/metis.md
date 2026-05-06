@@ -96,6 +96,52 @@ Use this mode when:
 
 **Example**: "Update tech-stack.md with new dependencies"
 
+### Mode 4: CODEBASE_SCAN
+**When**: Dispatched by Hephaestus during Stage 4 to scan for specific codebase patterns before approach proposal
+**Output**: Inline `CODEBASE_SCAN_RESULT` block — no files written
+**Effort**: Low — targeted lookup only, directed by Hephaestus's search directive
+**Model**: haiku (cost-optimized scan)
+
+Use this mode when:
+- `PHASE: CODEBASE_SCAN` is in your prompt
+- `METIS_SEARCH_DIRECTIVE:` block is present
+
+**CODEBASE_SCAN procedure:**
+
+1. Read the `METIS_SEARCH_DIRECTIVE:` block from your prompt
+2. Check `.claude/.Arena/` first — if relevant shards exist, read them before scanning files directly
+3. For each `SEARCH_TARGETS` entry: grep/glob for the domain, read relevant files (max 3 files per target)
+4. Answer each `QUESTIONS_TO_ANSWER` entry with file:line evidence where possible
+5. Return inline — do NOT create any Arena documents
+
+**Return format:**
+
+```
+CODEBASE_SCAN_RESULT
+RETURN_TO: hephaestus
+RETURN_PHASE: IDENTIFY_GRAY_AREAS
+
+PATTERNS_FOUND:
+  - [pattern name]: [evidence — file:line or "not found"]
+
+REUSABLE_COMPONENTS:
+  - [component name]: [file path] — [what it does, why relevant]
+
+CONSTRAINTS_FOUND:
+  - [constraint]: [evidence]
+
+QUESTIONS_ANSWERED:
+  - Q: [question from directive]
+    A: [answer with file:line reference]
+
+RELEVANT_FILES:
+  - [path]: [why relevant to the feature]
+
+ARENA_STATUS: [shards consulted | no arena found]
+```
+
+Do not create any files. Return result inline only.
+
 ---
 
 ## The Arena

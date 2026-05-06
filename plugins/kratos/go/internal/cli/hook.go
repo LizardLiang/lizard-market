@@ -375,7 +375,7 @@ func handleHermesStart(input subagentStartInput) error {
 }
 
 // findActiveFeatureDir scans .claude/feature/*/status.json and returns the feature folder
-// for the first feature where stage 10-review has status pending, in-progress, or ready.
+// for the first feature where stage 8-review has status pending, in-progress, or ready.
 func findActiveFeatureDir(cwd string) (string, error) {
 	pattern := filepath.Join(cwd, ".claude", "feature", "*", "status.json")
 	matches, err := filepath.Glob(pattern)
@@ -402,12 +402,12 @@ func findActiveFeatureDir(cwd string) (string, error) {
 			continue
 		}
 
-		// Navigate: pipeline["10-review"].status
+		// Navigate: pipeline["9-review"].status
 		pipeline, ok := statusJSON["pipeline"].(map[string]interface{})
 		if !ok {
 			continue
 		}
-		reviewStage, ok := pipeline["10-review"].(map[string]interface{})
+		reviewStage, ok := pipeline["9-review"].(map[string]interface{})
 		if !ok {
 			continue
 		}

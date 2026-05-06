@@ -45,8 +45,8 @@ AskUserQuestion(
 
 3. **Create README** for the feature
 
-**Note on Stage 9 fields:**
-- `mode`: Set to `"ares"` (AI implements) or `"user"` (manual implementation) after Stage 8 by editing status.json directly. See `plugins/kratos/references/status-json-schema.md` for the schema.
+**Note on Stage 8 fields:**
+- `mode`: Set to `"ares"` (AI implements) or `"user"` (manual implementation) after Stage 7 by editing status.json directly. See `plugins/kratos/references/status-json-schema.md` for the schema.
 - `tasks`: Only populated in User Mode with this structure:
   ```json
   {
@@ -129,7 +129,7 @@ Priority: <priority>
 Battlefield: .claude/feature/<feature-name>/
 
 Pipeline Initialized:
-[1]PRD -> [2]Review -> [3]Decompose -> [4]Discuss -> [5]Spec -> [6]Review -> [7]Test -> [8]Impl -> [9]Align -> [10]Review -> VICTORY
+[1]PRD -> [2]Review -> [3]Decompose -> [4]Discuss -> [4]Spec -> [5]Review -> [6]Test -> [7]Impl -> [8]Align -> [9]Review -> VICTORY
 
 Current Stage: 1 - PRD Creation
 Agent: Athena (opus)

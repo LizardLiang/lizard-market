@@ -168,19 +168,7 @@ func pipelineInit(feature, description, priority string) error {
 					"condition": "prd-review.verdict === 'approved' AND user opts in",
 				},
 			},
-			"4-discuss": map[string]interface{}{
-				"status":    "skipped",
-				"assignee":  "themis",
-				"started":   nil,
-				"completed": nil,
-				"document":  "context.md",
-				"optional":  true,
-				"gate": map[string]interface{}{
-					"requires":  []string{"2-prd-review"},
-					"condition": "prd-review.verdict === 'approved' AND user opts in",
-				},
-			},
-			"5-tech-spec": map[string]interface{}{
+			"4-tech-spec": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "hephaestus",
 				"started":   nil,
@@ -191,29 +179,29 @@ func pipelineInit(feature, description, priority string) error {
 					"condition": "prd-review.verdict === 'approved'",
 				},
 			},
-			"6-spec-review-sa": map[string]interface{}{
+			"5-spec-review-sa": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "apollo",
 				"started":   nil,
 				"completed": nil,
 				"document":  "spec-review-sa.md",
 				"gate": map[string]interface{}{
-					"requires":  []string{"5-tech-spec"},
+					"requires":  []string{"4-tech-spec"},
 					"condition": "tech-spec.status === 'complete'",
 				},
 			},
-			"7-test-plan": map[string]interface{}{
+			"6-test-plan": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "artemis",
 				"started":   nil,
 				"completed": nil,
 				"document":  "test-plan.md",
 				"gate": map[string]interface{}{
-					"requires":  []string{"6-spec-review-sa"},
+					"requires":  []string{"5-spec-review-sa"},
 					"condition": "review passed",
 				},
 			},
-			"8-implementation": map[string]interface{}{
+			"7-implementation": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "ares",
 				"started":   nil,
@@ -222,29 +210,29 @@ func pipelineInit(feature, description, priority string) error {
 				"mode":      nil,
 				"tasks":     nil,
 				"gate": map[string]interface{}{
-					"requires":  []string{"7-test-plan"},
+					"requires":  []string{"6-test-plan"},
 					"condition": "test-plan exists",
 				},
 			},
-			"9-prd-alignment": map[string]interface{}{
+			"8-prd-alignment": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "hera",
 				"started":   nil,
 				"completed": nil,
 				"document":  "prd-alignment.md",
 				"gate": map[string]interface{}{
-					"requires":  []string{"8-implementation"},
+					"requires":  []string{"7-implementation"},
 					"condition": "implementation complete",
 				},
 			},
-			"10-review": map[string]interface{}{
+			"9-review": map[string]interface{}{
 				"status":    "blocked",
 				"assignee":  "hermes",
 				"started":   nil,
 				"completed": nil,
 				"document":  "code-review.md",
 				"gate": map[string]interface{}{
-					"requires":  []string{"9-prd-alignment"},
+					"requires":  []string{"8-prd-alignment"},
 					"condition": "prd-alignment verdict === 'aligned'",
 				},
 			},
@@ -279,7 +267,7 @@ func pipelineUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&feature, "feature", "", "Feature name (required)")
 	cmd.Flags().StringVar(&stage, "stage", "", "Pipeline stage, e.g. 1-prd (required)")
 	cmd.Flags().StringVar(&status, "status", "", "New status: in-progress, complete, blocked, ready, skipped (required)")
-	cmd.Flags().StringVar(&mode, "mode", "", "Implementation mode: ares or user (stage 9 only)")
+	cmd.Flags().StringVar(&mode, "mode", "", "Implementation mode: ares or user (stage 8 only)")
 	cmd.Flags().StringVar(&verdict, "verdict", "", "Review verdict: approved, revisions, sound, concerns, unsound, changes-requested, rejected")
 	cmd.Flags().StringVar(&document, "document", "", "Document path to record")
 	cmd.MarkFlagRequired("feature")

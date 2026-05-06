@@ -43,7 +43,7 @@ For each requirement:
 
 Feature: user-authentication
 Current Stage: 5 - Tech Spec (complete)
-Target Gate: Stage 7 - Test Plan
+Target Gate: Stage 6 - Test Plan
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                        GATE REQUIREMENTS                         │

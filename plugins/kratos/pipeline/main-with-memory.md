@@ -133,7 +133,6 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 | **metis** | opus | Project research, codebase analysis | 0 (Pre-flight) |
 | **athena** | opus | PRD creation, PM reviews | 1, 2, 6 |
 | **daedalus** | sonnet | Feature decomposition | 3 (optional) |
-| **themis** | sonnet | Implementation discuss, decision locking | 4 (optional) |
 | **hephaestus** | opus | Technical specifications | 5 |
 | **apollo** | opus | Architecture review | 7 |
 | **artemis** | sonnet | Test planning | 8 |
@@ -148,8 +147,8 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 
 ```
 [0] Research (opt) → [1] PRD → [2] PRD Review → [3] Decompose (opt) → [4] Discuss (opt)
-  → [5] Tech Spec → [6] Spec Review PM → [7] Spec Review SA → [8] Test Plan
-  → [9] Implement → [10] PRD Alignment → [11] Review → VICTORY
+  → [4] Tech Spec → [5] Spec Review PM → [6] Spec Review SA → [7] Test Plan
+  → [8] Implement → [9] PRD Alignment → [11] Review → VICTORY
 ```
 
 | Stage | Agent | Model | Document Created |
@@ -157,13 +156,12 @@ You are an orchestrator, not a worker. For every pipeline stage, you MUST:
 | 1-prd | athena | opus | prd.md |
 | 2-prd-review | nemesis | opus | prd-challenge.md |
 | 3-decomposition | daedalus | sonnet | decomposition.md (optional) |
-| 4-discuss | themis | sonnet | context.md (optional) |
-| 5-tech-spec | hephaestus | opus | tech-spec.md |
-| 6-spec-review-sa | apollo | opus | spec-review-sa.md |
-| 7-test-plan | artemis | sonnet | test-plan.md |
-| 8-implementation | ares | sonnet | implementation-notes.md + code |
-| 9-prd-alignment | hera | sonnet | prd-alignment.md |
-| 10-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
+| 4-tech-spec | hephaestus | opus | tech-spec.md |
+| 5-spec-review-sa | apollo | opus | spec-review-sa.md |
+| 6-test-plan | artemis | sonnet | test-plan.md |
+| 7-implementation | ares | sonnet | implementation-notes.md + code |
+| 8-prd-alignment | hera | sonnet | prd-alignment.md |
+| 9-review | hermes + cassandra (parallel) | opus + sonnet | code-review.md + risk-analysis.md |
 
 Optional pre-pipeline research: metis -> .claude/.Arena/*
 
@@ -211,13 +209,13 @@ For each stage, follow this pattern:
    - If user accepts, spawn Daedalus → record completion
    - If declined, mark 3-decomposition as skipped
 
-   **Stage 7→8 transition requires mode selection:**
+   **Stage 6→8 transition requires mode selection:**
    - Use AskUserQuestion: "Ares Mode" vs "User Mode"
    - Record decision in memory
 
-   **Stage 9 spawns Hera:**
+   **Stage 8 spawns Hera:**
    - Hera (PRD alignment check) — record spawn and completion
-   - If aligned, Stage 10 spawns two agents in parallel:
+   - If aligned, Stage 9 spawns two agents in parallel:
    - Hermes (code review) + Cassandra (risk analysis) — record both spawns and completions
 
 3. **RECORD POST-COMPLETION**:
@@ -250,22 +248,21 @@ This matches `commands/main.md` exactly:
 | 1-prd | - | 2-prd-review | nemesis (opus) |
 | 2-prd-review | Approved | DECOMPOSITION CHECK | Kratos judges complexity |
 | 2-prd-review | Revisions | 1-prd | athena (opus) |
-| 3-decomposition | Complete or Skipped | 4-discuss gate | Offer Themis or skip to 5 |
-| 4-discuss | Complete or Skipped | 5-tech-spec | hephaestus (opus) |
-| 5-tech-spec | - | 6-spec-review-sa | apollo (opus) |
-| 6-spec-review-sa | Sound | 7-test-plan | artemis (sonnet) |
-| 6-spec-review-sa | Concerns/Unsound | 5-tech-spec | hephaestus (opus) |
-| 7-test-plan | - | ASK MODE | Ask user: Ares Mode vs User Mode |
-| 7-test-plan | Ares Mode | 8-implementation | ares (sonnet) - implement |
-| 7-test-plan | User Mode | 8-implementation | ares (sonnet) - create tasks |
-| 8-implementation | Ares Mode | 9-prd-alignment | hera (sonnet) |
-| 8-implementation | User Mode | WAIT | User completes tasks, then /kratos:task-complete all |
-| 9-prd-alignment | Aligned | 10-review | hermes (opus) + cassandra (sonnet) in parallel |
-| 9-prd-alignment | Gaps | 8-implementation | ares (sonnet) - add missing test coverage |
-| 9-prd-alignment | Misaligned | BLOCKED | Escalate to user |
-| 10-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
-| 10-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first |
-| 10-review | Changes | 8-implementation | ares (sonnet) |
+| 3-decomposition | Complete or Skipped | 4-tech-spec | hephaestus (opus) |
+| 4-tech-spec | - | 5-spec-review-sa | apollo (opus) |
+| 5-spec-review-sa | Sound | 6-test-plan | artemis (sonnet) |
+| 5-spec-review-sa | Concerns/Unsound | 4-tech-spec | hephaestus (opus) |
+| 6-test-plan | - | ASK MODE | Ask user: Ares Mode vs User Mode |
+| 6-test-plan | Ares Mode | 7-implementation | ares (sonnet) - implement |
+| 6-test-plan | User Mode | 7-implementation | ares (sonnet) - create tasks |
+| 7-implementation | Ares Mode | 8-prd-alignment | hera (sonnet) |
+| 7-implementation | User Mode | WAIT | User completes tasks, then /kratos:task-complete all |
+| 8-prd-alignment | Aligned | 9-review | hermes (opus) + cassandra (sonnet) in parallel |
+| 8-prd-alignment | Gaps | 7-implementation | ares (sonnet) - add missing test coverage |
+| 8-prd-alignment | Misaligned | BLOCKED | Escalate to user |
+| 9-review | Approved + risk CLEAR/CAUTION | VICTORY | - |
+| 9-review | Approved + risk CRITICAL | BLOCKED | Fix CRITICAL risks first |
+| 9-review | Changes | 7-implementation | ares (sonnet) |
 
 ---
 
@@ -307,7 +304,7 @@ Result: <success/failure>
 Files: <list of files created/modified>
 
 Pipeline:
-[1]✅ → [2]✅ → [3]⏭️ → [4]⏭️ → [5]✅ → [6]🔄 → [7]⏳ → [8]🔒 → [9]🔒 → [10]🔒 → [11]🔒
+[1]✅ → [2]✅ → [3]⏭️ → [4]⏭️ → [4]✅ → [5]🔄 → [6]⏳ → [7]🔒 → [8]🔒 → [9]🔒 → [11]🔒
 
 Next: <next stage>
 Continue?

@@ -31,14 +31,13 @@ If an agent needs one of these files and it is missing, the agent should stop an
 | `prd.md` | Athena | 1-prd |
 | `prd-challenge.md` | Nemesis | 2-prd-review |
 | `decomposition.md` | Daedalus | 3-decomposition |
-| `context.md` | Themis | 4-discuss |
-| `tech-spec.md` | Hephaestus | 5-tech-spec |
-| `spec-review-sa.md` | Apollo | 6-spec-review-sa |
-| `test-plan.md` | Artemis | 7-test-plan |
-| `implementation-notes.md` | Ares | 8-implementation |
-| `prd-alignment.md` | Hera | 9-prd-alignment |
-| `code-review.md` | Hermes | 10-review |
-| `risk-analysis.md` | Cassandra | 10-review |
+| `tech-spec.md` | Hephaestus | 4-tech-spec |
+| `spec-review-sa.md` | Apollo | 5-spec-review-sa |
+| `test-plan.md` | Artemis | 6-test-plan |
+| `implementation-notes.md` | Ares | 7-implementation |
+| `prd-alignment.md` | Hera | 8-prd-alignment |
+| `code-review.md` | Hermes | 9-review |
+| `risk-analysis.md` | Cassandra | 9-review |
 
 ---
 
@@ -61,32 +60,32 @@ If an agent needs one of these files and it is missing, the agent should stop an
 - **Mission**: Create `tech-spec.md` based on the approved PRD.
 
 ### Apollo (Architecture Review)
-- **Mission**: Review `tech-spec.md` for technical soundness (Stage 6).
+- **Mission**: Review `tech-spec.md` for technical soundness (Stage 5).
 - **Consult when needed**: Use `status.json` for stage state and summary, `prd.md` for requirements, `tech-spec.md` for design detail when the summary is insufficient, and Arena/codebase only for targeted verification.
 - **If a needed file is missing**: Stop and tell Kratos to summon the owning agent from the Artifact Ownership table.
 
 ### Artemis (QA Lead)
-- **Mission**: Create `test-plan.md` mapping requirements to test cases (Stage 7).
+- **Mission**: Create `test-plan.md` mapping requirements to test cases (Stage 6).
 - **Consult when needed**: Use `status.json` for stage state and summary, `prd.md` for requirements, `spec-review-sa.md` for known concerns, `tech-spec.md` for technical behavior when needed, and `decomposition.md` for phase-aware planning.
 - **If a needed file is missing**: Stop and tell Kratos to summon the owning agent from the Artifact Ownership table.
 
 ### Ares (Implementation)
-- **Mission**: Implement the feature in code and write tests (Stage 8).
+- **Mission**: Implement the feature in code and write tests (Stage 7).
 - **Consult when needed**: Use `status.json` for stage state and summaries, `test-plan.md` for verification goals, `tech-spec.md` for implementation detail when summaries are insufficient, `prd.md` for requirement context, `decisions.md` for rationale, and `decomposition.md` for task sequencing.
 - **If a needed file is missing**: Stop and tell Kratos to summon the owning agent from the Artifact Ownership table.
 
 ### Hera (Alignment)
-- **Mission**: Verify that implementation matches PRD requirements (Stage 9).
+- **Mission**: Verify that implementation matches PRD requirements (Stage 8).
 - **Inputs**: `prd.md`, `test-plan.md`, `implementation-notes.md`, test files in codebase.
 - **If a needed file is missing**: Stop and tell Kratos to summon the owning agent from the Artifact Ownership table.
 
 ### Hermes (Code Review)
-- **Mission**: Review implementation for quality and conventions (Stage 10).
+- **Mission**: Review implementation for quality and conventions (Stage 9).
 - **Consult when needed**: Use `status.json` for stage state and summaries, `implementation-notes.md` for delivered work, `test-plan.md` for expected coverage, `prd.md` for requirement alignment, `tech-spec.md` for intended design when needed, and `decomposition.md` for phase verification.
 - **If a needed file is missing**: Stop and tell Kratos to summon the owning agent from the Artifact Ownership table.
 
 ### Cassandra (Risk Analyst)
-- **Mission**: Identify security, breaking change, and reliability risks (Stage 10).
+- **Mission**: Identify security, breaking change, and reliability risks (Stage 9).
 - **Consult when needed**: Use `status.json` for stage state and summaries, inspect implementation code and git diff as the primary risk surface, and open `tech-spec.md` only when intended architecture or contract detail matters to a risk.
 - **If a needed file is missing**: Stop and tell Kratos to summon the owning agent from the Artifact Ownership table.
 

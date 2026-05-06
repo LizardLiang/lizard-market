@@ -48,13 +48,13 @@ For the next stage, verify prerequisites:
 | Current Stage | Next Stage | Gate Requirement |
 |---------------|------------|------------------|
 | 1-prd | 2-prd-review | PRD exists |
-| 2-prd-review | 5-tech-spec | PRD Review verdict = ✅ Approved |
-| 5-tech-spec | 6-spec-review-sa | Tech Spec exists |
-| 6-spec-review-sa | 7-test-plan | Review passed (✅ Sound) |
-| 7-test-plan | 8-implementation | Test Plan exists |
-| 8-implementation | 9-prd-alignment | Implementation complete |
-| 9-prd-alignment | 10-review | PRD alignment verdict = ✅ Aligned |
-| 10-review | DONE | Code Review verdict = ✅ Approved |
+| 2-prd-review | 4-tech-spec | PRD Review verdict = ✅ Approved |
+| 4-tech-spec | 5-spec-review-sa | Tech Spec exists |
+| 5-spec-review-sa | 6-test-plan | Review passed (✅ Sound) |
+| 6-test-plan | 7-implementation | Test Plan exists |
+| 7-implementation | 8-prd-alignment | Implementation complete |
+| 8-prd-alignment | 9-review | PRD alignment verdict = ✅ Aligned |
+| 9-review | DONE | Code Review verdict = ✅ Approved |
 
 ### Step 4: Take Action
 
@@ -86,7 +86,7 @@ Next Stage: 6 - Spec Review SA
 Gate Check: ❌ BLOCKED
 
 Requirements not met:
-- [6] SA Spec Review: ⏳ Not Started (need: ✅ Sound)
+- [5] SA Spec Review: ⏳ Not Started (need: ✅ Sound)
 
 Action Required:
 1. Start SA Spec Review: /sa-expert:review-spec
@@ -161,13 +161,12 @@ What is your command?
 | 1-prd | Athena | opus | Create PRD (two-phase: gap analysis + write) |
 | 2-prd-review | Nemesis | opus | Review PRD |
 | 3-decomposition | Daedalus | sonnet | Decompose feature (optional) |
-| 4-discuss | Themis | sonnet | Debate implementation choices, lock decisions (optional) |
-| 5-tech-spec | Hephaestus | opus | Create tech spec |
-| 6-spec-review-sa | Apollo | opus | SA spec review |
-| 7-test-plan | Artemis | sonnet | Create test plan |
-| 8-implementation | Ares | sonnet | Implement (Ares Mode) or create tasks (User Mode) |
-| 9-prd-alignment | Hera | sonnet | Verify acceptance criteria coverage |
-| 10-review | Hermes + Cassandra | opus + sonnet | Code review + risk analysis (parallel) |
+| 4-tech-spec | Hephaestus | opus | Create tech spec |
+| 5-spec-review-sa | Apollo | opus | SA spec review |
+| 6-test-plan | Artemis | sonnet | Create test plan |
+| 7-implementation | Ares | sonnet | Implement (Ares Mode) or create tasks (User Mode) |
+| 8-prd-alignment | Hera | sonnet | Verify acceptance criteria coverage |
+| 9-review | Hermes + Cassandra | opus + sonnet | Code review + risk analysis (parallel) |
 
 All agents are spawned via Task tool: `Task(subagent_type: "kratos:[agent]", ...)`
 
@@ -177,7 +176,7 @@ All agents are spawned via Task tool: `Task(subagent_type: "kratos:[agent]", ...
 
 Some stages can run in parallel:
 - **10**: Code Review and Risk Analysis can run simultaneously
-- Kratos should trigger both when reaching Stage 10.
+- Kratos should trigger both when reaching Stage 9.
 
 ---
 

@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Discuss Phase | `context.md` | `.claude/feature/<name>/context.md` |
 
-CLI stage: `4-discuss`
+CLI stage: `4-tech-spec` (phase 1 — gray areas feed into Hephaestus's spec)
 
 ---
 
@@ -338,8 +338,7 @@ After all discussions, write `context.md` at `.claude/feature/<name>/context.md`
 ## Update status.json
 
 After writing context.md, update status.json:
-- Set `4-discuss.status` to "complete"
-- Set `5-tech-spec.status` to "ready"
+- Set `4-tech-spec.status` to "in-progress" (Hephaestus picks up from here)
 - Add document entry for `context.md`
 
 ---

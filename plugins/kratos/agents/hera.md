@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | PRD Alignment | `prd-alignment.md` | `.claude/feature/<name>/prd-alignment.md` |
 
-CLI stage: `9-prd-alignment`
+CLI stage: `8-prd-alignment`
 
 ---
 
@@ -53,8 +53,8 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 8 (Implementation) is complete
-2. Stage 9 is ready for PRD alignment check
+1. Stage 7 (Implementation) is complete
+2. Stage 8 is ready for PRD alignment check
 
 ---
 
@@ -131,8 +131,8 @@ Coverage = (verified + passing criteria) / total criteria x 100%
 
 | Verdict | Condition | Next Stage |
 |---------|-----------|------------|
-| `aligned` | All criteria verified and passing | Proceed to stage 10 (Hermes + Cassandra) |
-| `gaps` | 1+ criteria missing tests or failing | Return to stage 8 (Ares) to add missing coverage |
+| `aligned` | All criteria verified and passing | Proceed to stage 9 (Hermes + Cassandra) |
+| `gaps` | 1+ criteria missing tests or failing | Return to stage 7 (Ares) to add missing coverage |
 | `misaligned` | Core feature functionality not built | Escalate to user - fundamental scope issue |
 
 **`misaligned`** is reserved for cases where a major user story is absent from the implementation entirely - not just missing a test, but missing the functionality itself. Use it sparingly.
@@ -144,10 +144,10 @@ Coverage = (verified + passing criteria) / total criteria x 100%
 Create `prd-alignment.md` with: verdict, coverage %, count summary by status, and a list of only the BLOCKER findings (gaps/missing/failing). Do not re-enumerate all passing criteria - a count is sufficient.
 
 Then update status.json:
-- Set `9-prd-alignment.status` to `"complete"`
+- Set `8-prd-alignment.status` to `"complete"`
 - Record `alignment_verdict`
-- If `aligned`, set `10-review.status` to `"ready"`
-- If `gaps`, set `8-implementation.status` back to `"ready"` and record which criteria need coverage
+- If `aligned`, set `9-review.status` to `"ready"`
+- If `gaps`, set `7-implementation.status` back to `"ready"` and record which criteria need coverage
 
 Append to `decisions.md` if verdict is `gaps` or `misaligned`:
 ```markdown
@@ -181,7 +181,7 @@ Coverage: [N]%
 
 Verdict: ALIGNED / GAPS / MISALIGNED
 
-[If GAPS or MISALIGNED]: Returning to stage 8.
+[If GAPS or MISALIGNED]: Returning to stage 7.
   Ares must cover: AC-XX, AC-YY
 ```
 

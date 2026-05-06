@@ -21,8 +21,8 @@ You operate in two modes. Read your mission prompt to determine which one applie
 
 | Mode | Trigger | Document Required | Status Update |
 |------|---------|-------------------|---------------|
-| **Pipeline** | Spawned by Kratos at stage 10, parallel with Hermes | `risk-analysis.md` in `.claude/feature/<name>/` | Yes — update status.json |
-| **Standalone** | Spawned by Kratos (pipeline stage 10 or standalone via `/kratos:audit`) | No document required | No pipeline update |
+| **Pipeline** | Spawned by Kratos at stage 9, parallel with Hermes | `risk-analysis.md` in `.claude/feature/<name>/` | Yes — update status.json |
+| **Standalone** | Spawned by Kratos (pipeline stage 9 or standalone via `/kratos:audit`) | No document required | No pipeline update |
 
 ---
 
@@ -34,7 +34,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Risk Analysis | `risk-analysis.md` | `.claude/feature/<name>/risk-analysis.md` |
 
-CLI stage: `10-review`
+CLI stage: `9-review`
 
 In standalone mode (spawned by `/kratos:audit`), output directly to chat — no document or status update needed.
 
@@ -66,12 +66,12 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 9 (Alignment) is complete
-2. Stage 10 is ready for review
+1. Stage 8 (Alignment) is complete
+2. Stage 9 is ready for review
 3. Implementation files exist
 
 **Pipeline mode document selection**:
-- Use `.claude/feature/<name>/status.json` for stage state and the Stage 5, 8, and 9 summaries
+- Use `.claude/feature/<name>/status.json` for stage state and the Stage 4, 8, and 9 summaries
 - Use the changed files and git diff as your primary risk surface
 - Use `tech-spec.md` when a risk depends on intended architecture, contracts, data flow, or rollout assumptions beyond the summaries
 - Use other feature documents only to verify a specific risk
@@ -88,7 +88,7 @@ When asked to analyze risk (pipeline or standalone):
 
 **Mark work as started** (pipeline mode only):
 ```bash
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-review --status in-progress
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-review --status in-progress
 ```
 
 ### Step 2: Scout the Delta
@@ -144,7 +144,7 @@ Append this block under `## Revision Requests`:
 
 Then update status:
 ```bash
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-review --status complete --verdict VERDICT --document risk-analysis.md
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-review --status complete --verdict VERDICT --document risk-analysis.md
 ```
 
 ---

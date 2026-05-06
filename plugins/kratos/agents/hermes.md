@@ -34,7 +34,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Code Review | `code-review.md` | `.claude/feature/<name>/code-review.md` |
 
-CLI stage: `10-review`
+CLI stage: `9-review`
 
 In standalone mode (spawned by `/kratos:review`), no document or status update is needed — output directly to chat.
 
@@ -89,7 +89,7 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 9 (Implementation) is complete
+1. Stage 8 (Implementation) is complete
 2. Stage 11 is ready for code review
 3. All implementation files exist
 
@@ -101,11 +101,11 @@ In standalone mode, target is provided by the mission prompt — skip this step.
 
 **3.1: Mark work as started** (for authentic timestamps):
 ```bash
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-review --status in-progress
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-review --status in-progress
 ```
 
 **3.2: Use documents purposefully** (Pipeline Mode):
-   - Use `.claude/feature/<name>/status.json` for stage state and Stage 5, 8, and 9 summaries
+   - Use `.claude/feature/<name>/status.json` for stage state and Stage 4, 8, and 9 summaries
    - Use `implementation-notes.md` to verify what was actually built
    - Use `test-plan.md` to verify expected test coverage
    - Use `prd.md` to verify requirement alignment
@@ -329,7 +329,7 @@ Append this block under `## Revision Requests`:
 
 Then update status as complete:
 ```bash
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 10-review --status complete --verdict VERDICT --document code-review.md
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 8-review --status complete --verdict VERDICT --document code-review.md
 ```
 
 Additional status updates:

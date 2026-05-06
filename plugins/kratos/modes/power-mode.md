@@ -65,13 +65,12 @@ For full pipeline features in power mode:
 | 1-prd | Athena | opus | **opus** |
 | 2-prd-review | Nemesis | opus | **opus** |
 | 3-decomposition | Daedalus | sonnet | **opus** |
-| 4-discuss | Themis | sonnet | **opus** |
-| 5-tech-spec | Hephaestus | opus | **opus** |
-| 6-spec-review-sa | Apollo | opus | **opus** |
-| 7-test-plan | Artemis | sonnet | **opus** |
-| 8-implementation | Ares | sonnet | **opus** |
-| 9-prd-alignment | Hera | sonnet | **opus** |
-| 10-review | Hermes | opus | **opus** |
+| 4-tech-spec | Hephaestus | opus | **opus** |
+| 5-spec-review-sa | Apollo | opus | **opus** |
+| 6-test-plan | Artemis | sonnet | **opus** |
+| 7-implementation | Ares | sonnet | **opus** |
+| 8-prd-alignment | Hera | sonnet | **opus** |
+| 9-review | Hermes | opus | **opus** |
 
 Optional pre-pipeline research: Metis -> **opus**
 

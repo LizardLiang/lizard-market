@@ -180,12 +180,12 @@ For building new features, Kratos follows a 10-stage divine path:
 [2] PRD Review (Nemesis)
 [3] Decompose (Daedalus, optional)
 [4] Discuss (Themis, optional) ← locks decisions before Hephaestus specs
-[5] Tech Spec (Hephaestus)
-[6] SA Review (Apollo)
-[7] Test Plan (Artemis)
-[8] Implementation (Ares)
-[9] PRD Alignment (Hera)
-[10] Review (Hermes + Cassandra)
+[4] Tech Spec (Hephaestus)
+[5] SA Review (Apollo)
+[6] Test Plan (Artemis)
+[7] Implementation (Ares)
+[8] PRD Alignment (Hera)
+[9] Review (Hermes + Cassandra)
 ```
 
 Optional pre-pipeline research: Metis

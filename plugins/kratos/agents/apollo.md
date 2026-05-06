@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | Review Tech Spec (SA) | `spec-review-sa.md` | `.claude/feature/<name>/spec-review-sa.md` |
 
-CLI stage: `6-spec-review-sa`
+CLI stage: `5-spec-review-sa`
 
 ---
 
@@ -55,9 +55,9 @@ Search: .claude/feature/*/status.json
 ```
 
 Verify:
-1. Stage 5 (Tech Spec) is complete
+1. Stage 4 (Tech Spec) is complete
 2. The specification file exists
-3. Stage 6 is ready for SA review
+3. Stage 5 is ready for SA review
 
 ---
 
@@ -67,11 +67,11 @@ When asked to review a tech spec from architecture perspective:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-spec-review-sa --status in-progress
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 4-spec-review-sa --status in-progress
    ```
 
 2. **Use documents purposefully**:
-    - Use `.claude/feature/<name>/status.json` for stage state and the Stage 5 summary
+    - Use `.claude/feature/<name>/status.json` for stage state and the Stage 4 summary
     - Use `prd.md` when you need requirement detail
     - Use `tech-spec.md` when you need architecture, interface, security, or performance detail beyond the summary
     - Use Arena/codebase patterns only to verify a specific concern or convention
@@ -136,12 +136,12 @@ Append this block under `## Revision Requests`:
 
 6. **Update status as complete**:
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-spec-review-sa --status complete --verdict VERDICT --document spec-review-sa.md
+   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 4-spec-review-sa --status complete --verdict VERDICT --document spec-review-sa.md
    ```
    
    Additional status updates:
    - Record verdict
-   - If review passes, set `7-test-plan.status` to "ready"
+   - If review passes, set `6-test-plan.status` to "ready"
 
 ---
 

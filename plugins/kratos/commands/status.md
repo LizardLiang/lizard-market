@@ -63,12 +63,12 @@ Pipeline:
 │ [2] PRD Review   ✅ Approved    │ prd-challenge.md             │
 │ [3] Decompose    ⏭ Skipped      │ -                            │
 │ [4] Discuss      ⏭ Skipped      │ -                            │
-│ [5] Tech Spec    ✅ Complete    │ tech-spec.md                 │
-│ [6] SA Review    ✅ Sound       │ spec-review-sa.md            │
-│ [7] Test Plan    ✅ Complete    │ test-plan.md                 │
-│ [8] Implementation 🔄 In Progress │ implementation-notes.md    │
-│ [9] PRD Alignment ⏳ Waiting     │ -                            │
-│ [10] Review      🔒 Blocked     │ Gate: Alignment required     │
+│ [4] Tech Spec    ✅ Complete    │ tech-spec.md                 │
+│ [5] SA Review    ✅ Sound       │ spec-review-sa.md            │
+│ [6] Test Plan    ✅ Complete    │ test-plan.md                 │
+│ [7] Implementation 🔄 In Progress │ implementation-notes.md    │
+│ [8] PRD Alignment ⏳ Waiting     │ -                            │
+│ [9] Review      🔒 Blocked     │ Gate: Alignment required     │
 └────────────────────────────────────────────────────────────────┘
 
 Health: 🟢 Healthy

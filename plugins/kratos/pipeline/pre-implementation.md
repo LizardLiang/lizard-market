@@ -5,7 +5,7 @@ description: Ensure decomposition exists and select implementation mode before s
 
 # Pre-Implementation Gate
 
-This procedure runs between Stage 7 (Test Plan) and Stage 8 (Implementation). It ensures Ares receives a structured task queue rather than a monolithic spec, which prevents context rot and produces a bisectable git history.
+This procedure runs between Stage 6 (Test Plan) and Stage 7 (Implementation). It ensures Ares receives a structured task queue rather than a monolithic spec, which prevents context rot and produces a bisectable git history.
 
 ---
 
@@ -24,7 +24,7 @@ Task(
   prompt: "MISSION: Decompose Feature (Pre-Implementation)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
-INPUT: Use status.json and its Stage 5 summary first. Consult tech-spec.md when decomposition detail is needed. Consult prd.md for requirement context. If a needed file is missing, stop and tell Kratos to summon the owning upstream agent.
+INPUT: Use status.json and its Stage 4 summary first. Consult tech-spec.md when decomposition detail is needed. Consult prd.md for requirement context. If a needed file is missing, stop and tell Kratos to summon the owning upstream agent.
 OUTPUT_TARGETS: local
 
 Create decomposition.md at .claude/feature/[feature-name]/decomposition.md
@@ -56,11 +56,11 @@ AskUserQuestion(
 )
 ```
 
-Update status.json: set `stages["8-implementation"].status` to `"in-progress"` and `stages["8-implementation"].mode` to `"ares"` or `"user"`. See `plugins/kratos/references/status-json-schema.md` for schema.
+Update status.json: set `stages["7-implementation"].status` to `"in-progress"` and `stages["7-implementation"].mode` to `"ares"` or `"user"`. See `plugins/kratos/references/status-json-schema.md` for schema.
 
 ---
 
 ## Returns
 
-- `"ares-mode"` — proceed to Stage 8a
-- `"user-mode"` — proceed to Stage 8b
+- `"ares-mode"` — proceed to Stage 7a
+- `"user-mode"` — proceed to Stage 7b

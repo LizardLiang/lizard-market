@@ -37,13 +37,12 @@ Each stage has different approval criteria:
 | 1-prd | prd.md | Document exists and is complete |
 | 2-prd-review | prd-challenge.md | Verdict = ✅ Approved |
 | 3-decomposition | decomposition.md | Document exists (or skipped) |
-| 4-discuss | context.md | Document exists (or skipped) |
-| 5-tech-spec | tech-spec.md | Document exists and is complete |
-| 6-spec-review-sa | spec-review-sa.md | Verdict = ✅ Sound |
-| 7-test-plan | test-plan.md | Document exists |
-| 8-implementation | implementation-notes.md | Document exists |
-| 9-prd-alignment | prd-alignment.md | Verdict = ✅ Aligned |
-| 10-review | code-review.md | Verdict = ✅ Approved |
+| 4-tech-spec | tech-spec.md | Document exists and is complete |
+| 5-spec-review-sa | spec-review-sa.md | Verdict = ✅ Sound |
+| 6-test-plan | test-plan.md | Document exists |
+| 7-implementation | implementation-notes.md | Document exists |
+| 8-prd-alignment | prd-alignment.md | Verdict = ✅ Aligned |
+| 9-review | code-review.md | Verdict = ✅ Approved |
 
 ### Step 3: Handle Different Scenarios
 
@@ -92,7 +91,7 @@ Approval recorded:
 
 Pipeline Updated:
 - Stage 2 (PRD Review): ✅ Complete
-- Stage 5 (Tech Spec): 🔓 UNLOCKED
+- Stage 4 (Tech Spec): 🔓 UNLOCKED
 
 Status saved to: .claude/feature/user-auth/status.json
 
@@ -106,7 +105,7 @@ On approval, use the CLI (it stamps real timestamps automatically):
 
 ```bash
 ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict approved
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 5-tech-spec --status ready
+~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 4-tech-spec --status ready
 ```
 
 If the CLI is unavailable, capture a real timestamp first then edit:
@@ -124,7 +123,7 @@ TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
       "verdict": "approved",
       "approvedBy": "kratos"
     },
-    "5-tech-spec": {
+    "4-tech-spec": {
       "status": "ready"
     }
   },
