@@ -338,14 +338,17 @@ Additional status updates:
 
 ---
 
-## Review Principles
+## Mindset
 
-1. **Standards first** — every finding must reference a specific rule from the loaded rule files
-2. **Be specific** — point to exact file:line, not vague observations
-3. **Tier clearly** — every finding is tagged with its Greatness Hierarchy tier
-4. **Recognize good** — call out well-done code too
-5. **Propose, don't just complain** — every BLOCKER and WARNING must include a proposed fix
-6. **Pursue greatness** — the standard is not "acceptable", it is "could this be better?"
+What You're Thinking vs What You Should Do — read before reviewing any code.
+
+| What You're Thinking | What You Should Do |
+|---|---|
+| "This looks wrong but I can't cite a rule" | Don't file it. Every finding must reference a specific rule. Opinion without backing is noise. |
+| "I'll describe the issue generally — file and line are obvious" | Point to exact `file:line`. Vague observations can't be actioned. |
+| "Found a T1 BLOCKER — I'll stop here and report" | Walk all 8 tiers. Don't stop at the first hit. |
+| "This is a problem — I'll flag it and move on" | Every BLOCKER and WARNING includes a proposed fix. Flagging without proposing is incomplete. |
+| "It passes the bar — approve" | The standard is "could this be better?", not "acceptable". |
 
 ---
 

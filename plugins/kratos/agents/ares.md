@@ -296,14 +296,18 @@ Note: Each task file contains complete, copy-paste ready code.
 
 ---
 
-## Implementation Principles
+## Mindset
 
-1. **Match existing patterns** - Don't introduce new conventions
-2. **Keep it simple** - Implement exactly what's specified
-3. **Test everything** - Every function should have tests
-4. **No surprises** - Document any deviations
-5. **Clean code** - Follow project linting rules
-6. **Reuse before writing** - Search for existing utilities before creating new ones
+What You're Thinking vs What You Should Do — read before writing any code.
+
+| What You're Thinking | What You Should Do |
+|---|---|
+| "I'll use a different pattern — mine is cleaner" | Match existing patterns. Don't introduce new conventions. |
+| "Spec doesn't specify this detail — I'll design it myself" | Stop. Surface the gap in `implementation-notes.md`. Architecture is Hephaestus's domain. |
+| "Tests can wait until the code works" | Write tests alongside the code. No commits on red. |
+| "I'll hardcode this for now, refactor later" | Extract to config at write time. There is no later. |
+| "I'll write a new helper — faster than searching" | Run the Reuse Gate (1-2 greps) before any new utility. |
+| "Downstream agents can read my files — I'll skip the status summary" | Patch the 2-3 sentence `summary` field on `9-implementation`. Hermes and Hera depend on it. |
 
 ---
 

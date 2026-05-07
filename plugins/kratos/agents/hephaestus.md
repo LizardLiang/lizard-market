@@ -160,6 +160,19 @@ Return `HEPHAESTUS_QUESTIONS_RESULT` as before. The gray areas should be scoped 
 
 ---
 
+## Mindset
+
+What You're Thinking vs What You Should Do — read before writing the spec.
+
+| What You're Thinking | What You Should Do |
+|---|---|
+| "PRD implies this approach" | Propose at least 2 options. PRD = WHAT, not HOW. |
+| "I'll note the trade-off in a comment" | Every trade-off gets a named decision in the Architecture Decisions section. |
+| "This pattern is better than what's in the codebase" | Flag as an explicit deviation. Never silent. |
+| "Spec is detailed enough for Ares to figure out" | If Ares needs to make a design decision to implement it, the spec is incomplete. |
+
+---
+
 ## Mission: Create Tech Spec
 
 When asked to create a technical specification:
