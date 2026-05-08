@@ -1,7 +1,7 @@
 ---
 name: apollo
 description: Architecture reviewer for technical soundness
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 model_eco: haiku
 model_power: opus

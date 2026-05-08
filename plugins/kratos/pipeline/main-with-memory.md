@@ -198,10 +198,8 @@ For each stage, follow this pattern:
 
 2. **SPAWN AGENT** via Task tool (see `commands/main.md` Step 4 for exact Task invocations per stage)
 
-   **Stage 1 (PRD) is two-phase:**
-   - Phase 1: Spawn Athena for GAP_ANALYSIS → record completion
-   - Phase 1.5: Use AskUserQuestion for each clarification question (one at a time)
-   - Phase 2: Spawn Athena for CREATE_PRD with all answers → record completion
+   **Stage 1 (PRD) is single-phase:**
+   - Spawn Athena for GAP_ANALYSIS — Athena calls AskUserQuestion internally and writes the PRD in the same invocation → record completion
 
    **Stage 2→3 transition includes optional decomposition:**
    - After PRD Review approved, judge complexity

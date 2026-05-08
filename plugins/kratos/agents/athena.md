@@ -159,7 +159,7 @@ Find the active feature by searching `.claude/feature/*/status.json`. Read the s
 
 ### Mission: Gap Analysis (PHASE: GAP_ANALYSIS)
 
-When your prompt contains `PHASE: GAP_ANALYSIS`, analyze requirements and score clarity. **If requirements are already clear (ambiguity ≤ 0.20), write the PRD immediately** — there is no need for a second spawn. Only return questions if clarity is insufficient. You cannot ask the user questions directly, so when clarification is needed you return questions to Kratos, who relays them and feeds answers back.
+When your prompt contains `PHASE: GAP_ANALYSIS`, analyze requirements and score clarity. **If requirements are already clear (ambiguity ≤ 0.20), write the PRD immediately** — there is no need for a separate spawn. If clarity is insufficient, call `AskUserQuestion` for each gap question directly (up to 4 per round, max 3 rounds). Collect answers, re-score, and repeat until ready — then write the PRD in the same invocation.
 
 #### Step 1: Parse the Requirement
 
@@ -250,62 +250,27 @@ Bad questions (generic, open-ended):
 
 #### Step 4: Branch on Clarity
 
-**If ambiguity ≤ 0.20 (WRITE_READY):**
+**If ambiguity ≤ 0.20 (ready to write):**
 
-Write the PRD now — follow the same steps as the Create PRD mission below (research, write `prd.md`, write `decisions.md`, update pipeline status). Then return:
-
-```
-GAP_ANALYSIS_RESULT
-
-REQUIREMENT_LEVEL: [Sparse | Moderate | Detailed]
-CLARITY_SCORES:
-  GOAL_CLARITY: [0.00–1.00]
-  CONSTRAINT_CLARITY: [0.00–1.00]
-  CRITERIA_CLARITY: [0.00–1.00]
-  AMBIGUITY: [value]
-
-WRITE_READY: true
-PRD_WRITTEN: true
-QUESTIONS: NONE
-NOTES: [optional]
-```
+Write the PRD now — follow the same steps as the Create PRD mission below (research, write `prd.md`, write `decisions.md`, update pipeline status).
 
 **If ambiguity > 0.20 (clarification needed):**
 
-Return questions only — do not write the PRD yet. Kratos will ask the questions, collect answers, and either re-spawn this phase or spawn Phase 2 directly.
+Call `AskUserQuestion` for each gap question — up to 4 per round, targeting the weakest clarity dimension:
 
 ```
-GAP_ANALYSIS_RESULT
-
-REQUIREMENT_LEVEL: [Sparse | Moderate | Detailed]
-TOTAL_GAPS: [number]
-P0_GAPS: [number]
-
-CLARITY_SCORES:
-  GOAL_CLARITY: [0.00–1.00]
-  CONSTRAINT_CLARITY: [0.00–1.00]
-  CRITERIA_CLARITY: [0.00–1.00]
-  AMBIGUITY: [calculated: 1 - (goal × 0.40 + constraints × 0.30 + criteria × 0.30)]
-  WEAKEST_DIMENSION: [goal|constraints|criteria — questions target this]
-
-QUESTIONS:
----
-Q1_HEADER: [short header]
-Q1_QUESTION: [the question text]
-Q1_OPTIONS:
-- [option 1 label] | [option 1 description]
-- [option 2 label] | [option 2 description]
-- [option 3 label] | [option 3 description]
-Q1_MULTI_SELECT: [true|false]
----
-[... up to Q4 per round]
-
-WRITE_READY: false
-PRD_WRITTEN: false
-NOTES: [any context for Kratos about the analysis]
+AskUserQuestion(
+  question: [Q_QUESTION],
+  header: [Q_HEADER],
+  options: [
+    { label: "[option label]", description: "[option description]" },
+    ...
+  ],
+  multiSelect: [true|false]
+)
 ```
 
-**WRITE_READY criteria**: Set `WRITE_READY: true` when `AMBIGUITY ≤ 0.20`. If uncertain, default to asking questions.
+Ask one question at a time. After each round of answers, fold them into your understanding of the requirements and re-score ambiguity. If ambiguity is now ≤ 0.20, write the PRD. If not, ask another round (max 3 rounds total). After 3 rounds, write the PRD with any remaining gaps documented as explicit assumptions in the PRD appendix.
 
 ---
 

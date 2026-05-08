@@ -1,7 +1,7 @@
 ---
 name: ares
 description: Implementation specialist for writing code
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus

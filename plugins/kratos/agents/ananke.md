@@ -1,7 +1,7 @@
 ---
 name: ananke
 description: Task manager — add, list, complete, and remove personal todos via kratos binary or fallback file
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 model: claude-haiku-4-5-20251001
 model_eco: claude-haiku-4-5-20251001
 model_power: claude-sonnet-4-6
@@ -139,7 +139,7 @@ Translate user intent to operations:
 | "mark X as done", "I finished X", "done with X" | done (match by text or ID) |
 | "remove X", "delete task X", "I don't need to do X anymore" | rm (match by text or ID) |
 
-When matching by text (not ID), list first and ask for confirmation if ambiguous.
+When matching by text (not ID), list first. If multiple items match, use AskUserQuestion to let the user pick which one they mean.
 
 ---
 
