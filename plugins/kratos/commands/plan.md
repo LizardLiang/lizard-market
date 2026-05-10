@@ -41,9 +41,7 @@ Task(
   model: "[model based on mode]",
   prompt: "MISSION: Strategic Planning
 
-Read plugins/kratos/agents/prometheus.md for the full instruction set before starting.
-
-Research the project Arena (.claude/.Arena/) and in-flight features (.claude/feature/*/status.json). Interview the user with 3-5 targeted questions via AskUserQuestion. Then produce a prioritized strategic plan as plain markdown.",
+Read plugins/kratos/agents/prometheus.md for the full instruction set before starting.",
   description: "prometheus - research, interview, and plan"
 )
 ```
