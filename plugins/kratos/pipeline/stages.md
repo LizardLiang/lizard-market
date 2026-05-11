@@ -28,17 +28,15 @@ Analyze the codebase and document findings in the Arena. This knowledge will gui
 
 ---
 
-## Stage 1: Create PRD (Athena) — Two-Phase Process
+## Stage 1: Create PRD (Athena) — Single Phase
 
-Stage 1 is multi-step because Athena cannot ask the user questions directly (AskUserQuestion is unavailable to subagents). Kratos handles the clarification loop.
-
-### Phase 1: Gap Analysis
+Athena handles gap analysis and user clarification internally via AskUserQuestion. Spawn once:
 
 ```
 Task(
   subagent_type: "kratos:athena",
   model: "opus",
-  prompt: "MISSION: Gap Analysis
+  prompt: "MISSION: Gap Analysis + PRD Creation
 PHASE: GAP_ANALYSIS
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -46,68 +44,10 @@ REQUIREMENTS: [user's requirements]
 
 Read plugins/kratos/agents/athena.md for the full instruction set before starting.
 
-Analyze these requirements for gaps and ambiguities. Score clarity (Step 2b) and include CLARITY_SCORES in output. Return structured questions in the GAP_ANALYSIS_RESULT format targeting the weakest dimension. Do NOT write the PRD yet.",
-  description: "athena - gap analysis"
-)
-```
-
-### Phase 1.5: Clarification Loop (Kratos handles this)
-
-When Athena returns her gap analysis:
-
-1. Parse the `GAP_ANALYSIS_RESULT`
-2. Display **clarity progress** to the user:
-
-```
-📊 Requirements Clarity
-
-| Dimension   | Score | Weight | Contribution | Gap  |
-|-------------|-------|--------|-------------|------|
-| Goal        | [X]   | 0.40   | [X×0.40]    | [remaining] |
-| Constraints | [X]   | 0.30   | [X×0.30]    | [remaining] |
-| Criteria    | [X]   | 0.30   | [X×0.30]    | [remaining] |
-| **Total**   |       |        | [sum]       |      |
-| **Ambiguity** |     |        | [1 - sum]   |      |
-
-Target: ≤ 0.20 | Current: [ambiguity] | Weakest: [dimension]
-```
-
-3. If `WRITE_READY: true` (ambiguity ≤ 0.20) → skip to Phase 2
-4. If questions exist → call `AskUserQuestion` for each question **one at a time**:
-
-```
-AskUserQuestion(
-  question: [Q1_QUESTION from Athena's output],
-  options: [mapped from Q1_OPTIONS — each "label | description" becomes an option]
-)
-```
-
-Call AskUserQuestion with each question sequentially (up to 4). Wait for the answer before asking the next. Never batch questions into a single text output — the tool gives the user clickable options.
-
-After answers are collected: if ambiguity is still > 0.20, re-spawn Athena for another gap analysis round with answers included (max 3 rounds total).
-
-### Phase 2: Write PRD
-
-```
-Task(
-  subagent_type: "kratos:athena",
-  model: "opus",
-  prompt: "MISSION: Create PRD
-PHASE: CREATE_PRD
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-REQUIREMENTS: [user's original requirements]
-
-Read plugins/kratos/agents/athena.md for the full instruction set before starting.
-
-CLARIFIED_REQUIREMENTS:
-[All user answers from the clarification loop:]
-- [Q1 header]: [user's answer]
-- [Q2 header]: [user's answer]
-- ... (all answers from all rounds)
+Analyze requirements for gaps. If clear (ambiguity ≤ 0.20), write the PRD immediately. If unclear, use AskUserQuestion to gather clarification (up to 4 questions per round, max 3 rounds), then write the PRD.
 
 Create prd.md before completing. Kratos validates the deliverable after you finish.",
-  description: "athena - create PRD"
+  description: "athena - gap analysis + PRD"
 )
 ```
 
@@ -256,15 +196,15 @@ Return CODEBASE_SCAN_RESULT inline. Do not create any files.",
 
 ---
 
-### Sub-Phase 1: Approach Proposal + Gray Areas
+### Sub-Phase 1: Approach Selection + Gray Areas + Tech Spec
 
-When Metis returns, merge RESUME_CONTEXT + CODEBASE_SCAN_RESULT and spawn Hephaestus Phase 1:
+When Metis returns, merge RESUME_CONTEXT + CODEBASE_SCAN_RESULT and spawn Hephaestus:
 
 ```
 Task(
   subagent_type: "kratos:hephaestus",
   model: "opus",
-  prompt: "MISSION: Propose Approaches + Identify Gray Areas
+  prompt: "MISSION: Propose Approaches + Clarify + Write Tech Spec
 PHASE: IDENTIFY_GRAY_AREAS
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -275,62 +215,10 @@ Read plugins/kratos/agents/hephaestus.md for the full instruction set before sta
 
 [paste CODEBASE_SCAN_RESULT from Metis verbatim]
 
-First return HEPHAESTUS_APPROACH_RESULT (2-3 named approaches). Then return HEPHAESTUS_QUESTIONS_RESULT (gray areas). Return both blocks.",
-  description: "hephaestus - approach proposal + gray areas (opus)"
-)
-```
+Use AskUserQuestion to present 2-3 named approaches and get the user's choice. Then ask gray-area questions one at a time. After collecting all answers, write tech-spec.md in the same invocation.
 
----
-
-### Sub-Phase 1.5: Approach Selection + Clarification Loop (Kratos)
-
-When Hephaestus Phase 1 returns, parse both result blocks:
-
-**Step A — Present approaches:**
-
-```
-AskUserQuestion(
-  question: "Hephaestus proposes [N] implementation approaches:\n\n[APPROACH_A.NAME]: [DESCRIPTION]\n[APPROACH_B.NAME]: [DESCRIPTION]\n[...]\n\nRecommended: [RECOMMENDED] — [RATIONALE]",
-  options: [
-    { label: "[APPROACH_A.NAME]", description: "Effort: [EFFORT] | [key pro]" },
-    { label: "[APPROACH_B.NAME]", description: "Effort: [EFFORT] | [key pro]" },
-    [APPROACH_C if present],
-    { label: "Defer to Hephaestus", description: "Use recommended approach" }
-  ]
-)
-```
-
-Record the chosen approach as `CHOSEN_APPROACH`.
-
-**Step B — Gray area Q&A loop:**
-
-If `HEPHAESTUS_QUESTIONS_RESULT` contains questions, run the same clarification loop as before (AskUserQuestion per gray area, max 3 rounds, stop when ambiguity ≤ 0.20).
-
----
-
-### Sub-Phase 2: Write Tech Spec
-
-```
-Task(
-  subagent_type: "kratos:hephaestus",
-  model: "opus",
-  prompt: "MISSION: Create Technical Specification
-PHASE: CREATE_TECH_SPEC
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-
-Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
-
-CHOSEN_APPROACH: [approach name and one-line description]
-
-DECISIONS:
-[Q1_TITLE]
-Answer: [user's answer]
-
-[...all answers from all rounds...]
-
-Create tech-spec.md. Kratos validates the deliverable after you finish.",
-  description: "hephaestus - create tech spec (opus)"
+Create tech-spec.md before completing. Kratos validates the deliverable after you finish.",
+  description: "hephaestus - approach + gray areas + tech spec (opus)"
 )
 ```
 

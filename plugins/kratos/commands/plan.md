@@ -31,93 +31,28 @@ You orchestrate the interview loop and delegate all strategic thinking to Promet
 
 ## How You Operate
 
-### Phase 1: Research + Questions
+### Phase 1: Interview + Plan
 
-Spawn Prometheus to read project context and form questions:
-
-```
-Task(
-  subagent_type: "kratos:prometheus",
-  model: "[model based on mode]",
-  prompt: "MISSION: Strategic Planning
-PHASE: RESEARCH_AND_QUESTION
-
-Read the project Arena (.claude/.Arena/) and in-flight features (.claude/feature/*/status.json).
-Form 3-5 targeted questions based on what you find.
-Return PROMETHEUS_QUESTIONS_RESULT block only.",
-  description: "prometheus - research and questions"
-)
-```
-
----
-
-### Phase 2: Interview Loop (YOU handle this)
-
-When Prometheus returns, parse the `PROMETHEUS_QUESTIONS_RESULT` block. The `PROMETHEUS_QUESTIONS_RESULT` block contains: CONTEXT_SUMMARY, IN_FLIGHT, EXISTING_PLAN, QUESTION_COUNT, and Q1..QN entries each with HEADER, QUESTION, and OPTIONS fields. Parse these to present questions via AskUserQuestion.
-
-**Announce context to user first:**
-```
-PLAN MODE
-
-I've reviewed your project context:
-[CONTEXT_SUMMARY from Prometheus]
-
-[If IN_FLIGHT != "none"]: In-flight features: [IN_FLIGHT] — I'll factor these in.
-[If EXISTING_PLAN == "yes"]: Note: An existing plan was found at .claude/.Arena/plan.md — we'll replace it.
-
-I have [QUESTION_COUNT] questions. Let's go one at a time.
-```
-
-**Ask questions one at a time** using AskUserQuestion:
-
-```
-AskUserQuestion(
-  question: [Q1_QUESTION],
-  header: [Q1_HEADER],
-  options: [parsed from Q1_OPTIONS — split by " | "]
-)
-```
-
-Wait for answer. Record it. Ask Q2. Repeat until all questions answered.
-
-Collect all answers in this format:
-```
-- [Q1_HEADER]: [user's answer]
-- [Q2_HEADER]: [user's answer]
-...
-```
-
----
-
-### Phase 3: Create Plan
-
-Spawn Prometheus again with all answers:
+Spawn Prometheus — it researches context, interviews the user directly via AskUserQuestion, and produces a plain-markdown plan:
 
 ```
 Task(
   subagent_type: "kratos:prometheus",
   model: "[model based on mode]",
   prompt: "MISSION: Strategic Planning
-PHASE: CREATE_PLAN
 
-USER ANSWERS:
-- [Q1_HEADER]: [answer]
-- [Q2_HEADER]: [answer]
-[...all answers]
-
-Produce the prioritized strategic plan.
-Return PROMETHEUS_PLAN_RESULT block only.",
-  description: "prometheus - create plan"
+Read plugins/kratos/agents/prometheus.md for the full instruction set before starting.",
+  description: "prometheus - research, interview, and plan"
 )
 ```
 
+Wait for Prometheus to complete — it handles the full interview loop internally.
+
 ---
 
-### Phase 4: Present + Approve
+### Phase 2: Present + Approve
 
-Parse the `PROMETHEUS_PLAN_RESULT` block and render it in chat. The `PROMETHEUS_PLAN_RESULT` block contains a markdown-formatted strategic plan with sections: Context, In-Flight, Recommended Build Order (Priority 1-5), What to Defer, and Strategic Note.
-
-Then ask for approval:
+Prometheus's response is the plan. Render it in chat, then ask for approval:
 
 ```
 AskUserQuestion(
@@ -133,7 +68,7 @@ AskUserQuestion(
 
 ---
 
-### Phase 5: Save + Handoff
+### Phase 3: Save + Handoff
 
 **If "Approve & save":**
 
@@ -141,7 +76,7 @@ AskUserQuestion(
 ```
 Write(
   filePath: ".claude/.Arena/plan.md",
-  content: [full PROMETHEUS_PLAN_RESULT content, stripped of the wrapper tags]
+  content: [Prometheus's plan markdown]
 )
 ```
 
@@ -156,7 +91,7 @@ Run `/kratos:main "[feature name]"` to begin — Athena will create the PRD.
 
 **If "Adjust priorities":**
 
-Ask the user what to change (AskUserQuestion or free text), then re-spawn Prometheus Phase 2 with the adjusted answers.
+Ask the user what to change (AskUserQuestion or free text), then re-spawn Prometheus with the adjusted context.
 
 **If "Re-run":**
 

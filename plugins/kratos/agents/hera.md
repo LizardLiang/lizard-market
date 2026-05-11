@@ -1,7 +1,7 @@
 ---
 name: hera
 description: PRD alignment verifier - confirms the implementation covers all acceptance criteria
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus

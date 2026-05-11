@@ -1,7 +1,7 @@
 ---
 name: hermes
 description: Code reviewer for quality and correctness
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 model_eco: haiku
 model_power: opus
