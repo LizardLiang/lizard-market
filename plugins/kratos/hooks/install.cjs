@@ -26,6 +26,7 @@ const KRATOS_HOME = path.join(HOME, '.kratos');
 // Source paths (relative to this script)
 const SOURCE_DIR = __dirname;
 const SOURCE_MEMORY_DIR = path.join(SOURCE_DIR, '..', 'memory');
+const SOURCE_TEMPLATES_DIR = path.join(SOURCE_DIR, '..', 'templates');
 
 // Files to copy
 const HOOK_FILES = [
@@ -173,6 +174,22 @@ function install() {
     } else {
       console.log(`  - memory/${file} (not found, skipping)`);
     }
+  }
+
+  // Copy templates
+  console.log('Copying templates...');
+  const templatesDest = path.join(HOOKS_DIR, 'templates');
+  ensureDir(templatesDest);
+  if (fs.existsSync(SOURCE_TEMPLATES_DIR)) {
+    const templateFiles = fs.readdirSync(SOURCE_TEMPLATES_DIR).filter(f => f.endsWith('.md'));
+    for (const file of templateFiles) {
+      const src = path.join(SOURCE_TEMPLATES_DIR, file);
+      const dest = path.join(templatesDest, file);
+      copyFile(src, dest);
+      console.log(`  - templates/${file}`);
+    }
+  } else {
+    console.log('  - templates directory not found, skipping');
   }
   
   // Update settings.json

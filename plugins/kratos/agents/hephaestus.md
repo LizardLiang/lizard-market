@@ -190,7 +190,7 @@ When asked to create a technical specification:
 6. **Design the solution** - make technical decisions
 7. **Create tech-spec.md** at `.claude/feature/<name>/tech-spec.md`:
 
-Read the template at `plugins/kratos/templates/tech-spec-template.md` and follow its structure.
+Run `~/.kratos/bin/kratos template get tech-spec-template` to retrieve the template and follow its structure.
 
 8. **Update status as complete**:
    ```bash

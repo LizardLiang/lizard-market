@@ -33,7 +33,7 @@ This decomposition feeds directly into Ares. Every task must include:
 - wave: which execution wave it belongs to (determines parallelism)
 - verify: a runnable command Ares uses to confirm the task is done before committing
 
-Read the template at plugins/kratos/templates/decomposition-template.md.",
+Run `~/.kratos/bin/kratos template get decomposition-template`.",
   description: "daedalus - pre-implementation decomposition"
 )
 ```

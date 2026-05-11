@@ -186,9 +186,9 @@ Read plugins/kratos/agents/daedalus.md for the full instruction set before start
 
 Create decomposition.md at .claude/feature/[feature-name]/decomposition.md (for local target).
 
-Read the decomposition template at plugins/kratos/templates/decomposition-template.md for the local file format.
-[If Notion target]: Read plugins/kratos/templates/decomposition-notion-template.md
-[If Linear target]: Read plugins/kratos/templates/decomposition-linear-template.md
+Run `~/.kratos/bin/kratos template get decomposition-template` for the local file format.
+[If Notion target]: Run `~/.kratos/bin/kratos template get decomposition-notion-template`
+[If Linear target]: Run `~/.kratos/bin/kratos template get decomposition-linear-template`
 
 This decomposition enriches the feature — downstream agents (Hephaestus, Artemis, Ares, Hermes) will reference your work.",
   description: "daedalus - decompose feature (pipeline)"
@@ -418,7 +418,7 @@ Read plugins/kratos/agents/ares.md for the full instruction set before starting.
 
 You are in USER MODE — create task files, do not implement code yourself.
 
-1. Read templates: plugins/kratos/templates/task-file-template.md and task-overview-template.md
+1. Read templates: run `~/.kratos/bin/kratos template get task-file-template` and `~/.kratos/bin/kratos template get task-overview-template`
 2. Create the tasks/ folder in the feature directory
 3. Create 00-overview.md following the overview template
 4. Create numbered task files (01-xxx.md, 02-xxx.md, etc.) following the task template

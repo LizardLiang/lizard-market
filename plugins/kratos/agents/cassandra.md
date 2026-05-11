@@ -130,7 +130,7 @@ Evaluate the changed files across these dimensions:
 
 ### Step 5: Create Document and Update Status (Pipeline Mode Only)
 
-Create `risk-analysis.md` using the template at `plugins/kratos/templates/risk-analysis-template.md`.
+Create `risk-analysis.md`. Run `~/.kratos/bin/kratos template get risk-analysis-template` to get the template structure and follow it.
 
 **If verdict is Blocked**, append your CRITICAL findings to `decisions.md` at `.claude/feature/<name>/decisions.md`. Like Hermes, you must provide the why — a blocked gate without a clear rationale and required action is just a frustration.
 

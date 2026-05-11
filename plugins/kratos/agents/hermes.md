@@ -313,7 +313,7 @@ Mention proposals in the summary.
 
 ## Step 8: Create Review Document (Pipeline Mode Only)
 
-Read the review template at `plugins/kratos/templates/code-review-template.md` and follow its structure.
+Run `~/.kratos/bin/kratos template get code-review-template` to retrieve the template and follow its structure.
 
 Create the document at `.claude/feature/<name>/code-review.md`.
 

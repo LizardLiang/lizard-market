@@ -92,7 +92,7 @@ When asked to create a test plan:
 
 4. **Create test-plan.md** at `.claude/feature/<name>/test-plan.md`:
 
-Read the template at `plugins/kratos/templates/test-plan-template.md` and follow its structure.
+Run `~/.kratos/bin/kratos template get test-plan-template` to retrieve the template and follow its structure.
 
 5. **Update status as complete**:
    ```bash

@@ -300,7 +300,7 @@ When your prompt contains `PHASE: CREATE_PRD`, requirements have been clarified.
 
 1. **Research first**: Summon Mimir to research the problem domain, best practices, and examples. If external APIs are mentioned, use context7 for precise specs. Check `.claude/.Arena/` for existing project knowledge.
 
-2. **Create the PRD** at `.claude/feature/<name>/prd.md` using the template at `plugins/kratos/templates/prd-template.md`.
+2. **Create the PRD** at `.claude/feature/<name>/prd.md`. Run `~/.kratos/bin/kratos template get prd-template` to get the template structure and follow it.
 
 3. **Create `decisions.md`** at `.claude/feature/<name>/decisions.md` — record the key product decisions made during PRD creation. This is the living memory of WHY the feature was designed this way. Use this format:
 
@@ -349,7 +349,7 @@ When asked to review a PRD:
    - Every assumption labeled as assumption, not stated as fact → **Revisions** if unvalidated assumptions are presented as facts
    - External API dependencies documented correctly?
 
-4. Create the review at `.claude/feature/<name>/prd-review.md` using the template at `plugins/kratos/templates/prd-review-template.md`.
+4. Create the review at `.claude/feature/<name>/prd-review.md`. Run `~/.kratos/bin/kratos template get prd-review-template` to get the template structure and follow it.
 
 5. **Set verdict** — use one of these exact values:
    - **Approved**: PRD is complete and ready for tech spec

@@ -73,6 +73,30 @@ func installHooks() error {
 		}
 	}
 
+	// Copy templates directory
+	fmt.Println("\nCopying templates...")
+	templatesSource := filepath.Join(pluginRoot, "templates")
+	templatesDest := filepath.Join(hooksDir, "templates")
+	if err := os.MkdirAll(templatesDest, 0755); err != nil {
+		return fmt.Errorf("failed to create templates directory: %w", err)
+	}
+	templateEntries, err := os.ReadDir(templatesSource)
+	if err != nil {
+		fmt.Printf("  ⚠ templates directory not found at %s (skipped)\n", templatesSource)
+	} else {
+		for _, entry := range templateEntries {
+			if !entry.IsDir() {
+				src := filepath.Join(templatesSource, entry.Name())
+				dst := filepath.Join(templatesDest, entry.Name())
+				if err := copyFile(src, dst); err != nil {
+					fmt.Printf("  ⚠ %s (skipped: %v)\n", entry.Name(), err)
+				} else {
+					fmt.Printf("  ✓ %s\n", entry.Name())
+				}
+			}
+		}
+	}
+
 	// Copy kratos binary
 	fmt.Println("\nCopying kratos binary...")
 	kratosDst := filepath.Join(hooksDir, "kratos")

@@ -6,7 +6,9 @@ Procedures shared across all Kratos agents. Read sections relevant to your missi
 
 ## Path Resolution
 
-All paths in agent instructions (e.g., `plugins/kratos/templates/...`, `plugins/kratos/references/...`, `.claude/feature/...`) are relative to the **project root** (git repository root). Resolve from project root, not plugin directory.
+All paths in agent instructions (e.g., `plugins/kratos/references/...`, `.claude/feature/...`) are relative to the **project root** (git repository root). Resolve from project root, not plugin directory.
+
+Templates are retrieved via the CLI: `~/.kratos/bin/kratos template get <template-name>` (omit the `.md` extension). The CLI handles file location regardless of where the plugin is installed.
 
 ---
 

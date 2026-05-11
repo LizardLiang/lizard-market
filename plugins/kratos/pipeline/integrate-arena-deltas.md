@@ -61,7 +61,7 @@ deltas = parse_delta_sections(delta_content)
 
 ### Step 3: Update Master Arena Documents
 
-If an Arena document referenced by a delta does not exist, create it using the template from `plugins/kratos/templates/arena-templates.md`. If the template is unavailable, create a minimal document with YAML frontmatter and the relevant content.
+If an Arena document referenced by a delta does not exist, run `~/.kratos/bin/kratos template get arena-templates` and create it following that template structure. If the template is unavailable, create a minimal document with YAML frontmatter and the relevant content.
 
 For each Arena document that needs updates:
 

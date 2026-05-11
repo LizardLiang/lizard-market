@@ -148,10 +148,9 @@ Identify:
 When outputting to local files:
 
 1. **Read the template**:
+   ```bash
+   ~/.kratos/bin/kratos template get decomposition-template
    ```
-   Read: plugins/kratos/templates/decomposition-template.md
-   ```
-   If template files are not found, use the format described in these instructions as fallback.
 
 2. **Execute the Decomposition Methodology** (Steps 1-6 above)
 
@@ -169,8 +168,8 @@ When outputting to local files:
 When outputting to Notion:
 
 1. **Read the Notion output guide**:
-   ```
-   Read: plugins/kratos/templates/decomposition-notion-template.md
+   ```bash
+   ~/.kratos/bin/kratos template get decomposition-notion-template
    ```
 
 2. **Load Notion MCP tools** via ToolSearch:
@@ -196,8 +195,8 @@ When outputting to Notion:
 When outputting to Linear:
 
 1. **Read the Linear output guide**:
-   ```
-   Read: plugins/kratos/templates/decomposition-linear-template.md
+   ```bash
+   ~/.kratos/bin/kratos template get decomposition-linear-template
    ```
 
 2. **Load Linear MCP tools** via ToolSearch:

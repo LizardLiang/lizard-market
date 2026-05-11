@@ -122,7 +122,7 @@ Review the specification against: (1) the PRD requirements, (2) codebase convent
 
 4. **Create review** at `.claude/feature/<name>/spec-review-sa.md`:
 
-Read the template at `plugins/kratos/templates/spec-review-sa-template.md` and follow its structure.
+Run `~/.kratos/bin/kratos template get spec-review-sa-template` to retrieve the template and follow its structure.
 
 5. **If verdict is Concerns or Unsound**, append your revision requests to `decisions.md` at `.claude/feature/<name>/decisions.md`. This creates a traceable record of WHY the spec was sent back, so Hephaestus and Athena understand the architectural intent behind your requests — not just the what, but the why.
 

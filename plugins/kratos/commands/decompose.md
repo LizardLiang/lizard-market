@@ -103,9 +103,9 @@ OUTPUT_TARGETS: [user's selection from Step 2]
 
 CRITICAL: Create decomposition.md at .claude/feature/[feature-name]/decomposition.md (for local target). For Notion/Linear targets, follow the respective template guides.
 
-Read the decomposition template at plugins/kratos/templates/decomposition-template.md for the local file format.
-[If Notion target]: Read plugins/kratos/templates/decomposition-notion-template.md
-[If Linear target]: Read plugins/kratos/templates/decomposition-linear-template.md
+Run `~/.kratos/bin/kratos template get decomposition-template` for the local file format.
+[If Notion target]: Run `~/.kratos/bin/kratos template get decomposition-notion-template`
+[If Linear target]: Run `~/.kratos/bin/kratos template get decomposition-linear-template`
 
 This is a standalone decomposition. Output the complete breakdown with phases, dependencies, tasks, and acceptance criteria.",
   description: "daedalus - decompose feature"

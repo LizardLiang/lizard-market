@@ -197,7 +197,7 @@ OUTPUT_TARGETS: [ask user if not specified]
 
 Break down the given feature/idea into precise phases with dependencies, boundaries, tasks, and acceptance criteria.
 
-Read the decomposition template at plugins/kratos/templates/decomposition-template.md for the local file format.
+Run `~/.kratos/bin/kratos template get decomposition-template` for the local file format.
 
 No PRD or tech spec needed - work directly from the input.",
   description: "daedalus - decompose"

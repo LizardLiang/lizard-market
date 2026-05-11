@@ -128,7 +128,7 @@ When asked to implement:
 
 4. **Track progress** in `.claude/feature/<name>/implementation-notes.md`:
 
-Read the template at `plugins/kratos/templates/implementation-notes-template.md` and follow its structure.
+Run `~/.kratos/bin/kratos template get implementation-notes-template` to retrieve the template and follow its structure.
 
 6. **Run full test suite** after all tasks complete and fix any remaining failures.
 
@@ -158,9 +158,9 @@ When the mission specifies **User Mode**, you create detailed task files instead
 
 Read the templates before creating task files — they define the exact structure your task files must follow.
 
-```
-Read: plugins/kratos/templates/task-file-template.md
-Read: plugins/kratos/templates/task-overview-template.md
+```bash
+~/.kratos/bin/kratos template get task-file-template
+~/.kratos/bin/kratos template get task-overview-template
 ```
 
 ### Step 2: Read All Relevant Documents

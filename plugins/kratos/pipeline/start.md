@@ -68,7 +68,7 @@ CURRENT_HASH=$(git rev-parse HEAD)
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 # Copy template and populate
-cp plugins/kratos/templates/arena-deltas-template.md .claude/feature/<feature-name>/arena-deltas.md
+~/.kratos/bin/kratos template copy arena-deltas-template .claude/feature/<feature-name>/arena-deltas.md
 
 # Replace placeholders
 sed -i "s/{feature-name}/<feature-name>/g" .claude/feature/<feature-name>/arena-deltas.md
