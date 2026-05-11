@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,12 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+// Templates are embedded at build time from go/internal/cli/templates/.
+// This directory is a maintained copy of plugins/kratos/templates/ — keep in sync when editing templates.
+//
+//go:embed templates/*.md
+var templatesFS embed.FS
 
 // TemplateCmd returns the 'template' command with get/list/copy subcommands.
 func TemplateCmd() *cobra.Command {
@@ -21,35 +28,8 @@ func TemplateCmd() *cobra.Command {
 	return cmd
 }
 
-func findTemplatesDir() (string, error) {
-	// 1. Env override (dev / testing)
-	if dir := os.Getenv("KRATOS_TEMPLATES_DIR"); dir != "" {
-		return dir, nil
-	}
-
-	exe, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	binDir := filepath.Dir(exe)
-
-	// 2. <binary_dir>/templates/  — ~/.claude/hooks/kratos/ layout
-	candidate := filepath.Join(binDir, "templates")
-	if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-		return candidate, nil
-	}
-
-	// 3. <binary_dir>/../templates/  — ~/.kratos/bin/ and source-tree layouts
-	candidate = filepath.Join(binDir, "..", "templates")
-	if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-		return filepath.Clean(candidate), nil
-	}
-
-	return "", fmt.Errorf("templates directory not found — run `kratos install` to set up the templates")
-}
-
 func templateGetCmd() *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:          "get <name>",
 		Short:        "Print a template to stdout",
 		Args:         cobra.ExactArgs(1),
@@ -59,22 +39,14 @@ func templateGetCmd() *cobra.Command {
 			if !strings.HasSuffix(name, ".md") {
 				name += ".md"
 			}
-
-			dir, err := findTemplatesDir()
+			data, err := templatesFS.ReadFile("templates/" + name)
 			if err != nil {
-				return err
+				return fmt.Errorf("template %q not found", args[0])
 			}
-
-			data, err := os.ReadFile(filepath.Join(dir, name))
-			if err != nil {
-				return fmt.Errorf("template %q not found in %s", args[0], dir)
-			}
-
 			fmt.Fprint(cmd.OutOrStdout(), string(data))
 			return nil
 		},
 	}
-	return cmd
 }
 
 func templateListCmd() *cobra.Command {
@@ -84,16 +56,10 @@ func templateListCmd() *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dir, err := findTemplatesDir()
+			entries, err := templatesFS.ReadDir("templates")
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to read embedded templates: %w", err)
 			}
-
-			entries, err := os.ReadDir(dir)
-			if err != nil {
-				return fmt.Errorf("failed to read templates directory: %w", err)
-			}
-
 			for _, e := range entries {
 				if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
 					fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSuffix(e.Name(), ".md"))
@@ -113,29 +79,19 @@ func templateCopyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			dest := args[1]
-
 			if !strings.HasSuffix(name, ".md") {
 				name += ".md"
 			}
-
-			dir, err := findTemplatesDir()
+			data, err := templatesFS.ReadFile("templates/" + name)
 			if err != nil {
-				return err
+				return fmt.Errorf("template %q not found", args[0])
 			}
-
-			data, err := os.ReadFile(filepath.Join(dir, name))
-			if err != nil {
-				return fmt.Errorf("template %q not found in %s", args[0], dir)
-			}
-
 			if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 				return fmt.Errorf("failed to create destination directory: %w", err)
 			}
-
 			if err := os.WriteFile(dest, data, 0644); err != nil {
 				return fmt.Errorf("failed to write %s: %w", dest, err)
 			}
-
 			fmt.Fprintf(cmd.OutOrStdout(), "copied %s → %s\n", args[0], dest)
 			return nil
 		},

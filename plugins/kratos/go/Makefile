@@ -4,9 +4,8 @@ VERSION ?= dev
 LDFLAGS = -ldflags="-s -w -X main.version=$(VERSION)"
 
 build:
+	@cp ../templates/*.md internal/cli/templates/
 	go build $(LDFLAGS) -o ../bin/kratos ./cmd/kratos
-	@mkdir -p ../bin/templates
-	@cp ../templates/*.md ../bin/templates/
 
 build-all:
 	@echo "Building for all platforms..."
