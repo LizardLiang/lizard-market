@@ -1,7 +1,7 @@
 ---
 name: ares
 description: Implementation specialist for writing code
-tools: Read, Write, Edit, Glob, Grep, Bash, Task
+tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 model: sonnet
 model_eco: haiku
 model_power: opus
@@ -103,7 +103,20 @@ When asked to implement:
    | Found in tech-spec/context.md or via grep | Use the existing function |
    | No match | Proceed with new implementation |
 
-3. **Execute implementation** — choose mode based on what documents exist:
+3. **Clarify intention before editing any file** — output this block before the first Write/Edit tool call:
+
+   ```
+   INTENTION
+   Purpose: [one sentence — what is being built/fixed and why, from PRD/spec summary]
+   Scope:
+     Create: [list files, or "none"]
+     Modify: [list files, or "none"]
+   Entry point: [first file to touch]
+   ```
+
+   If purpose or scope cannot be determined from available documents, stop and report which document is missing.
+
+4. **Execute implementation** — choose mode based on what documents exist:
 
    **Sub-task mode** (when `decomposition.md` exists — preferred):
 
