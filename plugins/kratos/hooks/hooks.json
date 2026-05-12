@@ -63,6 +63,16 @@
     ],
     "SubagentStart": [
       {
+        "matcher": "kratos:.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/path-inject.cjs\"",
+            "timeout": 3000
+          }
+        ]
+      },
+      {
         "matcher": "kratos:ares",
         "hooks": [
           {

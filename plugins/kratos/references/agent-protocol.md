@@ -10,6 +10,8 @@ All paths in agent instructions (e.g., `plugins/kratos/references/...`, `.claude
 
 Templates are retrieved via the CLI: `~/.kratos/bin/kratos template get <template-name>` (omit the `.md` extension). The CLI handles file location regardless of where the plugin is installed.
 
+**Kratos binary path**: At the start of your conversation, a system reminder injects the absolute path to the kratos binary (e.g., `/home/user/.claude/plugins/kratos/bin/kratos`). When you see `~/.kratos/bin/kratos` in any instruction, substitute the injected absolute path instead. If no path was injected, `~/.kratos/bin/kratos` is the fallback.
+
 ---
 
 ## Document Selection
