@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 /**
  * Kratos SubagentStart hook — resolves the kratos binary path for the
- * current platform and injects it as KRATOS_BIN so agents don't rely on
- * the hardcoded ~/.kratos/bin/kratos path.
+ * current platform and injects it as KRATOS_BIN.
  *
- * Search order: ${CLAUDE_PLUGIN_ROOT}/bin/kratos, then ~/.kratos/bin/kratos.
- * On Windows, checks both `kratos.exe` and `kratos` (Git Bash finds .exe without suffix).
+ * Search order: ${CLAUDE_PLUGIN_ROOT}/bin/kratos, then the user home .kratos/bin.
+ * On Windows, checks both `kratos.exe` and `kratos`.
  * All returned paths use forward slashes so they work in bash on every platform.
  * Emits nothing (silent exit 0) if binary is not found.
  */
@@ -52,8 +51,7 @@ if (kratosPath) {
     `KRATOS_BIN='${kratosPath}'; "$KRATOS_BIN" <subcommand>\n` +
     `\`\`\`\n` +
     `Agent instructions use \`"$KRATOS_BIN"\` as the placeholder — ` +
-    `the variable must be set inline because each Bash call runs in a fresh shell. ` +
-    `Do **not** use \`~/.kratos/bin/kratos\` — it resolves to the wrong path on this platform.`;
+    `the variable must be set inline because each Bash call runs in a fresh shell.`;
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: 'SubagentStart',

@@ -10,7 +10,7 @@ All paths in agent instructions (e.g., `plugins/kratos/references/...`, `.claude
 
 Templates are retrieved via the CLI: `"$KRATOS_BIN" template get <template-name>` (omit the `.md` extension). The CLI handles file location regardless of where the plugin is installed.
 
-**Kratos binary (`$KRATOS_BIN`)**: The `SubagentStart` hook injects the resolved absolute path for the current platform. Use `"$KRATOS_BIN"` exactly as written — the shell will expand it to the correct path. If the hook did not fire (binary not installed), fall back to `~/.kratos/bin/kratos`.
+**Kratos binary (`$KRATOS_BIN`)**: The `SubagentStart` hook injects the resolved absolute path for the current platform. Use `"$KRATOS_BIN"` exactly as written — the shell will expand it to the correct path. If no path was injected, skip all `"$KRATOS_BIN"` calls and report to Kratos that the binary is unavailable.
 
 ---
 
