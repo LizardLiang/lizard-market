@@ -69,7 +69,7 @@ When asked to implement:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-implementation --status in-progress
+   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 6-implementation --status in-progress
    ```
 
 2. **Use documents purposefully**:
@@ -141,13 +141,13 @@ When asked to implement:
 
 4. **Track progress** in `.claude/feature/<name>/implementation-notes.md`:
 
-Run `~/.kratos/bin/kratos template get implementation-notes-template` to retrieve the template and follow its structure.
+Run `"$KRATOS_BIN" template get implementation-notes-template` to retrieve the template and follow its structure.
 
 6. **Run full test suite** after all tasks complete and fix any remaining failures.
 
 7. **Update status as complete**:
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-implementation --status complete --document implementation-notes.md
+   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 6-implementation --status complete --document implementation-notes.md
    ```
    
    Additional status updates:
@@ -172,8 +172,8 @@ When the mission specifies **User Mode**, you create detailed task files instead
 Read the templates before creating task files — they define the exact structure your task files must follow.
 
 ```bash
-~/.kratos/bin/kratos template get task-file-template
-~/.kratos/bin/kratos template get task-overview-template
+"$KRATOS_BIN" template get task-file-template
+"$KRATOS_BIN" template get task-overview-template
 ```
 
 ### Step 2: Read All Relevant Documents
@@ -236,13 +236,13 @@ Requirements for each task file:
 First, stamp the stage via CLI (handles `started` and `updated` timestamps automatically):
 
 ```bash
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-implementation --status in-progress --mode user
+"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 6-implementation --status in-progress --mode user
 ```
 
 Then patch in the tasks array. Get a real timestamp before writing:
 
 ```bash
-TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+TS=$("$KRATOS_BIN" now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
 ```
 
 Merge the tasks array into status.json:

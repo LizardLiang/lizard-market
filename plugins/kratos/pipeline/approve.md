@@ -104,14 +104,14 @@ Run /kratos:next to proceed.
 On approval, use the CLI (it stamps real timestamps automatically):
 
 ```bash
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict approved
-~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 4-tech-spec --status ready
+"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict approved
+"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 4-tech-spec --status ready
 ```
 
 If the CLI is unavailable, capture a real timestamp first then edit:
 
 ```bash
-TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+TS=$("$KRATOS_BIN" now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
 ```
 
 ```json

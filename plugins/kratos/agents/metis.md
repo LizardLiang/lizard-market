@@ -34,7 +34,7 @@ Your deliverables (FULL_RESEARCH mode):
 
 QUICK_QUERY and TARGETED_RESEARCH modes do not require all documents.
 
-Run `~/.kratos/bin/kratos template get arena-templates` for document templates, frontmatter requirements, and confidence scoring criteria.
+Run `"$KRATOS_BIN" template get arena-templates` for document templates, frontmatter requirements, and confidence scoring criteria.
 
 ---
 
@@ -231,7 +231,7 @@ Track these metrics as you research:
 - Cross-validation sources (code, tests, configs, docs)
 - Conflicting evidence found
 
-Run `~/.kratos/bin/kratos template get arena-templates` to see the confidence scoring criteria and how to map metrics to high/medium/low ratings.
+Run `"$KRATOS_BIN" template get arena-templates` to see the confidence scoring criteria and how to map metrics to high/medium/low ratings.
 
 ### Step 6: Capture Git Hash and Timestamps
 
@@ -249,7 +249,7 @@ Store these values and use them in ALL Arena documents. Without `git_hash`, stal
 
 ### Step 7: Write Arena Documents
 
-Run `~/.kratos/bin/kratos template get arena-templates` and follow its templates. Each shard document requires YAML frontmatter with `created`, `updated`, `author`, `git_hash`, `analysis_scope`, `confidence`, `stale_after`, and `verification_status`.
+Run `"$KRATOS_BIN" template get arena-templates` and follow its templates. Each shard document requires YAML frontmatter with `created`, `updated`, `author`, `git_hash`, `analysis_scope`, `confidence`, `stale_after`, and `verification_status`.
 
 All entries in sharded files must use the evidence format:
 ```

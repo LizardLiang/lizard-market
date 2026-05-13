@@ -25,13 +25,13 @@ Use the Go binary (preferred) or status.json fallback to get session info:
 
 ```bash
 # Go binary (primary method) — pass the project root path as argument
-~/.kratos/bin/kratos recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
+"$KRATOS_BIN" recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
 # Global recall (all projects)
-~/.kratos/bin/kratos recall --global --limit 5
+"$KRATOS_BIN" recall --global --limit 5
 
 # Incomplete features only
-~/.kratos/bin/kratos recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) --incomplete
+"$KRATOS_BIN" recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) --incomplete
 
 # Fallback: scan status.json files directly (if Go binary unavailable)
 # Use Glob to find .claude/feature/*/status.json and Read to parse them
@@ -124,13 +124,13 @@ Check if user specified `--global`:
 Run the Go binary (preferred):
 
 ```bash
-~/.kratos/bin/kratos recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
+"$KRATOS_BIN" recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
 ```
 
 Or for global:
 
 ```bash
-~/.kratos/bin/kratos recall --global --limit 5
+"$KRATOS_BIN" recall --global --limit 5
 ```
 
 If the Go binary is unavailable, fall back to scanning `.claude/feature/*/status.json` files directly using Glob and Read tools.
@@ -199,7 +199,7 @@ Fall back to scanning `.claude/feature/*/status.json` files directly using Glob 
 ```
 KRATOS RECALL
 
-Global recall requires the kratos binary (~/.kratos/bin/kratos).
+Global recall requires the kratos binary ("$KRATOS_BIN").
 Showing current project only.
 ```
 
@@ -257,7 +257,7 @@ When you receive `/kratos:recall`, execute these steps:
 
 1. **Run the query** (Go binary preferred, status.json fallback):
 ```bash
-~/.kratos/bin/kratos recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) 2>/dev/null
+"$KRATOS_BIN" recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) 2>/dev/null
 ```
 If the binary is unavailable, use Glob to find `.claude/feature/*/status.json` and Read to parse them.
 

@@ -48,7 +48,7 @@ TODOS_FILE="${CLAUDE_PROJECT_DIR:-$PWD}/.claude/.Arena/todos.md"
 Check binary availability first, then use whichever path works:
 
 ```bash
-~/.kratos/bin/kratos --version 2>/dev/null && echo "available" || echo "unavailable"
+"$KRATOS_BIN" --version 2>/dev/null && echo "available" || echo "unavailable"
 ```
 
 If the binary is unavailable or errors on any operation, switch to the file fallback. The file fallback uses Write/Edit/Read tools only — no Bash required, so it always works regardless of environment.
@@ -61,7 +61,7 @@ If the binary is unavailable or errors on any operation, switch to the file fall
 
 **With binary:**
 ```bash
-~/.kratos/bin/kratos todo add "<text>" --source ananke
+"$KRATOS_BIN" todo add "<text>" --source ananke
 ```
 
 **Fallback (binary missing or failed):**
@@ -91,9 +91,9 @@ Then create fresh with Write tool.
 
 **With binary:**
 ```bash
-~/.kratos/bin/kratos todo list --status open
-~/.kratos/bin/kratos todo list --status all
-~/.kratos/bin/kratos todo list --status done
+"$KRATOS_BIN" todo list --status open
+"$KRATOS_BIN" todo list --status all
+"$KRATOS_BIN" todo list --status done
 ```
 
 Parse JSON output and format as a readable list.
@@ -107,7 +107,7 @@ Read the resolved `$TODOS_FILE` and parse `- [ ]` (open) and `- [x]` (done) chec
 
 **With binary:**
 ```bash
-~/.kratos/bin/kratos todo done <id>
+"$KRATOS_BIN" todo done <id>
 ```
 
 **Fallback:**
@@ -119,7 +119,7 @@ Edit resolved `$TODOS_FILE` — change `- [ ]` to `- [x]` for the matching item.
 
 **With binary:**
 ```bash
-~/.kratos/bin/kratos todo rm <id>
+"$KRATOS_BIN" todo rm <id>
 ```
 
 **Fallback:**

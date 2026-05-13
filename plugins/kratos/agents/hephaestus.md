@@ -187,7 +187,7 @@ When asked to create a technical specification:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 4-tech-spec --status in-progress
+   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 4-tech-spec --status in-progress
    ```
 
 2. **Read the PRD** carefully - understand every requirement
@@ -198,11 +198,11 @@ When asked to create a technical specification:
 6. **Design the solution** - make technical decisions
 7. **Create tech-spec.md** at `.claude/feature/<name>/tech-spec.md`:
 
-Run `~/.kratos/bin/kratos template get tech-spec-template` to retrieve the template and follow its structure.
+Run `"$KRATOS_BIN" template get tech-spec-template` to retrieve the template and follow its structure.
 
 8. **Update status as complete**:
    ```bash
-   ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 4-tech-spec --status complete --document tech-spec.md
+   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 4-tech-spec --status complete --document tech-spec.md
    ```
 
 9. **Write a summary into status.json** — patch the `summary` field on the `4-tech-spec` stage object. Keep it to 2–3 sentences covering: key architectural decisions made, number of files to create/modify, and any significant constraints or trade-offs baked into the design. Downstream agents will read this before deciding whether to open the full specification document.

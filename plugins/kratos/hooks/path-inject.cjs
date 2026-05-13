@@ -1,26 +1,44 @@
 #!/usr/bin/env node
 /**
- * Kratos SubagentStart hook — injects the resolved kratos binary path
- * into the subagent's context so agents don't rely on the hardcoded
- * ~/.kratos/bin/kratos path.
+ * Kratos SubagentStart hook — resolves the kratos binary path for the
+ * current platform and injects it as KRATOS_BIN so agents don't rely on
+ * the hardcoded ~/.kratos/bin/kratos path.
  *
- * Resolves: ${CLAUDE_PLUGIN_ROOT}/bin/kratos first, then ~/.kratos/bin/kratos.
- * Emits nothing (silent exit 0) if neither is found.
+ * Search order: ${CLAUDE_PLUGIN_ROOT}/bin/kratos, then ~/.kratos/bin/kratos.
+ * On Windows, checks both `kratos.exe` and `kratos` (Git Bash finds .exe without suffix).
+ * All returned paths use forward slashes so they work in bash on every platform.
+ * Emits nothing (silent exit 0) if binary is not found.
  */
 
 const fs = require('fs');
 const path = require('path');
 
+const isWindows = process.platform === 'win32';
+
+function toSlashes(p) {
+  return p.replace(/\\/g, '/');
+}
+
+function tryBinary(dir, name) {
+  if (isWindows) {
+    const withExt = path.join(dir, name + '.exe');
+    if (fs.existsSync(withExt)) return toSlashes(withExt);
+  }
+  const plain = path.join(dir, name);
+  if (fs.existsSync(plain)) return toSlashes(plain);
+  return null;
+}
+
 function findKratos() {
   const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
   if (pluginRoot) {
-    const candidate = path.join(pluginRoot, 'bin', 'kratos');
-    if (fs.existsSync(candidate)) return candidate;
+    const found = tryBinary(path.join(pluginRoot, 'bin'), 'kratos');
+    if (found) return found;
   }
   const home = process.env.HOME || process.env.USERPROFILE;
   if (home) {
-    const candidate = path.join(home, '.kratos', 'bin', 'kratos');
-    if (fs.existsSync(candidate)) return candidate;
+    const found = tryBinary(path.join(home, '.kratos', 'bin'), 'kratos');
+    if (found) return found;
   }
   return null;
 }
@@ -28,11 +46,15 @@ function findKratos() {
 const kratosPath = findKratos();
 if (kratosPath) {
   const msg =
-    `**Kratos binary path:** \`${kratosPath}\`\n\n` +
-    `When any instruction tells you to run \`~/.kratos/bin/kratos <subcommand>\`, ` +
-    `use the absolute path above instead. This path is resolved at runtime and ` +
-    `works regardless of whether \`kratos install\` has been run.`;
-  console.log(JSON.stringify({
+    `**Kratos binary resolved:** \`${kratosPath}\`\n\n` +
+    `Set \`KRATOS_BIN\` at the start of **every** Bash command that calls kratos:\n` +
+    `\`\`\`bash\n` +
+    `KRATOS_BIN='${kratosPath}'; "$KRATOS_BIN" <subcommand>\n` +
+    `\`\`\`\n` +
+    `Agent instructions use \`"$KRATOS_BIN"\` as the placeholder — ` +
+    `the variable must be set inline because each Bash call runs in a fresh shell. ` +
+    `Do **not** use \`~/.kratos/bin/kratos\` — it resolves to the wrong path on this platform.`;
+  process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: 'SubagentStart',
       additionalContext: msg,

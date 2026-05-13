@@ -13,12 +13,12 @@ Memory is stored at: `~/.kratos/memory.db`
 
 ## Initialization
 
-**Default**: Use the Go binary at `~/.kratos/bin/kratos` for all memory operations. The Python script (`plugins/kratos/memory/kratos_memory.py`) is a legacy fallback only used if the Go binary is unavailable.
+**Default**: Use the Go binary at `"$KRATOS_BIN"` for all memory operations. The Python script (`plugins/kratos/memory/kratos_memory.py`) is a legacy fallback only used if the Go binary is unavailable.
 
 Before first use, check binary availability:
 
 ```bash
-~/.kratos/bin/kratos --version 2>/dev/null && echo "available" || echo "unavailable"
+"$KRATOS_BIN" --version 2>/dev/null && echo "available" || echo "unavailable"
 ```
 
 If unavailable, fall back to Python:
@@ -198,7 +198,7 @@ When updating `status.json`:
 - Python script: ~50ms cold start, ~10ms warm (legacy fallback)
 - FTS5 search: ~5ms for 1000+ entries
 
-For highest performance, use the Go binary at `~/.kratos/bin/kratos`.
+For highest performance, use the Go binary at `"$KRATOS_BIN"`.
 
 ---
 

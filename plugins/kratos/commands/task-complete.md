@@ -92,12 +92,12 @@ When ALL tasks are complete:
 
 1. **Update status.json** via CLI (stamps real timestamps automatically):
    ```bash
-    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 6-implementation --status complete
-    ~/.kratos/bin/kratos pipeline update --feature FEATURE_NAME --stage 7-prd-alignment --status ready
+    "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 6-implementation --status complete
+    "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 7-prd-alignment --status ready
    ```
    If the CLI is unavailable, get a real timestamp first:
    ```bash
-   TS=$(~/.kratos/bin/kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+   TS=$("$KRATOS_BIN" now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
    ```
    Then write:
    ```json
