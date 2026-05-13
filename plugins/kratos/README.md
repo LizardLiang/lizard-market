@@ -1,4 +1,4 @@
-# Kratos - The God of War (v2.24.0)
+# Kratos - The God of War (v2.57.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
@@ -11,17 +11,19 @@ For the full step-by-step guide (building the binary, installing hooks, configur
 ### Quick Start
 
 ```bash
-# 1. Build binary
-cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos && cd ..
+# 1. Add marketplace & install plugin
+claude plugin marketplace add https://github.com/LizardLiang/lizard-market
+claude plugin install kratos@lizard-market
 
-# 2. Initialize database & install hooks
+# 2. Build binary, initialize database & install hooks
+cd ~/.claude/plugins/cache/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos && cd ..
 ./bin/kratos init && ./bin/kratos install
 
 # 3. Verify
 ./bin/kratos status
 ```
 
-Then install the plugin and add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 2](INSTALL.md#step-2-install-the-plugin-into-claude-code) and [Step 5](INSTALL.md#step-5-enable-auto-activation)).
+Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5](INSTALL.md#step-5-enable-auto-activation)).
 
 > **Note**: The binary is optional. Kratos works without it — agents fall back to direct file edits. With the binary, `status.json` gets real timestamps and full pipeline history.
 
@@ -71,9 +73,10 @@ Then install the plugin and add the auto-activation block to your `CLAUDE.md` (s
 | **Clio** | Git History | Blame, commit logs, contributor mapping | Sonnet |
 | **Mimir** | External Research | Web, GitHub, best practices, documentation | Sonnet |
 | **Athena** | Product Management | PRDs, PM reviews, requirements | Opus |
+| **Nemesis** | PRD Review | Adversarial devil's advocate + user advocate review | Opus |
 | **Daedalus** | Decomposition | Feature phases, dependencies, platform-native tasks | Sonnet |
 | **Themis** | Discuss / Decision Lock | Debates implementation choices, writes context.md | Sonnet |
-| **Hephaestus** | Engineering | Technical specifications, blueprints | Opus |
+| **Hephaestus** | Engineering | Technical specifications, blueprints, approach selection | Opus |
 | **Apollo** | Architecture | System design, SA reviews | Opus |
 | **Artemis** | Quality Assurance | Test planning, test cases | Sonnet |
 | **Ares** | Implementation | Code writing, bug fixes, refactoring | Sonnet |
@@ -81,6 +84,7 @@ Then install the plugin and add the auto-activation block to your `CLAUDE.md` (s
 | **Hermes** | Peer Review | Code review, quality audits | Opus |
 | **Cassandra** | Risk Analysis | Security, breaking changes, CVEs | Sonnet |
 | **Hades** | Debugging | Error location, proof of failure, root cause | Sonnet |
+| **Prometheus** | Strategic Planning | Interview-driven prioritized build plans | Opus |
 | **Ananke** | Task Management | Personal todo list (binary + file fallback) | Sonnet |
 
 ---
@@ -127,6 +131,9 @@ If no alternative lockfile is found, `npm` commands pass through unchanged.
 | `/kratos:review` | **Code Review** — Standards-enforced review with severity tiers and auto-fix |
 | `/kratos:inquiry` | **Knowledge Seek** — Routes questions to Metis, Clio, or Mimir |
 | `/kratos:decompose` | **Decompose** — Break features into phases (files, Notion, Linear) |
+| `/kratos:plan` | **Strategic Plan** — Prometheus interviews you and produces a prioritized build plan |
+| `/kratos:explain` | **Explain Codebase** — Architecture, patterns, history, and the "why" |
+| `/kratos:audit` | **Pre-Ship Audit** — Security, breaking changes, CVEs, scalability |
 | `/kratos:recall` | **Session Resume** — Where did we stop? (uses persistent memory) |
 | `/kratos:status` | **Battlefield View** — Status of all active features |
 
@@ -176,19 +183,17 @@ Tailor Kratos's power to your needs by prefixing any request:
 For building new features, Kratos follows a 10-stage divine path:
 
 ```
-[1] PRD (Athena)
-[2] PRD Review (Nemesis)
-[3] Decompose (Daedalus, optional)
-[4] Discuss (Themis, optional) ← locks decisions before Hephaestus specs
-[4] Tech Spec (Hephaestus)
+[0] Research (Metis) — optional pre-flight codebase scan
+[1] PRD (Athena) — gap analysis, clarification, requirements
+[2] PRD Review (Nemesis) — adversarial + user advocate
+[3] Decompose (Daedalus) — optional, phases + dependencies
+[4] Tech Spec (Hephaestus) — approach selection, gray areas, blueprint
 [5] SA Review (Apollo)
 [6] Test Plan (Artemis)
-[7] Implementation (Ares)
+[7] Implement (Ares) — Ares mode or User mode
 [8] PRD Alignment (Hera)
-[9] Review (Hermes + Cassandra)
+[9] Review (Hermes + Cassandra) — parallel
 ```
-
-Optional pre-pipeline research: Metis
 
 Pipeline state is tracked in `.claude/feature/<name>/status.json`. When the Kratos binary is installed, agents use `kratos pipeline update` to write real timestamps and maintain history. Without the binary, agents fall back to editing the file directly.
 

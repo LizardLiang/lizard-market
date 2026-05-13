@@ -11,20 +11,18 @@ This guide is for AI agents (Claude Code, etc.) installing Kratos into a user's 
 | **Claude Code** | Host CLI | `claude --version` |
 | **Node.js 18+** | Hook scripts | `node --version` |
 | **Go 1.21+** | Memory binary (build from source) | `go version` |
-| **Git** | Clone the marketplace | `git --version` |
-
-**Optional:**
-- **Python 3** - Legacy memory system fallback. Not required if Go binary is built.
 
 ---
 
-## Step 1: Clone the Marketplace
+## Step 1: Add the Marketplace
+
+Add the marketplace directly from GitHub — no local clone needed:
 
 ```bash
-git clone <marketplace-repo-url> ~/ai-agents/lizard-market
+claude plugin marketplace add https://github.com/LizardLiang/lizard-market
 ```
 
-Kratos lives at `plugins/kratos/` inside the marketplace repo.
+Claude Code will fetch the marketplace and make its plugins available.
 
 ---
 
@@ -32,34 +30,19 @@ Kratos lives at `plugins/kratos/` inside the marketplace repo.
 
 This step registers Kratos's skills, commands, and agents so Claude Code can discover them (e.g., `/kratos:main`, `/kratos:quick`).
 
-### 2a. Add the Marketplace
-
-If you haven't already added the lizard-market marketplace:
-
-```bash
-# From within Claude Code, run:
-/plugin marketplace add /path/to/lizard-market
-```
-
-Or from the CLI:
-
-```bash
-claude plugin marketplace add /path/to/lizard-market
-```
-
-### 2b. Install the Kratos Plugin
+### 2a. Install the Kratos Plugin
 
 ```bash
 # From within Claude Code:
-/plugin install kratos@lizard-plugins
+/plugin install kratos@lizard-market
 
 # Or from the CLI (choose a scope):
-claude plugin install kratos@lizard-plugins              # User scope (global, all projects)
-claude plugin install kratos@lizard-plugins --scope project  # Project scope (shared via git)
-claude plugin install kratos@lizard-plugins --scope local    # Local scope (this machine only)
+claude plugin install kratos@lizard-market              # User scope (global, all projects)
+claude plugin install kratos@lizard-market --scope project  # Project scope (shared via git)
+claude plugin install kratos@lizard-market --scope local    # Local scope (this machine only)
 ```
 
-### 2c. Verify Skills Are Available
+### 2b. Verify Skills Are Available
 
 After installation, Kratos commands should appear in Claude Code's skill list:
 
@@ -312,12 +295,13 @@ kratos init
 For experienced users, here's the full installation in one block:
 
 ```bash
-# 1. Install plugin into Claude Code (run inside Claude Code or CLI)
-#    /plugin marketplace add /path/to/lizard-market
-#    /plugin install kratos@lizard-plugins
+# 1. Add marketplace + install plugin
+claude plugin marketplace add https://github.com/LizardLiang/lizard-market
+claude plugin install kratos@lizard-market
 
-# 2. Build binary
-cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos && cd ..
+# 2. Build binary (from the installed plugin cache or a local clone)
+cd ~/.claude/plugins/cache/kratos/go
+go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos && cd ..
 
 # 3. Initialize database
 ./bin/kratos init
@@ -329,4 +313,4 @@ cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos 
 ./bin/kratos status
 ```
 
-Then install the plugin into Claude Code (see Step 2) and add the auto-activation block to your CLAUDE.md (see Step 5).
+Then add the auto-activation block to your CLAUDE.md (see Step 5).
