@@ -367,7 +367,12 @@ func handleHermesStart(input subagentStartInput) error {
 	debugLog("hermes-start: created checklist at %s", checklistPath)
 
 	additionalContext := fmt.Sprintf(
-		"TIER CHECKLIST FILE: %s\nYou MUST update this file after completing each tier review.\nUse the Edit tool to set each tier from false to true:\n  \"T1_correct\": false  →  \"T1_correct\": true\nDo this IMMEDIATELY after reviewing each tier, before moving to the next.\nA hook will verify all 8 tiers are true when you finish — if any is false, you will be blocked from stopping.\n\nOutput terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.",
+		"TIER CHECKLIST FILE: %s\n"+
+			"After each tier review run (Bash tool, do NOT edit the file directly):\n"+
+			"  kratos hermes-list check T1   # after T1, T2 for T2, … T8 for T8\n"+
+			"Run immediately after each tier — not in a batch at the end.\n"+
+			"A hook verifies all 8 tiers on stop — incomplete tiers block completion.\n\n"+
+			"Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.",
 		checklistPath,
 	)
 
@@ -657,7 +662,7 @@ func handleHermesStop(input subagentStopInput) error {
 		}
 
 		return outputSubagentBlock(fmt.Sprintf(
-			"Hermes tier checklist incomplete. The following tiers were not reviewed: %s. Update hermes-checklist.json to set each completed tier to true. (attempt %d/3)",
+			"Hermes tier checklist incomplete. The following tiers were not reviewed: %s. Run `kratos hermes-list check <tier>` via the Bash tool for each missing tier. (attempt %d/3)",
 			tierList,
 			checklist.BlockCount,
 		))

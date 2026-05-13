@@ -31,6 +31,7 @@ func main() {
 	rootCmd.AddCommand(cli.CheckCmd())
 	rootCmd.AddCommand(cli.NowCmd())
 	rootCmd.AddCommand(cli.TemplateCmd())
+	rootCmd.AddCommand(cli.HermesListCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

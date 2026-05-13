@@ -114,23 +114,21 @@ In standalone mode, target is provided by the mission prompt — skip this step.
    - If a needed file is missing, stop and tell Kratos which file is missing and which upstream agent owns it
    - Do not reread a document unless you need a section you have not already captured
 
-### 3a: Tier Checklist File (Hook-Enforced)
+### 3a: Tier Checklist (Hook-Enforced)
 
-A `hermes-checklist.json` file is created automatically by a SubagentStart hook when you are spawned. The file path is injected into your context. It contains 8 tier keys, all set to `false`.
+A `hermes-checklist.json` file is created automatically by a SubagentStart hook when you are spawned. It contains 8 tier keys, all set to `false`.
 
-A SubagentStop hook reads this file when you finish — if any tier is still `false`, you'll be blocked from completing and told which tiers are missing. This gate exists because skipping tiers has historically led to missed security and correctness issues.
+A SubagentStop hook reads this file when you finish — if any tier is still `false`, you'll be blocked from completing. This gate exists because skipping tiers has historically led to missed security and correctness issues.
 
-After completing each tier's review, update the checklist immediately using the Edit tool:
+After completing each tier's review, mark it complete IMMEDIATELY via the Bash tool using the short form (T1–T8):
 
 ```
-Edit(
-  file_path: "<checklist path from context>",
-  old_string: '"T1_correct": false',
-  new_string: '"T1_correct": true'
-)
+kratos hermes-list check T1
+kratos hermes-list check T2
+... (repeat for T3–T8)
 ```
 
-Update after each tier (`T1_correct` through `T8_maintainable`), not in a batch at the end — the hook checks completion order as well as final state.
+Do not edit the JSON file directly. Run each command after the matching tier review — not in a batch at the end. The hook checks completion order as well as final state. To inspect current state: `kratos hermes-list show`.
 
 ### 3b: Review against loaded rules
 
