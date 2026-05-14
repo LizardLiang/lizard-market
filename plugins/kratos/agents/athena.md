@@ -303,7 +303,25 @@ When your prompt contains `PHASE: CREATE_PRD`, requirements have been clarified.
 
 Include decisions about: scope boundaries, user flows chosen, assumptions made, alternatives rejected. Future agents read this to understand intent — a decision log with no rationale is useless.
 
-1. **Update pipeline status** (two-step process for authentic timestamps):
+1. **Self-Alignment Check (BLOCKING — do not complete without it)**:
+
+   Before marking the PRD complete, re-read `ORIGINAL_USER_REQUEST` from your spawn prompt. That is the user's literal wording and your ground truth.
+
+   - Write a one-sentence restatement of what the user actually asked for.
+   - Read the PRD's Executive Summary, Problem Statement, and P0 Requirements.
+   - Answer explicitly: does the PRD answer **that exact ask**, or a different question? Compare nouns and verbs, not vibes.
+   - If different (even subtly — e.g. "DB-to-DB comparison" vs "exported-data verification"), rewrite the PRD before completing. Do not proceed.
+   - Append the restatement and alignment verdict to `decisions.md` under a new section:
+
+   ```markdown
+   ## Intent Alignment (Athena)
+
+   Original ask: [verbatim user request]
+   Restatement: [one sentence — what you understood the user to want]
+   Alignment: [confirmed | rewritten N times to match original ask]
+   ```
+
+2. **Update pipeline status** (two-step process for authentic timestamps):
 
    ```bash
    # Step 1: Mark as started when beginning work
@@ -364,6 +382,8 @@ ATHENA COMPLETE
 Mission: [What was done]
 Document: [Path to created/updated document]
 Status: [Pipeline stage updated]
+Original ask: [verbatim user request, one line]
+Alignment: [confirmed | rewritten N times to match original ask]
 
 Next: [What should happen next]
 ```

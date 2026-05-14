@@ -192,45 +192,6 @@ Feature [name] is COMPLETE!
 
 ---
 
-## Dispatch Handler
-
-After spawning any agent, check if the result contains `DISPATCH_TO:`. This signals an intra-stage sub-delegation — the agent needs a specialist before it can continue.
-
-**When `DISPATCH_TO:` is present:**
-
-1. Extract from the result:
-   - `DISPATCH_TO` — which agent to spawn next
-   - `DISPATCH_PHASE` — which phase/mission to give them
-   - `DISPATCH_RETURN_TO` — which agent gets the result
-   - `DISPATCH_RETURN_PHASE` — which phase to resume with
-   - `METIS_SEARCH_DIRECTIVE` (or equivalent `DISPATCH_CONTEXT` block)
-   - `RESUME_CONTEXT` — store this; it gets re-injected when the return agent is spawned
-
-2. Spawn the dispatch target using model `haiku` (dispatch targets are always cost-optimized specialists):
-   ```
-   Task(
-     subagent_type: "kratos:[DISPATCH_TO]",
-     model: "haiku",
-     prompt: "MISSION: [DISPATCH_PHASE]
-   [DISPATCH_CONTEXT block pasted verbatim]"
-   )
-   ```
-
-3. When the target returns, spawn the return agent:
-   ```
-   Task(
-     subagent_type: "kratos:[DISPATCH_RETURN_TO]",
-     model: "[normal model for that agent]",
-     prompt: "PHASE: [DISPATCH_RETURN_PHASE]
-   [RESUME_CONTEXT pasted verbatim]
-   [target agent result pasted verbatim]"
-   )
-   ```
-
-This handler is generic — it works for any future agent that includes a `DISPATCH_TO:` block, not just Hephaestus→Metis.
-
----
-
 ## Gate Enforcement
 
 Before spawning any agent, verify prerequisites are complete. If a prior stage is not done, surface the block and offer to work on the prerequisite instead. See `plugins/kratos/references/status-json-schema.md` for status.json schema and `plugins/kratos/references/agent-handoff-spec.md` for agent contracts.

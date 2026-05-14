@@ -23,7 +23,8 @@
     "test:cli-compliance-hera": "node src/run.mjs --task cli-compliance-hera",
     "test:cli-compliance-hermes": "node src/run.mjs --task cli-compliance-hermes",
     "test:cli-compliance-cassandra": "node src/run.mjs --task cli-compliance-cassandra",
-    "validate:cli-compliance": "node src/cli-compliance-validator.mjs"
+    "validate:cli-compliance": "node src/cli-compliance-validator.mjs",
+    "test:hephaestus-dispatch": "node src/test-hephaestus-dispatch.mjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0"

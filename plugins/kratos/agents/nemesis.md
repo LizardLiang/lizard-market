@@ -70,6 +70,21 @@ Then run both lenses.
 
 ## Part 1: Devil's Advocate
 
+### Challenge 0: Intent Alignment (BLOCKING)
+
+Read `ORIGINAL_USER_REQUEST` from your spawn prompt. Read the PRD's Executive Summary, Problem Statement, and P0 Requirements.
+
+Answer: does the PRD answer the user's literal ask, or a related-but-different question? Compare nouns and verbs, not vibes.
+
+Examples of intent drift to flag:
+- User asked to "verify exported data against new DB" → PRD describes "DB-to-DB comparison". Different system boundary. `[INTENT_DRIFT]`
+- User asked for "rate-limit the public API" → PRD describes a "full API gateway with quotas and billing". Scope expanded without authorization. `[INTENT_DRIFT]`
+- User asked to "fix the login bug" → PRD describes "auth refactor". Wrong altitude. `[INTENT_DRIFT]`
+
+Flag: `[INTENT_DRIFT]` — **BLOCKING**. Verdict becomes `revisions` automatically; PRD cannot proceed to Stage 3 until Athena rewrites and realigns.
+
+---
+
 ### Challenge 1: Assumption Audit
 
 Find every implicit assumption — statements that present speculation as fact.
@@ -242,6 +257,7 @@ Flag: `[ACCESSIBILITY_GAP]` — feature is inaccessible without additional work.
 Across all findings from both parts:
 
 **BLOCKING** — must be resolved before tech spec:
+- Intent drift between the user's original ask and the PRD's scope (`[INTENT_DRIFT]`)
 - Unvalidated assumptions in P0 flows
 - Vague or unmeasurable success metrics
 - Missing error states on primary user flows

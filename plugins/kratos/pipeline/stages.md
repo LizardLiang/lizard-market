@@ -7,6 +7,8 @@ description: Exact Task invocations for each pipeline stage (0–11)
 
 This file contains the exact Task tool calls for each pipeline stage. Read the relevant section when you need to spawn an agent for a specific stage.
 
+**IMPORTANT — filling `ORIGINAL_USER_REQUEST`:** Copy the user's actual first message (the request that triggered this pipeline) verbatim from your conversation context. Do NOT use the one-sentence description from start.md. Preserve original wording exactly — do not summarize, rephrase, or truncate.
+
 ---
 
 ## Stage 0: Research Project (Metis) — Optional Pre-flight
@@ -40,6 +42,7 @@ Task(
 PHASE: GAP_ANALYSIS
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+ORIGINAL_USER_REQUEST: [paste the user's request verbatim — do not paraphrase or summarize]
 REQUIREMENTS: [user's requirements]
 
 Read plugins/kratos/agents/athena.md for the full instruction set before starting.
@@ -64,6 +67,7 @@ Task(
   prompt: "MISSION: Review PRD
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+ORIGINAL_USER_REQUEST: [paste the user's request verbatim — same text passed to Athena in Stage 1]
 
 Read plugins/kratos/agents/nemesis.md for the full instruction set before starting.
 
@@ -139,86 +143,30 @@ If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status
 
 ---
 
-## Stage 4: Tech Spec (Hephaestus) — Four Sub-Phases
+## Stage 4: Tech Spec (Hephaestus)
 
-Stage 4 runs as four sequential sub-phases. Kratos orchestrates all spawns — agents cannot spawn each other directly.
-
----
-
-### Sub-Phase 0: Produce Directive
-
-Hephaestus reads the PRD and outputs a targeted scan directive for Metis, plus a resume context payload for his own Phase 1.
-
-```
-Task(
-  subagent_type: "kratos:hephaestus",
-  model: "sonnet",
-  prompt: "MISSION: Produce Codebase Scan Directive
-PHASE: PRODUCE_DIRECTIVE
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-
-Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
-
-Read prd.md. Identify what the codebase must answer before you can propose implementation approaches. Return HEPHAESTUS_DIRECTIVE_RESULT. Do not scan the codebase yourself.",
-  description: "hephaestus - produce directive (sonnet)"
-)
-```
-
----
-
-### Sub-Phase 0.5: Dispatch Handler (Kratos)
-
-After Phase 0 completes, parse `HEPHAESTUS_DIRECTIVE_RESULT`:
-
-1. Extract `METIS_SEARCH_DIRECTIVE` block
-2. Store `RESUME_CONTEXT` block (Kratos holds this for Phase 1 re-injection)
-3. Read `DISPATCH_TO` / `DISPATCH_PHASE` / `DISPATCH_RETURN_TO` / `DISPATCH_RETURN_PHASE`
-4. Spawn Metis:
-
-```
-Task(
-  subagent_type: "kratos:metis",
-  model: "haiku",
-  prompt: "MISSION: Codebase Scan
-PHASE: CODEBASE_SCAN
-FEATURE: [feature-name]
-
-Read plugins/kratos/agents/metis.md for the full instruction set before starting.
-
-METIS_SEARCH_DIRECTIVE:
-[paste METIS_SEARCH_DIRECTIVE block from Hephaestus Phase 0 verbatim]
-
-Return CODEBASE_SCAN_RESULT inline. Do not create any files.",
-  description: "metis - codebase scan (haiku)"
-)
-```
-
----
-
-### Sub-Phase 1: Approach Selection + Gray Areas + Tech Spec
-
-When Metis returns, merge RESUME_CONTEXT + CODEBASE_SCAN_RESULT and spawn Hephaestus:
+Hephaestus reads the PRD, scans the codebase via a direct Task call to Metis (haiku), resolves approaches and gray areas with the user, and writes the tech spec — all in one invocation.
 
 ```
 Task(
   subagent_type: "kratos:hephaestus",
   model: "opus",
-  prompt: "MISSION: Propose Approaches + Clarify + Write Tech Spec
-PHASE: IDENTIFY_GRAY_AREAS
+  prompt: "MISSION: Create Tech Spec
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
 
-[paste RESUME_CONTEXT from Phase 0 verbatim]
+REQUIRED SEQUENCE (do not deviate):
+1. Read prd.md and decisions.md
+2. Plan the codebase scan targets (what Metis must answer)
+3. Call Task(subagent_type: 'kratos:metis', model: 'haiku') with your scan directive — this step is MANDATORY before writing any spec
+4. Receive CODEBASE_SCAN_RESULT, present 2-3 approaches via AskUserQuestion, resolve gray areas
+5. Write tech-spec.md
 
-[paste CODEBASE_SCAN_RESULT from Metis verbatim]
-
-Use AskUserQuestion to present 2-3 named approaches and get the user's choice. Then ask gray-area questions one at a time. After collecting all answers, write tech-spec.md in the same invocation.
-
+Do NOT use Read/Glob/Grep to scan the codebase yourself — delegate that to Metis via Task.
 Create tech-spec.md before completing. Kratos validates the deliverable after you finish.",
-  description: "hephaestus - approach + gray areas + tech spec (opus)"
+  description: "hephaestus - tech spec (opus, direct Metis call)"
 )
 ```
 
