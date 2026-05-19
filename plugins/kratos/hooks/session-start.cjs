@@ -227,14 +227,7 @@ function ensureBinary() {
     }
   }
 
-  // Export KRATOS_BIN env var for backward compat
-  const envFile = process.env.CLAUDE_ENV_FILE;
-  if (envFile) {
-    fs.appendFileSync(
-      envFile,
-      `export KRATOS_BIN="${targetPath.replace(/\\/g, "/")}"\n`,
-    );
-  }
+
 }
 
 // Main

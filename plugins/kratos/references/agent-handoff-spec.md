@@ -167,7 +167,7 @@ If an agent needs one of these files and it is missing, the agent should stop an
 3. **Consult only the documents you need** for the current decision.
 4. **If a needed file is missing**, stop and report the owning upstream agent to Kratos.
 5. **Update status.json** after every successful completion.
-6. **Use real timestamps** from the Kratos CLI (`"$KRATOS_BIN" now`) when direct writes are required.
+6. **Use real timestamps** from the Kratos CLI (`<kratos-bin> now`) when direct writes are required.
 7. **Report gate status** to Kratos (Passed / Blocked).
 
 Kratos validates required deliverables after the agent finishes.

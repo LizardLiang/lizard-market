@@ -55,7 +55,7 @@ Verify:
 
 **Step 1: Mark work as started (for authentic timestamps)**
 ```bash
-"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 2-prd-review --status in-progress
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 2-prd-review --status in-progress
 ```
 
 **Step 2: Conduct review**
@@ -329,7 +329,7 @@ First create the review document at `.claude/feature/<name>/prd-challenge.md`, t
 
 ```bash
 # Mark as complete with verdict
-"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict VERDICT --document prd-challenge.md
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict VERDICT --document prd-challenge.md
 ```
 
 Additional status.json updates:

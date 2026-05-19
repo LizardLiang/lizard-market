@@ -101,7 +101,7 @@ In standalone mode, target is provided by the mission prompt — skip this step.
 
 **3.1: Mark work as started** (for authentic timestamps):
 ```bash
-"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 8-review --status in-progress
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 8-review --status in-progress
 ```
 
 **3.2: Use documents purposefully** (Pipeline Mode):
@@ -311,7 +311,7 @@ Mention proposals in the summary.
 
 ## Step 8: Create Review Document (Pipeline Mode Only)
 
-Run `"$KRATOS_BIN" template get code-review-template` to retrieve the template and follow its structure.
+Run `<kratos-bin> template get code-review-template` to retrieve the template and follow its structure.
 
 Create the document at `.claude/feature/<name>/code-review.md`.
 
@@ -327,7 +327,7 @@ Append this block under `## Revision Requests`:
 
 Then update status as complete:
 ```bash
-"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 8-review --status complete --verdict VERDICT --document code-review.md
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 8-review --status complete --verdict VERDICT --document code-review.md
 ```
 
 Additional status updates:

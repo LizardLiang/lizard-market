@@ -72,7 +72,7 @@ When asked to create a test plan:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 5-test-plan --status in-progress
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 5-test-plan --status in-progress
    ```
 
 2. **Use documents purposefully**:
@@ -92,11 +92,11 @@ When asked to create a test plan:
 
 4. **Create test-plan.md** at `.claude/feature/<name>/test-plan.md`:
 
-Run `"$KRATOS_BIN" template get test-plan-template` to retrieve the template and follow its structure.
+Run `<kratos-bin> template get test-plan-template` to retrieve the template and follow its structure.
 
 5. **Update status as complete**:
    ```bash
-   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 5-test-plan --status complete --document test-plan.md
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 5-test-plan --status complete --document test-plan.md
    ```
 
 6. **Write a summary into status.json** — patch the `summary` field on the `6-test-plan` stage object. Keep it to 2–3 sentences covering: total test cases, P0 coverage fraction, and the highest-risk area targeted. Downstream agents will read this before deciding whether to open `test-plan.md`.

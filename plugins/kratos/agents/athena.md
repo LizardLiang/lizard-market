@@ -280,7 +280,7 @@ When your prompt contains `PHASE: CREATE_PRD`, requirements have been clarified.
 
 1. **Research first**: Summon Mimir to research the problem domain, best practices, and examples. If external APIs are mentioned, use context7 for precise specs. Check `.claude/.Arena/` for existing project knowledge.
 
-2. **Create the PRD** at `.claude/feature/<name>/prd.md`. Run `"$KRATOS_BIN" template get prd-template` to get the template structure and follow it.
+2. **Create the PRD** at `.claude/feature/<name>/prd.md`. Run `<kratos-bin> template get prd-template` to get the template structure and follow it.
 
 3. **Create `decisions.md`** at `.claude/feature/<name>/decisions.md` — record the key product decisions made during PRD creation. This is the living memory of WHY the feature was designed this way. Use this format:
 
@@ -325,10 +325,10 @@ Include decisions about: scope boundaries, user flows chosen, assumptions made, 
 
    ```bash
    # Step 1: Mark as started when beginning work
-   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 1-prd --status in-progress
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 1-prd --status in-progress
 
    # Step 2: Mark as complete when finished
-   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 1-prd --status complete --document "prd.md,decisions.md"
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 1-prd --status complete --document "prd.md,decisions.md"
    ```
 
 If any assumptions were still needed despite clarification, document them explicitly in the PRD appendix with a risk-if-wrong assessment.
@@ -351,7 +351,7 @@ When asked to review a PRD:
    - Every assumption labeled as assumption, not stated as fact → **Revisions** if unvalidated assumptions are presented as facts
    - External API dependencies documented correctly?
 
-4. Create the review at `.claude/feature/<name>/prd-review.md`. Run `"$KRATOS_BIN" template get prd-review-template` to get the template structure and follow it.
+4. Create the review at `.claude/feature/<name>/prd-review.md`. Run `<kratos-bin> template get prd-review-template` to get the template structure and follow it.
 
 5. **Set verdict** — use one of these exact values:
    - **Approved**: PRD is complete and ready for tech spec
@@ -362,10 +362,10 @@ When asked to review a PRD:
 
    ```bash
    # Step 1: Mark as started when beginning review
-   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 2-prd-review --status in-progress
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 2-prd-review --status in-progress
 
    # Step 2: Mark as complete when finished with verdict
-   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict VERDICT --document prd-review.md
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict VERDICT --document prd-review.md
    ```
 
 ---

@@ -149,7 +149,7 @@ When outputting to local files:
 
 1. **Read the template**:
    ```bash
-   "$KRATOS_BIN" template get decomposition-template
+   <kratos-bin> template get decomposition-template
    ```
 
 2. **Execute the Decomposition Methodology** (Steps 1-6 above)
@@ -158,7 +158,7 @@ When outputting to local files:
 
 4. **Update pipeline status** (if in pipeline mode):
    ```bash
-   "$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 3-decomposition --status complete --document decomposition.md
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 3-decomposition --status complete --document decomposition.md
    ```
 
 ---
@@ -169,7 +169,7 @@ When outputting to Notion:
 
 1. **Read the Notion output guide**:
    ```bash
-   "$KRATOS_BIN" template get decomposition-notion-template
+   <kratos-bin> template get decomposition-notion-template
    ```
 
 2. **Load Notion MCP tools** via ToolSearch:
@@ -196,7 +196,7 @@ When outputting to Linear:
 
 1. **Read the Linear output guide**:
    ```bash
-   "$KRATOS_BIN" template get decomposition-linear-template
+   <kratos-bin> template get decomposition-linear-template
    ```
 
 2. **Load Linear MCP tools** via ToolSearch:

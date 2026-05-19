@@ -88,7 +88,7 @@ When asked to analyze risk (pipeline or standalone):
 
 **Mark work as started** (pipeline mode only):
 ```bash
-"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 8-review --status in-progress
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 8-review --status in-progress
 ```
 
 ### Step 2: Scout the Delta
@@ -130,7 +130,7 @@ Evaluate the changed files across these dimensions:
 
 ### Step 5: Create Document and Update Status (Pipeline Mode Only)
 
-Create `risk-analysis.md`. Run `"$KRATOS_BIN" template get risk-analysis-template` to get the template structure and follow it.
+Create `risk-analysis.md`. Run `<kratos-bin> template get risk-analysis-template` to get the template structure and follow it.
 
 **If verdict is Blocked**, append your CRITICAL findings to `decisions.md` at `.claude/feature/<name>/decisions.md`. Like Hermes, you must provide the why — a blocked gate without a clear rationale and required action is just a frustration.
 
@@ -144,7 +144,7 @@ Append this block under `## Revision Requests`:
 
 Then update status:
 ```bash
-"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage 8-review --status complete --verdict VERDICT --document risk-analysis.md
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 8-review --status complete --verdict VERDICT --document risk-analysis.md
 ```
 
 ---

@@ -8,9 +8,9 @@ Procedures shared across all Kratos agents. Read sections relevant to your missi
 
 All paths in agent instructions (e.g., `plugins/kratos/references/...`, `.claude/feature/...`) are relative to the **project root** (git repository root). Resolve from project root, not plugin directory.
 
-Templates are retrieved via the CLI: `"$KRATOS_BIN" template get <template-name>` (omit the `.md` extension). The CLI handles file location regardless of where the plugin is installed.
+Templates are retrieved via the CLI: `'<kratos-path>' template get <template-name>` (omit the `.md` extension). The CLI handles file location regardless of where the plugin is installed.
 
-**Kratos binary (`$KRATOS_BIN`)**: The `SubagentStart` hook injects the resolved absolute path for the current platform. Use `"$KRATOS_BIN"` exactly as written — the shell will expand it to the correct path. If no path was injected, skip all `"$KRATOS_BIN"` calls and report to Kratos that the binary is unavailable.
+**Kratos binary**: The `SubagentStart` hook injects the resolved absolute path. Wherever instructions show `<kratos-bin>`, substitute the literal path from the hook directly — e.g. `'/usr/local/bin/kratos' <subcommand>`. If no path was injected, skip all kratos calls and report to Kratos that the binary is unavailable.
 
 ---
 
@@ -64,7 +64,7 @@ Your primary deliverable is a document file. Kratos verifies this file exists af
 
 ```bash
 # Capture a precise ISO8601 timestamp
-TS=$("$KRATOS_BIN" now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+TS=$(<kratos-bin> now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
 ```
 
 Then use `$TS` wherever the schema expects `<ISO8601>`:
@@ -86,29 +86,29 @@ Update pipeline status using the exact command format below. Do NOT improvise fl
 ### Step 1: Mark Work as Started
 ```bash
 # When you BEGIN work, immediately mark as in-progress
-"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage STAGE_NAME --status in-progress
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage STAGE_NAME --status in-progress
 ```
 
 ### Step 2: Mark Work as Complete  
 ```bash
 # When you FINISH work, mark as complete with deliverables
-"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage STAGE_NAME --status complete --document DOC_NAME
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage STAGE_NAME --status complete --document DOC_NAME
 
 # For review stages, include verdict:
-"$KRATOS_BIN" pipeline update --feature FEATURE_NAME --stage STAGE_NAME --status complete --verdict VERDICT --document DOC_NAME
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage STAGE_NAME --status complete --verdict VERDICT --document DOC_NAME
 ```
 
 ### Examples
 ```bash
 # PRD Creation (two steps):
-"$KRATOS_BIN" pipeline update --feature auth-system --stage 1-prd --status in-progress
+<kratos-bin> pipeline update --feature auth-system --stage 1-prd --status in-progress
 # ... do the actual PRD work ...
-"$KRATOS_BIN" pipeline update --feature auth-system --stage 1-prd --status complete --document prd.md
+<kratos-bin> pipeline update --feature auth-system --stage 1-prd --status complete --document prd.md
 
 # Review (two steps):
-"$KRATOS_BIN" pipeline update --feature auth-system --stage 2-prd-review --status in-progress
+<kratos-bin> pipeline update --feature auth-system --stage 2-prd-review --status in-progress
 # ... do the actual review work ...
-"$KRATOS_BIN" pipeline update --feature auth-system --stage 2-prd-review --status complete --verdict approved --document prd-review.md
+<kratos-bin> pipeline update --feature auth-system --stage 2-prd-review --status complete --verdict approved --document prd-review.md
 ```
 
 **Why Two Steps**: Ensures `started` and `completed` have different timestamps, preventing zero-duration work periods that appear fabricated.
@@ -123,10 +123,10 @@ Athena runs at three different stages. Before spawning Athena, set `pending_stag
 
 ```bash
 # Before spawning Athena for stage 2 or 6 (stage 1 is already set at feature init):
-"$KRATOS_BIN" pipeline set-pending --feature FEATURE_NAME --stage STAGE_NAME
+<kratos-bin> pipeline set-pending --feature FEATURE_NAME --stage STAGE_NAME
 
 # After Athena completes (clears the field):
-"$KRATOS_BIN" pipeline set-pending --feature FEATURE_NAME --stage ""
+<kratos-bin> pipeline set-pending --feature FEATURE_NAME --stage ""
 ```
 
 Omitting this step causes `--init` to read the previous completed stage and tell Athena
@@ -140,13 +140,13 @@ Record your work in the active Kratos session so Kratos can reconstruct what hap
 
 ```bash
 PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$("$KRATOS_BIN" session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+SESSION_ID=$(<kratos-bin> session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
 
 # Record your spawn at start (replace AGENT_NAME, MODEL, DESCRIPTION)
-"$KRATOS_BIN" step record-agent "$SESSION_ID" AGENT_NAME MODEL "DESCRIPTION"
+<kratos-bin> step record-agent "$SESSION_ID" AGENT_NAME MODEL "DESCRIPTION"
 
 # Record each document you create or modify
-"$KRATOS_BIN" step record-file "$SESSION_ID" "path/to/file" "created"
+<kratos-bin> step record-file "$SESSION_ID" "path/to/file" "created"
 ```
 
 If the binary is unavailable, skip session tracking silently — useful but not critical.

@@ -25,13 +25,13 @@ Use the Go binary (preferred) or status.json fallback to get session info:
 
 ```bash
 # Go binary (primary method) — pass the project root path as argument
-"$KRATOS_BIN" recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
+<kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
 # Global recall (all projects)
-"$KRATOS_BIN" recall --global --limit 5
+<kratos-bin> recall --global --limit 5
 
 # Incomplete features only
-"$KRATOS_BIN" recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) --incomplete
+<kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) --incomplete
 
 # Fallback: scan status.json files directly (if Go binary unavailable)
 # Use Glob to find .claude/feature/*/status.json and Read to parse them
@@ -124,13 +124,13 @@ Check if user specified `--global`:
 Run the Go binary (preferred):
 
 ```bash
-"$KRATOS_BIN" recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
+<kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
 ```
 
 Or for global:
 
 ```bash
-"$KRATOS_BIN" recall --global --limit 5
+<kratos-bin> recall --global --limit 5
 ```
 
 If the Go binary is unavailable, fall back to scanning `.claude/feature/*/status.json` files directly using Glob and Read tools.
@@ -199,7 +199,7 @@ Fall back to scanning `.claude/feature/*/status.json` files directly using Glob 
 ```
 KRATOS RECALL
 
-Global recall requires the kratos binary ("$KRATOS_BIN").
+Global recall requires the kratos binary (<kratos-bin>).
 Showing current project only.
 ```
 
@@ -257,7 +257,7 @@ When you receive `/kratos:recall`, execute these steps:
 
 1. **Run the query** (Go binary preferred, status.json fallback):
 ```bash
-"$KRATOS_BIN" recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) 2>/dev/null
+<kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) 2>/dev/null
 ```
 If the binary is unavailable, use Glob to find `.claude/feature/*/status.json` and Read to parse them.
 
