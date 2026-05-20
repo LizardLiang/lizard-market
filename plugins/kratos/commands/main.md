@@ -94,7 +94,7 @@ Note: "Continue" at Stage 1 with no `prd.md` yet must run the full gap analysis 
 
 ### Step 4: Spawn the Agent
 
-Read `plugins/kratos/pipeline/stages.md` for the exact Task invocation for each stage. Always use the Task tool — never describe what you would do, just do it.
+**You MUST read `plugins/kratos/pipeline/stages.md` before spawning any agent.** Do not rely on memory of how stages work — the spawn prompts, phase flags, and gate procedures change between versions. Stage 1 and Stage 4 in particular have multi-step gate procedures that must be followed exactly as written.
 
 ### Step 5: Verify Output
 
@@ -120,11 +120,12 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 
 | Stage Complete | Verdict | Next |
 |----------------|---------|------|
+| *(new feature)* | — | **1-prd** — read `plugins/kratos/pipeline/gap-analysis.md` and run the inline gap analysis loop. Do NOT spawn Athena with PHASE: GAP_ANALYSIS. |
 | 1-prd | — | 2-prd-review (nemesis) |
 | 2-prd-review | Approved | Complexity check → optional decomposition → optional discuss → 4-tech-spec |
 | 2-prd-review | Revisions | 1-prd (athena) — revise PRD and re-review |
 | 2-prd-review | Rejected | Blocked — escalate to user, fundamental PRD issue |
-| 3-decomposition | Complete/Skipped | 4-tech-spec (hephaestus — 4-sub-phase: directive → metis scan → approaches + gray areas → spec) |
+| 3-decomposition | Complete/Skipped | **4-tech-spec** — read `plugins/kratos/pipeline/hephaestus-gate.md` and run the 3-phase gate (Metis scan → Hephaestus ANALYZE → user questions → Hephaestus WRITE_SPEC). Do NOT spawn Hephaestus directly. |
 | 4-tech-spec | — | 6 (apollo) |
 | 5-spec-review-sa | Sound | 6-test-plan (artemis) |
 | 5-spec-review-sa | Concerns/Unsound | 4-tech-spec (hephaestus) |
