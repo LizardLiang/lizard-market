@@ -45,6 +45,11 @@ Find the active feature:
 Search: .claude/feature/*/status.json
 ```
 
+Then read the pipeline state:
+```bash
+<kratos-bin> pipeline get --feature FEATURE_NAME
+```
+
 Verify:
 1. Stage 1 (PRD) is complete
 2. `prd.md` exists
@@ -55,7 +60,7 @@ Verify:
 
 **Step 1: Mark work as started (for authentic timestamps)**
 ```bash
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage 2-prd-review --status in-progress
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 2 --status in-progress
 ```
 
 **Step 2: Conduct review**
@@ -329,7 +334,7 @@ First create the review document at `.claude/feature/<name>/prd-challenge.md`, t
 
 ```bash
 # Mark as complete with verdict
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict VERDICT --document prd-challenge.md
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 2 --status complete --verdict VERDICT --document prd-challenge.md
 ```
 
 Additional status.json updates:

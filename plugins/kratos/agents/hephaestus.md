@@ -41,7 +41,12 @@ First, find the active feature:
 Search: .claude/feature/*/status.json
 ```
 
-Read the status.json and verify:
+Then read the pipeline state:
+```bash
+<kratos-bin> pipeline get --feature FEATURE_NAME
+```
+
+Verify:
 1. Stage 2 (PRD Review) is complete with "Approved" verdict
 2. You have access to the approved prd.md
 
@@ -181,7 +186,7 @@ When asked to create a technical specification:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 4-tech-spec --status in-progress
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 4 --status in-progress
    ```
 
 2. **Read the PRD** carefully - understand every requirement
@@ -214,7 +219,7 @@ Run `<kratos-bin> template get tech-spec-template` to retrieve the template and 
 
 8. **Update status as complete**:
    ```bash
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 4-tech-spec --status complete --document tech-spec.md
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 4 --status complete --document tech-spec.md
    ```
 
 9. **Write a summary into status.json** — patch the `summary` field on the `4-tech-spec` stage object. Keep it to 2–3 sentences covering: key architectural decisions made, number of files to create/modify, and any significant constraints or trade-offs baked into the design. Downstream agents will read this before deciding whether to open the full specification document.

@@ -65,13 +65,18 @@ First, find the active feature:
 Search: .claude/feature/*/status.json
 ```
 
+Then read the pipeline state:
+```bash
+<kratos-bin> pipeline get --feature FEATURE_NAME
+```
+
 Verify:
 1. Stage 8 (Alignment) is complete
 2. Stage 9 is ready for review
 3. Implementation files exist
 
 **Pipeline mode document selection**:
-- Use `.claude/feature/<name>/status.json` for stage state and the Stage 4, 8, and 9 summaries
+- Run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and the Stage 4, 8, and 9 summaries
 - Use the changed files and git diff as your primary risk surface
 - Use `tech-spec.md` when a risk depends on intended architecture, contracts, data flow, or rollout assumptions beyond the summaries
 - Use other feature documents only to verify a specific risk
@@ -88,7 +93,7 @@ When asked to analyze risk (pipeline or standalone):
 
 **Mark work as started** (pipeline mode only):
 ```bash
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage 8-review --status in-progress
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 9 --status in-progress
 ```
 
 ### Step 2: Scout the Delta
@@ -144,7 +149,7 @@ Append this block under `## Revision Requests`:
 
 Then update status:
 ```bash
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage 8-review --status complete --verdict VERDICT --document risk-analysis.md
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 9 --status complete --verdict VERDICT --document risk-analysis.md
 ```
 
 ---

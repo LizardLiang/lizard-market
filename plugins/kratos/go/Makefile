@@ -15,6 +15,7 @@ build-all:
 	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o ../bin/kratos-darwin-arm64 ./cmd/kratos
 	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o ../bin/kratos-windows-amd64.exe ./cmd/kratos
 	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o ../bin/kratos.exe ./cmd/kratos
+	cp ../bin/kratos-linux-amd64 ../bin/kratos
 	@echo "Built all platform binaries"
 
 test:

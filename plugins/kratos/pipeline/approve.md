@@ -104,8 +104,8 @@ Run /kratos:next to proceed.
 On approval, use the CLI (it stamps real timestamps automatically):
 
 ```bash
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict approved
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage 4-tech-spec --status ready
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 2 --status complete --verdict approved
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 4 --status ready
 ```
 
 If the CLI is unavailable, capture a real timestamp first then edit:

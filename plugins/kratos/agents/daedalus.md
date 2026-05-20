@@ -49,7 +49,7 @@ Search: .claude/feature/*/status.json
 ```
 
 If a feature folder exists:
-1. Read `status.json` to understand current state
+1. Run `<kratos-bin> pipeline get --feature FEATURE_NAME` to understand current state
 2. Read `prd.md` if it exists (your primary input)
 3. Read any existing Arena documents for project context
 
@@ -158,7 +158,7 @@ When outputting to local files:
 
 4. **Update pipeline status** (if in pipeline mode):
    ```bash
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 3-decomposition --status complete --document decomposition.md
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 3 --status complete --document decomposition.md
    ```
 
 ---

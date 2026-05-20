@@ -23,7 +23,7 @@ Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI st
 |---------|----------|----------|
 | PRD Alignment | `prd-alignment.md` | `.claude/feature/<name>/prd-alignment.md` |
 
-CLI stage: `8-prd-alignment`
+CLI stage: `8`
 
 ---
 
@@ -52,9 +52,19 @@ Find the active feature:
 Search: .claude/feature/*/status.json
 ```
 
+Then read the pipeline state:
+```bash
+<kratos-bin> pipeline get --feature FEATURE_NAME
+```
+
 Verify:
 1. Stage 7 (Implementation) is complete
 2. Stage 8 is ready for PRD alignment check
+
+Then mark stage 8 as started:
+```bash
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 8 --status in-progress
+```
 
 ---
 
@@ -143,11 +153,17 @@ Coverage = (verified + passing criteria) / total criteria x 100%
 
 Create `prd-alignment.md` with: verdict, coverage %, count summary by status, and a list of only the BLOCKER findings (gaps/missing/failing). Do not re-enumerate all passing criteria - a count is sufficient.
 
-Then update status.json:
-- Set `8-prd-alignment.status` to `"complete"`
-- Record `alignment_verdict`
-- If `aligned`, set `9-review.status` to `"ready"`
-- If `gaps`, set `7-implementation.status` back to `"ready"` and record which criteria need coverage
+Then update pipeline status:
+```bash
+# Mark stage 8 complete with verdict
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 8 --status complete --verdict VERDICT --document prd-alignment.md
+
+# If aligned: unblock review
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 9 --status ready
+
+# If gaps: return implementation to ready
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 7 --status ready
+```
 
 Append to `decisions.md` if verdict is `gaps` or `misaligned`:
 ```markdown

@@ -54,6 +54,11 @@ First, find the active feature:
 Search: .claude/feature/*/status.json
 ```
 
+Then read the pipeline state:
+```bash
+<kratos-bin> pipeline get --feature FEATURE_NAME
+```
+
 Verify:
 1. Stage 4 (Tech Spec) is complete
 2. The specification file exists
@@ -67,11 +72,11 @@ When asked to review a tech spec from architecture perspective:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 4-spec-review-sa --status in-progress
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 5 --status in-progress
    ```
 
 2. **Use documents purposefully**:
-    - Use `.claude/feature/<name>/status.json` for stage state and the Stage 4 summary
+    - Run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and the Stage 4 summary
     - Use `prd.md` when you need requirement detail
     - Use `tech-spec.md` when you need architecture, interface, security, or performance detail beyond the summary
     - Use Arena/codebase patterns only to verify a specific concern or convention
@@ -136,7 +141,7 @@ Append this block under `## Revision Requests`:
 
 6. **Update status as complete**:
    ```bash
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 4-spec-review-sa --status complete --verdict VERDICT --document spec-review-sa.md
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 5 --status complete --verdict VERDICT --document spec-review-sa.md
    ```
    
    Additional status updates:

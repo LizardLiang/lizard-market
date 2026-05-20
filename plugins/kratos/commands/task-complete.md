@@ -92,8 +92,8 @@ When ALL tasks are complete:
 
 1. **Update status.json** via CLI (stamps real timestamps automatically):
    ```bash
-    <kratos-bin> pipeline update --feature FEATURE_NAME --stage 6-implementation --status complete
-    <kratos-bin> pipeline update --feature FEATURE_NAME --stage 7-prd-alignment --status ready
+    <kratos-bin> pipeline update --feature FEATURE_NAME --stage 7 --status complete
+    <kratos-bin> pipeline update --feature FEATURE_NAME --stage 8 --status ready
    ```
    If the CLI is unavailable, get a real timestamp first:
    ```bash

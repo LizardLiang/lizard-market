@@ -12,6 +12,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// stageNumberToKey maps the numeric stage index to its full pipeline key.
+// --stage accepts only numbers 1-9.
+var stageNumberToKey = map[string]string{
+	"1": "1-prd",
+	"2": "2-prd-review",
+	"3": "3-decomposition",
+	"4": "4-tech-spec",
+	"5": "5-spec-review-sa",
+	"6": "6-test-plan",
+	"7": "7-implementation",
+	"8": "8-prd-alignment",
+	"9": "9-review",
+}
+
 // PipelineCmd returns the 'pipeline' command group
 func PipelineCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -266,7 +280,7 @@ func pipelineUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&feature, "feature", "", "Feature name (required)")
-	cmd.Flags().StringVar(&stage, "stage", "", "Pipeline stage, e.g. 1-prd (required)")
+	cmd.Flags().StringVar(&stage, "stage", "", "Pipeline stage number 1-9 (required)")
 	cmd.Flags().StringVar(&status, "status", "", "New status: in-progress, complete, blocked, ready, skipped (required)")
 	cmd.Flags().StringVar(&mode, "mode", "", "Implementation mode: ares or user (stage 8 only)")
 	cmd.Flags().StringVar(&verdict, "verdict", "", "Review verdict: approved, revisions, sound, concerns, unsound, changes-requested, rejected")
@@ -280,6 +294,12 @@ func pipelineUpdateCmd() *cobra.Command {
 }
 
 func pipelineUpdate(feature, stage, newStatus, mode, verdict, document, summary string) error {
+	resolved, ok := stageNumberToKey[stage]
+	if !ok {
+		return fmt.Errorf("invalid stage %q: must be a number 1-9", stage)
+	}
+	stage = resolved
+
 	path := statusPath(feature)
 
 	statusJSON, err := readStatusJSON(path)
@@ -566,6 +586,14 @@ func discoverPresence(ok bool, path string) string {
 // --- pipeline set-pending ---
 
 func pipelineSetPending(feature, stage string) error {
+	if stage != "" {
+		resolved, ok := stageNumberToKey[stage]
+		if !ok {
+			return fmt.Errorf("invalid stage %q: must be a number 1-9", stage)
+		}
+		stage = resolved
+	}
+
 	path := statusPath(feature)
 
 	statusJSON, err := readStatusJSON(path)

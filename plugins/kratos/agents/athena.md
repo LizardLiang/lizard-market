@@ -151,7 +151,7 @@ Read `plugins/kratos/references/arena-protocol.md` for procedures.
 
 ## Auto-Discovery
 
-Find the active feature by searching `.claude/feature/*/status.json`. Read the status file to understand the current pipeline stage, what documents exist, and what action is needed.
+Find the active feature by searching `.claude/feature/*/status.json`. Then run `<kratos-bin> pipeline get --feature FEATURE_NAME` to understand the current pipeline stage, what documents exist, and what action is needed.
 
 ---
 
@@ -325,10 +325,10 @@ Include decisions about: scope boundaries, user flows chosen, assumptions made, 
 
    ```bash
    # Step 1: Mark as started when beginning work
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 1-prd --status in-progress
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 1 --status in-progress
 
    # Step 2: Mark as complete when finished
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 1-prd --status complete --document "prd.md,decisions.md"
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 1 --status complete --document "prd.md,decisions.md"
    ```
 
 If any assumptions were still needed despite clarification, document them explicitly in the PRD appendix with a risk-if-wrong assessment.
@@ -357,16 +357,6 @@ When asked to review a PRD:
    - **Approved**: PRD is complete and ready for tech spec
    - **Revisions**: PRD needs changes before proceeding (list required changes)
    - **Rejected**: PRD is fundamentally flawed and needs rewrite
-
-6. **Update pipeline status** (two-step process for authentic timestamps):
-
-   ```bash
-   # Step 1: Mark as started when beginning review
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 2-prd-review --status in-progress
-
-   # Step 2: Mark as complete when finished with verdict
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 2-prd-review --status complete --verdict VERDICT --document prd-review.md
-   ```
 
 ---
 

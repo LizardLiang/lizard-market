@@ -60,6 +60,11 @@ First, find the active feature:
 Search: .claude/feature/*/status.json
 ```
 
+Then read the pipeline state:
+```bash
+<kratos-bin> pipeline get --feature FEATURE_NAME
+```
+
 Verify:
 1. Stage 5 (SA Spec Review) - complete with "Sound" verdict
 2. Stage 6 is ready for test planning
@@ -72,11 +77,11 @@ When asked to create a test plan:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 5-test-plan --status in-progress
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 6 --status in-progress
    ```
 
 2. **Use documents purposefully**:
-     - Use `.claude/feature/<name>/status.json` for stage state and the Stage 4 summary
+     - Run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and the Stage 4 summary
      - Use `prd.md` to map requirements and acceptance criteria to coverage
      - Use `spec-review-sa.md` to incorporate known concerns into the plan
      - Use `tech-spec.md` when you need interfaces, data flow, failure modes, or file-level test planning detail beyond the summary
@@ -96,7 +101,7 @@ Run `<kratos-bin> template get test-plan-template` to retrieve the template and 
 
 5. **Update status as complete**:
    ```bash
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 5-test-plan --status complete --document test-plan.md
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 6 --status complete --document test-plan.md
    ```
 
 6. **Write a summary into status.json** — patch the `summary` field on the `6-test-plan` stage object. Keep it to 2–3 sentences covering: total test cases, P0 coverage fraction, and the highest-risk area targeted. Downstream agents will read this before deciding whether to open `test-plan.md`.

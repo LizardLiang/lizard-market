@@ -88,6 +88,11 @@ In pipeline mode, find the active feature:
 Search: .claude/feature/*/status.json
 ```
 
+Then read the pipeline state:
+```bash
+<kratos-bin> pipeline get --feature FEATURE_NAME
+```
+
 Verify:
 1. Stage 8 (Implementation) is complete
 2. Stage 11 is ready for code review
@@ -101,11 +106,11 @@ In standalone mode, target is provided by the mission prompt — skip this step.
 
 **3.1: Mark work as started** (for authentic timestamps):
 ```bash
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage 8-review --status in-progress
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 9 --status in-progress
 ```
 
 **3.2: Use documents purposefully** (Pipeline Mode):
-   - Use `.claude/feature/<name>/status.json` for stage state and Stage 4, 8, and 9 summaries
+   - Run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and Stage 4, 8, and 9 summaries
    - Use `implementation-notes.md` to verify what was actually built
    - Use `test-plan.md` to verify expected test coverage
    - Use `prd.md` to verify requirement alignment
@@ -327,7 +332,7 @@ Append this block under `## Revision Requests`:
 
 Then update status as complete:
 ```bash
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage 8-review --status complete --verdict VERDICT --document code-review.md
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 9 --status complete --verdict VERDICT --document code-review.md
 ```
 
 Additional status updates:

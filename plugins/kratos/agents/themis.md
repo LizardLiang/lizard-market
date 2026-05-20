@@ -41,6 +41,11 @@ First, find the active feature:
 Search: .claude/feature/*/status.json
 ```
 
+Then read the pipeline state:
+```bash
+<kratos-bin> pipeline get --feature FEATURE_NAME
+```
+
 Verify:
 1. Stage 2 (PRD Review) is complete with "approved" verdict
 2. You have access to the approved `prd.md`

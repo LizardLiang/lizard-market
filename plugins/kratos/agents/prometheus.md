@@ -47,7 +47,7 @@ If Arena does not exist, do quick targeted scans of package.json, README, and ma
 ls .claude/feature/*/status.json 2>/dev/null
 ```
 
-For each found feature, read its `status.json` to understand what's being built, what stage it's at, and what's complete vs blocked. If no status.json files found, note that no features are in-flight.
+For each found feature, run `<kratos-bin> pipeline get --feature FEATURE_NAME` to understand what's being built, what stage it's at, and what's complete vs blocked. If no status.json files found, note that no features are in-flight.
 
 **Check existing plan:**
 ```bash
