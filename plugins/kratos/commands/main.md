@@ -198,4 +198,8 @@ Before spawning any agent, verify prerequisites are complete. If a prior stage i
 
 ---
 
+When a stage produces an unexpected verdict or the pipeline is stuck, read `plugins/kratos/pipeline/recovery.md`.
+
+---
+
 **Speak, mortal. What would you have me do?**

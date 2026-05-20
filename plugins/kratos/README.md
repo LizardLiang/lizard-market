@@ -482,10 +482,6 @@ cat ~/.claude/settings.json | python3 -m json.tool | grep -A3 SubagentStart
 
 Agents gracefully fall back to direct `status.json` edits if the binary is unavailable.
 
-### Athena in an endless clarification loop
-
-After 2-3 rounds, if you want to proceed: say **"Proceed with your best assumptions and document them explicitly."** Athena will write the PRD and append all assumptions with risk-if-wrong assessments to the appendix.
-
 ### Arena is stale or incorrect
 
 Force a fresh Arena bootstrap:
