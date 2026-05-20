@@ -19,7 +19,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const HARNESS_ROOT = path.resolve(__dirname, "..");
 
 const CLI_COMPLIANCE_TASKS = [
@@ -33,6 +34,55 @@ const CLI_COMPLIANCE_TASKS = [
   "cli-compliance-hermes",
   "cli-compliance-cassandra",
 ];
+
+// Ares-specific new-command checks
+const ARES_NEW_CMD_TASK = "ares-discover-run";
+
+/**
+ * Scan an ares-discover-run messages.jsonl for new-command compliance:
+ *   - pipeline discover called
+ *   - pipeline get called
+ *   - pipeline update --summary called
+ *   - no direct Read on status.json
+ */
+function scanAresNewCmds(messagesJsonlPath) {
+  const result = {
+    discoverCalled: false,
+    getCalled: false,
+    summaryCalled: false,
+    directStatusReads: [],
+    allPipelineCalls: [],
+  };
+
+  if (!fs.existsSync(messagesJsonlPath)) return { ...result, error: "messages.jsonl not found" };
+
+  const lines = fs.readFileSync(messagesJsonlPath, "utf8").split("\n").filter(Boolean);
+
+  for (const line of lines) {
+    let msg;
+    try { msg = JSON.parse(line); } catch { continue; }
+
+    if (msg.type !== "assistant") continue;
+    for (const block of msg.message?.content ?? []) {
+      if (block.type !== "tool_use") continue;
+      const { name: tool, input = {} } = block;
+      const cmd = input.command ?? "";
+
+      if (tool === "Bash" && cmd.includes("kratos") && cmd.includes("pipeline")) {
+        result.allPipelineCalls.push(cmd.slice(0, 200));
+        if (cmd.includes("pipeline discover")) result.discoverCalled = true;
+        if (/pipeline\s+get/.test(cmd)) result.getCalled = true;
+        if (cmd.includes("--summary")) result.summaryCalled = true;
+      }
+
+      if (tool === "Read" && typeof input.file_path === "string" && input.file_path.includes("status.json")) {
+        result.directStatusReads.push(input.file_path);
+      }
+    }
+  }
+
+  return result;
+}
 
 /**
  * Scan a messages.jsonl file for CLI compliance signals.
@@ -221,12 +271,47 @@ function validateCliCompliance(resultsDir) {
     }
   }
 
-  if (!targetRun) {
-    console.error("❌ No cli-compliance test runs found. Run: npm run test:cli-compliance");
-    return false;
+  // Run the ares new-command check regardless of whether cli-compliance runs exist
+  console.log("\n🔬 Ares New-Command Check (pipeline discover / get / update --summary)");
+  console.log("─".repeat(60));
+  let aresNewCmdDir = null;
+  for (const runName of runDirs) {
+    const candidate = path.join(resultsDir, runName, ARES_NEW_CMD_TASK);
+    if (fs.existsSync(candidate)) { aresNewCmdDir = candidate; break; }
+  }
+  let aresCheckPassed = null;
+  if (!aresNewCmdDir) {
+    console.log(`  ⏭️  ${ARES_NEW_CMD_TASK} not found in any run — skipping`);
+    console.log(`     Run: npm run test:ares-discover`);
+  } else {
+    const scan = scanAresNewCmds(path.join(aresNewCmdDir, "messages.jsonl"));
+    if (scan.error) {
+      console.log(`  ⚠️  ${scan.error}`);
+    } else {
+      const mark = (ok) => ok ? "✅" : "❌";
+      console.log(`  ${mark(scan.discoverCalled)} pipeline discover called`);
+      console.log(`  ${mark(scan.getCalled)}     pipeline get called`);
+      console.log(`  ${mark(scan.summaryCalled)} pipeline update --summary called`);
+      if (scan.directStatusReads.length > 0) {
+        console.log(`  ❌ Direct Read on status.json detected (${scan.directStatusReads.length}x):`);
+        for (const p of scan.directStatusReads) console.log(`       ${p}`);
+      } else {
+        console.log(`  ✅ No direct Read on status.json`);
+      }
+      if (scan.allPipelineCalls.length > 0) {
+        console.log(`\n  Pipeline calls observed:`);
+        for (const c of scan.allPipelineCalls) console.log(`    → ${c.slice(0, 100)}`);
+      }
+      aresCheckPassed = scan.discoverCalled && scan.getCalled && scan.summaryCalled && scan.directStatusReads.length === 0;
+    }
   }
 
-  console.log(`📁 Analyzing run: ${targetRun}\n`);
+  if (!targetRun) {
+    console.log("\n⚠️  No cli-compliance test runs found. Run: npm run test:cli-compliance");
+    return aresCheckPassed !== false;
+  }
+
+  console.log(`\n📁 Analyzing cli-compliance run: ${targetRun}\n`);
 
   // Analyze each compliance task
   const results = [];
@@ -328,7 +413,7 @@ function validateCliCompliance(resultsDir) {
 }
 
 // CLI entry point
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (__filename === path.resolve(process.argv[1])) {
   const resultsDir = process.argv[2] || path.join(HARNESS_ROOT, "results");
   const success = validateCliCompliance(resultsDir);
   process.exit(success ? 0 : 1);

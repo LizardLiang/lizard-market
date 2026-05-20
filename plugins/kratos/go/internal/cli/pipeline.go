@@ -24,6 +24,7 @@ func PipelineCmd() *cobra.Command {
 	cmd.AddCommand(pipelineUpdateCmd())
 	cmd.AddCommand(pipelineGetCmd())
 	cmd.AddCommand(pipelineSetPendingCmd())
+	cmd.AddCommand(pipelineDiscoverCmd())
 
 	return cmd
 }
@@ -254,13 +255,13 @@ func pipelineInit(feature, description, priority string) error {
 // --- pipeline update ---
 
 func pipelineUpdateCmd() *cobra.Command {
-	var feature, stage, status, mode, verdict, document string
+	var feature, stage, status, mode, verdict, document, summary string
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update a pipeline stage status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return pipelineUpdate(feature, stage, status, mode, verdict, document)
+			return pipelineUpdate(feature, stage, status, mode, verdict, document, summary)
 		},
 	}
 
@@ -270,6 +271,7 @@ func pipelineUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&mode, "mode", "", "Implementation mode: ares or user (stage 8 only)")
 	cmd.Flags().StringVar(&verdict, "verdict", "", "Review verdict: approved, revisions, sound, concerns, unsound, changes-requested, rejected")
 	cmd.Flags().StringVar(&document, "document", "", "Document path to record")
+	cmd.Flags().StringVar(&summary, "summary", "", "2-3 sentence summary for downstream agents")
 	cmd.MarkFlagRequired("feature")
 	cmd.MarkFlagRequired("stage")
 	cmd.MarkFlagRequired("status")
@@ -277,7 +279,7 @@ func pipelineUpdateCmd() *cobra.Command {
 	return cmd
 }
 
-func pipelineUpdate(feature, stage, newStatus, mode, verdict, document string) error {
+func pipelineUpdate(feature, stage, newStatus, mode, verdict, document, summary string) error {
 	path := statusPath(feature)
 
 	statusJSON, err := readStatusJSON(path)
@@ -327,6 +329,9 @@ func pipelineUpdate(feature, stage, newStatus, mode, verdict, document string) e
 	}
 	if document != "" {
 		stageMap["document"] = document
+	}
+	if summary != "" {
+		stageMap["summary"] = summary
 	}
 
 	// Update top-level fields
@@ -424,6 +429,141 @@ Clear it by passing --stage "" after the agent completes.`,
 
 	return cmd
 }
+
+// --- pipeline discover ---
+
+func pipelineDiscoverCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "discover",
+		Short: "Find the active feature ready for stage 7 (implementation) and verify prerequisites",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return pipelineDiscover()
+		},
+	}
+}
+
+func pipelineDiscover() error {
+	root := gitRoot()
+	pattern := filepath.Join(root, ".claude", "feature", "*", "status.json")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return fmt.Errorf("glob error: %w", err)
+	}
+	if len(matches) == 0 {
+		return fmt.Errorf("no features found — run 'kratos pipeline init' first")
+	}
+
+	type candidate struct {
+		feature string
+		updated string
+		data    map[string]interface{}
+	}
+
+	var ready []candidate
+	var all []string
+
+	for _, path := range matches {
+		data, err := readStatusJSON(path)
+		if err != nil {
+			continue
+		}
+
+		feature, _ := data["feature"].(string)
+		stage, _ := data["stage"].(string)
+		all = append(all, fmt.Sprintf("  %s (stage: %s)", feature, stage))
+
+		pipeline, ok := data["pipeline"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		stage7, ok := pipeline["7-implementation"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		s7status, _ := stage7["status"].(string)
+		if s7status != "ready" && s7status != "in-progress" {
+			continue
+		}
+
+		updated, _ := data["updated"].(string)
+		ready = append(ready, candidate{feature: feature, updated: updated, data: data})
+	}
+
+	if len(ready) == 0 {
+		fmt.Fprintf(os.Stderr, "no feature ready for stage 7-implementation\n\navailable features:\n")
+		for _, line := range all {
+			fmt.Fprintln(os.Stderr, line)
+		}
+		return fmt.Errorf("no feature at stage 7")
+	}
+
+	// If multiple, pick most recently updated
+	if len(ready) > 1 {
+		latest := ready[0]
+		for _, c := range ready[1:] {
+			if c.updated > latest.updated {
+				latest = c
+			}
+		}
+		fmt.Fprintf(os.Stderr, "warning: %d features ready for stage 7, using most recently updated: %s\n", len(ready), latest.feature)
+		ready = []candidate{latest}
+	}
+
+	c := ready[0]
+	featureDir := filepath.Join(root, ".claude", "feature", c.feature)
+	pipeline, _ := c.data["pipeline"].(map[string]interface{})
+
+	// Check stage 6
+	stage6status := "missing"
+	stage6ok := false
+	if s6, ok := pipeline["6-test-plan"].(map[string]interface{}); ok {
+		stage6status, _ = s6["status"].(string)
+		stage6ok = stage6status == "complete"
+	}
+
+	// Check stage 7
+	stage7, _ := pipeline["7-implementation"].(map[string]interface{})
+	stage7status, _ := stage7["status"].(string)
+	stage7ok := stage7status == "ready" || stage7status == "in-progress"
+
+	// Check prerequisite documents
+	techSpecPath := filepath.Join(featureDir, "tech-spec.md")
+	testPlanPath := filepath.Join(featureDir, "test-plan.md")
+	techSpecOk := discoverFileExists(techSpecPath)
+	testPlanOk := discoverFileExists(testPlanPath)
+
+	fmt.Printf("feature:          %s\n", c.feature)
+	fmt.Printf("6-test-plan:      %s %s\n", stage6status, discoverMark(stage6ok))
+	fmt.Printf("7-implementation: %s %s\n", stage7status, discoverMark(stage7ok))
+	fmt.Printf("tech-spec.md:     %s\n", discoverPresence(techSpecOk, techSpecPath))
+	fmt.Printf("test-plan.md:     %s\n", discoverPresence(testPlanOk, testPlanPath))
+
+	if !stage6ok || !techSpecOk || !testPlanOk {
+		return fmt.Errorf("prerequisites not satisfied")
+	}
+	return nil
+}
+
+func discoverFileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func discoverMark(ok bool) string {
+	if ok {
+		return "✓"
+	}
+	return "✗"
+}
+
+func discoverPresence(ok bool, path string) string {
+	if ok {
+		return fmt.Sprintf("present ✓  (%s)", path)
+	}
+	return fmt.Sprintf("missing ✗  (%s)", path)
+}
+
+// --- pipeline set-pending ---
 
 func pipelineSetPending(feature, stage string) error {
 	path := statusPath(feature)

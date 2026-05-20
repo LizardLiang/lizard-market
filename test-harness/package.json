@@ -24,6 +24,7 @@
     "test:cli-compliance-hermes": "node src/run.mjs --task cli-compliance-hermes",
     "test:cli-compliance-cassandra": "node src/run.mjs --task cli-compliance-cassandra",
     "validate:cli-compliance": "node src/cli-compliance-validator.mjs",
+    "test:ares-discover": "node src/run.mjs --task ares-discover-setup,ares-discover-run",
     "test:hephaestus-dispatch": "node src/test-hephaestus-dispatch.mjs"
   },
   "dependencies": {

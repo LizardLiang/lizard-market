@@ -170,6 +170,33 @@ export const TASKS = [
     prompt:
       "/kratos:main review the code for timestamp-test-athena feature. Ensure your review process maintains correct timestamp integrity.",
   },
+  // Ares new-command tests — verify pipeline discover, pipeline get, and pipeline update --summary
+  {
+    name: "ares-discover-setup",
+    type: "ares-discover-fixture",
+    description: "Sets up a feature at stage 7 ready for pipeline discover test",
+    prompt:
+      "Set up a test fixture for the Ares pipeline-discover test. Use only kratos CLI commands (no direct file writes to status.json):\n" +
+      "1. kratos pipeline init --feature ares-discover-test --description \"Test pipeline discover and get commands\"\n" +
+      "2. Mark stages 1-6 complete in order:\n" +
+      "   kratos pipeline update --feature ares-discover-test --stage 1-prd --status complete\n" +
+      "   kratos pipeline update --feature ares-discover-test --stage 2-prd-review --status complete --verdict approved\n" +
+      "   kratos pipeline update --feature ares-discover-test --stage 4-tech-spec --status complete\n" +
+      "   kratos pipeline update --feature ares-discover-test --stage 5-spec-review-sa --status complete --verdict sound\n" +
+      "   kratos pipeline update --feature ares-discover-test --stage 6-test-plan --status complete\n" +
+      "   kratos pipeline update --feature ares-discover-test --stage 7-implementation --status ready\n" +
+      "3. Create .claude/feature/ares-discover-test/tech-spec.md with content: '# Tech Spec\\nMinimal feature: print hello world.'\n" +
+      "4. Create .claude/feature/ares-discover-test/test-plan.md with content: '# Test Plan\\nRun binary and verify output is hello world.'\n" +
+      "5. Verify setup succeeded: kratos pipeline discover",
+  },
+  {
+    name: "ares-discover-run",
+    type: "ares-discover-implementation",
+    description: "Runs Ares on the fixture — verifies pipeline discover, get, and update --summary usage",
+    prompt:
+      "/kratos:main implement the ares-discover-test feature. Create a single file cmd/hello/main.go that prints 'hello world' and exits 0. No external dependencies.",
+  },
+
   // Context optimization comparison tests (same task, different pipeline routes)
   {
     name: "compare-original",
