@@ -1,8 +1,8 @@
-# Kratos - The God of War (v2.57.0)
+# Kratos - The God of War (v2.65.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
-Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom. It handles everything from quick bug fixes to full 11-stage feature pipelines — with persistent memory, external research capabilities, and git history expertise.
+Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom. It handles everything from quick bug fixes to full 9-stage feature pipelines — with persistent memory, external research capabilities, and git history expertise.
 
 ## Installation
 
@@ -22,6 +22,8 @@ cd ~/.claude/plugins/cache/kratos/go && go build -ldflags="-s -w" -o ../bin/krat
 # 3. Verify
 ./bin/kratos status
 ```
+
+Pre-built binaries for Linux, macOS (arm64/amd64), and Windows (amd64) are also included in `bin/`. Use them directly if you don't want to build from source.
 
 Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5](INSTALL.md#step-5-enable-auto-activation)).
 
@@ -97,6 +99,8 @@ Kratos ships Claude Code hooks that enforce workflow discipline automatically �
 
 Fires before **Ares** and **Hephaestus** begin work. Injects a mandatory reminder that agents must write a numbered TODO list before making any tool calls.
 
+For **Hermes**, this hook creates a `hermes-checklist.json` that tracks tier-by-tier review progress and injects the tier review instructions.
+
 ### SubagentStop — Deliverable Verification
 
 Fires when **Ares** or **Hephaestus** attempt to finish. Blocks completion and forces continuation if:
@@ -155,6 +159,8 @@ Kratos ships with a tiered review standard that Hermes enforces on every review:
 
 Rules live in `rules/` (global baseline) and `.claude/.Arena/review-rules/` (project-specific, higher priority). Language-specific rules (React, TypeScript, Python, etc.) are loaded automatically based on detected file types.
 
+Hermes tracks tier completion via `hermes-checklist.json` (created by the SubagentStart hook). The `hermes-list` CLI commands let Hermes update this checklist without direct file edits.
+
 ```bash
 /kratos:review src/auth.ts           # review a file
 /kratos:review --staged              # review staged changes
@@ -180,13 +186,14 @@ Tailor Kratos's power to your needs by prefixing any request:
 
 ## The Pipeline (Complex Features)
 
-For building new features, Kratos follows a 10-stage divine path:
+For building new features, Kratos follows a structured path:
 
 ```
 [0] Research (Metis) — optional pre-flight codebase scan
 [1] PRD (Athena) — gap analysis, clarification, requirements
 [2] PRD Review (Nemesis) — adversarial + user advocate
 [3] Decompose (Daedalus) — optional, phases + dependencies
+[3b] Discuss (Themis) — optional, lock implementation decisions → context.md
 [4] Tech Spec (Hephaestus) — approach selection, gray areas, blueprint
 [5] SA Review (Apollo)
 [6] Test Plan (Artemis)
@@ -269,6 +276,344 @@ power: review the payment processing logic for security vulnerabilities
 # Resume previous work
 /kratos:recall
 ```
+
+---
+
+## Pipeline Walkthrough — Stage by Stage
+
+### Starting a New Feature
+
+```bash
+/kratos:main Build a user authentication system with OAuth2
+```
+
+Kratos classifies the request as COMPLEX, finds no active feature, and asks for a feature name and priority. It then creates `.claude/feature/<name>/status.json`, `arena-deltas.md`, and `README.md`. Athena is spawned for Stage 1.
+
+---
+
+### Stage 1 in Detail — Athena's Gap Analysis
+
+Athena starts by parsing what you actually said:
+
+- **Explicit**: What did you literally state?
+- **Implicit**: What assumptions would be needed to write the PRD right now?
+- **Ambiguity Level**: How many valid interpretations exist?
+
+Athena then runs a 17-item gap checklist (covering scope, users, constraints, success criteria, data needs, and integration requirements) and scores clarity across three weighted dimensions:
+
+| Dimension | Weight | What it Measures |
+|-----------|--------|-----------------|
+| Goal Clarity | 40% | Can the feature be stated in one sentence without guessing? |
+| Constraint Clarity | 30% | Are restrictions (scale, security, deadlines) specified? |
+| Success Criteria | 30% | Are acceptance criteria concrete and testable? |
+
+If ambiguity > 10%, Athena asks **one question at a time** with a recommended answer. It follows a **depth-first** path — completing one branch of questions all the way to a leaf before switching topics. When clarity reaches 90%+ (or Athena can honestly say "I could write this PRD without guessing on any major decision"), it writes the PRD in the same invocation — no separate spawn needed.
+
+**Self-Alignment Check (BLOCKING):** Before completing the PRD, Athena re-reads your original request verbatim, restates what you actually asked for in one sentence, and verifies the PRD answers that exact ask — comparing nouns and verbs, not vibes. If the PRD has drifted (even subtly), Athena rewrites before completing. The alignment verdict is recorded in `decisions.md` under `## Intent Alignment`.
+
+**Decision Tree:** After the PRD body, Athena appends a `## Decision Tree` section to `prd.md` reconstructing the full gap analysis conversation — all branches, all answers, all assumptions — so downstream agents can trace why requirements are shaped the way they are.
+
+**The verbatim text of your first request is preserved in every subsequent stage.** Nemesis, Hephaestus, and Hermes all compare against it.
+
+---
+
+### Stage 2 in Detail — Nemesis's Adversarial Review
+
+Nemesis reviews from two angles simultaneously:
+- **Devil's advocate**: What assumptions in the PRD are untested? What edge cases are missing? What could break in production?
+- **User advocate**: Does the PRD actually solve the user's real problem, or does it solve the PM's interpretation of the problem?
+
+Nemesis also checks for **Intent Drift** — if the PRD answers a different question than the user's original request, this is a `[INTENT_DRIFT]` finding and blocks approval.
+
+After review, Nemesis produces one of three verdicts:
+- `approved` — PRD passes both lenses, proceed to Stage 3
+- `revisions` — specific changes required; Athena revises and re-submits
+- `rejected` — fundamental flaw; Kratos escalates to you
+
+A rejection typically means the problem statement is circular, success metrics are immeasurable, or scope is unbounded.
+
+---
+
+### Stage 3b (Optional) — Themis's Decision Lock
+
+After Decomposition (Stage 3) and before Tech Spec (Stage 4), Themis can be invoked to debate implementation choices and lock decisions into `context.md`. This is useful when the feature has meaningful design forks — e.g., should we use a job queue or inline processing? — that would otherwise get silently resolved (or poorly resolved) inside Hephaestus.
+
+Themis writes `context.md` which Hephaestus reads before writing the tech spec. Agents downstream can also read `context.md` to understand why specific implementation choices were made.
+
+---
+
+### Stage 4 in Detail — Hephaestus's Tech Spec
+
+Hephaestus is unique: it **never reads the codebase directly**. It always spawns Metis (Haiku) with a directed scan query and waits for the result. This enforces clean separation between architectural thinking and file exploration. If Hephaestus skips the Metis scan, the SubagentStop hook treats it as a bug and blocks completion.
+
+After receiving the codebase scan, Hephaestus presents 2-3 concrete implementation approaches via `AskUserQuestion`. Each option includes tradeoffs. You pick one (or provide your own). Hephaestus then resolves any remaining gray areas and writes the full tech spec.
+
+The tech spec contains:
+- Architecture overview and component diagram (ASCII)
+- Data model / schema changes
+- API design with method signatures
+- Step-by-step implementation sequence (ordered by dependency)
+- List of files to create and modify
+- Non-functional requirements (performance, security, scalability)
+
+---
+
+### Stage 7 in Detail — Ares Mode vs User Mode
+
+**Choosing Ares Mode** (default, AI implements):
+
+Ares processes tasks wave by wave when `decomposition.md` exists. After each wave:
+```
+Wave 1 complete. Tasks done: [data-model, migrations].
+All verify checks passed.
+Would you like to set up a checkpoint (commit) before Wave 2?
+```
+Ares does NOT commit — you do. It stops and waits for your response before proceeding to the next wave.
+
+**Choosing User Mode** (you implement):
+
+Say "User Mode" or "I'll implement this myself" when Kratos reaches Stage 7. Ares creates:
+```
+.claude/feature/<name>/tasks/
+  00-overview.md          ← dependency graph, effort estimates, progress tracker
+  01-data-model.md        ← complete, copy-paste ready code with all imports
+  02-migrations.md
+  03-service-layer.md
+  ...
+```
+
+Every task file includes: complete production-ready code, all imports, all exports, acceptance criteria, and a `verify` command. No pseudocode, no TODOs.
+
+Mark progress: `/kratos:task-complete 01`, then `/kratos:task-complete all` when done.
+
+---
+
+### Stage 9 in Detail — Parallel Review
+
+Hermes and Cassandra are always spawned in the same response:
+
+**Hermes** evaluates against the 7-tier standard in priority order:
+1. **Correct** — logic, edge cases, silent failures
+2. **Safe** — injection, secrets, auth boundaries
+3. **Clear** — naming, complexity, readability
+4. **Minimal** — dead code, over-engineering
+5. **Consistent** — project conventions
+6. **Resilient** — error handling, cleanup
+7. **Performant** — N+1 queries, blocking operations
+
+Hermes tracks tier completion via `hermes-checklist.json` — the SubagentStart hook creates this file and injects tier-by-tier instructions. Findings are `[BLOCKER]`, `[WARNING]`, or `[SUGGESTION]`. Only BLOCKERs trigger Ares re-spawn. Ares is re-spawned **at most once** per review cycle — if a BLOCKER survives the fix, Kratos surfaces it to you.
+
+**Cassandra** scans the code diff (not the spec) for:
+- Security vulnerabilities (injection, auth bypass, secrets)
+- Breaking API changes affecting callers
+- Dependency CVEs
+- Reliability risks (missing error handling, race conditions)
+
+Verdicts: `clear` → ship | `caution` → noted, proceed | `critical` → blocked until resolved.
+
+---
+
+## Feature Directory Structure
+
+After a complete pipeline run, a feature directory looks like:
+
+```
+.claude/feature/<name>/
+├── status.json              ← pipeline state, stage statuses, timestamps
+├── arena-deltas.md          ← feature-specific Arena discoveries
+├── README.md                ← feature overview and pipeline progress table
+├── prd.md                   ← requirements, user stories, acceptance criteria + decision tree
+├── decisions.md             ← WHY decisions were made; includes Intent Alignment (Athena)
+├── prd-challenge.md         ← Nemesis adversarial review (verdict: approved)
+├── context.md               ← optional — Themis implementation choice locks
+├── decomposition.md         ← optional — phases and task dependencies
+├── tech-spec.md             ← architecture, data model, API, implementation plan
+├── spec-review-sa.md        ← Apollo architecture review (verdict: sound)
+├── test-plan.md             ← test cases mapped to requirements
+├── implementation-notes.md  ← what was built, deviations from spec, tests run
+├── prd-alignment.md         ← Hera verification (verdict: aligned)
+├── code-review.md           ← Hermes quality review (verdict: approved)
+├── risk-analysis.md         ← Cassandra risk findings (verdict: clear/caution)
+└── tasks/                   ← only in User Mode
+    ├── 00-overview.md
+    └── 01-*.md, 02-*.md, ...
+```
+
+---
+
+## Troubleshooting
+
+### Agent completed but document is missing
+
+Kratos auto-detects this and re-spawns. If Kratos misses it, say "continue" — the gate check runs again before advancing.
+
+Manual verification:
+```bash
+ls .claude/feature/<name>/
+./bin/kratos pipeline get --feature <name>
+```
+
+### Pipeline stuck or stage shows wrong status
+
+```bash
+# Inspect full state
+./bin/kratos pipeline get --feature <name>
+
+# Reset a specific stage for re-run
+# Edit .claude/feature/<name>/status.json
+# Change the stage "status" from "complete" to "pending"
+# Say "continue" to re-run that stage
+```
+
+### Binary unavailable
+
+The `<kratos-bin>` placeholder is injected by the SubagentStart hook at runtime so agents always have the correct binary path. If agents report the binary is unavailable:
+
+```bash
+# Rebuild
+cd ~/.claude/plugins/cache/kratos/go
+go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos
+cd ..
+./bin/kratos install
+
+# Verify hook registration
+cat ~/.claude/settings.json | python3 -m json.tool | grep -A3 SubagentStart
+```
+
+Agents gracefully fall back to direct `status.json` edits if the binary is unavailable.
+
+### Athena in an endless clarification loop
+
+After 2-3 rounds, if you want to proceed: say **"Proceed with your best assumptions and document them explicitly."** Athena will write the PRD and append all assumptions with risk-if-wrong assessments to the appendix.
+
+### Arena is stale or incorrect
+
+Force a fresh Arena bootstrap:
+```bash
+# Clear outdated shards (back them up first)
+rm -rf .claude/.Arena/
+
+# Spawn Metis to rebuild
+/kratos:main          # Kratos will offer Stage 0 when Arena is empty
+```
+
+Or target specific shards:
+```bash
+/kratos:inquiry "Update the conventions Arena shard — we switched from CommonJS to ESM"
+```
+
+### Hermes keeps blocking on the same issue
+
+If a BLOCKER persists after one Ares fix, Kratos surfaces it to you rather than looping. At that point:
+1. Read `code-review.md` to understand the BLOCKER
+2. Fix it manually or ask Ares with a precise instruction
+3. Say "continue" to re-run Stage 9
+
+### Status.json timestamps are identical (zero-duration stages)
+
+Agents skipped the two-step status update. Fix manually:
+```bash
+# Get a real timestamp
+./bin/kratos now
+# → 2026-05-20T14:30:00+08:00
+
+# Edit status.json and set realistic started/completed timestamps
+```
+
+---
+
+## CLI Reference
+
+### Binary Commands
+
+```bash
+# Pipeline management
+kratos pipeline get --feature <name>              # current state
+kratos pipeline update --feature <name> \
+  --stage <N> --status in-progress                # mark started
+kratos pipeline update --feature <name> \
+  --stage <N> --status complete \
+  --document prd.md                               # mark done
+kratos pipeline update --feature <name> \
+  --stage <N> --status complete \
+  --verdict approved --document prd-review.md     # mark done with verdict
+kratos pipeline set-pending --feature <name> \
+  --stage <N>                                     # set pending stage for Athena
+kratos pipeline discover                          # auto-find active feature
+
+# Session tracking
+kratos session active <project>                   # get session ID
+kratos step record-agent <sid> <agent> <model> "desc"
+kratos step record-file <sid> <path> created|modified
+
+# Hermes tier tracking
+kratos hermes-list check --tier <N>               # mark tier N complete in hermes-checklist.json
+kratos hermes-list show                           # print current hermes-checklist.json
+
+# Templates (pipe to file or read inline)
+kratos template list
+kratos template get prd-template
+kratos template get tech-spec-template
+kratos template get test-plan-template
+kratos template get code-review-template
+kratos template get risk-analysis-template
+kratos template get implementation-notes-template
+kratos template get task-file-template
+kratos template get task-overview-template
+kratos template get decomposition-template
+kratos template get decomposition-notion-template
+kratos template get decomposition-linear-template
+
+# Utilities
+kratos now                                        # RFC3339 timestamp
+kratos status                                     # system health
+kratos init                                       # initialize SQLite DB
+kratos install                                    # register hooks
+kratos uninstall                                  # remove hooks
+```
+
+### Template Usage by Agents
+
+| Agent | Template Used |
+|-------|--------------|
+| Athena | `prd-template` |
+| Nemesis | `prd-review-template` |
+| Daedalus | `decomposition-template` (+ notion/linear variants) |
+| Hephaestus | `tech-spec-template` |
+| Apollo | `spec-review-sa-template` |
+| Artemis | `test-plan-template` |
+| Ares | `implementation-notes-template`, `task-file-template`, `task-overview-template` |
+| Hera | (reads prd.md directly) |
+| Hermes | `code-review-template` |
+| Cassandra | `risk-analysis-template` |
+
+---
+
+## Extending Kratos
+
+### Adding Project-Specific Review Rules
+
+Create rules in the Arena's `review-rules/` shard:
+
+```bash
+# Hermes will auto-load rules from this location
+.claude/.Arena/review-rules/project-rules.md
+```
+
+Rules override the global `rules/default.md`. Higher-specificity rules (project-specific) take precedence over global defaults.
+
+### Adding Language-Specific Rules
+
+Create a file in `plugins/kratos/rules/<language>.md`. Hermes auto-loads language-specific rules when reviewing files with matching extensions. For example, `rules/react.md` loads when reviewing `.tsx` and `.jsx` files.
+
+### Running Without the Binary
+
+All agents fall back gracefully:
+- `status.json` updated via direct file edit using `date` command for timestamps
+- Templates retrieved by reading `plugins/kratos/templates/*.md` directly
+- Session tracking silently skipped
+
+The pipeline works correctly without the binary — timestamps may be less precise.
 
 ---
 

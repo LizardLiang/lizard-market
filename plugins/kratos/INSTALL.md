@@ -1,6 +1,6 @@
 # Kratos Installation Guide
 
-This guide is for AI agents (Claude Code, etc.) installing Kratos into a user's environment. Follow every step in order. Do not skip steps.
+This guide covers installing Kratos into your Claude Code environment. Follow every step in order.
 
 ---
 
@@ -9,160 +9,139 @@ This guide is for AI agents (Claude Code, etc.) installing Kratos into a user's 
 | Requirement | Purpose | Check Command |
 |-------------|---------|---------------|
 | **Claude Code** | Host CLI | `claude --version` |
-| **Node.js 18+** | Hook scripts | `node --version` |
-| **Go 1.21+** | Memory binary (build from source) | `go version` |
+| **Node.js 18+** | Session tracking hooks | `node --version` |
+| **Go 1.21+** | Build binary from source (optional) | `go version` |
 
 ---
 
 ## Step 1: Add the Marketplace
 
-Add the marketplace directly from GitHub — no local clone needed:
-
 ```bash
 claude plugin marketplace add https://github.com/LizardLiang/lizard-market
 ```
 
-Claude Code will fetch the marketplace and make its plugins available.
+---
+
+## Step 2: Install the Plugin
+
+This registers Kratos's skills, commands, and agents so Claude Code can discover them.
+
+```bash
+# User scope — all projects on this machine (recommended)
+claude plugin install kratos@lizard-market
+
+# Project scope — committed alongside your project
+claude plugin install kratos@lizard-market --scope project
+
+# Local scope — this machine only, not committed
+claude plugin install kratos@lizard-market --scope local
+```
+
+After installation the plugin lives at `~/.claude/plugins/cache/kratos/` (user scope).
+
+### Verify
+
+Type `/kratos:` in Claude Code — autocomplete should show `main`, `quick`, `review`, `inquiry`, `status`, and others.
 
 ---
 
-## Step 2: Install the Plugin into Claude Code
+## Step 3: Set Up the Binary
 
-This step registers Kratos's skills, commands, and agents so Claude Code can discover them (e.g., `/kratos:main`, `/kratos:quick`).
+The binary provides pipeline state tracking, real timestamps, template retrieval, and quality-gate enforcement. It is **optional** — agents fall back to direct file edits when it is unavailable — but the pipeline works much better with it.
 
-### 2a. Install the Kratos Plugin
+### Option A: Pre-built Binaries (Fastest)
 
-```bash
-# From within Claude Code:
-/plugin install kratos@lizard-market
+Pre-built binaries for all platforms ship inside the plugin:
 
-# Or from the CLI (choose a scope):
-claude plugin install kratos@lizard-market              # User scope (global, all projects)
-claude plugin install kratos@lizard-market --scope project  # Project scope (shared via git)
-claude plugin install kratos@lizard-market --scope local    # Local scope (this machine only)
-```
-
-### 2b. Verify Skills Are Available
-
-After installation, Kratos commands should appear in Claude Code's skill list:
-
-```
-/kratos:main       - Master orchestrator
-/kratos:quick      - Simple tasks
-/kratos:inquiry    - Knowledge queries
-/kratos:status     - Pipeline status
-/kratos:recall     - Session resume
-/kratos:decompose  - Feature decomposition
-```
-
-You can verify by typing `/kratos:` in Claude Code — autocomplete should show available commands.
-
-### What This Does
-
-- Copies the plugin to `~/.claude/plugins/cache/kratos/`
-- Adds `kratos@lizard-plugins` to `enabledPlugins` in your settings file
-- Claude Code auto-discovers commands from `commands/`, skills from `skills/`, and agents from `agents/`
-
----
-
-## Step 3: Build the Memory Binary
-
-The memory system requires a compiled Go binary. Pre-built binaries exist in `plugins/kratos/bin/` for common platforms, but building from source is recommended.
-
-### Build from Source
-
-```bash
-cd plugins/kratos/go
-go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos
-```
-
-### Or Use Pre-built Binaries
-
-| Platform | Binary |
-|----------|--------|
+| Platform | File |
+|----------|------|
 | Linux x86_64 | `bin/kratos-linux-amd64` |
 | Linux ARM64 | `bin/kratos-linux-arm64` |
 | macOS Intel | `bin/kratos-darwin-amd64` |
 | macOS Apple Silicon | `bin/kratos-darwin-arm64` |
 | Windows x86_64 | `bin/kratos-windows-amd64.exe` |
 
-Copy the appropriate binary to a location in your PATH:
+The hooks use `${CLAUDE_PLUGIN_ROOT}/bin/kratos` (resolving to the plugin's `bin/` directory) and fall back to `~/.kratos/bin/kratos`. On a fresh install the pre-built binaries are already in `bin/` — you only need to make sure the right one is executable:
 
 ```bash
-# Linux/macOS
-cp plugins/kratos/bin/kratos-$(uname -s | tr A-Z a-z)-$(uname -m) ~/bin/kratos
-chmod +x ~/bin/kratos
+# Linux/macOS — make the default binary executable
+chmod +x ~/.claude/plugins/cache/kratos/bin/kratos
 
-# Windows
-copy plugins\kratos\bin\kratos-windows-amd64.exe %USERPROFILE%\bin\kratos.exe
+# Or use the platform-specific binary
+cp ~/.claude/plugins/cache/kratos/bin/kratos-$(uname -s | tr A-Z a-z)-$(uname -m) \
+   ~/.claude/plugins/cache/kratos/bin/kratos
+chmod +x ~/.claude/plugins/cache/kratos/bin/kratos
 ```
 
-### Verify
+### Option B: Build from Source
 
 ```bash
-kratos --version
-kratos init        # Creates ~/.kratos/memory.db
+cd ~/.claude/plugins/cache/kratos/go
+go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos
+# Windows:
+# go build -ldflags="-s -w" -o ../bin/kratos.exe ./cmd/kratos
+```
+
+### Initialize the Database
+
+```bash
+cd ~/.claude/plugins/cache/kratos
+./bin/kratos init
+# → Database initialized at ~/.kratos/memory.db
 ```
 
 ---
 
-## Step 4: Install Memory Hooks
+## Step 4: Install Hooks
 
-Hooks enable automatic session tracking (start, tool use, end). The kratos binary handles its own installation.
+Hooks wire the binary into Claude Code's lifecycle events. Run from the plugin directory:
 
 ```bash
-# From the plugins/kratos directory:
+cd ~/.claude/plugins/cache/kratos
 ./bin/kratos install
 ```
 
-This does three things:
-1. Copies hook scripts to `~/.claude/hooks/kratos/`
-2. Copies the kratos binary to `~/.claude/hooks/kratos/kratos`
-3. Registers hooks in `~/.claude/settings.json`
-
-### Verify Hook Installation
-
-```bash
-./bin/kratos status
-```
-
-Expected output: `Status: FULLY OPERATIONAL`
+This copies hook scripts to `~/.claude/hooks/kratos/` and registers all hooks in `~/.claude/settings.json`.
 
 ### What the Hooks Do
 
 | Hook | Trigger | Action |
 |------|---------|--------|
-| `SessionStart` | Claude Code opens | Starts memory session, injects last session context |
-| `PostToolUse` | After Task/Write/Edit | Records agent spawns and file changes |
-| `Stop` | Claude Code closes | Ends session with summary |
+| `UserPromptSubmit` | Every user message | `hook prompt-submit` — injects session context |
+| `SessionStart` | Claude Code opens | `session-start.cjs` — starts memory session |
+| `PermissionRequest` | Read permission request | Auto-allows Read tool (no prompt) |
+| `PreToolUse` (Bash) | Any Bash call | `hook fix-pm` — rewrites `npm` to detected package manager |
+| `PostToolUse` (Task/Write/Edit) | After tool completes | `tool-use.cjs` — records agent spawns and file changes |
+| `SubagentStart` (kratos:*) | Any Kratos agent starts | `path-inject.cjs` — injects resolved `<kratos-bin>` path into prompt |
+| `SubagentStart` (ares/hephaestus/hermes) | These agents start | `hook subagent-start` — TODO-first gate + Hermes tier checklist |
+| `SubagentStart` (athena/apollo/artemis/hera/cassandra/daedalus) | These agents start | `check --init` — prerequisite validation for the agent's stage |
+| `SubagentStop` (ares/hephaestus/hermes) | These agents finish | `hook subagent-stop` — deliverable verification gate |
+| `SubagentStop` (athena/apollo/artemis/hera/cassandra/daedalus) | These agents finish | `check --verify` — confirms deliverable was written |
+| `Stop` | Claude Code closes | `session-end.cjs` — records session summary |
+
+### Verify Hook Installation
+
+```bash
+./bin/kratos status
+# → Status: FULLY OPERATIONAL
+```
 
 ---
 
 ## Step 5: Enable Auto-Activation
 
-This is the critical step that makes Kratos respond when called by name.
+The `kratos:auto` skill handles activation automatically — it triggers on the "Kratos" keyword, god-agent names (Athena, Ares, Metis, etc.), pipeline-phase words (PRD, spec, implementation), and "continue"/"next stage" during active pipelines.
 
-### Option A: Project-Level (Recommended)
-
-Add this to your project's `CLAUDE.md` (or `.claude/CLAUDE.md`):
+For a belt-and-suspenders guarantee in projects where the skill description alone isn't enough, add this to your project's `CLAUDE.md` (or `~/.claude/CLAUDE.md` for all projects):
 
 ```markdown
 ## Kratos Auto-Activation
 
-When the user mentions "Kratos" anywhere in their message, invoke the `kratos:main` skill
-using the Skill tool BEFORE generating any other response. This applies to:
-- "Kratos, [task]" / "Hey Kratos" / "Ask Kratos" / "Summon Kratos"
-- Any sentence containing "Kratos" directed at the orchestrator
-- Mentioning a god-agent by name with a task (e.g., "Athena, write a PRD")
+When the user mentions "Kratos" anywhere in their message, or addresses a god-agent by name
+(Athena, Ares, Metis, Apollo, Artemis, Hermes, Hephaestus, Daedalus, Clio, Mimir, Nemesis,
+Themis, Hera, Hades, Cassandra, Prometheus, Ananke), invoke the `kratos:auto` skill using
+the Skill tool BEFORE generating any other response.
 ```
-
-### Option B: Global (All Projects)
-
-Add the same block to `~/.claude/CLAUDE.md` so Kratos activates in every project.
-
-### Why This Is Needed
-
-Claude Code decides whether to invoke a skill based on the **command description** in its system prompt. The `kratos:main` command description already includes trigger keywords, but adding explicit instructions to CLAUDE.md provides a redundant guarantee that Kratos always activates when addressed.
 
 ---
 
@@ -172,48 +151,41 @@ Run these checks in order:
 
 ### 6a. Plugin Installed
 
-Type `/kratos:` in Claude Code and verify autocomplete shows available commands (`main`, `quick`, `status`, etc.).
+Type `/kratos:` in Claude Code — autocomplete shows available commands.
 
 ### 6b. Binary Works
 
 ```bash
-kratos --version
-# Expected: kratos version X.X.X (or "dev")
+./bin/kratos --version
+# → kratos version X.X.X
 ```
 
 ### 6c. Database Initialized
 
 ```bash
-kratos init
-# Expected: Database initialized at ~/.kratos/memory.db (or already exists)
+./bin/kratos init
+# → Database initialized at ~/.kratos/memory.db (or: already exists)
 ```
 
 ### 6d. Hooks Installed
 
 ```bash
-kratos status
-# Expected: Status: FULLY OPERATIONAL
+./bin/kratos status
+# → Status: FULLY OPERATIONAL
 ```
 
 ### 6e. Auto-Activation Works
 
 ```bash
 claude -p "Kratos, what can you do?"
-# Expected: Kratos responds with capabilities overview (not a generic Claude response)
+# → Kratos responds with capabilities, not a generic Claude answer
 ```
 
 ### 6f. Settings.json Has Hooks
 
-Check that `~/.claude/settings.json` contains hook entries with `kratos` in the command paths:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [{ "hooks": [{ "command": "node \"...kratos/session-start.cjs\"" }] }],
-    "PostToolUse": [{ "matcher": "Task|Write|Edit", "hooks": [{ "command": "node \"...kratos/tool-use.cjs\"" }] }],
-    "Stop": [{ "hooks": [{ "command": "node \"...kratos/session-end.cjs\"" }] }]
-  }
-}
+```bash
+grep -A2 "SubagentStart" ~/.claude/settings.json
+# → Should show path-inject.cjs and kratos binary commands
 ```
 
 ---
@@ -222,95 +194,85 @@ Check that `~/.claude/settings.json` contains hook entries with `kratos` in the 
 
 | Location | Purpose |
 |----------|---------|
-| `plugins/kratos/` | Plugin source (agents, commands, skills) |
-| `~/.claude/plugins/cache/kratos/` | Installed plugin (copied by Claude Code) |
-| `plugins/kratos/bin/kratos` | Compiled Go binary |
-| `~/.claude/hooks/kratos/` | Installed hook scripts |
-| `~/.claude/settings.json` | Hook registration |
-| `~/.kratos/memory.db` | Session database (SQLite) |
-| `~/.kratos/active-session.json` | Current session tracking |
-| `.claude/.Arena/` | Per-project knowledge base (created by Metis) |
+| `~/.claude/plugins/cache/kratos/` | Installed plugin (agents, commands, skills) |
+| `~/.claude/plugins/cache/kratos/bin/kratos` | Go binary (used by hooks) |
+| `~/.claude/hooks/kratos/` | Hook scripts installed by `./bin/kratos install` |
+| `~/.claude/settings.json` | Hook registration (all event bindings) |
+| `~/.kratos/memory.db` | SQLite session database |
+| `.claude/.Arena/` | Per-project knowledge base (created by Metis on first run) |
 | `.claude/feature/*/` | Per-feature pipeline state (created by Kratos) |
 
 ---
 
 ## Uninstallation
 
-### Remove Hooks Only (Preserve Database)
-
 ```bash
-kratos uninstall
+# Remove hooks only (preserves database)
+./bin/kratos uninstall
+
+# Full removal
+./bin/kratos uninstall
+rm -rf ~/.kratos
 ```
 
-### Full Removal
-
-```bash
-kratos uninstall
-rm -rf ~/.kratos                    # Delete memory database
-```
-
-Also remove the auto-activation block from your CLAUDE.md files.
+Also remove the auto-activation block from your CLAUDE.md files if you added one.
 
 ---
 
 ## Troubleshooting
 
-### "Kratos binary not found"
+### "kratos binary not found" in hook output
 
-The hook scripts search these locations in order:
-1. `kratos` in PATH
-2. `plugins/kratos/bin/kratos` (relative to plugin)
-3. `~/bin/kratos`
+Hooks look for the binary in two places, in order:
+1. `${CLAUDE_PLUGIN_ROOT}/bin/kratos` (the plugin's own `bin/` directory)
+2. `~/.kratos/bin/kratos`
 
-Ensure the binary is in one of these locations, or add it to your PATH.
+Ensure the binary exists at one of those paths and is executable. You do **not** need to add it to your system PATH — hooks resolve the path automatically.
 
-### Hooks Not Triggering
+### SubagentStart/Stop hooks not triggering
 
-1. Restart Claude Code after hook installation
-2. Verify `~/.claude/settings.json` contains the hook configuration
-3. Run `kratos status`
+1. Restart Claude Code after hook installation — hooks are loaded at session start.
+2. Verify `~/.claude/settings.json` contains `SubagentStart` and `SubagentStop` entries with `kratos` in the command paths.
+3. Run `./bin/kratos status` to confirm hooks are registered.
 
-### Kratos Doesn't Activate When Called by Name
+### Hooks not triggering at all
 
-1. Verify the `commands/main.md` description contains trigger keywords ("Use when the user mentions Kratos")
-2. Add the auto-activation block to your CLAUDE.md
-3. Test with `claude -p "Kratos, what can you do?"`
+1. Restart Claude Code after hook installation.
+2. Verify `~/.claude/settings.json` has hook entries.
+3. Run `./bin/kratos status`.
 
-### "Python not found" Warning
+### Kratos doesn't activate when called by name
 
-This is non-critical. The Go binary handles all memory operations. Python is only needed for the legacy memory system. You can safely ignore this warning.
+1. Confirm the `kratos:auto` skill is listed in Claude Code's available skills.
+2. Add the manual CLAUDE.md block from Step 5 as a fallback.
+3. Test: `claude -p "Kratos, what can you do?"`
 
-### Database Errors
+### Database errors
 
 ```bash
-# Re-initialize the database
 rm ~/.kratos/memory.db
-kratos init
+./bin/kratos init
 ```
 
 ---
 
 ## Quick Install (Copy-Paste)
 
-For experienced users, here's the full installation in one block:
-
 ```bash
 # 1. Add marketplace + install plugin
 claude plugin marketplace add https://github.com/LizardLiang/lizard-market
 claude plugin install kratos@lizard-market
 
-# 2. Build binary (from the installed plugin cache or a local clone)
+# 2. Build binary (or skip if pre-built binary works for your platform)
 cd ~/.claude/plugins/cache/kratos/go
-go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos && cd ..
+go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos
+cd ..
 
-# 3. Initialize database
-./bin/kratos init
+# 3. Initialize database + install hooks
+./bin/kratos init && ./bin/kratos install
 
-# 4. Install hooks + binary to ~/.claude/hooks/kratos/
-./bin/kratos install
-
-# 5. Verify
+# 4. Verify
 ./bin/kratos status
 ```
 
-Then add the auto-activation block to your CLAUDE.md (see Step 5).
+Then add the auto-activation block to your CLAUDE.md (see Step 5) if needed.
