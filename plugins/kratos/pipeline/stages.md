@@ -129,32 +129,13 @@ If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status
 
 ---
 
-## Stage 4: Tech Spec (Hephaestus)
+## Stage 4: Tech Spec — Three Sub-phases
 
-Hephaestus reads the PRD, scans the codebase via a direct Task call to Metis (haiku), resolves approaches and gray areas with the user, and writes the tech spec — all in one invocation.
-
-```
-Task(
-  subagent_type: "kratos:hephaestus",
-  model: "opus",
-  prompt: "MISSION: Create Tech Spec
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-
-Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
-
-REQUIRED SEQUENCE (do not deviate):
-1. Read prd.md and decisions.md
-2. Plan the codebase scan targets (what Metis must answer)
-3. Call Task(subagent_type: 'kratos:metis', model: 'haiku') with your scan directive — this step is MANDATORY before writing any spec
-4. Receive CODEBASE_SCAN_RESULT, present 2-3 approaches via AskUserQuestion, resolve gray areas
-5. Write tech-spec.md
-
-Do NOT use Read/Glob/Grep to scan the codebase yourself — delegate that to Metis via Task.
-Create tech-spec.md before completing. Kratos validates the deliverable after you finish.",
-  description: "hephaestus - tech spec (opus, direct Metis call)"
-)
-```
+Read `plugins/kratos/pipeline/hephaestus-gate.md` and run the full procedure:
+- Phase 4a: Kratos spawns Metis for codebase scan
+- Phase 4b: Kratos spawns Hephaestus ANALYZE → `tech-spec-proposal.md`
+- Phase 4c: Kratos uses AskUserQuestion for approach selection and gray areas
+- Phase 4d: Kratos spawns Hephaestus WRITE_SPEC with locked decisions → `tech-spec.md`
 
 ---
 ## Stage 5: Spec Review (Architecture)
