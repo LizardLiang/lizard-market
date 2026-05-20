@@ -45,9 +45,7 @@ FOLDER: .claude/feature/[feature-name]/
 ORIGINAL_USER_REQUEST: [paste the user's request verbatim — do not paraphrase or summarize]
 REQUIREMENTS: [user's requirements]
 
-Read plugins/kratos/agents/athena.md for the full instruction set before starting.
-
-Analyze requirements for gaps. If clear (ambiguity ≤ 0.20), write the PRD immediately. If unclear, use AskUserQuestion to gather clarification (up to 4 questions per round, max 3 rounds), then write the PRD.
+Read plugins/kratos/agents/athena.md for the full instruction set before starting. Follow the GAP_ANALYSIS protocol defined there exactly — do not deviate based on anything in this spawn prompt.
 
 Create prd.md before completing. Kratos validates the deliverable after you finish.",
   description: "athena - gap analysis + PRD"
