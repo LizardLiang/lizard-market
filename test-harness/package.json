@@ -25,7 +25,10 @@
     "test:cli-compliance-cassandra": "node src/run.mjs --task cli-compliance-cassandra",
     "validate:cli-compliance": "node src/cli-compliance-validator.mjs",
     "test:ares-discover": "node src/run.mjs --task ares-discover-setup,ares-discover-run",
-    "test:hephaestus-dispatch": "node src/test-hephaestus-dispatch.mjs"
+    "test:hephaestus-dispatch": "node src/test-hephaestus-dispatch.mjs",
+    "test:orchestrator-qa": "node src/test-orchestrator-qa.mjs",
+    "test:orchestrator-qa:gap": "node src/test-orchestrator-qa.mjs --test gap",
+    "test:orchestrator-qa:heph": "node src/test-orchestrator-qa.mjs --test heph"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0"
