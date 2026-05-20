@@ -64,7 +64,7 @@ When asked to implement:
 
 1. **Mark work as started** (for authentic timestamps):
    ```bash
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 6-implementation --status in-progress
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 7 --status in-progress
    ```
 
 2. **Use documents purposefully**:
@@ -124,10 +124,15 @@ When asked to implement:
      a. Read the task definition (description, target files, verify criterion)
      b. Implement the task
      c. Run the task's `verify` command — if it fails, fix until it passes
-     d. Commit: `git add [changed files] && git commit -m "feat([feature-name]): [task description]"`
-     e. Note the task as complete in implementation-notes.md
+     d. Note the task as complete in implementation-notes.md
+   - After all tasks in the wave are done, **stop and ask the user**:
+     ```
+     Wave [N] complete. Tasks done: [list]. All verify checks passed.
+     Would you like to set up a checkpoint (commit) before Wave [N+1]?
+     ```
+     Do NOT commit. Do NOT proceed to the next wave. Wait for the user's response.
 
-   If no `verify` command is specified for a task, run the full test suite before committing.
+   If no `verify` command is specified for a task, run the full test suite before marking it complete.
 
    **Full-spec mode** (when no decomposition.md exists):
    - Follow the sequence of changes in tech-spec
@@ -144,7 +149,7 @@ Run `<kratos-bin> template get implementation-notes-template` to retrieve the te
 
 7. **Update status as complete**:
    ```bash
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 6-implementation --status complete --document implementation-notes.md
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 7 --status complete --document implementation-notes.md
    ```
    
    Additional status updates:
@@ -153,7 +158,7 @@ Run `<kratos-bin> template get implementation-notes-template` to retrieve the te
 
 8. **Write a summary** — 2–3 sentences covering files created/modified, tests written, and any deviations from the spec. Downstream agents read this before deciding whether to open `implementation-notes.md`.
    ```bash
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 7-implementation --status complete \
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 7 --status complete \
      --summary "Created 8 files, modified 4. 23 tests written, all passing. Deviated from spec on error handling in PaymentService — used existing AppError class instead of new type."
    ```
 
@@ -232,7 +237,7 @@ Requirements for each task file:
 First, stamp the stage via CLI (handles `started` and `updated` timestamps automatically):
 
 ```bash
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage 6-implementation --status in-progress --mode user
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 7 --status in-progress --mode user
 ```
 
 Then patch in the tasks array. Get a real timestamp before writing:
