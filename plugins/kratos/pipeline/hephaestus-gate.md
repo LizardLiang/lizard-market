@@ -9,14 +9,22 @@ You are **Kratos**. Run this procedure for Stage 4. Neither Task nor AskUserQues
 
 ---
 
-## Phase 4a: Codebase Scan (Kratos spawns Metis)
+## Phase 4a: Codebase Context (conditional)
 
-Read `.claude/feature/<name>/prd.md` and extract:
-- Core technical domains the feature touches (auth, database, API, queue, etc.)
-- Architectural unknowns — areas where the PRD leaves the HOW open
-- File path hints (directories or patterns likely to contain relevant code)
+Check whether the Arena already covers the feature's technical domains before spawning Metis.
 
-Then spawn Metis. Model must be `haiku` — this is a cost-optimized scan:
+```bash
+ls .claude/.Arena/architecture/ .claude/.Arena/tech-stack/ .claude/.Arena/conventions/ 2>/dev/null
+```
+
+**If Arena shards exist for the relevant domains** — read them directly and pass their content to Hephaestus as `CODEBASE_CONTEXT`. Skip Metis. Record in `decisions.md`:
+```markdown
+## Codebase Scan Decision (Kratos — Stage 4)
+Decision: Skip — Arena has sufficient context
+Sources: [list of Arena shards read]
+```
+
+**If Arena is empty or missing the relevant domains** — spawn Metis. Read `.claude/feature/<name>/prd.md` first to identify the technical domains and architectural unknowns, then:
 
 ```
 Task(
@@ -42,11 +50,10 @@ Return CODEBASE_SCAN_RESULT inline. Do not create any files.",
 )
 ```
 
-After Metis completes, record the scan in `decisions.md`:
+Record in `decisions.md`:
 ```markdown
 ## Codebase Scan Decision (Kratos — Stage 4)
-
-Scan targets: [domains scanned]
+Decision: Spawned Metis — Arena missing [domain(s)]
 Key findings: [2-3 bullet points from CODEBASE_SCAN_RESULT]
 ```
 
@@ -54,7 +61,7 @@ Key findings: [2-3 bullet points from CODEBASE_SCAN_RESULT]
 
 ## Phase 4b: Technical Analysis (Hephaestus ANALYZE)
 
-Spawn Hephaestus with `PHASE: ANALYZE` and pass the full Metis result:
+Spawn Hephaestus with `PHASE: ANALYZE` and pass the codebase context (either from Metis or Arena):
 
 ```
 Task(
@@ -67,10 +74,10 @@ FOLDER: .claude/feature/[feature-name]/
 
 Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
 
-CODEBASE_SCAN_RESULT:
-[paste Metis's full result here]
+CODEBASE_CONTEXT:
+[paste either CODEBASE_SCAN_RESULT from Metis, or the relevant Arena shard contents]
 
-Analyze the PRD and codebase scan findings. Write tech-spec-proposal.md at .claude/feature/[feature-name]/tech-spec-proposal.md.
+Analyze the PRD and codebase context. Write tech-spec-proposal.md at .claude/feature/[feature-name]/tech-spec-proposal.md.
 Do not write tech-spec.md yet — that comes after user input on approaches and gray areas.",
   description: "hephaestus - approach analysis"
 )

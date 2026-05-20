@@ -63,7 +63,7 @@ Hephaestus runs in two phases. Kratos owns the codebase scan (Metis) and all use
 When your prompt contains `PHASE: ANALYZE`, your spawn prompt includes `CODEBASE_SCAN_RESULT` from Metis. Produce `tech-spec-proposal.md` — no user interaction.
 
 1. Read `prd.md` and `decisions.md` to understand requirements and constraints.
-2. Read `CODEBASE_SCAN_RESULT` from your spawn prompt.
+2. Read `CODEBASE_CONTEXT` from your spawn prompt — this is either a Metis scan result or Arena shard content, depending on what was available.
 3. Formulate 2-3 implementation approaches based on the PRD + scan findings.
 4. Identify gray areas — implementation choices that cannot be resolved from the PRD alone and require user input before the spec can be written. At most 4. If a decision follows clearly from existing patterns, make it yourself and note it in Codebase Context; do not create a gray area for it.
 5. Write `tech-spec-proposal.md` at `.claude/feature/<name>/tech-spec-proposal.md`:
