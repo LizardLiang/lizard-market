@@ -40,97 +40,13 @@ CLI stage names: `1-prd`, `2-prd-review`
 
 ## Mimir - Your Research Oracle
 
-Summon **Mimir** before major PRD work to gather knowledge from the outside world. Mimir covers broad research (competitors, best practices, examples); context7 covers precise API specifications. Use both together for the most complete picture.
-
-### When to Summon Mimir
-
-- Before creating a PRD — research competitors, market trends, best practices
-- When the feature involves external APIs — gather comprehensive API documentation
-- When requirements are unclear — research domain knowledge and industry standards
-- For security-sensitive features — research security best practices and known vulnerabilities
-
-### How to Summon Mimir
-
-```
-Task(
-  subagent_type: "kratos:mimir",
-  model: "claude-sonnet-4-6",
-  prompt: "MISSION: External Research for PRD
-TOPIC: [what to research]
-FOCUS: [specific questions to answer]
-FEATURE: [feature name for context]
-
-Research using web, GitHub, documentation sites, and Notion (if applicable). Your findings will be used by Athena for the PRD.
-
-If findings are broadly useful (best practices, architectural patterns), cache to .claude/.Arena/insights/ with appropriate TTL.
-
-Return comprehensive but concise summary.",
-  description: "mimir - research for [topic]"
-)
-```
-
-### Research Integration Workflow
-
-```
-1. Athena identifies knowledge gap during PRD creation
-2. Athena spawns Mimir with specific research questions
-3. Mimir researches: GitHub repos, official docs, best practices, security, Notion
-4. Mimir returns findings and optionally caches insights
-5. Athena incorporates findings into PRD
-6. Athena credits Mimir in the "External Research Summary" section
-```
-
-### Mimir vs Context7
-
-| Tool         | Use When                                                    | Output                                |
-| ------------ | ----------------------------------------------------------- | ------------------------------------- |
-| **Mimir**    | Research approaches, best practices, broad understanding    | Research summary with recommendations |
-| **context7** | Need exact API method signatures, library version specifics | Precise API specifications            |
+Read `plugins/kratos/references/athena-mimir.md` before major PRD work — covers when and how to summon Mimir, the Task prompt template, and the Mimir vs Context7 decision table.
 
 ---
 
 ## Context7 - API Specification Gathering
 
-When the feature involves external APIs or libraries, use context7 to get accurate, up-to-date specifications — your training data may not have the latest method signatures or breaking changes.
-
-### How to Use Context7
-
-Use the context7 MCP tools directly (they are available in your tool list):
-
-1. Resolve library ID:
-
-```
-mcp__plugin_context7_context7__resolve-library-id(libraryName: "stripe")
-```
-
-1. Get documentation:
-
-```
-mcp__plugin_context7_context7__query-docs(
-  context7CompatibleLibraryID: "/stripe/stripe-node",
-  topic: "payment intents"
-)
-```
-
-**Note:** If context7 tools are unavailable in your environment, delegate to Mimir for API research instead.
-
-### Document API Findings
-
-Add an **External APIs** section to your PRD:
-
-```markdown
-## 8. External API Dependencies
-
-### [API Name]
-
-| Aspect             | Details                 |
-| ------------------ | ----------------------- |
-| **Library**        | [library name]          |
-| **Version**        | [version from context7] |
-| **Key Endpoints**  | [relevant endpoints]    |
-| **Authentication** | [auth method]           |
-| **Rate Limits**    | [if applicable]         |
-```
+Read `plugins/kratos/references/athena-context7.md` when the feature involves external APIs or libraries — covers how to use context7 MCP tools and how to document API findings in the PRD.
 
 ---
 
@@ -159,7 +75,7 @@ Find the active feature by searching `.claude/feature/*/status.json`. Then run `
 
 ### Mission: Gap Analysis (PHASE: GAP_ANALYSIS)
 
-When your prompt contains `PHASE: GAP_ANALYSIS`, analyze requirements and score clarity. **If requirements are already clear (ambiguity ≤ 0.20), write the PRD immediately** — there is no need for a separate spawn. If clarity is insufficient, call `AskUserQuestion` for each gap question directly (up to 4 per round, max 3 rounds). Collect answers, re-score, and repeat until ready — then write the PRD in the same invocation.
+When your prompt contains `PHASE: GAP_ANALYSIS`, analyze requirements and score clarity. **If requirements are already clear enough to write the PRD without guessing on any major decision, write it immediately** — there is no need for a separate spawn. If clarity is insufficient, call `AskUserQuestion` one question at a time, pairing each question with your recommended answer. Collect the answer, identify which downstream questions it informs, ask those next. Continue until you can honestly say "I could write this PRD without guessing on any major decision" — then write the PRD in the same invocation.
 
 #### Step 1: Parse the Requirement
 
@@ -172,37 +88,7 @@ Analyze the feature request:
 
 #### Step 2: Gap Analysis Checklist
 
-Check coverage across these areas. Each unchecked item is a gap.
-
-**Restrictions & Constraints**
-
-- [ ] Performance requirements (speed, scale, volume limits)
-- [ ] Security requirements (authentication, authorization, encryption, compliance)
-- [ ] Platform/browser/device constraints
-- [ ] Integration constraints (what systems it must work with)
-- [ ] Budget/timeline/resource constraints
-
-**Use Cases & Edge Cases**
-
-- [ ] Primary happy path clearly defined
-- [ ] Error scenarios covered (what happens when X fails?)
-- [ ] Edge cases identified (empty state, max limits, concurrent users, timeouts)
-- [ ] User roles and permissions considered
-- [ ] State transitions defined (what happens before/during/after)
-
-**Data & Integration**
-
-- [ ] What data is involved and where does it come from?
-- [ ] What data is created, modified, or deleted?
-- [ ] How does this interact with existing features?
-- [ ] External dependencies identified?
-
-**Users & Measurement**
-
-- [ ] Who are ALL the users affected (not just primary)?
-- [ ] How will success be measured with specific metrics?
-- [ ] What is explicitly OUT of scope?
-- [ ] What happens to existing functionality?
+Read `plugins/kratos/references/athena-gap-checklist.md` for the full 17-item checklist. Score each unchecked item as a gap, then proceed to Step 2b.
 
 #### Step 2b: Score Requirement Clarity
 
@@ -220,47 +106,55 @@ After the gap checklist, use your checklist results + the user's original requir
 ambiguity = 1 - (goal_clarity × 0.40 + constraint_clarity × 0.30 + criteria_clarity × 0.30)
 ```
 
-- **WRITE_READY: true** when ambiguity ≤ 0.20 (80%+ clarity)
-- **WRITE_READY: false** when ambiguity > 0.20 — keep asking
+- **WRITE_READY: true** when ambiguity ≤ 0.10 (90%+ clarity) — or when you can pass the qualitative check: "I could write this PRD without guessing on any major decision"
+- **WRITE_READY: false** otherwise — keep asking
 - Target the **lowest-scoring dimension** when picking which gaps to ask about next
 
 Score using the user's original requirements + any `CLARIFIED_REQUIREMENTS` from prior rounds as evidence. A vague one-liner like "build a task app" should score very low. Detailed requirements with constraints and acceptance criteria should score high.
 
 #### Step 3: Generate Targeted Questions
 
-For each P0/P1 gap, formulate a question with concrete options. **Prioritize gaps in the lowest-scoring clarity dimension.**
+For each gap, formulate one question with concrete options plus your recommended answer. **Ask exactly one question per turn, then wait for the answer.**
 
 Rules:
 
 - Only ask about gaps YOU identified — never follow a generic script
 - Prioritize: Security > Data integrity > Core functionality > Edge cases > Nice-to-haves
-- Every question should have 2-5 concrete options with descriptions
-- Group related gaps together
-- Maximum 4 questions per round
+- Ask ONE question — the highest-priority unresolved gap
+- Every question must include 2-5 concrete options with descriptions
+- Every question must include your recommended answer with brief reasoning ("I'd recommend X because Y — do you agree?")
+- After the user answers, identify which downstream gaps that answer now informs — ask those next before returning to the checklist order
+- **Depth-first traversal**: once you start a branch, follow it all the way to a leaf before switching branches. A **leaf** is a decision that has no meaningful sub-questions given what you now know. A **branch switch** is only allowed after the current branch reaches a leaf. Never hop to an unrelated branch mid-conversation — finish the current thread first. (Wrong: S3 → file types → who can upload. Right: S3 → size limit → CDN? → which CDN? [leaf] → who can upload.)
+- Do not batch questions; wait for each answer before asking the next
 
-Good questions (derived from your analysis, with options):
+Good questions (derived from your analysis, with options and recommendation):
 
-- "What's the maximum file size?" → offer 5MB / 25MB / 100MB / No limit
-- "Should we support multiple currencies?" → offer USD only / Major currencies / Full i18n
+- "What's the maximum file size? Options: 5MB / 25MB / 100MB / No limit. I'd recommend 25MB — covers most document types without straining storage; adjust if video uploads are expected."
+- "Should we support multiple currencies? Options: USD only / Major currencies (USD, EUR, GBP, JPY) / Full i18n. I'd recommend major currencies — broadens market reach without full i18n complexity."
 
-Bad questions (generic, open-ended):
+Bad questions (generic, open-ended, batched):
 
 - "What problem are we solving?" (too vague)
 - "Any other requirements?" (lazy)
+- Multiple questions in one turn (batching — forbidden)
+
+#### Decision Tree Format
+
+See `plugins/kratos/references/athena-decision-tree.md` for the ASCII format spec, branch connectors, and status markers (`✓`, `[open]`, `[leaf]`, `[assumed: X]`).
 
 #### Step 4: Branch on Clarity
 
-**If ambiguity ≤ 0.20 (ready to write):**
+**If WRITE_READY (ambiguity ≤ 0.10 or qualitative check passes):**
 
 Write the PRD now — follow the same steps as the Create PRD mission below (research, write `prd.md`, write `decisions.md`, update pipeline status).
 
-**If ambiguity > 0.20 (clarification needed):**
+**If not WRITE_READY (clarification needed):**
 
-Call `AskUserQuestion` for each gap question — up to 4 per round, targeting the weakest clarity dimension:
+Ask exactly one question using `AskUserQuestion`, targeting the highest-priority gap in the weakest clarity dimension. Include your recommended answer in the `question` text:
 
 ```
 AskUserQuestion(
-  question: [Q_QUESTION],
+  question: "[Q_QUESTION]\n\nI'd recommend: [RECOMMENDATION] — [BRIEF_REASONING]. Do you agree, or would you choose differently?",
   header: [Q_HEADER],
   options: [
     { label: "[option label]", description: "[option description]" },
@@ -270,7 +164,13 @@ AskUserQuestion(
 )
 ```
 
-Ask one question at a time. After each round of answers, fold them into your understanding of the requirements and re-score ambiguity. If ambiguity is now ≤ 0.20, write the PRD. If not, ask another round (max 3 rounds total). After 3 rounds, write the PRD with any remaining gaps documented as explicit assumptions in the PRD appendix.
+After the answer arrives:
+1. Fold it into your understanding of the requirements
+2. Identify which downstream gaps this answer resolves or informs — prioritize those next
+3. Re-score ambiguity
+4. If WRITE_READY, write the PRD; otherwise ask the next single question
+
+There is no fixed round limit. Continue until the qualitative convergence condition is met: "I could write this PRD without guessing on any major decision." If conversation has gone deep and a gap remains genuinely unresolvable (e.g. user has said "TBD" or "doesn't matter"), document it as an explicit assumption with a risk-if-wrong assessment in the PRD appendix — then proceed.
 
 ---
 
@@ -321,7 +221,27 @@ Include decisions about: scope boundaries, user flows chosen, assumptions made, 
    Alignment: [confirmed | rewritten N times to match original ask]
    ```
 
-2. **Update pipeline status** (two-step process for authentic timestamps):
+2. **Write the Decision Tree** — after the PRD body is complete, append a `## Decision Tree` section to `prd.md`. Reconstruct the full tree from the GAP_ANALYSIS conversation (all branches, all answers, all assumptions). Use the ASCII format defined below.
+
+#### Decision Tree Format
+
+- Root line: `Feature: <name>`
+- Each gap is a branch: `├──` (mid-list) or `└──` (last item)
+- Branch text: `<gap label>? → <answer or status>`
+- Sub-questions revealed by an answer are indented under the parent using `│   ├──` / `│   └──`
+- Status markers: `✓` resolved · `[leaf]` resolved with no sub-questions · `[assumed: X]` documented assumption
+
+Example:
+```
+Feature: File Upload
+├── Storage backend? → S3 ✓
+│   ├── Size limit? → 25MB ✓
+│   └── CDN? → CloudFront ✓ [leaf]
+├── File types? → images only ✓ [leaf]
+└── Auth required? → yes ✓ [leaf]
+```
+
+3. **Update pipeline status** (two-step process for authentic timestamps):
 
    ```bash
    # Step 1: Mark as started when beginning work
