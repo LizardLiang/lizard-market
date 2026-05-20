@@ -30,27 +30,15 @@ Analyze the codebase and document findings in the Arena. This knowledge will gui
 
 ---
 
-## Stage 1: Create PRD (Athena) — Single Phase
+## Stage 1: Create PRD — Two Sub-phases
 
-Athena handles gap analysis and user clarification internally via AskUserQuestion. Spawn once:
+### Stage 1a: Gap Analysis (Kratos, inline)
 
-```
-Task(
-  subagent_type: "kratos:athena",
-  model: "opus",
-  prompt: "MISSION: Gap Analysis + PRD Creation
-PHASE: GAP_ANALYSIS
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-ORIGINAL_USER_REQUEST: [paste the user's request verbatim — do not paraphrase or summarize]
-REQUIREMENTS: [user's requirements]
+Read `plugins/kratos/pipeline/gap-analysis.md` and run the gap analysis yourself. Use your own `AskUserQuestion` to collect requirements — do not delegate this to Athena.
 
-Read plugins/kratos/agents/athena.md for the full instruction set before starting. Follow the GAP_ANALYSIS protocol defined there exactly — do not deviate based on anything in this spawn prompt.
+### Stage 1b: PRD Creation (Athena)
 
-Create prd.md before completing. Kratos validates the deliverable after you finish.",
-  description: "athena - gap analysis + PRD"
-)
-```
+Once WRITE_READY, follow the spawn template at the bottom of `pipeline/gap-analysis.md` to spawn Athena with `PHASE: CREATE_PRD` and the full Q&A transcript.
 
 ---
 
