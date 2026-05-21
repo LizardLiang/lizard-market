@@ -28,6 +28,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { fileURLToPath } from "url";
+import { TaskLogger } from "./logger.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const KRATOS_PLUGIN_PATH = path.resolve(__dirname, "../../plugins/kratos");
@@ -195,7 +196,7 @@ function collectEvents(stream, handlers, timeoutMs) {
 
 // ── Test 1: Gap analysis runs in Kratos ───────────────────────────────────────
 
-async function testGapAnalysis() {
+async function testGapAnalysis(outDir) {
   console.log("\n" + "═".repeat(60));
   console.log("TEST 1: Gap analysis in orchestrator (not Athena)");
   console.log("═".repeat(60));
@@ -204,18 +205,16 @@ async function testGapAnalysis() {
   const projectDir = createGapFixture();
   console.log(`cwd: ${projectDir}, feature: ${FEATURE_NAME}`);
 
-  // Fully-specified request → ambiguity should be ≤ 0.10 → no AskUserQuestion needed
-  const PROMPT = `/kratos:main build a minimal Go HTTP health-check endpoint.
-Feature name: ${FEATURE_NAME}.
-Requirements:
-- GET /health returns 200 with body {"status":"ok"}
-- Single file main.go, stdlib only (no external dependencies)
-- Listen on PORT env var, default 8080
-- On startup, log "listening on :<port>" to stderr`;
+  const logger = new TaskLogger(path.join(outDir, "test-1-gap"), `gap-analysis/${FEATURE_NAME}`);
+
+  // Deliberately ambiguous — missing: language, response format, endpoint path,
+  // port, auth, error handling, deployment target. Kratos must ask before writing PRD.
+  const PROMPT = `/kratos:main we need a health monitoring endpoint for our backend service.
+Feature name: ${FEATURE_NAME}.`;
 
   const results = {
-    athenaSpawns: [],         // all Athena Task calls: { phase, promptSnippet }
-    askUserQuestionCalls: [], // AskUserQuestion tool calls before Athena
+    athenaSpawns: [],         // all Athena Task calls: { phase, prompt }
+    askUserQuestionCalls: [], // AskUserQuestion tool calls: { beforeAthena, question }
     prdCreated: false,
     errored: null,
   };
@@ -233,8 +232,12 @@ Requirements:
     },
   });
 
+  logger.start();
   try {
     await collectEvents(stream, {
+      onMessage(msg) {
+        logger.record(msg);
+      },
       onToolUse(block) {
         if (block.name === "Task") {
           const sub = block.input?.subagent_type ?? "";
@@ -242,7 +245,7 @@ Requirements:
           if (sub === "kratos:athena") {
             athenaSpawnCount++;
             const phase = prompt.match(/PHASE:\s*(\S+)/)?.[1] ?? "UNKNOWN";
-            results.athenaSpawns.push({ phase, promptSnippet: prompt.slice(0, 200) });
+            results.athenaSpawns.push({ phase, prompt });
             process.stdout.write(`  → Athena spawn #${athenaSpawnCount}: PHASE=${phase}\n`);
           }
         }
@@ -267,9 +270,11 @@ Requirements:
         }
       },
     }, TIMEOUT_MS_GAP);
+    logger.finish();
   } catch (err) {
     // Timeout is expected — pipeline auto-continues to Stage 4 which blocks on
     // AskUserQuestion for approach selection. We only care about Stage 1 results.
+    logger.finish(err.message.includes("TIMEOUT") ? null : err);
     if (!err.message.includes("TIMEOUT")) results.errored = err.message;
   }
 
@@ -277,14 +282,18 @@ Requirements:
 
   const checks = [];
 
-  // 1. Athena was spawned at least once
+  // 1. Kratos asked at least one question BEFORE spawning Athena
+  //    (proves gap analysis ran — ambiguous prompt must trigger clarification)
+  const aqBeforeAthena = results.askUserQuestionCalls.filter(c => c.beforeAthena);
   checks.push({
-    name: "Athena spawned",
-    pass: results.athenaSpawns.length > 0,
-    detail: `spawned ${results.athenaSpawns.length} time(s)`,
+    name: "AskUserQuestion called BEFORE Athena (gap analysis ran)",
+    pass: aqBeforeAthena.length > 0,
+    detail: aqBeforeAthena.length > 0
+      ? `${aqBeforeAthena.length} question(s) asked: "${aqBeforeAthena[0].question}"`
+      : `no pre-Athena questions (${results.askUserQuestionCalls.length} total AQ calls)`,
   });
 
-  // 2. Athena was NOT spawned with PHASE: GAP_ANALYSIS (old pattern)
+  // 2. Athena was NOT spawned with PHASE: GAP_ANALYSIS (old pattern eliminated)
   const hadGapAnalysisPhase = results.athenaSpawns.some(s => s.phase === "GAP_ANALYSIS");
   checks.push({
     name: "Athena NOT spawned with PHASE: GAP_ANALYSIS (old pattern eliminated)",
@@ -292,15 +301,24 @@ Requirements:
     detail: hadGapAnalysisPhase ? "FAIL: GAP_ANALYSIS phase found" : "No GAP_ANALYSIS spawn",
   });
 
-  // 3. Athena was spawned with PHASE: CREATE_PRD (new pattern)
-  const hadCreatePrd = results.athenaSpawns.some(s => s.phase === "CREATE_PRD");
+  // 3. Athena spawned with PHASE: CREATE_PRD
+  const createPrdSpawn = results.athenaSpawns.find(s => s.phase === "CREATE_PRD");
   checks.push({
-    name: "Athena spawned with PHASE: CREATE_PRD (new pattern)",
-    pass: hadCreatePrd,
+    name: "Athena spawned with PHASE: CREATE_PRD",
+    pass: !!createPrdSpawn,
     detail: `Phases seen: ${results.athenaSpawns.map(s => s.phase).join(", ") || "none"}`,
   });
 
-  // 4. prd.md was created
+  // 4. Athena's CREATE_PRD prompt contains CLARIFIED_REQUIREMENTS
+  //    (proves Kratos passed the Q&A through, not just the original vague request)
+  const hasClArified = createPrdSpawn?.prompt?.includes("CLARIFIED_REQUIREMENTS") ?? false;
+  checks.push({
+    name: "Athena prompt contains CLARIFIED_REQUIREMENTS",
+    pass: hasClArified,
+    detail: hasClArified ? "found in spawn prompt" : "missing from spawn prompt",
+  });
+
+  // 5. prd.md was created
   const prdPath = path.join(projectDir, ".claude", "feature", FEATURE_NAME, "prd.md");
   const prdOnDisk = fs.existsSync(prdPath);
   checks.push({
@@ -309,17 +327,13 @@ Requirements:
     detail: prdOnDisk ? "found on disk" : "not found on disk",
   });
 
-  // Note: AskUserQuestion calls after Athena are expected — Kratos uses them
-  // at Stage 4 for approach selection (hephaestus-gate Phase 4c). That is
-  // correct behavior; we do not assert on them here.
-
   if (!KEEP_TMP) safeCleanup(FEATURE_NAME);
   return reportChecks("TEST 1", checks, results.errored);
 }
 
 // ── Test 2: Hephaestus gate — Metis spawned by Kratos ─────────────────────────
 
-async function testHephaestusGate() {
+async function testHephaestusGate(outDir) {
   console.log("\n" + "═".repeat(60));
   console.log("TEST 2: Hephaestus gate — Metis spawned by Kratos (no Arena)");
   console.log("═".repeat(60));
@@ -335,6 +349,8 @@ async function testHephaestusGate() {
   }
   const projectDir = createHephFixture(FEATURE);
   console.log(`cwd: ${projectDir}, feature: ${FEATURE}`);
+
+  const logger = new TaskLogger(path.join(outDir, "test-2-heph"), `hephaestus-gate/${FEATURE}`);
 
   const events = []; // ordered list of notable events for ordering checks
   const results = {
@@ -361,11 +377,11 @@ async function testHephaestusGate() {
     },
   });
 
+  logger.start();
   try {
     await collectEvents(stream, {
       onMessage(msg) {
-        // Heuristic: tool_use from the top-level agent vs inside a subagent
-        // The SDK surfaces all messages; we use event ordering to determine nesting
+        logger.record(msg);
       },
       onToolUse(block) {
         eventIndex++;
@@ -406,9 +422,11 @@ async function testHephaestusGate() {
         }
       },
     }, TIMEOUT_MS_HEPH);
+    logger.finish();
   } catch (err) {
     // Timeout is expected — AskUserQuestion for approach selection in Phase 4c
     // blocks in non-interactive SDK context. We only check Phase 4a/4b here.
+    logger.finish(err.message.includes("TIMEOUT") ? null : err);
     if (!err.message.includes("TIMEOUT")) results.errored = err.message;
   }
 
@@ -492,18 +510,31 @@ async function main() {
   console.log(`Model: ${MODEL}`);
   console.log(`Plugin: ${KRATOS_PLUGIN_PATH}`);
 
-  const results = [];
+  // Create a timestamped results directory for this run
+  const runId = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const outDir = path.resolve(__dirname, "../results/orchestrator-qa", runId);
+  fs.mkdirSync(outDir, { recursive: true });
+  console.log(`Results: ${outDir}`);
+
+  const testResults = [];
 
   if (!FILTER || FILTER === "gap") {
-    results.push(await testGapAnalysis());
+    testResults.push({ test: "gap", passed: await testGapAnalysis(outDir) });
   }
   if (!FILTER || FILTER === "heph") {
-    results.push(await testHephaestusGate());
+    testResults.push({ test: "heph", passed: await testHephaestusGate(outDir) });
   }
 
+  // Save final summary
+  const allPassed = testResults.every(r => r.passed);
+  fs.writeFileSync(
+    path.join(outDir, "results.json"),
+    JSON.stringify({ runId, model: MODEL, allPassed, tests: testResults }, null, 2)
+  );
+
   console.log("\n" + "═".repeat(60));
-  const allPassed = results.every(Boolean);
   console.log(`Overall: ${allPassed ? "ALL PASS ✓" : "SOME FAILED ✗"}`);
+  console.log(`Transcripts saved to: ${outDir}`);
   process.exit(allPassed ? 0 : 1);
 }
 

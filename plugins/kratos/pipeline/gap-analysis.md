@@ -57,9 +57,9 @@ Questioning rules:
 - **One question per turn** — never batch
 - Prioritize: Security > Data integrity > Core functionality > Edge cases > Nice-to-haves
 - Every question must include 2–5 concrete options and your recommended answer with brief reasoning
-- **Depth-first traversal**: finish the current branch all the way to a leaf before switching topics. A leaf is a decision with no meaningful sub-questions given what you now know
-- After each answer: fold it in, identify which downstream gaps it resolves, ask those next
-- No fixed round limit — continue until WRITE_READY
+
+**Depth-first traversal** (critical — do not skip):
+Follow one gap all the way to a leaf before moving to a different topic. A leaf is a decision with no further sub-questions given what you now know. For example: if you ask "which database?" and the user says "Postgres", the next question must be about a Postgres-specific concern (schema, connection pooling, migrations) — not a different top-level gap. Only switch topics once the current branch is fully resolved.
 
 Call format:
 ```
@@ -75,6 +75,19 @@ AskUserQuestion(
 ```
 
 If a gap remains genuinely unresolvable after the user says "TBD" or "doesn't matter", treat it as a documented assumption and move on. Athena will add it to the PRD appendix with a risk-if-wrong assessment.
+
+---
+
+## Step 4b: Loop — Re-score After Every Answer
+
+After the user answers, **do not proceed to Step 5**. Instead:
+
+1. Fold the answer into your understanding
+2. Re-run the ambiguity formula with the new information
+3. If **WRITE_READY: false** → identify the next highest-priority gap and go back to Step 4
+4. If **WRITE_READY: true** → proceed to Step 5
+
+**You must keep asking until WRITE_READY is true.** Do not stop early because the user gave short answers or because you think you have "enough" — the threshold is ambiguity ≤ 0.10, not "probably fine".
 
 ---
 
