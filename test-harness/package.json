@@ -25,7 +25,9 @@
     "test:cli-compliance-cassandra": "node src/run.mjs --task cli-compliance-cassandra",
     "validate:cli-compliance": "node src/cli-compliance-validator.mjs",
     "test:ares-discover": "node src/run.mjs --task ares-discover-setup,ares-discover-run",
-    "test:hephaestus-dispatch": "node src/test-hephaestus-dispatch.mjs"
+    "test:hephaestus-dispatch": "node src/test-hephaestus-dispatch.mjs",
+    "test:inline-commands": "node src/test-inline-commands.mjs",
+    "test:inline-commands:quick": "node src/test-inline-commands.mjs --agent athena,hermes,hades,ares"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0"
