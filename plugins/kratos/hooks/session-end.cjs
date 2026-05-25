@@ -12,6 +12,7 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { resolveBinary } = require('./kratos-bin.cjs');
 
 // Global paths
 const KRATOS_HOME = path.join(os.homedir(), '.kratos');
@@ -21,25 +22,7 @@ const SESSION_FILE = path.join(KRATOS_HOME, 'active-session.json');
 // Get current working directory
 const cwd = process.cwd();
 
-// Find kratos binary
-function findKratosBinary() {
-  const locations = [
-    'kratos', // In PATH
-    path.join(__dirname, '..', 'bin', 'kratos'), // Local bin
-    path.join(__dirname, '..', 'bin', 'kratos.exe'), // Windows local bin
-    path.join(os.homedir(), 'bin', 'kratos'), // User bin
-    path.join(os.homedir(), 'bin', 'kratos.exe'), // Windows user bin
-  ];
-
-  for (const loc of locations) {
-    try {
-      execSync(`"${loc}" --version`, { stdio: 'ignore' });
-      return loc;
-    } catch (e) {}
-  }
-
-  return null;
-}
+const findKratosBinary = resolveBinary;
 
 // Read session data
 function getSession() {

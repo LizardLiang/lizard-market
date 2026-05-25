@@ -1,48 +1,13 @@
 #!/usr/bin/env node
-/**
- * Kratos SubagentStart hook — resolves the kratos binary path for the
- * current platform and injects it for direct use.
- *
- * Search order: ${CLAUDE_PLUGIN_ROOT}/bin/kratos, then the user home .kratos/bin.
- * On Windows, checks both `kratos.exe` and `kratos`.
- * All returned paths use forward slashes so they work in bash on every platform.
- * Emits nothing (silent exit 0) if binary is not found.
- */
+'use strict';
 
-const fs = require('fs');
-const path = require('path');
+// Kratos SubagentStart hook — resolves the kratos binary path for the current platform
+// and injects it for agents that reference <kratos-bin>.
+// Emits nothing (silent exit 0) if binary is not found.
 
-const isWindows = process.platform === 'win32';
+const { resolveBinary } = require('./kratos-bin.cjs');
 
-function toSlashes(p) {
-  return p.replace(/\\/g, '/');
-}
-
-function tryBinary(dir, name) {
-  if (isWindows) {
-    const withExt = path.join(dir, name + '.exe');
-    if (fs.existsSync(withExt)) return toSlashes(withExt);
-  }
-  const plain = path.join(dir, name);
-  if (fs.existsSync(plain)) return toSlashes(plain);
-  return null;
-}
-
-function findKratos() {
-  const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
-  if (pluginRoot) {
-    const found = tryBinary(path.join(pluginRoot, 'bin'), 'kratos');
-    if (found) return found;
-  }
-  const home = process.env.HOME || process.env.USERPROFILE;
-  if (home) {
-    const found = tryBinary(path.join(home, '.kratos', 'bin'), 'kratos');
-    if (found) return found;
-  }
-  return null;
-}
-
-const kratosPath = findKratos();
+const kratosPath = resolveBinary();
 if (kratosPath) {
   const msg =
     `**Kratos binary resolved:** \`${kratosPath}\`\n\n` +

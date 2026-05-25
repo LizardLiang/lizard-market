@@ -12,6 +12,7 @@ const { execSync, spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+const { resolveBinary, platformBinaryName } = require("./kratos-bin.cjs");
 
 // Global paths
 const KRATOS_HOME = path.join(os.homedir(), ".kratos");
@@ -30,25 +31,7 @@ function ensureDir() {
   }
 }
 
-// Find kratos binary
-function findKratosBinary() {
-  const locations = [
-    "kratos", // In PATH
-    path.join(__dirname, "..", "bin", "kratos"), // Local bin
-    path.join(__dirname, "..", "bin", "kratos.exe"), // Windows local bin
-    path.join(os.homedir(), "bin", "kratos"), // User bin
-    path.join(os.homedir(), "bin", "kratos.exe"), // Windows user bin
-  ];
-
-  for (const loc of locations) {
-    try {
-      execSync(`"${loc}" --version`, { stdio: "ignore" });
-      return loc;
-    } catch (e) {}
-  }
-
-  return null;
-}
+const findKratosBinary = resolveBinary;
 
 // Initialize database if needed
 function initDb() {
@@ -199,14 +182,7 @@ function ensureBinary() {
     process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, "..");
   const srcDir = path.join(pluginRoot, "bin");
 
-  let srcName;
-  if (isWin) {
-    srcName = "kratos.exe";
-  } else if (process.platform === "darwin") {
-    srcName = `kratos-darwin-${os.arch() === "arm64" ? "arm64" : "amd64"}`;
-  } else {
-    srcName = `kratos-linux-${os.arch() === "arm64" ? "arm64" : "amd64"}`;
-  }
+  const srcName = platformBinaryName();
 
   const srcPath = path.join(srcDir, srcName);
   if (!fs.existsSync(srcPath)) return; // no source binary available
