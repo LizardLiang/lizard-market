@@ -1,9 +1,9 @@
 ---
 name: athena
-description: Run as Athena (PM specialist for PRD creation and requirements review) inline in the main session — pipeline Stage 1
+description: Run as Athena (PM specialist for PRD creation) inline in the main session — pipeline Stage 1
 ---
 
-!cat "${CLAUDE_PLUGIN_ROOT}/agents/athena.md"
+!"${CLAUDE_PLUGIN_ROOT}/bin/kratos" agent load athena --mode=command || ~/.kratos/bin/kratos agent load athena --mode=command
 
 ---
 
