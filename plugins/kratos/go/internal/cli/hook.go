@@ -554,6 +554,11 @@ func subagentStopCmd() *cobra.Command {
 				}
 			}
 
+			// Nemesis (PRD challenge agent) quality checks
+			if strings.Contains(agentType, "nemesis") {
+				return handleNemesisStop(input)
+			}
+
 			// Hermes (code review agent) tier checklist checks
 			if strings.Contains(agentType, "hermes") {
 				return handleHermesStop(input)
@@ -562,6 +567,55 @@ func subagentStopCmd() *cobra.Command {
 			return outputSubagentOK()
 		},
 	}
+}
+
+// challengeHeadingRe matches any markdown heading that contains the word "challenge".
+var challengeHeadingRe = regexp.MustCompile(`(?im)^#{1,6}\s+.*challenge`)
+
+// handleNemesisStop verifies prd-challenge.md exists, is non-empty, and contains at least one challenge section.
+// Fails open when no feature directory exists (allows completion in quick/command mode).
+func handleNemesisStop(input subagentStopInput) error {
+	cwd := input.Cwd
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
+
+	dirs, _ := filepath.Glob(filepath.Join(cwd, ".claude", "feature", "*"))
+	if len(dirs) == 0 {
+		debugLog("nemesis-stop: no feature dirs found, failing open")
+		return outputSubagentOK()
+	}
+
+	var challengePath string
+	for _, dir := range dirs {
+		p := filepath.Join(dir, "prd-challenge.md")
+		if discoverFileExists(p) {
+			challengePath = p
+			break
+		}
+	}
+
+	if challengePath == "" {
+		return outputSubagentBlock(
+			"Nemesis quality gate failed: prd-challenge.md not found in any feature directory. Write your PRD challenge to .claude/feature/<name>/prd-challenge.md before completing.",
+		)
+	}
+
+	content, err := os.ReadFile(challengePath)
+	if err != nil || len(strings.TrimSpace(string(content))) == 0 {
+		return outputSubagentBlock(
+			"Nemesis quality gate failed: prd-challenge.md exists but is empty. Add at least one challenge section before completing.",
+		)
+	}
+
+	if !challengeHeadingRe.Match(content) {
+		return outputSubagentBlock(
+			"Nemesis quality gate failed: prd-challenge.md contains no challenge sections (expected at least one heading containing 'challenge'). Structure your output with explicit challenge headings.",
+		)
+	}
+
+	debugLog("nemesis-stop: prd-challenge.md valid, allowing stop")
+	return outputSubagentOK()
 }
 
 func outputSubagentOK() error {

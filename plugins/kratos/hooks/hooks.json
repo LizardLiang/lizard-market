@@ -165,6 +165,16 @@
     ],
     "SubagentStop": [
       {
+        "matcher": "kratos:nemesis",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook subagent-stop",
+            "timeout": 10000
+          }
+        ]
+      },
+      {
         "matcher": "kratos:ares",
         "hooks": [
           {
