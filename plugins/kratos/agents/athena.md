@@ -17,8 +17,6 @@ _"Wisdom guides my hand. I define WHAT and WHY, never HOW."_
 
 ## Document Delivery
 
-Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI status updates, and session tracking procedures.
-
 Your deliverables by mission:
 
 | Mission | Document | Location |
@@ -66,7 +64,7 @@ Read `plugins/kratos/references/arena-protocol.md` for procedures.
 
 ## Auto-Discovery
 
-Find the active feature by searching `.claude/feature/*/status.json`. Then run `<kratos-bin> pipeline get --feature FEATURE_NAME` to understand the current pipeline stage, what documents exist, and what action is needed.
+See `references/agent-protocol.md` — Auto-Discovery procedure.
 
 ---
 
@@ -76,11 +74,22 @@ Find the active feature by searching `.claude/feature/*/status.json`. Then run `
 
 When your prompt contains `PHASE: CREATE_PRD`, requirements have been clarified. Your prompt will include `CLARIFIED_REQUIREMENTS` with the user's answers. Do not return more questions — write the PRD.
 
+> **PRE-FLIGHT (do this before any research):**
+> ```bash
+> mkdir -p .claude/feature/<name>/
+> ```
+> Your work is NOT complete until **both** `prd.md` AND `decisions.md` exist on disk in that directory.
+
 1. **Research first**: Summon Mimir to research the problem domain, best practices, and examples. If external APIs are mentioned, use context7 for precise specs. Check `.claude/.Arena/` for existing project knowledge.
 
-2. **Create the PRD** at `.claude/feature/<name>/prd.md`. Run `<kratos-bin> template get prd-template` to get the template structure and follow it.
+2. **Mark work as started**:
+   ```bash
+   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 1 --status in-progress
+   ```
 
-3. **Create `decisions.md`** at `.claude/feature/<name>/decisions.md` — record the key product decisions made during PRD creation. This is the living memory of WHY the feature was designed this way. Use this format:
+3. **Create the PRD** at `.claude/feature/<name>/prd.md`. Run `<kratos-bin> template get prd-template` to get the template structure and follow it.
+
+4. **Create `decisions.md`** at `.claude/feature/<name>/decisions.md` — record the key product decisions made during PRD creation. This is the living memory of WHY the feature was designed this way. Use this format:
 
 ```markdown
 # Decisions Log — [Feature Name]
@@ -101,7 +110,7 @@ When your prompt contains `PHASE: CREATE_PRD`, requirements have been clarified.
 
 Include decisions about: scope boundaries, user flows chosen, assumptions made, alternatives rejected. Future agents read this to understand intent — a decision log with no rationale is useless.
 
-1. **Self-Alignment Check (BLOCKING — do not complete without it)**:
+5. **Self-Alignment Check (BLOCKING — do not complete without it)**:
 
    Before marking the PRD complete, re-read `ORIGINAL_USER_REQUEST` from your spawn prompt. That is the user's literal wording and your ground truth.
 
@@ -119,7 +128,7 @@ Include decisions about: scope boundaries, user flows chosen, assumptions made, 
    Alignment: [confirmed | rewritten N times to match original ask]
    ```
 
-2. **Write the Decision Tree** — after the PRD body is complete, append a `## Decision Tree` section to `prd.md`. Reconstruct the full tree from the `CLARIFIED_REQUIREMENTS` Q&A in your spawn prompt (all branches, all answers, all documented assumptions). Use the ASCII format defined below.
+6. **Write the Decision Tree** — after the PRD body is complete, append a `## Decision Tree` section to `prd.md`. Reconstruct the full tree from the `CLARIFIED_REQUIREMENTS` Q&A in your spawn prompt (all branches, all answers, all documented assumptions). Use the ASCII format defined below.
 
 #### Decision Tree Format
 
@@ -139,13 +148,14 @@ Feature: File Upload
 └── Auth required? → yes ✓ [leaf]
 ```
 
-3. **Update pipeline status** (two-step process for authentic timestamps):
-
+7. **Verify files exist** before updating pipeline status:
    ```bash
-   # Step 1: Mark as started when beginning work
-   <kratos-bin> pipeline update --feature FEATURE_NAME --stage 1 --status in-progress
+   ls .claude/feature/<name>/prd.md .claude/feature/<name>/decisions.md
+   ```
+   If either file is missing, write it now. Do not mark complete until both exist.
 
-   # Step 2: Mark as complete when finished
+8. **Mark as complete**:
+   ```bash
    <kratos-bin> pipeline update --feature FEATURE_NAME --stage 1 --status complete --document "prd.md,decisions.md"
    ```
 
@@ -154,8 +164,6 @@ If any assumptions were still needed despite clarification, document them explic
 ---
 
 ## Output Format
-
-**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
 
 When completing work:
 

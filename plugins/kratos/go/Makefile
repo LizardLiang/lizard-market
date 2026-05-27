@@ -1,19 +1,20 @@
-.PHONY: build test test-coverage test-verbose clean install lint build-all release
+.PHONY: build test test-coverage test-verbose clean install lint build-all release sync-assets
 
 VERSION ?= dev
 LDFLAGS = -ldflags="-s -w -X main.version=$(VERSION)"
 
-build:
-	@cp ../templates/*.md internal/cli/templates/
+sync-assets:
+	@mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/agent-protocol-slices
 	@cp ../agents/*.md internal/cli/agents/
+	@cp ../templates/*.md internal/cli/templates/
 	@cp ../command-mode-suffix/*.md internal/cli/command-mode-suffix/
+	@cp ../references/agent-protocol-slices/*.md internal/cli/agent-protocol-slices/
+
+build: sync-assets
 	go build $(LDFLAGS) -o ../bin/kratos ./cmd/kratos
 
-build-all:
+build-all: sync-assets
 	@echo "Building for all platforms..."
-	@cp ../templates/*.md internal/cli/templates/
-	@cp ../agents/*.md internal/cli/agents/
-	@cp ../command-mode-suffix/*.md internal/cli/command-mode-suffix/
 	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o ../bin/kratos-linux-amd64 ./cmd/kratos
 	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o ../bin/kratos-linux-arm64 ./cmd/kratos
 	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o ../bin/kratos-darwin-amd64 ./cmd/kratos
@@ -42,6 +43,7 @@ lint:
 
 clean:
 	rm -rf ../bin/ coverage.out coverage.html
+	rm -rf internal/cli/agents/ internal/cli/templates/ internal/cli/command-mode-suffix/ internal/cli/agent-protocol-slices/
 
 install: build
 	mkdir -p $(HOME)/.kratos/bin
