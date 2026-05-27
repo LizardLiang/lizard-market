@@ -27,11 +27,13 @@ Provide a comprehensive status report of all features in the `.claude/feature/` 
 
 For each feature, display:
 - Feature name and priority
-- Current stage in pipeline
+- Current stage in pipeline (always as N of 9)
+- Estimated remaining stages (9 minus completed stages)
 - Completion percentage
 - Blockers (if any)
 - Conflicts detected (if any)
 - Last activity
+- What the next agent expects (deliverable name from the stage table in `main.md`)
 
 ### Step 3: Identify Issues
 
@@ -54,7 +56,8 @@ Flag any problems:
 │ Feature: user-authentication                                     │
 │ Priority: P0 (Critical)                                         │
 │ Created: 2024-01-15                                             │
-│ Progress: ████████░░░░░░░░ 50% (Stage 4/8)                      │
+│ Progress: ████████░░░░░░░░ 50% (Stage 4 of 9)                   │
+│ Remaining: 5 stages                                             │
 └─────────────────────────────────────────────────────────────────┘
 
 Pipeline:
@@ -75,9 +78,9 @@ Health: 🟢 Healthy
 Blockers: None
 Conflicts: None
 
-📍 Current: Stage 4 - PM Spec Review (in-progress)
-👤 Assignee: PM Expert
-⏭️ Next: SA Spec Review (can run in parallel)
+📍 Current: Stage 4 - Tech Spec (in-progress)
+⏭️ Next: Stage 5 — Apollo (spec review) — expects `tech-spec.md` to be complete
+📊 Remaining: 5 of 9 stages
 
 💡 Recommendation: Say "continue" to advance the pipeline
 ```
@@ -92,9 +95,9 @@ Conflicts: None
 ├─────────────────────────────────────────────────────────────────┤
 │ # │ Feature              │ Priority │ Stage    │ Progress │ Health │
 ├───┼──────────────────────┼──────────┼──────────┼──────────┼────────┤
-│ 1 │ user-authentication  │ P0       │ 4/8      │ ████░░░░ │ 🟢     │
-│ 2 │ payment-integration  │ P1       │ 2/8      │ ██░░░░░░ │ 🟡     │
-│ 3 │ dashboard-redesign   │ P2       │ 6/8      │ ██████░░ │ 🔴     │
+│ 1 │ user-authentication  │ P0       │ 4/9      │ ████░░░░ │ 🟢     │
+│ 2 │ payment-integration  │ P1       │ 2/9      │ ██░░░░░░ │ 🟡     │
+│ 3 │ dashboard-redesign   │ P2       │ 6/9      │ ██████░░ │ 🔴     │
 └───┴──────────────────────┴──────────┴──────────┴──────────┴────────┘
 
 Issues Detected:

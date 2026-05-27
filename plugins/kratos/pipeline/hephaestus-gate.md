@@ -9,6 +9,38 @@ You are **Kratos**. Run this procedure for Stage 4. Neither Task nor AskUserQues
 
 ---
 
+## Phase 4pre: Discussion Lock (Themis) — conditional
+
+Check whether `context.md` already exists for this feature:
+
+```bash
+ls .claude/feature/[feature-name]/context.md 2>/dev/null
+```
+
+**If `context.md` exists** — read it and store its content as `DECISIONS_CONTEXT`. Skip to Phase 4a.
+
+**If `context.md` does not exist** — spawn Themis to surface PRD-level gray areas and lock implementation direction:
+
+```
+Task(
+  subagent_type: "kratos:themis",
+  model: "sonnet",
+  prompt: "MISSION: Discussion Lock (Pipeline Phase 4pre)
+FEATURE: [feature-name]
+FOLDER: .claude/feature/[feature-name]/
+
+Read plugins/kratos/agents/themis.md for the full instruction set before starting.
+
+Surface implementation gray areas from prd.md, debate options with the user, and lock decisions into context.md.
+After writing context.md, set status.json `4-tech-spec.status` to `in-progress` and add a document entry for context.md.",
+  description: "themis - discussion lock (phase 4pre)"
+)
+```
+
+Wait for `context.md` to appear before proceeding. Then read it as `DECISIONS_CONTEXT`.
+
+---
+
 ## Phase 4a: Codebase Context (conditional)
 
 Check whether the Arena already covers the feature's technical domains before spawning Metis.
@@ -77,7 +109,10 @@ Read plugins/kratos/agents/hephaestus.md for the full instruction set before sta
 CODEBASE_CONTEXT:
 [paste either CODEBASE_SCAN_RESULT from Metis, or the relevant Arena shard contents]
 
-Analyze the PRD and codebase context. Write tech-spec-proposal.md at .claude/feature/[feature-name]/tech-spec-proposal.md.
+DECISIONS_CONTEXT:
+[paste context.md content from Phase 4pre — Themis's locked implementation decisions]
+
+Analyze the PRD and codebase context. Respect all decisions already locked in DECISIONS_CONTEXT — do not re-surface gray areas already resolved there. Write tech-spec-proposal.md at .claude/feature/[feature-name]/tech-spec-proposal.md.
 Do not write tech-spec.md yet — that comes after user input on approaches and gray areas.",
   description: "hephaestus - approach analysis"
 )

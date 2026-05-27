@@ -52,7 +52,7 @@ Can filter by status, project, or get recent sessions with a limit.`,
 			if status != "" {
 				sessions, err = db.GetSessionsByStatus(conn, status)
 			} else if project != "" {
-				sessions, err = db.GetSessionsByProject(conn, project)
+				sessions, err = db.GetSessionsByProject(conn, normalizeProjectPath(project))
 			} else {
 				sessions, err = db.GetRecentSessions(conn, limit)
 			}

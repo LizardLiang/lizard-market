@@ -3,6 +3,9 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,6 +13,17 @@ import (
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/db"
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
 )
+
+// normalizeProjectPath canonicalizes a project path so that storage and lookups
+// always match regardless of trailing slashes, slash direction, or Windows path-case.
+func normalizeProjectPath(path string) string {
+	path = filepath.ToSlash(path)          // C:\foo\bar → C:/foo/bar (no-op on Unix)
+	path = strings.TrimRight(path, "/")    // strip trailing slashes
+	if runtime.GOOS == "windows" {
+		path = strings.ToLower(path)       // case-insensitive filesystem
+	}
+	return path
+}
 
 // SessionStartCmd returns the 'session start' command
 func SessionStartCmd() *cobra.Command {
@@ -22,7 +36,7 @@ Optionally specify a feature name to track feature-specific work.
 Only one active session per project is allowed.`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			project := args[0]
+			project := normalizeProjectPath(args[0])
 			var featureName *string
 			if len(args) == 2 {
 				featureName = &args[1]
@@ -73,7 +87,7 @@ func SessionActiveCmd() *cobra.Command {
 Returns the session details if one is active, otherwise returns null.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			project := args[0]
+			project := normalizeProjectPath(args[0])
 
 			conn, err := db.GetConnection()
 			if err != nil {

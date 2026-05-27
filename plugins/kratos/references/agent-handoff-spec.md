@@ -11,8 +11,8 @@ This document defines the interface and deliverables for every agent in the Krat
 | 1 | Athena | `prd.md` | Requirements (from user) |
 | 2 | Nemesis | `prd-challenge.md` | `prd.md` |
 | 3 | Daedalus | `decomposition.md` | `prd.md` (vetted) |
-| 4 | Themis | `context.md` | `prd.md` |
-| 5 | Hephaestus | `tech-spec.md` | `prd.md` |
+| 4pre | Themis | `context.md` | `prd.md` (approved) |
+| 4 | Hephaestus | `tech-spec.md` | `context.md`, `prd.md` |
 | 6 | Apollo | `spec-review-sa.md` | `tech-spec.md` |
 | 7 | Artemis | `test-plan.md` | `tech-spec.md` |
 | 8 | Ares | `implementation-notes.md` | `test-plan.md` |
@@ -31,6 +31,7 @@ If an agent needs one of these files and it is missing, the agent should stop an
 | `prd.md` | Athena | 1-prd |
 | `prd-challenge.md` | Nemesis | 2-prd-review |
 | `decomposition.md` | Daedalus | 3-decomposition |
+| `context.md` | Themis | 4-tech-spec (phase 4pre) |
 | `tech-spec.md` | Hephaestus | 4-tech-spec |
 | `spec-review-sa.md` | Apollo | 5-spec-review-sa |
 | `test-plan.md` | Artemis | 6-test-plan |
@@ -53,11 +54,11 @@ If an agent needs one of these files and it is missing, the agent should stop an
 ### Daedalus (Architect)
 - **Mission**: Decompose the feature into logical, verifiable phases in `decomposition.md`.
 
-### Themis (Judge)
-- **Mission**: Surface implementation choices and lock decisions in `context.md`.
+### Themis (Judge) — Phase 4pre
+- **Mission**: Surface implementation choices from the PRD and lock decisions in `context.md` before Hephaestus specs. Runs as Phase 4pre of Stage 4; Hephaestus reads `context.md` as `DECISIONS_CONTEXT` in Phase 4b.
 
 ### Hephaestus (Tech Lead)
-- **Mission**: Create `tech-spec.md` based on the approved PRD.
+- **Mission**: Create `tech-spec.md` based on the approved PRD and locked decisions in `context.md`. Read `context.md` as `DECISIONS_CONTEXT` before analyzing — do not re-surface gray areas Themis already resolved.
 
 ### Apollo (Architecture Review)
 - **Mission**: Review `tech-spec.md` for technical soundness (Stage 5).
@@ -112,9 +113,11 @@ If an agent needs one of these files and it is missing, the agent should stop an
 - [ ] Dependencies between phases identified
 
 ### context.md (Themis)
-- [ ] List of implementation decisions made
-- [ ] Alternatives considered and rejected
-- [ ] Justification for each choice
+- [ ] Scope boundary (what this feature delivers, fixed from PRD)
+- [ ] Implementation decisions with concrete choices (not vague directions)
+- [ ] Canonical references to relevant specs/ADRs if they exist
+- [ ] Existing code insights (reusable assets, established patterns, integration points)
+- [ ] Deferred out-of-scope ideas captured
 
 ### tech-spec.md (Hephaestus)
 - [ ] Architectural overview

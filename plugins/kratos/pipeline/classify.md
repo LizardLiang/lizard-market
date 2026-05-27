@@ -63,6 +63,22 @@ Use `AskUserQuestion` with these options:
 
 ---
 
+## Daedalus Inclusion Signals (Stage 3 — post Stage-2 approval)
+
+After Stage 2 is approved, Kratos checks these signals to decide whether to offer Stage 3 (Daedalus decomposition). If **any two** signals are present, offer decomposition. If none, skip directly to Stage 4.
+
+| Signal | Present when... |
+|--------|-----------------|
+| **File span** | Feature touches or creates >3 files across different modules |
+| **Parallel subproblems** | Two or more independent sub-tasks can be built/tested without the other |
+| **Cross-cutting concern** | Change affects multiple layers (API + DB + UI, or auth + middleware + models) |
+| **Effort estimate** | PRD or discussion suggests >1 day of implementation work |
+| **User-requested** | User explicitly says "decompose" or "break this into tasks" |
+
+If fewer than two signals are present and the user did not request decomposition, skip Stage 3 and proceed to Stage 4 (Hephaestus).
+
+---
+
 ## Examples
 
 | User Request | Classification |

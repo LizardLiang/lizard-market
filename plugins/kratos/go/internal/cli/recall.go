@@ -47,7 +47,7 @@ Examples:
 			if len(args) == 0 {
 				return fmt.Errorf("project path required when --global not specified")
 			}
-			project := args[0]
+			project := normalizeProjectPath(args[0])
 
 			// Get incomplete features
 			if incomplete {

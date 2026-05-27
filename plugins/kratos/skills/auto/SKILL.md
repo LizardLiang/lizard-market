@@ -31,23 +31,20 @@ If eco/power keywords detected, read the mode file from `plugins/kratos/modes/` 
 
 ## Intent Classification → Command Routing
 
-Classify the user's intent and invoke the corresponding skill:
+This skill handles only the clearly non-pipeline utilities directly. Everything else routes to `kratos:main`, which reads `pipeline/classify.md` to decide between quick-path and full pipeline — no duplicate classification here.
 
 | User Intent | Route To | Skill |
 |-------------|----------|-------|
-| Simple task (tests, fix, refactor, review, debug) | Quick mode | `Skill(skill: "kratos:quick")` |
-| Question about project, code, git, best practices | Inquiry mode | `Skill(skill: "kratos:inquiry")` |
-| "explain", "walk me through", "context restore" | Explain mode | `Skill(skill: "kratos:explain")` |
-| "audit", "risk check", "security check" | Audit mode | `Skill(skill: "kratos:audit")` |
-| "plan", "roadmap", "strategy", "what should I build" | Plan mode | `Skill(skill: "kratos:plan")` |
-| "decompose", "break down", "split into phases" | Decompose mode | `Skill(skill: "kratos:decompose")` |
 | "status", "progress" | Status dashboard | `Skill(skill: "kratos:status")` |
 | "where did we stop", "last session", "resume" | Recall mode | `Skill(skill: "kratos:recall")` |
 | "greet", "motivate", "inspire me" | Greet mode | `Skill(skill: "kratos:greet")` |
 | "add task", "my todos", "mark done" | Spawn Ananke | `Task(subagent_type: "kratos:ananke")` |
-| "continue", "next", "start", "new feature" | Full pipeline | `Skill(skill: "kratos:main")` |
-| Any pipeline stage artifact for an existing feature: "create PRD", "create tech spec", "create test plan", "implement", "create spec review", "run stage [N]" | Full pipeline (stage resume) | `Skill(skill: "kratos:main")` |
-| Complex feature request | Full pipeline | `Skill(skill: "kratos:main")` |
+| "what does X do", question about project/code/git | Inquiry mode | `Skill(skill: "kratos:inquiry")` |
+| "explain", "walk me through", "context restore" | Explain mode | `Skill(skill: "kratos:explain")` |
+| "audit", "risk check", "security check" | Audit mode | `Skill(skill: "kratos:audit")` |
+| "plan", "roadmap", "strategy" | Plan mode | `Skill(skill: "kratos:plan")` |
+| "decompose", "break down", "split into phases" | Decompose mode | `Skill(skill: "kratos:decompose")` |
+| Everything else (simple tasks, complex features, "continue", "build X", "fix Y", stage artifacts) | Full pipeline — `classify.md` decides quick vs pipeline | `Skill(skill: "kratos:main")` |
 
 ## How to Route
 

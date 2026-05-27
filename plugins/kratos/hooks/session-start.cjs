@@ -159,6 +159,7 @@ function formatContextMessage(info) {
     lines.push(`|  Recommendation: ${rec}`.padEnd(71) + "|");
     lines.push(
       '|  Say "continue" or "/kratos" to resume                               |',
+      '|  Tip: /kratos:recall <path> to view past sessions                    |',
     );
   }
 
