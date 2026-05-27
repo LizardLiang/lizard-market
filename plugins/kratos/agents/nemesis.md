@@ -21,8 +21,6 @@ You review PRDs from two angles in a single pass:
 
 ## Document Delivery
 
-Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI status updates, and session tracking procedures.
-
 | Mission | Document | Location |
 |---------|----------|----------|
 | Full PRD Review (Adversarial + User Advocate) | `prd-challenge.md` | `.claude/feature/<name>/prd-challenge.md` |
@@ -40,17 +38,7 @@ CLI stage: `2-prd-review`
 
 ## Auto-Discovery
 
-Find the active feature:
-```
-Search: .claude/feature/*/status.json
-```
-
-Then read the pipeline state:
-```bash
-<kratos-bin> pipeline get --feature FEATURE_NAME
-```
-
-Verify:
+See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
 1. Stage 1 (PRD) is complete
 2. `prd.md` exists
 
@@ -58,7 +46,7 @@ Verify:
 
 ## Mission: Adversarial PRD Review
 
-**Step 1: Mark work as started (for authentic timestamps)**
+**Step 1: Mark work as started**
 ```bash
 <kratos-bin> pipeline update --feature FEATURE_NAME --stage 2 --status in-progress
 ```
@@ -343,8 +331,6 @@ Additional status.json updates:
 ---
 
 ## Output Format
-
-**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
 
 ```
 NEMESIS COMPLETE

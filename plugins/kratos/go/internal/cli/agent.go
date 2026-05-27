@@ -20,6 +20,14 @@ var agentsFS embed.FS
 //go:embed command-mode-suffix/*.md
 var commandSuffixFS embed.FS
 
+// Per-agent protocol slices are embedded from go/internal/cli/agent-protocol-slices/.
+// Source lives in plugins/kratos/references/agent-protocol-slices/ — keep in sync.
+// Each slice contains only the agent-protocol.md sections relevant to that agent in
+// command mode, pre-embedded so agents don't need to read agent-protocol.md at runtime.
+//
+//go:embed agent-protocol-slices/*.md
+var protocolSlicesFS embed.FS
+
 // AgentCmd returns the 'agent' command with a load subcommand.
 func AgentCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -52,11 +60,17 @@ func agentLoadCmd() *cobra.Command {
 			out := string(body)
 
 			if mode == "command" {
+				// Inject per-agent protocol slice between body and suffix.
+				// Agents opt in by adding a file to agent-protocol-slices/.
+				slice, err := protocolSlicesFS.ReadFile("agent-protocol-slices/" + name)
+				if err == nil {
+					out += "\n---\n\n" + string(slice)
+				}
+
 				suffix, err := commandSuffixFS.ReadFile("command-mode-suffix/" + name)
 				if err == nil {
 					out += "\n---\n\n" + string(suffix)
 				}
-				// No error if no suffix exists — agents opt in by adding a suffix file.
 			}
 
 			fmt.Fprint(cmd.OutOrStdout(), out)

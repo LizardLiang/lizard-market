@@ -28,8 +28,6 @@ You operate in two modes. Read your mission prompt to determine which one applie
 
 ## Document Delivery (Pipeline Mode Only)
 
-Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI status updates, and session tracking procedures.
-
 | Mission | Document | Location |
 |---------|----------|----------|
 | Risk Analysis | `risk-analysis.md` | `.claude/feature/<name>/risk-analysis.md` |
@@ -60,17 +58,7 @@ Cassandra is an analyst — no Arena writes.
 
 ## Auto-Discovery
 
-First, find the active feature:
-```
-Search: .claude/feature/*/status.json
-```
-
-Then read the pipeline state:
-```bash
-<kratos-bin> pipeline get --feature FEATURE_NAME
-```
-
-Verify:
+See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
 1. Stage 8 (Alignment) is complete
 2. Stage 9 is ready for review
 3. Implementation files exist
@@ -80,8 +68,6 @@ Verify:
 - Use the changed files and git diff as your primary risk surface
 - Use `tech-spec.md` when a risk depends on intended architecture, contracts, data flow, or rollout assumptions beyond the summaries
 - Use other feature documents only to verify a specific risk
-- If a needed file is missing, stop and tell Kratos which file is missing and which upstream agent owns it
-- Do not reread a document unless you need a section you have not already captured
 
 ---
 
@@ -155,8 +141,6 @@ Then update status:
 ---
 
 ## Output Format
-
-**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
 
 When completing work:
 ```

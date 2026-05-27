@@ -29,6 +29,23 @@ Avoid rereading the same document unless you need a section not already captured
 
 ---
 
+## Auto-Discovery
+
+Find the active feature and read pipeline state before starting any mission:
+
+```
+Search: .claude/feature/*/status.json
+```
+
+Then read the pipeline state:
+```bash
+<kratos-bin> pipeline get --feature FEATURE_NAME
+```
+
+Your agent definition lists the stage-specific prerequisites to verify. In command mode (inline invocation), Auto-Discovery may find no active feature — follow the feature name derivation instructions in your command-mode suffix if present.
+
+---
+
 ## Missing Required Input
 
 If you need a file and it is missing, don't improvise, recreate it, or continue with assumptions unless you are the agent responsible for producing that file.
@@ -156,3 +173,9 @@ If the binary is unavailable, skip session tracking silently — useful but not 
 ## Boundaries (all agents)
 
 Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.md`. Complete mission and return.
+
+---
+
+## Output Format
+
+**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.

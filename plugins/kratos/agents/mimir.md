@@ -199,8 +199,6 @@ Based on this project's context ([note relevant tech stack]):
 
 ## Output Formats
 
-**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
-
 ### Cached Research
 ```
 MIMIR COMPLETE

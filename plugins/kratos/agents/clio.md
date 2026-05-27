@@ -94,8 +94,6 @@ Determine the analysis type from the query and follow the appropriate procedure.
 
 ### Completion Format
 
-**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
-
 ```
 CLIO COMPLETE
 

@@ -177,6 +177,12 @@ func handlePromptSubmit() error {
 		return outputPassthrough()
 	}
 
+	// Direct Kratos skill invocations handle their own agent routing via CLI —
+	// suppress auto-routing injection so the skill is not double-routed through auto/quick.
+	if strings.HasPrefix(strings.TrimSpace(prompt), "/kratos:") {
+		return outputPassthrough()
+	}
+
 	// Sanitize: strip code blocks, URLs, paths, system reminders
 	cleaned := sanitizePrompt(prompt)
 
@@ -522,6 +528,29 @@ func subagentStopCmd() *cobra.Command {
 							return strings.Join(found, ", ")
 						}(),
 					))
+				}
+
+				// Disk check: verify tech-spec-proposal.md or tech-spec.md was written to a feature dir.
+				// Only enforce when a pipeline feature dir exists (allows fail-open in pure command mode).
+				cwd := input.Cwd
+				if cwd == "" {
+					cwd, _ = os.Getwd()
+				}
+				dirs, _ := filepath.Glob(filepath.Join(cwd, ".claude", "feature", "*"))
+				if len(dirs) > 0 {
+					specFound := false
+					for _, dir := range dirs {
+						if discoverFileExists(filepath.Join(dir, "tech-spec-proposal.md")) ||
+							discoverFileExists(filepath.Join(dir, "tech-spec.md")) {
+							specFound = true
+							break
+						}
+					}
+					if !specFound {
+						return outputSubagentBlock(
+							"Hephaestus quality gate failed: neither tech-spec-proposal.md nor tech-spec.md was found in any feature directory. Write the output to .claude/feature/<name>/ before completing.",
+						)
+					}
 				}
 			}
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -452,17 +453,104 @@ Clear it by passing --stage "" after the agent completes.`,
 
 // --- pipeline discover ---
 
-func pipelineDiscoverCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "discover",
-		Short: "Find the active feature ready for stage 7 (implementation) and verify prerequisites",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return pipelineDiscover()
-		},
-	}
+// stageDisplayOrder defines the canonical display order for pipeline stages.
+var stageDisplayOrder = []string{
+	"1-prd", "2-prd-review", "3-decomposition", "4-tech-spec",
+	"5-spec-review-sa", "6-test-plan", "7-implementation",
+	"8-prd-alignment", "9-review",
 }
 
-func pipelineDiscover() error {
+// nonOptionalStages lists the stages that count toward feature completeness.
+// 3-decomposition is optional and excluded.
+var nonOptionalStages = []string{
+	"1-prd", "2-prd-review", "4-tech-spec", "5-spec-review-sa",
+	"6-test-plan", "7-implementation", "8-prd-alignment", "9-review",
+}
+
+func pipelineDiscoverCmd() *cobra.Command {
+	var all, verify bool
+
+	cmd := &cobra.Command{
+		Use:   "discover",
+		Short: "List features and their pipeline status",
+		Long: `List features with their pipeline stage status.
+
+By default, shows only incomplete features (at least one non-optional stage not complete).
+Use --all to include features where all stages are complete.
+Use --verify to find the stage-7-ready feature and verify its prerequisites (Ares workflow).`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if all && verify {
+				return fmt.Errorf("--all and --verify are mutually exclusive")
+			}
+			if verify {
+				return pipelineDiscoverVerify()
+			}
+			return pipelineDiscoverList(all)
+		},
+	}
+
+	cmd.Flags().BoolVar(&all, "all", false, "Include completed features")
+	cmd.Flags().BoolVar(&verify, "verify", false, "Find stage-7-ready feature and verify prerequisites (Ares workflow)")
+	return cmd
+}
+
+// pipelineDiscoverList lists features sorted by updated desc.
+// When all is false, only incomplete features are shown.
+func pipelineDiscoverList(all bool) error {
+	root := gitRoot()
+	pattern := filepath.Join(root, ".claude", "feature", "*", "status.json")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return fmt.Errorf("glob error: %w", err)
+	}
+
+	type entry struct {
+		feature  string
+		updated  string
+		complete bool
+		data     map[string]interface{}
+	}
+
+	var entries []entry
+	for _, path := range matches {
+		data, err := readStatusJSON(path)
+		if err != nil {
+			continue
+		}
+		feature, _ := data["feature"].(string)
+		updated, _ := data["updated"].(string)
+		complete := isFeatureComplete(data)
+		if !all && complete {
+			continue
+		}
+		entries = append(entries, entry{feature, updated, complete, data})
+	}
+
+	if len(entries) == 0 {
+		if all {
+			fmt.Println("no features found — run 'kratos pipeline init' to start one")
+		} else {
+			fmt.Println("no incomplete features found — run 'kratos pipeline init' to start one")
+		}
+		return nil
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].updated > entries[j].updated
+	})
+
+	for i, e := range entries {
+		if i > 0 {
+			fmt.Println()
+		}
+		printFeatureStatus(e.feature, e.complete, e.data)
+	}
+	return nil
+}
+
+// pipelineDiscoverVerify finds the stage-7-ready feature and verifies prerequisites.
+// This is the original discover behavior, preserved for backward compatibility (Ares).
+func pipelineDiscoverVerify() error {
 	root := gitRoot()
 	pattern := filepath.Join(root, ".claude", "feature", "*", "status.json")
 	matches, err := filepath.Glob(pattern)
@@ -480,7 +568,7 @@ func pipelineDiscover() error {
 	}
 
 	var ready []candidate
-	var all []string
+	var allFeatures []string
 
 	for _, path := range matches {
 		data, err := readStatusJSON(path)
@@ -490,7 +578,7 @@ func pipelineDiscover() error {
 
 		feature, _ := data["feature"].(string)
 		stage, _ := data["stage"].(string)
-		all = append(all, fmt.Sprintf("  %s (stage: %s)", feature, stage))
+		allFeatures = append(allFeatures, fmt.Sprintf("  %s (stage: %s)", feature, stage))
 
 		pipeline, ok := data["pipeline"].(map[string]interface{})
 		if !ok {
@@ -511,13 +599,12 @@ func pipelineDiscover() error {
 
 	if len(ready) == 0 {
 		fmt.Fprintf(os.Stderr, "no feature ready for stage 7-implementation\n\navailable features:\n")
-		for _, line := range all {
+		for _, line := range allFeatures {
 			fmt.Fprintln(os.Stderr, line)
 		}
 		return fmt.Errorf("no feature at stage 7")
 	}
 
-	// If multiple, pick most recently updated
 	if len(ready) > 1 {
 		latest := ready[0]
 		for _, c := range ready[1:] {
@@ -533,7 +620,6 @@ func pipelineDiscover() error {
 	featureDir := filepath.Join(root, ".claude", "feature", c.feature)
 	pipeline, _ := c.data["pipeline"].(map[string]interface{})
 
-	// Check stage 6
 	stage6status := "missing"
 	stage6ok := false
 	if s6, ok := pipeline["6-test-plan"].(map[string]interface{}); ok {
@@ -541,12 +627,10 @@ func pipelineDiscover() error {
 		stage6ok = stage6status == "complete"
 	}
 
-	// Check stage 7
 	stage7, _ := pipeline["7-implementation"].(map[string]interface{})
 	stage7status, _ := stage7["status"].(string)
 	stage7ok := stage7status == "ready" || stage7status == "in-progress"
 
-	// Check prerequisite documents
 	techSpecPath := filepath.Join(featureDir, "tech-spec.md")
 	testPlanPath := filepath.Join(featureDir, "test-plan.md")
 	techSpecOk := discoverFileExists(techSpecPath)
@@ -562,6 +646,88 @@ func pipelineDiscover() error {
 		return fmt.Errorf("prerequisites not satisfied")
 	}
 	return nil
+}
+
+// isFeatureComplete returns true when all non-optional stages are complete.
+func isFeatureComplete(data map[string]interface{}) bool {
+	pipeline, ok := data["pipeline"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	for _, key := range nonOptionalStages {
+		stage, ok := pipeline[key].(map[string]interface{})
+		if !ok {
+			return false
+		}
+		status, _ := stage["status"].(string)
+		if status != "complete" {
+			return false
+		}
+	}
+	return true
+}
+
+// featureProgress returns (completedCount, totalNonOptional).
+func featureProgress(data map[string]interface{}) (int, int) {
+	pipeline, _ := data["pipeline"].(map[string]interface{})
+	total := len(nonOptionalStages)
+	done := 0
+	for _, key := range nonOptionalStages {
+		stage, ok := pipeline[key].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if s, _ := stage["status"].(string); s == "complete" {
+			done++
+		}
+	}
+	return done, total
+}
+
+// discoverStatusSymbol maps a pipeline stage status to its display symbol.
+func discoverStatusSymbol(status string) string {
+	switch status {
+	case "complete":
+		return "✓"
+	case "in-progress":
+		return "⋯"
+	case "skipped":
+		return "-"
+	default:
+		return "✗"
+	}
+}
+
+// printFeatureStatus writes one feature block to stdout.
+func printFeatureStatus(feature string, complete bool, data map[string]interface{}) {
+	doneLabel := ""
+	if complete {
+		doneLabel = "  [done]"
+	}
+	fmt.Printf("feature:  %s%s\n", feature, doneLabel)
+
+	currentStage, _ := data["stage"].(string)
+	pipeline, _ := data["pipeline"].(map[string]interface{})
+
+	currentStatus := ""
+	if stage, ok := pipeline[currentStage].(map[string]interface{}); ok {
+		currentStatus, _ = stage["status"].(string)
+	}
+	fmt.Printf("stage:    %-20s (%s)\n", currentStage, currentStatus)
+
+	done, total := featureProgress(data)
+	fmt.Printf("progress: %d/%d stages complete\n", done, total)
+
+	fmt.Println("pipeline:")
+	for _, key := range stageDisplayOrder {
+		stage, ok := pipeline[key].(map[string]interface{})
+		status := "missing"
+		if ok {
+			status, _ = stage["status"].(string)
+		}
+		symbol := discoverStatusSymbol(status)
+		fmt.Printf("  %-22s %-14s %s\n", key, status, symbol)
+	}
 }
 
 func discoverFileExists(path string) bool {

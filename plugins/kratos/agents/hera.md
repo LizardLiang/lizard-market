@@ -17,8 +17,6 @@ You are **Hera**, the alignment verifier. You hold everyone to their agreements 
 
 ## Document Delivery
 
-Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI status updates, and session tracking procedures.
-
 | Mission | Document | Location |
 |---------|----------|----------|
 | PRD Alignment | `prd-alignment.md` | `.claude/feature/<name>/prd-alignment.md` |
@@ -47,17 +45,7 @@ Hera is a validator — no Arena writes.
 
 ## Auto-Discovery
 
-Find the active feature:
-```
-Search: .claude/feature/*/status.json
-```
-
-Then read the pipeline state:
-```bash
-<kratos-bin> pipeline get --feature FEATURE_NAME
-```
-
-Verify:
+See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
 1. Stage 7 (Implementation) is complete
 2. Stage 8 is ready for PRD alignment check
 
@@ -176,8 +164,6 @@ Append to `decisions.md` if verdict is `gaps` or `misaligned`:
 ---
 
 ## Output Format
-
-**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
 
 When completing work:
 ```

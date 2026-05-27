@@ -47,7 +47,7 @@ Use the checklist results + the original request to score across three weighted 
 ambiguity = 1 - (goal_clarity × 0.40 + constraint_clarity × 0.30 + criteria_clarity × 0.30)
 ```
 
-- **WRITE_READY: true** when ambiguity ≤ 0.10 — or when you can honestly say "I could write this PRD without guessing on any major decision"
+- **WRITE_READY: true** when ambiguity ≤ 0.10
 - **WRITE_READY: false** — keep asking; target the lowest-scoring dimension next
 
 ---
@@ -67,7 +67,7 @@ Questioning rules:
 **Depth-first traversal** (critical — do not skip):
 Follow one gap all the way to a leaf before moving to a different topic. A leaf is a decision with no further sub-questions given what you now know. For example: if you ask "which database?" and the user says "Postgres", the next question must be about a Postgres-specific concern (schema, connection pooling, migrations) — not a different top-level gap. Only switch topics once the current branch is fully resolved.
 
-Call format:
+**Invoke the AskUserQuestion tool now — do not output the question as plain text.** Required structure:
 
 ```
 AskUserQuestion(
@@ -103,3 +103,13 @@ After the user answers, **do not proceed to Step 5**. Instead:
 Once WRITE_READY, treat the full Q&A conversation as your `CLARIFIED_REQUIREMENTS` and execute the **`Mission: Create PRD (PHASE: CREATE_PRD)`** procedure defined in your agent body above. The procedure starts at "1. Research first…" and covers all steps through pipeline status update.
 
 Do NOT spawn yourself via the Task tool. Write the PRD directly in this session.
+
+**Feature name (command mode):** Search `.claude/feature/*/status.json` for an active feature at stage 1-prd. If none found, derive a slug from the user's request: lowercase, hyphens only, max 30 chars (e.g., "user-auth-oauth"). Use this slug as `<name>` for all file paths.
+
+**Pipeline initialization:** Before calling `pipeline update`, check if `status.json` exists for this feature. If not, run:
+
+```bash
+<kratos-bin> pipeline init --feature FEATURE_NAME --description "BRIEF_DESCRIPTION"
+```
+
+If `pipeline init` fails, create the `.claude/feature/<name>/` directory manually and write the files — `prd.md` and `decisions.md` must be written regardless of whether pipeline metadata is available.

@@ -28,8 +28,6 @@ You operate in two modes. Read your mission prompt to determine which one applie
 
 ## Document Delivery (Pipeline Mode Only)
 
-Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI status updates, and session tracking procedures.
-
 | Mission | Document | Location |
 |---------|----------|----------|
 | Code Review | `code-review.md` | `.claude/feature/<name>/code-review.md` |
@@ -83,17 +81,7 @@ When project overrides exist, they win on any conflict with global rules.
 
 ## Step 2: Auto-Discovery (Pipeline Mode)
 
-In pipeline mode, find the active feature:
-```
-Search: .claude/feature/*/status.json
-```
-
-Then read the pipeline state:
-```bash
-<kratos-bin> pipeline get --feature FEATURE_NAME
-```
-
-Verify:
+In pipeline mode, see `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
 1. Stage 8 (Implementation) is complete
 2. Stage 11 is ready for code review
 3. All implementation files exist
@@ -104,7 +92,7 @@ In standalone mode, target is provided by the mission prompt — skip this step.
 
 ## Step 3: Review
 
-**3.1: Mark work as started** (for authentic timestamps):
+**3.1: Mark work as started**:
 ```bash
 <kratos-bin> pipeline update --feature FEATURE_NAME --stage 9 --status in-progress
 ```
@@ -116,8 +104,6 @@ In standalone mode, target is provided by the mission prompt — skip this step.
    - Use `prd.md` to verify requirement alignment
    - Use `tech-spec.md` when you need intended-design detail beyond the summaries
    - Use `decomposition.md` when phase verification matters
-   - If a needed file is missing, stop and tell Kratos which file is missing and which upstream agent owns it
-   - Do not reread a document unless you need a section you have not already captured
 
 ### 3a: Tier Checklist (Hook-Enforced)
 
@@ -149,6 +135,20 @@ Apply the **Greatness Hierarchy** from `default.md`:
 | 6 Resilient | Error handling, cleanup, edge cases |
 | 7 Performant | N+1, blocking ops, waste |
 | 8 Maintainable | Long-term health anti-patterns (see checklist below) |
+
+#### Tier 1 — Correct (Adversarial Path Tracing)
+
+For every conditional branch that handles an error, null, or failure response — do not just check the branch body. Trace execution **past** the branch to the end of the function. Ask: does execution continue to a state-mutating or response-returning operation that assumes success? If yes, that is a T1 BLOCKER.
+
+This is required, not optional. Reading code top-to-bottom on the happy path misses silent continuations after error branches — the most common source of logic bugs.
+
+#### Tier 6 — Resilient (Absence & Branch Checks)
+
+Two required checks beyond normal error-handling review:
+
+**Absence check:** For every sequence of two or more state mutations, explicitly ask what is missing: Is there a transaction? Is there rollback on failure? Does the caller receive an error signal or silent success? The presence of a log line is not equivalent to caller notification.
+
+**Branch symmetry check:** For any if/else or create/update bifurcation, list what entities each branch creates, updates, or reads. Verify the branches are symmetric in their responsibilities — or document explicitly why asymmetry is intentional.
 
 #### Tier 8 — Maintainable (Anti-Pattern Checklist)
 
@@ -389,8 +389,6 @@ If your proposed fix would duplicate core cleanup/teardown logic across multiple
 ---
 
 ## Output Format
-
-**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
 
 **Finding format:** `<file>:<line>: [T<tier>][<rule>] <problem> — <fix>` (one line per finding).
 Body prose only for BLOCKER findings requiring architectural explanation.

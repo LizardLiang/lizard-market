@@ -170,3 +170,109 @@ func TestNowReturnsRFC3339(t *testing.T) {
 	// RFC3339 contains 'T' separator and timezone
 	assert.Contains(t, ts, "T")
 }
+
+func TestIsFeatureComplete(t *testing.T) {
+	makeStage := func(status string) map[string]interface{} {
+		return map[string]interface{}{"status": status}
+	}
+	allComplete := map[string]interface{}{
+		"pipeline": map[string]interface{}{
+			"1-prd":            makeStage("complete"),
+			"2-prd-review":     makeStage("complete"),
+			"3-decomposition":  makeStage("skipped"),
+			"4-tech-spec":      makeStage("complete"),
+			"5-spec-review-sa": makeStage("complete"),
+			"6-test-plan":      makeStage("complete"),
+			"7-implementation": makeStage("complete"),
+			"8-prd-alignment":  makeStage("complete"),
+			"9-review":         makeStage("complete"),
+		},
+	}
+	assert.True(t, isFeatureComplete(allComplete), "all non-optional complete → true")
+
+	// One non-optional stage in-progress
+	inProgress := map[string]interface{}{
+		"pipeline": map[string]interface{}{
+			"1-prd":            makeStage("complete"),
+			"2-prd-review":     makeStage("complete"),
+			"3-decomposition":  makeStage("skipped"),
+			"4-tech-spec":      makeStage("in-progress"),
+			"5-spec-review-sa": makeStage("blocked"),
+			"6-test-plan":      makeStage("blocked"),
+			"7-implementation": makeStage("blocked"),
+			"8-prd-alignment":  makeStage("blocked"),
+			"9-review":         makeStage("blocked"),
+		},
+	}
+	assert.False(t, isFeatureComplete(inProgress), "in-progress non-optional stage → false")
+
+	// Optional stage skipped does not prevent completion
+	withSkippedOptional := allComplete // same as allComplete: 3-decomposition is skipped
+	assert.True(t, isFeatureComplete(withSkippedOptional), "skipped optional stage does not block completion")
+}
+
+func TestFeatureProgress(t *testing.T) {
+	makeStage := func(status string) map[string]interface{} {
+		return map[string]interface{}{"status": status}
+	}
+
+	noneComplete := map[string]interface{}{
+		"pipeline": map[string]interface{}{
+			"1-prd":            makeStage("in-progress"),
+			"2-prd-review":     makeStage("blocked"),
+			"3-decomposition":  makeStage("skipped"),
+			"4-tech-spec":      makeStage("blocked"),
+			"5-spec-review-sa": makeStage("blocked"),
+			"6-test-plan":      makeStage("blocked"),
+			"7-implementation": makeStage("blocked"),
+			"8-prd-alignment":  makeStage("blocked"),
+			"9-review":         makeStage("blocked"),
+		},
+	}
+	done, total := featureProgress(noneComplete)
+	assert.Equal(t, 0, done)
+	assert.Equal(t, 8, total)
+
+	twoComplete := map[string]interface{}{
+		"pipeline": map[string]interface{}{
+			"1-prd":            makeStage("complete"),
+			"2-prd-review":     makeStage("complete"),
+			"3-decomposition":  makeStage("skipped"),
+			"4-tech-spec":      makeStage("in-progress"),
+			"5-spec-review-sa": makeStage("blocked"),
+			"6-test-plan":      makeStage("blocked"),
+			"7-implementation": makeStage("blocked"),
+			"8-prd-alignment":  makeStage("blocked"),
+			"9-review":         makeStage("blocked"),
+		},
+	}
+	done, total = featureProgress(twoComplete)
+	assert.Equal(t, 2, done)
+	assert.Equal(t, 8, total)
+
+	allComplete := map[string]interface{}{
+		"pipeline": map[string]interface{}{
+			"1-prd":            makeStage("complete"),
+			"2-prd-review":     makeStage("complete"),
+			"3-decomposition":  makeStage("skipped"),
+			"4-tech-spec":      makeStage("complete"),
+			"5-spec-review-sa": makeStage("complete"),
+			"6-test-plan":      makeStage("complete"),
+			"7-implementation": makeStage("complete"),
+			"8-prd-alignment":  makeStage("complete"),
+			"9-review":         makeStage("complete"),
+		},
+	}
+	done, total = featureProgress(allComplete)
+	assert.Equal(t, 8, done)
+	assert.Equal(t, 8, total)
+}
+
+func TestDiscoverStatusSymbol(t *testing.T) {
+	assert.Equal(t, "✓", discoverStatusSymbol("complete"))
+	assert.Equal(t, "⋯", discoverStatusSymbol("in-progress"))
+	assert.Equal(t, "-", discoverStatusSymbol("skipped"))
+	assert.Equal(t, "✗", discoverStatusSymbol("blocked"))
+	assert.Equal(t, "✗", discoverStatusSymbol(""))
+	assert.Equal(t, "✗", discoverStatusSymbol("ready"))
+}

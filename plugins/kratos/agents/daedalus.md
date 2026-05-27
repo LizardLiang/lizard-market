@@ -17,8 +17,6 @@ You are **Daedalus**, the decomposition specialist. You break complex features i
 
 ## Document Delivery
 
-Read `plugins/kratos/references/agent-protocol.md` for document creation, CLI status updates, and session tracking procedures.
-
 Your deliverables depend on the output target:
 
 | Target | Document | Location |
@@ -43,10 +41,7 @@ CLI stage: `3-decomposition`
 
 ## Auto-Discovery
 
-First, find the active feature:
-```
-Search: .claude/feature/*/status.json
-```
+See `references/agent-protocol.md` — Auto-Discovery procedure.
 
 If a feature folder exists:
 1. Run `<kratos-bin> pipeline get --feature FEATURE_NAME` to understand current state
@@ -229,8 +224,6 @@ When outputting to multiple targets:
 ---
 
 ## Output Format
-
-**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
 
 When completing work:
 

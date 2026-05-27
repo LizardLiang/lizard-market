@@ -535,7 +535,9 @@ kratos pipeline update --feature <name> \
   --verdict approved --document prd-review.md     # mark done with verdict
 kratos pipeline set-pending --feature <name> \
   --stage <N>                                     # set pending stage for Athena
-kratos pipeline discover                          # auto-find active feature
+kratos pipeline discover                          # list incomplete features with stage status
+kratos pipeline discover --all                    # list all features including complete
+kratos pipeline discover --verify                 # auto-find stage-7-ready feature (Ares)
 
 # Session tracking
 kratos session active <project>                   # get session ID
