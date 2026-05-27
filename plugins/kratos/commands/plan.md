@@ -72,17 +72,21 @@ AskUserQuestion(
 
 **If "Approve & save":**
 
-1. Write the plan to `.claude/.Arena/plan.md`:
+1. Derive the save path from the plan's title line (`## Strategic Plan — <Name>`):
+   - Slugify `<Name>`: lowercase, spaces and non-alphanumeric chars → `-`, collapse consecutive `-`, strip leading/trailing `-`
+   - Path = `.claude/.Arena/plans/<slug>.md`
+
+2. Write the plan to that path:
 ```
 Write(
-  filePath: ".claude/.Arena/plan.md",
+  filePath: ".claude/.Arena/plans/<slug>.md",
   content: [Prometheus's plan markdown]
 )
 ```
 
-2. Confirm save, then suggest next action:
+3. Confirm save, then suggest next action (substituting the actual slug and feature name):
 ```
-Plan saved to .claude/.Arena/plan.md
+Plan saved to .claude/.Arena/plans/<slug>.md
 
 Ready to start on Priority 1: "[feature name]"
 
