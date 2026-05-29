@@ -213,13 +213,21 @@ func TestSubagentStopGate(t *testing.T) {
 			wantOK: true,
 		},
 		{
+			name: "ares passes with TaskCreate recap",
+			input: subagentStopInput{
+				AgentType:            "kratos:ares",
+				LastAssistantMessage: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.",
+			},
+			wantOK: true,
+		},
+		{
 			name: "ares blocked — no todo list",
 			input: subagentStopInput{
 				AgentType:            "kratos:ares",
 				LastAssistantMessage: "created auth.ts. Implementation complete.",
 			},
 			wantOK:    false,
-			wantInMsg: "no TODO list",
+			wantInMsg: "no task list",
 		},
 		{
 			name: "ares blocked — no files mentioned",
@@ -277,9 +285,9 @@ func TestSubagentStopGate(t *testing.T) {
 
 			if strings.Contains(agentType, "ares") {
 				var failures []string
-				hasTodo := strings.Contains(msgLower, "todo:")
-				if !hasTodo {
-					failures = append(failures, "no TODO list was written before starting work")
+				hasTaskList := strings.Contains(msgLower, "task list:") || strings.Contains(msgLower, "todo:")
+				if !hasTaskList {
+					failures = append(failures, "no task list (TaskCreate recap) was written before starting work")
 				}
 				mentionsFiles := npmWordBoundary.String() != "" && strings.Contains(msg, ".ts") || strings.Contains(msg, ".js") || strings.Contains(msg, ".go") || strings.Contains(msg, ".py")
 				_ = mentionsFiles
@@ -316,6 +324,51 @@ func TestSubagentStopGate(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestMalformedStopPayloadFailsClosed verifies that a SubagentStop payload that cannot be
+// parsed does not silently bypass a gated agent's quality gate.
+func TestMalformedStopPayloadFailsClosed(t *testing.T) {
+	gatedCases := []struct {
+		name string
+		raw  string
+	}{
+		{"ares raw newline breaks json", "{\"agent_type\":\"kratos:ares\",\"last_assistant_message\":\"oops\nraw newline\"}"},
+		{"hephaestus truncated json", `{"agent_type":"kratos:hephaestus","last_assistant_message":"`},
+		{"hermes garbage", `not json at all but mentions hermes`},
+		{"nemesis garbage", `{bad json nemesis`},
+	}
+	for _, tt := range gatedCases {
+		t.Run("blocks/"+tt.name, func(t *testing.T) {
+			raw := []byte(tt.raw)
+			var in subagentStopInput
+			if json.Unmarshal(raw, &in) == nil {
+				t.Fatalf("payload unexpectedly parsed; test needs a malformed payload")
+			}
+			if rawHasStopHookActive(raw) {
+				t.Fatalf("payload should not look like a re-entry")
+			}
+			if agent := gatedAgentInRaw(raw); agent == "" {
+				t.Errorf("gatedAgentInRaw = \"\" — gated agent would silently bypass the gate")
+			}
+		})
+	}
+
+	// A re-entry marker must short-circuit to allow, even when malformed, to avoid loops.
+	t.Run("stop_hook_active short-circuits loop", func(t *testing.T) {
+		raw := []byte(`{bad json ares "stop_hook_active": true`)
+		if !rawHasStopHookActive(raw) {
+			t.Errorf("rawHasStopHookActive = false; a re-invocation loop is possible")
+		}
+	})
+
+	// Ungated agents on a malformed payload still fail open (don't break the pipeline).
+	t.Run("ungated agent not blocked", func(t *testing.T) {
+		raw := []byte(`{bad json athena`)
+		if agent := gatedAgentInRaw(raw); agent != "" {
+			t.Errorf("gatedAgentInRaw = %q; ungated agent should fail open", agent)
+		}
+	})
 }
 
 // createFeatureStatusJSON creates a status.json file with the given 9-review status under featureDir.

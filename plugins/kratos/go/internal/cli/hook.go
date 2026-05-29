@@ -293,6 +293,25 @@ const todoQualityGate = `
 Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.
 `
 
+// aresTaskGate is injected for Ares specifically. Ares has the Task* tools, so its
+// planning step is the TaskCreate tool rather than a text TODO list. The closing
+// "Task list:" recap is what the SubagentStop gate matches on (it can only see the
+// final message text, not tool calls), so the recap keeps the gate meaningful.
+const aresTaskGate = `
+╔══════════════════════════════════════════════════════════════╗
+║  KRATOS QUALITY GATE — CREATE YOUR TASK LIST FIRST          ║
+╠══════════════════════════════════════════════════════════════╣
+║  1. Call TaskCreate once per job BEFORE any other tool       ║
+║     — one task per file/module, not one vague "implement"    ║
+║  2. TaskUpdate a task in_progress when you start it          ║
+║  3. TaskUpdate completed ONLY when truly done (tests green)  ║
+║  4. TaskCreate any new work that surfaces mid-mission        ║
+║  5. End with a "Task list:" recap of every task + status     ║
+╚══════════════════════════════════════════════════════════════╝
+
+Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.
+`
+
 // subagentStartCmd injects a mandatory TODO-first instruction into Ares and Hephaestus agents.
 // For Hermes it creates a tier checklist file and injects instructions to update it.
 func subagentStartCmd() *cobra.Command {
@@ -318,7 +337,12 @@ func subagentStartCmd() *cobra.Command {
 				return handleHermesStart(input)
 			}
 
-			// For all other agents (ares, hephaestus, etc.) — inject TODO quality gate
+			// Ares plans via the TaskCreate tool, not a text TODO list.
+			if strings.Contains(agentType, "ares") {
+				return outputSubagentStartContext(aresTaskGate)
+			}
+
+			// For all other agents (hephaestus, etc.) — inject text TODO quality gate
 			return outputSubagentStartContext(todoQualityGate)
 		},
 	}
@@ -451,6 +475,33 @@ func outputSubagentStartContext(additionalContext string) error {
 	return nil
 }
 
+// gatedAgents are the agents whose SubagentStop has a quality gate that must not be
+// bypassable via a malformed payload.
+var gatedAgents = []string{"ares", "hephaestus", "hermes", "nemesis"}
+
+// gatedAgentInRaw reports which gated agent (if any) a raw, unparseable payload appears
+// to concern. It scans the whole payload, so a message body that merely mentions a gated
+// agent name also trips it — that is intentional: on a malformed payload we prefer to
+// fail closed rather than risk letting a gated agent slip through.
+func gatedAgentInRaw(raw []byte) string {
+	s := strings.ToLower(string(raw))
+	for _, a := range gatedAgents {
+		if strings.Contains(s, a) {
+			return a
+		}
+	}
+	return ""
+}
+
+// rawHasStopHookActive detects a stop_hook_active:true marker in a raw payload that failed
+// to parse, so the fail-closed branch can't trap an agent in a re-invocation loop.
+func rawHasStopHookActive(raw []byte) bool {
+	s := strings.ToLower(string(raw))
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "\t", "")
+	return strings.Contains(s, `"stop_hook_active":true`)
+}
+
 // subagentStopCmd verifies that Ares and Hephaestus produced complete deliverables.
 // Returns {"ok": true} to allow completion or {"ok": false, "reason": "..."} to block.
 func subagentStopCmd() *cobra.Command {
@@ -460,11 +511,29 @@ func subagentStopCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			raw, err := io.ReadAll(os.Stdin)
 			if err != nil {
+				// Unreadable stdin: no bytes to inspect, so we can't tell which agent
+				// this is. Fail closed for gated agents would loop here (we'd never see
+				// stop_hook_active either), and this path is an infra error, not a
+				// content-reachable bypass — allow.
 				return outputSubagentOK()
 			}
 
 			var input subagentStopInput
 			if err := json.Unmarshal(raw, &input); err != nil {
+				// A subagent's message content must not be able to break JSON parsing and
+				// thereby skip its quality gate. If the malformed payload concerns a gated
+				// agent, fail CLOSED so the gate can't be bypassed. Honor a stop_hook_active
+				// marker first so a persistently-malformed payload can't trap the agent in a
+				// re-invocation loop.
+				if rawHasStopHookActive(raw) {
+					return outputSubagentOK()
+				}
+				if agent := gatedAgentInRaw(raw); agent != "" {
+					return outputSubagentBlock(fmt.Sprintf(
+						"Malformed SubagentStop payload for %s — failing closed so the quality gate cannot be bypassed. Re-emit a valid final message confirming the task list, files changed, and completion.",
+						agent,
+					))
+				}
 				return outputSubagentOK()
 			}
 
@@ -481,11 +550,14 @@ func subagentStopCmd() *cobra.Command {
 			if strings.Contains(agentType, "ares") {
 				var failures []string
 
-				hasTodoList := strings.Contains(msgLower, "todo:") ||
-					strings.Contains(msgLower, "task list:") ||
+				// Ares plans via TaskCreate; the SubagentStop hook can only see the
+				// final message, not tool calls, so it matches the "Task list:" recap
+				// Ares is instructed to print at the end (text TODO still accepted).
+				hasTaskList := strings.Contains(msgLower, "task list:") ||
+					strings.Contains(msgLower, "todo:") ||
 					regexp.MustCompile(`(?i)##\s*(tasks|todo|plan)`).MatchString(msg)
-				if !hasTodoList {
-					failures = append(failures, "no TODO list was written before starting work")
+				if !hasTaskList {
+					failures = append(failures, "no task list (TaskCreate recap) was written before starting work")
 				}
 
 				mentionsFiles := regexp.MustCompile(`(?i)(created|wrote|implemented|modified|updated).*\.(ts|js|py|go|rs|java|cs|rb|md)`).MatchString(msg)
@@ -503,7 +575,7 @@ func subagentStopCmd() *cobra.Command {
 
 				if len(failures) > 0 {
 					return outputSubagentBlock(fmt.Sprintf(
-						"Ares quality gate failed: %s. Write a TODO list, implement all items, and confirm which files were created.",
+						"Ares quality gate failed: %s. Create tasks via TaskCreate, implement all items, and end with a 'Task list:' recap naming the files you created or modified.",
 						strings.Join(failures, "; "),
 					))
 				}
