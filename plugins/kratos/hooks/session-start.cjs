@@ -24,6 +24,10 @@ const SCHEMA_PATH = path.join(__dirname, "..", "memory", "schema.sql");
 const cwd = process.cwd();
 const projectName = path.basename(cwd);
 
+// Output constraint injected into every session (verbatim from references/agent-protocol.md).
+const OUTPUT_CONSTRAINT =
+  "\n**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.\n";
+
 // Ensure .kratos directory exists
 function ensureDir() {
   if (!fs.existsSync(KRATOS_HOME)) {
@@ -211,6 +215,9 @@ function ensureBinary() {
 function main() {
   ensureDir();
   ensureBinary();
+
+  // Always inject the output constraint, regardless of session resume/init path.
+  console.log(OUTPUT_CONSTRAINT);
 
   // Check for existing active session
   if (fs.existsSync(SESSION_FILE)) {
