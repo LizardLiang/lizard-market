@@ -1,8 +1,24 @@
-# Kratos - The God of War (v2.65.0)
+# Kratos - The God of War (v2.76.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
-Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom. It handles everything from quick bug fixes to full 9-stage feature pipelines — with persistent memory, external research capabilities, and git history expertise.
+Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom. It handles everything from quick bug fixes to full 11-stage feature pipelines — with persistent memory, external research capabilities, and git history expertise.
+
+## Recommended: Use Commands, Not the Pipeline
+
+Most tasks don't need the full pipeline. Start with a command — Kratos routes to the right agent directly:
+
+```bash
+/kratos:quick Add unit tests for UserService.js    # tests, fixes, small tasks
+/kratos:quick debug: TypeError in auth middleware   # debugging
+/kratos:review src/auth.ts                          # code review
+/kratos:inquiry Who worked on payments last month?  # questions (git, codebase, external)
+/kratos:explain src/core/                           # understand a subsystem
+/kratos:audit                                       # pre-ship security/risk scan
+/kratos:plan                                        # strategic planning with Prometheus
+```
+
+**Use the full pipeline** (`/kratos:main`) only when building a substantial new feature that benefits from PRD → spec → implement → review stages. For everything else, commands are faster, cheaper, and get you the same agent expertise without the ceremony.
 
 ## Installation
 
@@ -128,18 +144,20 @@ If no alternative lockfile is found, `npm` commands pass through unchanged.
 
 ## Commands
 
-| Command | Purpose |
-|---------|---------|
-| `/kratos:main` | **Master Command** — Handles any request (auto-classifies) |
-| `/kratos:quick` | **Simple Tasks** — Direct routing for tests, fixes, reviews, debug |
-| `/kratos:review` | **Code Review** — Standards-enforced review with severity tiers and auto-fix |
-| `/kratos:inquiry` | **Knowledge Seek** — Routes questions to Metis, Clio, or Mimir |
-| `/kratos:decompose` | **Decompose** — Break features into phases (files, Notion, Linear) |
-| `/kratos:plan` | **Strategic Plan** — Prometheus interviews you and produces a prioritized build plan |
-| `/kratos:explain` | **Explain Codebase** — Architecture, patterns, history, and the "why" |
-| `/kratos:audit` | **Pre-Ship Audit** — Security, breaking changes, CVEs, scalability |
-| `/kratos:recall` | **Session Resume** — Where did we stop? (uses persistent memory) |
-| `/kratos:status` | **Battlefield View** — Status of all active features |
+Commands are the primary interface. Each routes directly to the right agent — no pipeline overhead.
+
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `/kratos:quick` | **Simple Tasks** — Direct routing for tests, fixes, debug | Day-to-day work: bug fixes, tests, small features |
+| `/kratos:review` | **Code Review** — Standards-enforced with severity tiers and auto-fix | Before merging any PR |
+| `/kratos:inquiry` | **Knowledge Seek** — Routes to Metis, Clio, or Mimir | Questions about codebase, git history, or external docs |
+| `/kratos:explain` | **Explain Codebase** — Architecture, patterns, history, and the "why" | Onboarding or understanding unfamiliar code |
+| `/kratos:plan` | **Strategic Plan** — Prometheus interviews you, produces prioritized build plan | Starting a new initiative or sprint planning |
+| `/kratos:decompose` | **Decompose** — Break features into phases (files, Notion, Linear) | Large feature needs phased delivery |
+| `/kratos:audit` | **Pre-Ship Audit** — Security, breaking changes, CVEs, scalability | Before release or deploy |
+| `/kratos:recall` | **Session Resume** — Where did we stop? (uses persistent memory) | Picking up after a break |
+| `/kratos:status` | **Battlefield View** — Status of all active features | Checking pipeline progress |
+| `/kratos:main` | **Full Pipeline** — 11-stage PRD → spec → implement → review | Only for substantial new features |
 
 ---
 
@@ -184,9 +202,9 @@ Tailor Kratos's power to your needs by prefixing any request:
 
 ---
 
-## The Pipeline (Complex Features)
+## The Pipeline (Complex Features Only)
 
-For building new features, Kratos follows a structured path:
+For substantial new features that need formal requirements, specs, and review — use `/kratos:main`. For everything else, use commands above.
 
 ```
 [0] Research (Metis) — optional pre-flight codebase scan
@@ -255,26 +273,21 @@ Each shard has a `## Permanent` section (written only by Metis at bootstrap, Ath
 ## Usage Examples
 
 ```bash
-# Ask about git history
-/kratos:inquiry Who worked on the login page last month?
-
-# Research best practices (Eco mode)
-eco: what's the most efficient way to handle large file uploads in Node.js?
-
-# Debug an error
-/kratos:quick debug: TypeError: Cannot read properties of undefined
-
-# Simple task
+# Most tasks — use commands directly
 /kratos:quick Add unit tests for UserService.js
+/kratos:quick debug: TypeError: Cannot read properties of undefined
+/kratos:review src/auth.ts
+/kratos:inquiry Who worked on the login page last month?
+/kratos:explain src/core/engine.ts
+/kratos:audit
+/kratos:recall
 
-# Complex feature
-/kratos:main Build a multi-tenant subscription system
-
-# Power mode for critical review
+# Eco mode (cheaper) or Power mode (all-Opus)
+eco: what's the most efficient way to handle large file uploads in Node.js?
 power: review the payment processing logic for security vulnerabilities
 
-# Resume previous work
-/kratos:recall
+# Full pipeline — only for complex new features
+/kratos:main Build a multi-tenant subscription system
 ```
 
 ---
@@ -344,9 +357,9 @@ Themis writes `context.md` which Hephaestus reads before writing the tech spec. 
 
 ### Stage 4 in Detail — Hephaestus's Tech Spec
 
-Hephaestus is unique: it **never reads the codebase directly**. It always spawns Metis (Haiku) with a directed scan query and waits for the result. This enforces clean separation between architectural thinking and file exploration. If Hephaestus skips the Metis scan, the SubagentStop hook treats it as a bug and blocks completion.
+Hephaestus is unique: it **never reads the codebase directly**. Kratos spawns Metis (Haiku) with a directed scan query first. This enforces clean separation between architectural thinking and file exploration.
 
-After receiving the codebase scan, Hephaestus presents 2-3 concrete implementation approaches via `AskUserQuestion`. Each option includes tradeoffs. You pick one (or provide your own). Hephaestus then resolves any remaining gray areas and writes the full tech spec.
+After receiving the codebase scan, Hephaestus asks the user directly via `AskUserQuestion` — presenting 2-3 concrete implementation approaches with tradeoffs, then resolving gray areas one at a time. During spec writing, Hephaestus may ask follow-up questions if new ambiguities surface (edge cases, interface design choices, decision tensions). The spec is never written with silent assumptions.
 
 The tech spec contains:
 - Architecture overview and component diagram (ASCII)

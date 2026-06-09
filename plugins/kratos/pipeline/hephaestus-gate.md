@@ -5,7 +5,7 @@ description: Tech spec orchestration procedure for Kratos — codebase scan, app
 
 # Hephaestus Gate — Stage 4
 
-You are **Kratos**. Run this procedure for Stage 4. Neither Task nor AskUserQuestion is available to Hephaestus at runtime, so you own both the codebase scan and the user interaction. Hephaestus does only the technical analysis and document writing.
+You are **Kratos**. Run this procedure for Stage 4. Hephaestus has AskUserQuestion and handles user interaction directly during ANALYZE. You own the codebase scan (via Metis/Arena) and phase orchestration.
 
 ---
 
@@ -91,9 +91,9 @@ Key findings: [2-3 bullet points from CODEBASE_SCAN_RESULT]
 
 ---
 
-## Phase 4b: Technical Analysis (Hephaestus ANALYZE)
+## Phase 4b: Technical Analysis + User Decisions (Hephaestus ANALYZE)
 
-Spawn Hephaestus with `PHASE: ANALYZE` and pass the codebase context (either from Metis or Arena):
+Spawn Hephaestus with `PHASE: ANALYZE` and pass the codebase context (either from Metis or Arena). Hephaestus will ask the user directly about approach selection and gray areas via AskUserQuestion, then write `tech-spec-proposal.md` with locked decisions.
 
 ```
 Task(
@@ -112,57 +112,18 @@ CODEBASE_CONTEXT:
 DECISIONS_CONTEXT:
 [paste context.md content from Phase 4pre — Themis's locked implementation decisions]
 
-Analyze the PRD and codebase context. Respect all decisions already locked in DECISIONS_CONTEXT — do not re-surface gray areas already resolved there. Write tech-spec-proposal.md at .claude/feature/[feature-name]/tech-spec-proposal.md.
-Do not write tech-spec.md yet — that comes after user input on approaches and gray areas.",
-  description: "hephaestus - approach analysis"
+Analyze the PRD and codebase context. Respect all decisions already locked in DECISIONS_CONTEXT — do not re-surface gray areas already resolved there.
+Ask the user about approach selection and gray areas using AskUserQuestion. Write tech-spec-proposal.md with all decisions locked.
+Do not write tech-spec.md yet — that comes in WRITE_SPEC phase.",
+  description: "hephaestus - analysis + user decisions"
 )
 ```
 
-Wait for `tech-spec-proposal.md` to appear before proceeding.
+Wait for `tech-spec-proposal.md` to appear before proceeding. Verify it contains a `## Selected Approach` section (not just `## Recommended`) — this confirms Hephaestus asked the user and locked the decision.
 
 ---
 
-## Phase 4c: User Decisions (Kratos)
-
-Read `tech-spec-proposal.md`. It contains the approaches and gray areas Hephaestus identified.
-
-**Step 1 — Approach selection:**
-
-```
-AskUserQuestion(
-  question: "Hephaestus has identified [N] implementation approaches:\n\n[paste approach names + one-line descriptions from tech-spec-proposal.md]\n\nRecommended: [RECOMMENDED] — [rationale]",
-  header: "Approach selection",
-  options: [
-    { label: "[Approach A name]", description: "[effort] | [key pro] | [codebase fit]" },
-    { label: "[Approach B name]", description: "[effort] | [key pro] | [codebase fit]" },
-    { label: "Use recommended", description: "[recommended approach name]" }
-  ]
-)
-```
-
-Record the answer as `APPROACH_SELECTED`.
-
-**Step 2 — Gray areas:**
-
-For each `GA-*` entry in `tech-spec-proposal.md`, call `AskUserQuestion` once per turn:
-
-```
-AskUserQuestion(
-  question: "[context from gray area] [the concrete question]",
-  header: "[gray area title, max 30 chars]",
-  options: [
-    { label: "[Option A]", description: "[tradeoff]" },
-    { label: "[Option B]", description: "[tradeoff]" },
-    { label: "Defer to Hephaestus", description: "Let the spec author decide" }
-  ]
-)
-```
-
-Collect all answers. Ask one at a time.
-
----
-
-## Phase 4d: Spec Writing (Hephaestus WRITE_SPEC)
+## Phase 4c: Spec Writing (Hephaestus WRITE_SPEC)
 
 Once all decisions are locked, spawn Hephaestus to write the final spec:
 

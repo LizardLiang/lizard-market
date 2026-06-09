@@ -129,13 +129,12 @@ If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status
 
 ---
 
-## Stage 4: Tech Spec — Three Sub-phases
+## Stage 4: Tech Spec
 
 Read `plugins/kratos/pipeline/hephaestus-gate.md` and run the full procedure:
 - Phase 4a: Kratos spawns Metis for codebase scan
-- Phase 4b: Kratos spawns Hephaestus ANALYZE → `tech-spec-proposal.md`
-- Phase 4c: Kratos uses AskUserQuestion for approach selection and gray areas
-- Phase 4d: Kratos spawns Hephaestus WRITE_SPEC with locked decisions → `tech-spec.md`
+- Phase 4b: Kratos spawns Hephaestus ANALYZE — asks user about approaches + gray areas via AskUserQuestion → `tech-spec-proposal.md` with locked decisions
+- Phase 4c: Kratos spawns Hephaestus WRITE_SPEC → `tech-spec.md` (may ask follow-ups if new gaps surface)
 
 ---
 ## Stage 5: Spec Review (Architecture)
