@@ -47,6 +47,25 @@ Extract the review target from the user's request:
 
 ---
 
+## Step 2.5: Triage (Haiku)
+
+Before spawning review children, run a quick triage check to skip trivial reviews:
+
+```
+Task(
+  model: "haiku",
+  prompt: "Check whether this code review should be skipped.
+TARGET: [resolved target]
+Check: (1) only lockfiles/generated code/version bumps with zero logic, (2) if a PR number is available — is it draft, closed, or already reviewed by Claude.
+Return SKIP: <reason> if any is true. Return PROCEED if none apply.",
+  description: "hermes triage — skip check"
+)
+```
+
+If triage returns `SKIP`, output the reason and stop. Otherwise proceed.
+
+---
+
 ## Step 3: Spawn Three Focused Hermes Children
 
 Announce the fan-out, then spawn all three **in the same response** (three Task tool calls at once):
@@ -56,7 +75,7 @@ HERMES COMMAND-MODE REVIEW
 
 Target: [resolved target]
 Mode: [eco/normal/power]
-Strategy: 3 focused review children (T1-2 / T3-5 / T6-8)
+Strategy: triage → 3 parallel children (T1-2 / T3-5 / T6-8) → validation → merge
 
 [IMMEDIATELY USE TASK TOOL — ALL THREE IN THE SAME RESPONSE]
 ```
@@ -72,13 +91,16 @@ TIER ASSIGNMENT: T1-T2 ONLY (Correct, Safe)
 
 Review ONLY Tier 1 (Correct) and Tier 2 (Safe). Skip Tiers 3-8 completely — sibling agents own those.
 
+### Tier 1 — Adversarial Path Tracing
+For every conditional branch handling error/null/failure — trace execution PAST the branch to end of function. Does it continue to a state-mutating operation that assumes success? If yes → T1 BLOCKER.
+
 After completing each assigned tier, mark it via Bash:
   kratos hermes-list check T1
   kratos hermes-list check T2
 
 If the SubagentStop gate blocks you citing tiers T3-T8, do NOT review or mark them — they belong to sibling agents. Simply attempt to stop again; the gate fails open after 3 attempts.
 
-Follow Steps 1, 3b (T1-T2 only), 4 (auto-fix for your findings), 5, 6, and Reuse Check from your agent instructions. Use standalone output format — findings list, no document.",
+Follow Steps 1, 3b (T1-T2 only), 4 (auto-fix for your findings), 5, 6 from your agent instructions. Use standalone output format — findings list, no document.",
   description: "hermes A — T1-T2 (Correct, Safe)"
 )
 
@@ -99,7 +121,9 @@ After completing each assigned tier, mark it via Bash:
 
 If the SubagentStop gate blocks you citing tiers outside T3-T5, do NOT review or mark them — they belong to sibling agents. Simply attempt to stop again; the gate fails open after 3 attempts.
 
-Follow Steps 1, 3b (T3-T5 only), 4 (auto-fix for your findings), 5, 6, and Reuse Check from your agent instructions. Use standalone output format — findings list, no document.",
+Also run the Reuse Check: identify new functions/utilities, search for duplicates (max 5 functions, 3 queries each). Duplicates → [WARNING] T4 Minimal.
+
+Follow Steps 1, 3b (T3-T5 only), 4 (auto-fix for your findings), 5, 6 from your agent instructions. Use standalone output format — findings list, no document.",
   description: "hermes B — T3-T5 (Clear, Minimal, Consistent)"
 )
 
@@ -113,6 +137,13 @@ TIER ASSIGNMENT: T6-T8 ONLY (Resilient, Performant, Maintainable)
 
 Review ONLY Tier 6 (Resilient), Tier 7 (Performant), and Tier 8 (Maintainable). Skip Tiers 1-5 completely — sibling agents own those.
 
+### Tier 6 — Absence & Branch Checks
+Absence check: For 2+ state mutations, ask what is missing (transaction? rollback? error signal?).
+Branch symmetry: For if/else bifurcations, list what each branch creates/updates/reads. Verify symmetry.
+
+### Tier 8 — Anti-Pattern Checklist
+M1 Redundant state, M2 Parameter sprawl, M3 Copy-paste (≥2 = BLOCKER), M4 Leaky abstractions, M5 Stringly-typed, M6 Missed concurrency (BLOCKER), M7 Hot-path bloat, M8 Recurring no-op, M9 TOCTOU, M10 Unbounded growth.
+
 After completing each assigned tier, mark it via Bash:
   kratos hermes-list check T6
   kratos hermes-list check T7
@@ -120,21 +151,58 @@ After completing each assigned tier, mark it via Bash:
 
 If the SubagentStop gate blocks you citing tiers T1-T5, do NOT review or mark them — they belong to sibling agents. Simply attempt to stop again; the gate fails open after 3 attempts.
 
-Follow Steps 1, 3b (T6-T8 only), 4 (auto-fix for your findings), 5, 6, and Reuse Check from your agent instructions. Use standalone output format — findings list, no document.",
+Follow Steps 1, 3b (T6-T8 only), 4 (auto-fix for your findings), 5, 6 from your agent instructions. Use standalone output format — findings list, no document.",
   description: "hermes C — T6-T8 (Resilient, Performant, Maintainable)"
 )
 ```
 
-Wait for **all three** to complete before proceeding to Step 4.
+Wait for **all three** to complete before proceeding.
+
+---
+
+## Step 3.5: Validation Pass
+
+After all three children return, collect their findings. For every **BLOCKER** and **WARNING** finding, spawn parallel validation agents to independently re-check each finding.
+
+**Purpose:** A finding two independent agents agree on is high-signal. A finding only one agent sees may be a misread.
+
+**Rules:**
+- BLOCKER findings → validated by **Opus**
+- WARNING findings → validated by **Sonnet**
+- SUGGESTION findings → skip validation (low cost if wrong)
+- Group related findings (same file, same issue) into one validation call
+
+```
+Task(
+  model: "[opus for BLOCKERs, sonnet for WARNINGs]",
+  prompt: "MISSION: Validate Code Review Finding
+TARGET FILE: [file path]
+FINDING: [the finding text including file:line, tier, rule, problem, fix]
+
+Your job: independently verify this finding is real.
+1. Read the file at the specified line
+2. Check if the stated problem actually exists in the code
+3. Apply False Positive Prevention checks:
+   - FP-01: Is this a value copy vs resource reference confusion?
+   - FP-02: Would the proposed fix introduce worse problems (DRY violation)?
+   - Is this a pre-existing issue not introduced by this change?
+4. Return: CONFIRMED — <reason> or REJECTED — <reason>",
+  description: "validate: [short finding description]"
+)
+```
+
+After all validation agents return:
+- **CONFIRMED** findings proceed to Step 4
+- **REJECTED** findings are dropped: `[FILTERED] <finding> — <rejection reason>`
 
 ---
 
 ## Step 4: Merge and Report
 
-Aggregate the three children's findings into one verdict, presenting tiers in order (T1→T8):
+Aggregate validated findings into one verdict, presenting tiers in order (T1→T8):
 
 ```
-HERMES REVIEW COMPLETE [COMMAND MODE — 3 CHILDREN]
+HERMES REVIEW COMPLETE [COMMAND MODE — 3 CHILDREN + VALIDATION]
 
 Target: [what was reviewed]
 Languages detected: [merged list]
@@ -150,9 +218,12 @@ Findings: (only tiers with findings — omit clean tiers)
   T7 Performant   — [findings from Child C, or "Clean"]
   T8 Maintainable — [findings from Child C, or "Clean"]
 
+Filtered: [N] findings rejected by validation pass
+  [FILTERED] <finding> — <rejection reason>
+
 Totals: [BLOCKER] x[N]  [WARNING] x[N]  [SUGGESTION] x[N]
 
-[All BLOCKER and WARNING findings listed with file:line, tier, rule, fix]
+[All confirmed BLOCKER and WARNING findings listed with file:line, tier, rule, fix]
 
 Auto-fix results: Applied [N] | Requires manual [N]
 Refactoring hints: [from any child, or none]
@@ -160,6 +231,6 @@ Rule proposals: [N written / none]
 Verdict: Approved / Changes Required
 ```
 
-Verdict gate (same as single-Hermes): zero remaining `[BLOCKER]` findings AND zero unresolved `[WARNING]` findings = **Approved**. Any remaining = **Changes Required**.
+Verdict gate: zero remaining `[BLOCKER]` findings AND zero unresolved `[WARNING]` findings = **Approved**. Any remaining = **Changes Required**.
 
 You are running in the main context — you do NOT have a `hermes-checklist.json` and must NOT run `kratos hermes-list`. Tier coverage is guaranteed by the three children collectively owning all 8 tiers.

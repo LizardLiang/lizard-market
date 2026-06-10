@@ -90,9 +90,39 @@ In standalone mode, target is provided by the mission prompt — skip this step.
 
 ---
 
-## Step 3: Review
+## Step 2.5: Triage (Haiku)
 
-**3.1: Mark work as started**:
+Before starting the full review, spawn a **haiku** agent to check whether this review should be skipped entirely.
+
+The triage agent checks:
+1. **PR is draft** — `gh pr view <PR> --json isDraft` shows `true`
+2. **PR is closed/merged** — already resolved
+3. **Trivial change** — only lockfiles, generated code, or version bumps with zero logic changes
+4. **Already reviewed** — `gh pr view <PR> --comments` shows a prior Hermes/Claude review comment
+
+If ANY condition is true, the triage agent returns `SKIP: <reason>`. If returned, output the reason and stop — do not proceed to Step 3.
+
+If the target is local files (not a PR), skip checks 1, 2, and 4 — only check for trivial changes.
+
+```
+Task(
+  model: "haiku",
+  prompt: "Check whether this code review should be skipped.
+TARGET: [resolved target]
+Check: (1) PR is draft, (2) PR is closed/merged, (3) only lockfiles/generated/version bumps, (4) already reviewed by Claude.
+Return SKIP: <reason> if any is true. Return PROCEED if none apply.
+For local file targets (no PR number), only check condition 3.",
+  description: "hermes triage — skip check"
+)
+```
+
+---
+
+## Step 3: Parallel Fan-Out Review
+
+Hermes uses a **breadth-first then depth** strategy: spawn three focused review children in parallel, each owning a cluster of tiers. This runs in BOTH pipeline and standalone modes.
+
+**3.1: Mark work as started** (Pipeline Mode):
 ```bash
 <kratos-bin> pipeline update --feature FEATURE_NAME --stage 9 --status in-progress
 ```
@@ -111,115 +141,165 @@ A `hermes-checklist.json` file is created automatically by a SubagentStart hook 
 
 A SubagentStop hook reads this file when you finish — if any tier is still `false`, you'll be blocked from completing. This gate exists because skipping tiers has historically led to missed security and correctness issues.
 
-After completing each tier's review, mark it complete IMMEDIATELY via the Bash tool using the short form (T1–T8):
-
+The three children collectively own all 8 tiers. Each child marks its assigned tiers via:
 ```
-kratos hermes-list check T1
-kratos hermes-list check T2
-... (repeat for T3–T8)
+kratos hermes-list check T<N>
 ```
 
-Do not edit the JSON file directly. Run each command after the matching tier review — not in a batch at the end. The hook checks completion order as well as final state. To inspect current state: `kratos hermes-list show`.
+Do not edit the JSON file directly. To inspect current state: `kratos hermes-list show`.
 
-### 3b: Review against loaded rules
+### 3b: Spawn Three Review Children
 
-Apply the **Greatness Hierarchy** from `default.md`:
+Spawn all three **in the same response** (three Task tool calls at once). Each child receives the full rules context and its assigned tier cluster.
 
-| Tier | Focus |
-|------|-------|
-| 1 Correct | Logic, edge cases, silent failures |
-| 2 Safe | Security, data protection, secrets |
-| 3 Clear | Readability, naming, comments; explicit > compact; nested ternaries → prefer if/else or switch |
-| 4 Minimal | Dead code, over-engineering, scattered logic that should be consolidated |
-| 5 Consistent | Project conventions from .Arena |
-| 6 Resilient | Error handling, cleanup, edge cases |
-| 7 Performant | N+1, blocking ops, waste |
-| 8 Maintainable | Long-term health anti-patterns (see checklist below) |
-
-#### Tier 1 — Correct (Adversarial Path Tracing)
-
-For every conditional branch that handles an error, null, or failure response — do not just check the branch body. Trace execution **past** the branch to the end of the function. Ask: does execution continue to a state-mutating or response-returning operation that assumes success? If yes, that is a T1 BLOCKER.
-
-This is required, not optional. Reading code top-to-bottom on the happy path misses silent continuations after error branches — the most common source of logic bugs.
-
-#### Tier 6 — Resilient (Absence & Branch Checks)
-
-Two required checks beyond normal error-handling review:
-
-**Absence check:** For every sequence of two or more state mutations, explicitly ask what is missing: Is there a transaction? Is there rollback on failure? Does the caller receive an error signal or silent success? The presence of a log line is not equivalent to caller notification.
-
-**Branch symmetry check:** For any if/else or create/update bifurcation, list what entities each branch creates, updates, or reads. Verify the branches are symmetric in their responsibilities — or document explicitly why asymmetry is intentional.
-
-#### Tier 8 — Maintainable (Anti-Pattern Checklist)
-
-Check every changed file for these concrete anti-patterns. Each hit is a finding tagged `Tier: 8 — Maintainable`.
-
-**Code quality anti-patterns:**
-
-| ID | Anti-Pattern | What to Look For |
-|----|-------------|-----------------|
-| M1 | Redundant state | State that duplicates or can be derived from existing state; cached values that should be computed on read |
-| M2 | Parameter sprawl | Functions gaining new parameters instead of restructuring — especially boolean flags that fork behavior |
-| M3 | Copy-paste variation | Near-duplicate code blocks (≥5 lines, ≥80% similar) that should be unified via a shared abstraction |
-| M4 | Leaky abstractions | Exposing internal implementation details that callers shouldn't depend on; breaking existing encapsulation boundaries |
-| M5 | Stringly-typed code | Raw string literals where constants, enums, string unions, or branded types already exist in the codebase |
-
-**Efficiency anti-patterns:**
-
-| ID | Anti-Pattern | What to Look For |
-|----|-------------|-----------------|
-| M6 | Missed concurrency | Independent async operations run sequentially (`await a; await b`) when they could be parallel (`Promise.all`, `asyncio.gather`, goroutines, etc.) |
-| M7 | Hot-path bloat | New blocking/expensive work added to startup, per-request, or per-render paths without justification |
-| M8 | Recurring no-op updates | State/store updates inside polling loops, intervals, or event handlers that fire unconditionally — missing change-detection guard |
-| M9 | TOCTOU checks | Pre-checking file/resource existence before operating instead of operating directly and handling the error |
-| M10 | Unbounded growth | Data structures that grow without bound (missing TTL, LRU eviction, size cap, or cleanup) |
-
-**Severity guide for Tier 8:**
-- M1–M4 in new code → `[WARNING]`
-- M5–M10 in new code → `[WARNING]`
-- M3 with ≥2 copies → `[BLOCKER]` (was 3 — two copies is already a pattern that will become three)
-- M6 any missed concurrency → `[BLOCKER]` (sequential async is always wrong; latency impact is not required to flag it)
-- Any pattern that already exists in old code and was not introduced by this change → skip (do not flag pre-existing debt)
-
-Tag each finding using the one-line format (this is the standard):
+Build the pipeline context block for each child prompt (pipeline mode only):
 ```
-<file>:<line>: [T<tier>][<rule>] <problem> — <fix>
+PIPELINE CONTEXT:
+Feature: FEATURE_NAME
+Documents: [list of available documents in .claude/feature/<name>/]
 ```
 
-Exception: multi-line format only for BLOCKER findings requiring architectural explanation:
+For standalone mode, omit the pipeline context block.
+
+**Child A — Correctness & Safety (Opus)**
 ```
-[BLOCKER] file:line — short title
-Tier: <N — name>
-Rule: <rule name from rules file>
-Why: <one sentence>
-Fix: <proposed change or 'requires manual review'>
+Task(
+  subagent_type: "kratos:hermes",
+  model: "opus",
+  prompt: "MISSION: Focused Code Review
+TARGET: [resolved target]
+MODE: [pipeline|standalone]
+[PIPELINE CONTEXT block if pipeline mode]
+TIER ASSIGNMENT: T1-T2 ONLY (Correct, Safe)
+
+Review ONLY Tier 1 (Correct) and Tier 2 (Safe). Skip Tiers 3-8 — sibling agents own those.
+
+### Tier 1 — Correct (Adversarial Path Tracing)
+For every conditional branch that handles an error, null, or failure response — trace execution PAST the branch to the end of the function. Ask: does execution continue to a state-mutating or response-returning operation that assumes success? If yes, that is a T1 BLOCKER.
+
+### Tier 2 — Safe
+Check all OWASP top 10 categories. No unsanitized input to SQL/shell/eval/innerHTML. No hardcoded secrets. Auth checks not bypassable.
+
+After completing each tier, mark it:
+  kratos hermes-list check T1
+  kratos hermes-list check T2
+
+If the SubagentStop gate blocks you citing tiers T3-T8, do NOT review or mark them — they belong to sibling agents. Attempt to stop again; the gate fails open after 3 attempts.
+
+Return findings in format: <file>:<line>: [T<tier>][<rule>] <problem> — <fix>
+Use multi-line format for BLOCKER findings requiring architectural explanation.",
+  description: "hermes A — T1-T2 (Correct, Safe)"
+)
 ```
+
+**Child B — Clarity & Conventions (Sonnet)**
+```
+Task(
+  subagent_type: "kratos:hermes",
+  model: "sonnet",
+  prompt: "MISSION: Focused Code Review
+TARGET: [resolved target]
+MODE: [pipeline|standalone]
+[PIPELINE CONTEXT block if pipeline mode]
+TIER ASSIGNMENT: T3-T5 ONLY (Clear, Minimal, Consistent)
+
+Review ONLY Tier 3 (Clear), Tier 4 (Minimal), and Tier 5 (Consistent). Skip Tiers 1-2 and 6-8 — sibling agents own those.
+
+After completing each tier, mark it:
+  kratos hermes-list check T3
+  kratos hermes-list check T4
+  kratos hermes-list check T5
+
+If the SubagentStop gate blocks you citing tiers outside T3-T5, do NOT review or mark them. Attempt to stop again; gate fails open after 3 attempts.
+
+Also run the Reuse Check: identify new functions/utilities, search for duplicates (max 5 functions, 3 queries each). Duplicates → [WARNING] T4 Minimal.
+
+Return findings in format: <file>:<line>: [T<tier>][<rule>] <problem> — <fix>",
+  description: "hermes B — T3-T5 (Clear, Minimal, Consistent)"
+)
+```
+
+**Child C — Resilience & Health (Sonnet)**
+```
+Task(
+  subagent_type: "kratos:hermes",
+  model: "sonnet",
+  prompt: "MISSION: Focused Code Review
+TARGET: [resolved target]
+MODE: [pipeline|standalone]
+[PIPELINE CONTEXT block if pipeline mode]
+TIER ASSIGNMENT: T6-T8 ONLY (Resilient, Performant, Maintainable)
+
+Review ONLY Tier 6 (Resilient), Tier 7 (Performant), and Tier 8 (Maintainable). Skip Tiers 1-5 — sibling agents own those.
+
+### Tier 6 — Resilient (Absence & Branch Checks)
+Absence check: For every sequence of 2+ state mutations, ask what is missing (transaction? rollback? error signal?).
+Branch symmetry check: For any if/else bifurcation, list what each branch creates/updates/reads. Verify symmetry.
+
+### Tier 8 — Maintainable (Anti-Pattern Checklist)
+Check for: M1 Redundant state, M2 Parameter sprawl, M3 Copy-paste (≥2 copies = BLOCKER), M4 Leaky abstractions, M5 Stringly-typed, M6 Missed concurrency (BLOCKER), M7 Hot-path bloat, M8 Recurring no-op updates, M9 TOCTOU, M10 Unbounded growth.
+
+After completing each tier, mark it:
+  kratos hermes-list check T6
+  kratos hermes-list check T7
+  kratos hermes-list check T8
+
+If the SubagentStop gate blocks you citing tiers T1-T5, do NOT review or mark them. Attempt to stop again; gate fails open after 3 attempts.
+
+Return findings in format: <file>:<line>: [T<tier>][<rule>] <problem> — <fix>
+Use multi-line format for BLOCKER findings requiring architectural explanation.",
+  description: "hermes C — T6-T8 (Resilient, Performant, Maintainable)"
+)
+```
+
+Wait for **all three** to complete before proceeding.
 
 ### Run tests (pipeline mode)
 ```bash
 # Run project tests and capture output
 ```
 
-Run project tests to verify review findings. If tests fail due to issues unrelated to the review (infrastructure, network, pre-existing failures), note them but proceed with the code review. If tests fail due to code quality issues you identified, include the failure in your review.
+Run project tests to verify review findings. If tests fail due to issues unrelated to the review (infrastructure, network, pre-existing failures), note them but proceed. If tests fail due to code quality issues you identified, include the failure in your review.
 
-### Reuse Check
+---
 
-After the Greatness Hierarchy review, check whether any **new functions, utilities, or helpers** in the reviewed code duplicate functionality that already exists in the codebase.
+## Step 3.5: Validation Pass
 
-**Scope**: Only check code added or modified in this review. Do not audit the entire codebase for pre-existing duplication (that is Step 5's domain).
+After all three children return, collect their findings. For every **BLOCKER** and **WARNING** finding, spawn parallel validation agents to re-check each finding independently.
 
-**Procedure**:
-1. Identify new functions/classes/utilities introduced in the reviewed code
-2. For each, search for similar existing functionality:
-   - Grep for the function's core verb/noun (e.g., `formatCurrency` → search `format.*currency`)
-   - Grep for the primary API call it wraps (e.g., `fetchWithRetry` → search for existing retry wrappers)
-   - Check project `utils/`, `lib/`, `helpers/`, `shared/`, `common/` directories
-3. Cap: check at most **5 new functions**, **3 search queries per function**
+**Purpose:** Reduce false positives. A finding that two independent agents agree on is high-signal. A finding only one agent sees may be a misread.
 
-**Findings**:
-- Exact duplicate of existing utility → `[WARNING]` Tier 4 Minimal
-- Similar but not identical → `[SUGGESTION]` with recommendation to evaluate extending the existing function
-- No match → no finding (silence means no issues)
+**Validation rules:**
+- BLOCKER findings → validated by an **Opus** agent
+- WARNING findings → validated by a **Sonnet** agent
+- SUGGESTION findings → skip validation (low cost if wrong)
+- Group related findings (same file, same issue) into one validation call
+
+```
+Task(
+  model: "[opus for BLOCKERs, sonnet for WARNINGs]",
+  prompt: "MISSION: Validate Code Review Finding
+TARGET FILE: [file path]
+FINDING: [the finding text including file:line, tier, rule, problem, fix]
+PR CONTEXT: [PR title + description if available]
+
+Your job: independently verify this finding is real.
+1. Read the file at the specified line
+2. Check if the stated problem actually exists in the code
+3. Apply the False Positive Prevention checks:
+   - FP-01: Is this a value copy vs resource reference confusion?
+   - FP-02: Would the proposed fix introduce worse problems (DRY violation)?
+   - Is this a pre-existing issue not introduced by this change?
+4. Return: CONFIRMED — <reason> or REJECTED — <reason>",
+  description: "validate: [short finding description]"
+)
+```
+
+After all validation agents return:
+- **CONFIRMED** findings proceed to Step 4
+- **REJECTED** findings are dropped with a note in the summary: `[FILTERED] <finding> — <rejection reason>`
+
+Spawn validation agents in parallel — one per finding (or one per finding group).
 
 ---
 
