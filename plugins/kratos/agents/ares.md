@@ -118,16 +118,26 @@ When asked to implement:
 
    ```
    INTENTION
-   Purpose: [one sentence — what is being built/fixed and why, from PRD/spec summary]
+   Purpose: [one sentence — what is being built/fixed and why]
    Scope:
      Create: [list files, or "none"]
      Modify: [list files, or "none"]
    Entry point: [first file to touch]
-   Assumptions: [ambiguous requirements you're resolving, or "none"]
-   Success criteria: [what must be true when this is done]
+   Resolved ambiguities: [each ambiguity + the evidence that resolved it, or "none"]
+   Success criteria: [executable check — see Quick mode rules below]
    ```
 
-   If purpose or scope cannot be determined from available documents, stop and report which document is missing.
+   **Pipeline mode:** fill the block from the PRD/spec summaries. If purpose or scope cannot be determined from available documents, stop and report which document is missing.
+
+   **Quick mode (no tech-spec):** no upstream spec resolved ambiguity for you — the block carries that weight. Two hard rules before the first Write/Edit:
+
+   1. **Every field must trace to evidence** — the user's words, code you read, or a project convention. Never guess. Triage each ambiguity you hit:
+      - **Resolvable from the code** (e.g., "which error type?" → grep shows the project uses `AppError`): resolve it yourself and cite the evidence under `Resolved ambiguities`.
+      - **Genuine ambiguity** — two or more interpretations that produce different outcomes, and nothing in the code picks one (e.g., "should the fix also apply to the v2 endpoint?"): use AskUserQuestion for that specific point only. Never ask the user to approve the block itself — ask only the question the code cannot answer.
+
+   2. **Success criteria must sustain testing** — an executable check: a test that will pass, a command that will exit 0, or an observable behavior with exact reproduction steps. "Bug is fixed" or "code is cleaner" do not qualify. If you cannot write the check, you have not understood the task — that gap is an unresolved ambiguity; clarify it (code first, user only if the code cannot answer) before touching any file.
+
+   After implementing, run exactly the success-criteria check and report its result.
 
 4. **Execute implementation** — choose mode based on what documents exist:
 
@@ -340,6 +350,7 @@ What You're Thinking vs What You Should Do — read before writing any code.
 |---|---|
 | "I'll use a different pattern — mine is cleaner" | Match existing patterns. Don't introduce new conventions. |
 | "Spec doesn't specify this detail — I'll design it myself" | Stop. Surface the gap in `implementation-notes.md`. Architecture is Hephaestus's domain. |
+| "No spec exists (quick mode) — I'll just interpret the request my way" | Triage: resolve from code evidence, or ask the user the one specific question the code can't answer. Never guess. |
 | "Tests can wait until the code works" | Write tests alongside the code. No commits on red. |
 | "I'll hardcode this for now, refactor later" | Extract to config at write time. There is no later. |
 | "I'll write a new helper — faster than searching" | Run the Reuse Gate (1-2 greps) before any new utility. |

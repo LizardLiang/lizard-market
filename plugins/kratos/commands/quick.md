@@ -129,7 +129,7 @@ Task(
 TARGET: [file/function]
 REQUIREMENTS: [user's specific requirements]
 
-Execute the task directly:
+Before any edit, follow your INTENTION protocol: resolve every ambiguity with evidence from the code, ask the user only outcome-changing questions the code cannot answer, and define an executable success criterion. Then execute:
 - [For bug fix]: Identify root cause, implement fix, verify solution
 - [For refactor]: Improve code quality while preserving behavior
 - [For documentation]: Add clear, helpful documentation
