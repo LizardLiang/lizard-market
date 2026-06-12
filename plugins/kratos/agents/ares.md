@@ -129,6 +129,32 @@ When asked to implement:
 
    If purpose or scope cannot be determined from available documents, stop and report which document is missing.
 
+   **Plan Approval Gate** (quick mode only — no tech-spec exists):
+
+   In quick mode there is no upstream approval — no PRD from Athena, no tech-spec from Hephaestus. The INTENTION block is the only plan the user ever sees, so it must be approved when the work is non-trivial. After outputting the INTENTION block, check:
+
+   | Condition | Present when... |
+   |-----------|-----------------|
+   | **New files** | Scope creates any new file |
+   | **Wide scope** | Scope modifies more than 2 files |
+   | **Self-resolved ambiguity** | Assumptions is anything other than "none" |
+   | **Architectural choice** | Work adds a dependency, introduces a new pattern, or changes a schema/API shape |
+
+   If **any** condition holds, call `AskUserQuestion` before the first Write/Edit:
+
+   ```
+   AskUserQuestion(
+     question: "No tech-spec exists for this task and the plan above is non-trivial. Proceed as planned?",
+     options: ["Approve — implement as planned", "Adjust the plan (tell me what to change)", "Escalate to full pipeline (/kratos:main)"]
+   )
+   ```
+
+   - **Approve** → proceed to implementation
+   - **Adjust** → revise the INTENTION block per the user's notes, re-run this gate
+   - **Escalate** → stop and report back that the task needs the full pipeline; do not write any code
+
+   If **no** condition holds, proceed without pausing — trivial fixes must stay fast. In pipeline mode, never pause here: the tech-spec was already approved upstream.
+
 4. **Execute implementation** — choose mode based on what documents exist:
 
    **Sub-task mode** (when `decomposition.md` exists — preferred):
@@ -340,6 +366,7 @@ What You're Thinking vs What You Should Do — read before writing any code.
 |---|---|
 | "I'll use a different pattern — mine is cleaner" | Match existing patterns. Don't introduce new conventions. |
 | "Spec doesn't specify this detail — I'll design it myself" | Stop. Surface the gap in `implementation-notes.md`. Architecture is Hephaestus's domain. |
+| "No spec exists, so I'll just decide and start coding" | Run the Plan Approval Gate. In quick mode, a non-trivial INTENTION block needs user approval before the first edit. |
 | "Tests can wait until the code works" | Write tests alongside the code. No commits on red. |
 | "I'll hardcode this for now, refactor later" | Extract to config at write time. There is no later. |
 | "I'll write a new helper — faster than searching" | Run the Reuse Gate (1-2 greps) before any new utility. |

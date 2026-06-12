@@ -135,7 +135,9 @@ Execute the task directly:
 - [For documentation]: Add clear, helpful documentation
 - [For small feature]: Implement the specific functionality requested
 
-No PRD or tech spec needed - work directly on the task.",
+No PRD or tech spec needed - work directly on the task.
+
+QUICK MODE: Apply the Plan Approval Gate from your agent definition — after outputting the INTENTION block, if any gate condition holds (new files, >2 files modified, non-empty assumptions, architectural choice), get user approval via AskUserQuestion before the first Write/Edit.",
   description: "ares - quick [task type]"
 )
 ```
