@@ -1,4 +1,4 @@
-# Kratos - The God of War (v2.78.0)
+# Kratos - The God of War (v2.79.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
@@ -16,7 +16,7 @@ Most tasks don't need the full pipeline. Start with a command — Kratos routes 
 /kratos:explain src/core/                           # understand a subsystem
 /kratos:audit                                       # pre-ship security/risk scan
 /kratos:plan Add authentication                     # tactical plan mode with Odysseus
-/kratos:plan strategic                              # strategic planning with Prometheus
+/kratos:strategy What should we build next?         # strategic planning with Prometheus
 ```
 
 **Use the full pipeline** (`/kratos:main`) only when building a substantial new feature that benefits from PRD → spec → implement → review stages. For everything else, commands are faster, cheaper, and get you the same agent expertise without the ceremony.
@@ -163,7 +163,8 @@ Commands are the primary interface. Each routes directly to the right agent — 
 | `/kratos:review` | **Code Review** — Standards-enforced with severity tiers and auto-fix | Before merging any PR |
 | `/kratos:inquiry` | **Knowledge Seek** — Routes to Metis, Clio, or Mimir | Questions about codebase, git history, or external docs |
 | `/kratos:explain` | **Explain Codebase** — Architecture, patterns, history, and the "why" | Onboarding or understanding unfamiliar code |
-| `/kratos:plan` | **Plan Mode** — Odysseus creates tactical implementation plans by default; Prometheus handles strategic planning when requested | Before Ares on ambiguous work, or starting a new initiative with `strategic` |
+| `/kratos:plan` | **Plan Mode** — Odysseus creates tactical implementation plans for Ares | Before Ares on ambiguous implementation work |
+| `/kratos:strategy` | **Strategic Plan** — Prometheus interviews you and produces a prioritized build plan | Starting a new initiative, roadmap, or sprint plan |
 | `/kratos:decompose` | **Decompose** — Break features into phases (files, Notion, Linear) | Large feature needs phased delivery |
 | `/kratos:audit` | **Pre-Ship Audit** — Security, breaking changes, CVEs, scalability | Before release or deploy |
 | `/kratos:recall` | **Session Resume** — Where did we stop? (uses persistent memory) | Picking up after a break |

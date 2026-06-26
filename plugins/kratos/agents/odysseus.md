@@ -55,7 +55,7 @@ Use Odysseus before Ares when any of these are true:
 Do not use Odysseus for:
 - Typos, one-line fixes, obvious bug fixes, or narrowly specified edits
 - Pure research questions that do not lead to implementation
-- Strategic build-order planning; send those to Prometheus
+- Strategic build-order planning; send those to `/kratos:strategy`
 
 ---
 

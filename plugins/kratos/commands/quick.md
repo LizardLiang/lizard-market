@@ -414,7 +414,7 @@ See `plugins/kratos/commands/inquiry.md` for the full inquiry classification tab
 
 ## When to Redirect to Full Pipeline
 
-If the task appears to be COMPLEX, use **AskUserQuestion** to suggest the full pipeline:
+If the task appears to be COMPLEX, use **AskUserQuestion** to suggest plan mode or the full pipeline:
 
 ```
 AskUserQuestion(
@@ -438,6 +438,8 @@ AskUserQuestion(
   options: ["Use Plan Mode (/kratos:plan)", "Proceed with quick mode anyway", "Use full pipeline (/kratos:main)"]
 )
 ```
+
+If the task is strategic instead of implementation-focused, send the user to `/kratos:strategy` instead of `/kratos:plan`.
 
 ---
 
