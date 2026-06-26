@@ -18,7 +18,7 @@ const DB_PATH = path.join(KRATOS_HOME, 'memory.db');
 const SESSION_FILE = path.join(KRATOS_HOME, 'active-session.json');
 
 // Kratos agent names for detection
-const KRATOS_AGENTS = ['metis', 'athena', 'hephaestus', 'apollo', 'artemis', 'ares', 'hermes'];
+const KRATOS_AGENTS = ['metis', 'athena', 'hephaestus', 'apollo', 'artemis', 'ares', 'hermes', 'odysseus'];
 
 // Read session data
 function getSession() {
@@ -115,7 +115,7 @@ function processToolUse(data) {
   }
 
   // Record file writes and edits
-  if (tool_name === 'Write' || tool_name === 'Edit') {
+  if (tool_name === 'Write' || tool_name === 'Edit' || tool_name === 'MultiEdit') {
     const filePath = tool_input?.file_path || 'unknown';
     recordFileChange(sessionId, filePath, tool_name);
   }

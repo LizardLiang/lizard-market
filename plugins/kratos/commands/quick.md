@@ -45,6 +45,7 @@ Check user input for mode keywords FIRST:
 | **Metis** (research) | sonnet | haiku | opus |
 | **Daedalus** (decompose) | sonnet | haiku | opus |
 | **Hades** (debug) | sonnet | haiku | opus |
+| **Odysseus** (plan mode) | sonnet | haiku | opus |
 
 ---
 
@@ -63,6 +64,7 @@ Analyze the user's request to determine the target agent:
 | **Code Review** | "review", "check code", "look at", "feedback on" | Hermes |
 | **Documentation** | "document", "comment", "add docs", "docstring", "readme", "jsdoc" | Ares |
 | **Small Features** | "add", "implement" + specific function/method | Ares |
+| **Tactical Planning** | "plan mode", "make a plan", "approved plan", "unclear", "figure out how to implement", broad "add/implement/refactor" without target files | Odysseus |
 | **Decomposition** | "decompose", "break down", "split into tasks", "break into phases", "work breakdown" | Daedalus |
 
 ### Information Requests (Redirect to Inquiry Mode)
@@ -137,6 +139,43 @@ Before any edit, follow your INTENTION protocol: resolve every ambiguity with ev
 
 No PRD or tech spec needed - work directly on the task.",
   description: "ares - quick [task type]"
+)
+```
+
+---
+
+#### Odysseus - Tactical Plan Mode
+```
+Task(
+  subagent_type: "kratos:odysseus",
+  model: "[sonnet|haiku|opus based on mode]",
+  prompt: "MISSION: Tactical Plan Mode
+REQUEST: [user's request]
+CONTEXT: Quick mode request does not have Athena/Hephaestus artifacts unless the user supplied a plan path.
+
+Create an implementation-ready tactical plan:
+- Inspect the repo first
+- Clarify only blocking gaps
+- Save the plan to .claude/.Arena/tactical-plans/<slug>.md
+- Do not implement code
+
+If the user supplied an approved tactical plan path and asked to implement it, do not plan again; route to Ares with that plan path instead.",
+  description: "odysseus - tactical plan mode"
+)
+```
+
+If the request is `implement the approved plan at .claude/.Arena/tactical-plans/<slug>.md`, route to Ares instead:
+
+```
+Task(
+  subagent_type: "kratos:ares",
+  model: "[sonnet|haiku|opus based on mode]",
+  prompt: "MISSION: Implement Approved Tactical Plan
+PLAN: .claude/.Arena/tactical-plans/<slug>.md
+REQUIREMENTS: Read the plan file first and treat it as the execution contract. If the plan is missing, ambiguous, or contradicts the repo, stop and report the mismatch before editing.
+
+No PRD or tech spec needed - work from the approved tactical plan.",
+  description: "ares - implement approved tactical plan"
 )
 ```
 
@@ -391,6 +430,15 @@ Indicators of COMPLEX tasks:
 - API or database design needed
 - Security-sensitive changes
 
+If the task is complex mainly because implementation context is missing, target files are unknown, or multiple implementation approaches are possible, offer tactical Plan Mode as the recommended option:
+
+```
+AskUserQuestion(
+  question: "This task has implementation ambiguity because: [reasons]. How would you like to proceed?",
+  options: ["Use Plan Mode (/kratos:plan)", "Proceed with quick mode anyway", "Use full pipeline (/kratos:main)"]
+)
+```
+
 ---
 
 ## RULES
@@ -401,7 +449,8 @@ Indicators of COMPLEX tasks:
 4. **SPAWN IMMEDIATELY** - Don't just announce, actually use Task tool
 5. **OFFER REVIEW** - After implementation tasks, offer code review
 6. **ESCALATE WHEN NEEDED** - Suggest full pipeline for complex tasks
-7. **NO LOOPS** - Re-spawn Ares at most once per review cycle; surface unresolved BLOCKERs to the user instead of looping
+7. **PLAN BEFORE GUESSING** - If Ares would need to guess target files, approach, or acceptance criteria, route to Odysseus first
+8. **NO LOOPS** - Re-spawn Ares at most once per review cycle; surface unresolved BLOCKERs to the user instead of looping
 
 ---
 

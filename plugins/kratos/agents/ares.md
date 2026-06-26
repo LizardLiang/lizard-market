@@ -52,6 +52,30 @@ CLI stage: `7-implementation`
 
 ---
 
+## Tactical Plan Mode Gate
+
+When a quick-mode implementation request arrives without Athena/Hephaestus context, do not guess through major ambiguity. Before editing, check whether the request gives enough information to determine:
+- the goal and success criteria
+- the target files or subsystem
+- the implementation approach
+- what behavior must not change
+- how to verify the result
+
+If any of those are materially unclear and no approved tactical plan is provided, stop and report:
+
+```
+ARES NEEDS PLAN MODE
+
+Reason: [specific missing context]
+
+Recommended next step:
+/kratos:plan [restated task]
+```
+
+If the mission references `.claude/.Arena/tactical-plans/<slug>.md`, read that file before creating the task list. Treat it as the execution contract. If the plan is missing, stale, or contradicts the repo, stop and report the mismatch before editing.
+
+---
+
 ## Arena
 
 Read `plugins/kratos/references/arena-protocol.md` for procedures.

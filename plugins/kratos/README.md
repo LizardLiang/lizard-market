@@ -1,4 +1,4 @@
-# Kratos - The God of War (v2.76.0)
+# Kratos - The God of War (v2.78.0)
 
 > *"I am what the gods have made me."* - Now, the gods serve **you**.
 
@@ -15,7 +15,8 @@ Most tasks don't need the full pipeline. Start with a command — Kratos routes 
 /kratos:inquiry Who worked on payments last month?  # questions (git, codebase, external)
 /kratos:explain src/core/                           # understand a subsystem
 /kratos:audit                                       # pre-ship security/risk scan
-/kratos:plan                                        # strategic planning with Prometheus
+/kratos:plan Add authentication                     # tactical plan mode with Odysseus
+/kratos:plan strategic                              # strategic planning with Prometheus
 ```
 
 **Use the full pipeline** (`/kratos:main`) only when building a substantial new feature that benefits from PRD → spec → implement → review stages. For everything else, commands are faster, cheaper, and get you the same agent expertise without the ceremony.
@@ -102,6 +103,7 @@ Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5
 | **Hermes** | Peer Review | Code review, quality audits | Opus |
 | **Cassandra** | Risk Analysis | Security, breaking changes, CVEs | Sonnet |
 | **Hades** | Debugging | Error location, proof of failure, root cause | Sonnet |
+| **Odysseus** | Tactical Planning | Codex/Claude-style plan mode before Ares | Sonnet |
 | **Prometheus** | Strategic Planning | Interview-driven prioritized build plans | Opus |
 | **Ananke** | Task Management | Personal todo list (binary + file fallback) | Sonnet |
 
@@ -128,7 +130,16 @@ Fires when **Ares** or **Hephaestus** attempt to finish. Blocks completion and f
 
 When `stop_hook_active` is true (hook-triggered re-run), the gate passes automatically to prevent infinite loops.
 
-### PreToolUse — Package Manager Auto-Correction
+### PreToolUse — Plan Guard + Package Manager Auto-Correction
+
+For **Odysseus**, the plan guard enforces tactical Plan Mode when Claude includes agent identity in the hook payload:
+
+| Tool | Odysseus Rule |
+|------|---------------|
+| `Write` / `Edit` / `MultiEdit` | Only `.claude/.Arena/tactical-plans/*.md` |
+| `Bash` | Read-only inspection commands only |
+
+If the hook payload does not identify the active agent, the guard fails open so it does not interfere with normal Ares or pipeline work.
 
 Intercepts every `Bash` tool call containing `npm` and rewrites it to the project's actual package manager, detected from lockfiles in the project root:
 
@@ -152,7 +163,7 @@ Commands are the primary interface. Each routes directly to the right agent — 
 | `/kratos:review` | **Code Review** — Standards-enforced with severity tiers and auto-fix | Before merging any PR |
 | `/kratos:inquiry` | **Knowledge Seek** — Routes to Metis, Clio, or Mimir | Questions about codebase, git history, or external docs |
 | `/kratos:explain` | **Explain Codebase** — Architecture, patterns, history, and the "why" | Onboarding or understanding unfamiliar code |
-| `/kratos:plan` | **Strategic Plan** — Prometheus interviews you, produces prioritized build plan | Starting a new initiative or sprint planning |
+| `/kratos:plan` | **Plan Mode** — Odysseus creates tactical implementation plans by default; Prometheus handles strategic planning when requested | Before Ares on ambiguous work, or starting a new initiative with `strategic` |
 | `/kratos:decompose` | **Decompose** — Break features into phases (files, Notion, Linear) | Large feature needs phased delivery |
 | `/kratos:audit` | **Pre-Ship Audit** — Security, breaking changes, CVEs, scalability | Before release or deploy |
 | `/kratos:recall` | **Session Resume** — Where did we stop? (uses persistent memory) | Picking up after a break |
