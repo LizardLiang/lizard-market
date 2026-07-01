@@ -145,24 +145,16 @@ No PRD or tech spec needed - work directly on the task.",
 ---
 
 #### Odysseus - Tactical Plan Mode
-```
-Task(
-  subagent_type: "kratos:odysseus",
-  model: "[sonnet|haiku|opus based on mode]",
-  prompt: "MISSION: Tactical Plan Mode
-REQUEST: [user's request]
-CONTEXT: Quick mode request does not have Athena/Hephaestus artifacts unless the user supplied a plan path.
 
-Create an implementation-ready tactical plan:
+**Run Odysseus inline in the main context — do NOT spawn a subagent.** Odysseus's clarify loop uses `AskUserQuestion`, which only reaches the user from the top-level session; a subagent would silence it.
+
+Read `plugins/kratos/agents/odysseus.md`, adopt the Odysseus persona, and operate in the main context:
 - Inspect the repo first
-- Clarify only blocking gaps
-- Save the plan to .claude/.Arena/tactical-plans/<slug>.md
+- Run the clarity loop: score Target/Approach/Validation, ask one question per turn, re-score after each answer, and keep asking until PLAN_READY (ambiguity ≤ 0.10)
+- Save the plan (with Decision Tree and clarity score) to `.claude/.Arena/tactical-plans/<slug>.md`
 - Do not implement code
 
-If the user supplied an approved tactical plan path and asked to implement it, do not plan again; route to Ares with that plan path instead.",
-  description: "odysseus - tactical plan mode"
-)
-```
+Quick mode requests have no Athena/Hephaestus artifacts unless the user supplied a plan path. If the user supplied an approved tactical plan path and asked to implement it, do not plan again — route to Ares with that plan path instead.
 
 If the request is `implement the approved plan at .claude/.Arena/tactical-plans/<slug>.md`, route to Ares instead:
 
