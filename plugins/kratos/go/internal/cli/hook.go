@@ -806,7 +806,7 @@ var tierOrder = []string{
 
 // checkHermesChecklist reads and validates the hermes-checklist.json at the given path.
 // Returns (allComplete bool, incompleteTierNames []string).
-// Returns (true, nil) when the checklist cannot be read or parsed (fail-open behaviour).
+// Returns (true, nil) when the checklist cannot be read or parsed (fail-open behavior).
 func checkHermesChecklist(checklistPath string) (bool, []string) {
 	data, err := os.ReadFile(checklistPath)
 	if err != nil {

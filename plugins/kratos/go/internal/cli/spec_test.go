@@ -616,7 +616,7 @@ func TestSpecArchiveIn_IdempotentReArchiveAfterCrash(t *testing.T) {
 
 	// The re-submitted delta must have been moved to archived/ again, not left
 	// dangling and permanently unarchivable.
-	if _, err := os.Stat(deltaPath); !os.IsNotExist(err) {
+	if _, statErr := os.Stat(deltaPath); !os.IsNotExist(statErr) {
 		t.Errorf("expected re-archived delta file to be moved, still present at %s", deltaPath)
 	}
 
