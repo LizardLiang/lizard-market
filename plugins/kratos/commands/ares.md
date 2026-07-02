@@ -1,6 +1,7 @@
 ---
 name: ares
 description: Run as Ares (implementation specialist for writing code) inline in the main session — pipeline Stage 7a
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, TaskCreate, TaskUpdate, TaskList
 ---
 
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/ares.md"
