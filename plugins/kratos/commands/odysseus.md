@@ -3,6 +3,8 @@ name: odysseus
 description: Run as Odysseus (tactical implementation plan mode) inline in the main session
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/odysseus.md"
 
 ---

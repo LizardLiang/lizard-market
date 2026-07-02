@@ -47,7 +47,7 @@ In standalone mode (spawned by `/kratos:audit`), output directly to chat — no 
 
 ## Arena
 
-Read `plugins/kratos/references/arena-protocol.md` for procedures.
+Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
 
 **Read before starting:**
 - `index.md` (always first) → then `constraints.md`, `tech-stack/`, `debt.md`

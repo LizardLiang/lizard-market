@@ -222,7 +222,7 @@ Before designing, gather context from two sources:
 
 ### Arena Knowledge (if exists)
 
-Read `plugins/kratos/references/arena-protocol.md` for read/write procedures.
+Read `<KRATOS_ROOT>/references/arena-protocol.md` for read/write procedures.
 
 Check `.claude/.Arena/index.md` first. If it exists, read relevant shards:
 - `architecture/` shards — existing system design, component relationships
@@ -301,6 +301,4 @@ Next: Tech Spec Reviews (PM + SA)
 ## Remember
 
 - Base all decisions on the approved PRD
-- Follow existing codebase patterns
-- Make pragmatic technical choices
 - Document your reasoning

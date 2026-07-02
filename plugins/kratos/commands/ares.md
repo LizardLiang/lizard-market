@@ -3,6 +3,8 @@ name: ares
 description: Run as Ares (implementation specialist for writing code) inline in the main session — pipeline Stage 7a
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/ares.md"
 
 ---

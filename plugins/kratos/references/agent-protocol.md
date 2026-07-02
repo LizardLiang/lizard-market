@@ -6,7 +6,9 @@ Procedures shared across all Kratos agents. Read sections relevant to your missi
 
 ## Path Resolution
 
-All paths in agent instructions (e.g., `plugins/kratos/references/...`, `.claude/feature/...`) are relative to the **project root** (git repository root). Resolve from project root, not plugin directory.
+Plugin-internal paths are written as `<KRATOS_ROOT>/...` (e.g., `<KRATOS_ROOT>/references/...`). Orchestrators resolve the actual root — from `${CLAUDE_PLUGIN_ROOT}` (echoed in the command preamble) or the skill's base directory — and **substitute the absolute path into every agent prompt before spawning**. If you receive an unsubstituted `<KRATOS_ROOT>` reference, fall back to `plugins/kratos/` relative to the project root (in-repo installs).
+
+Project-artifact paths (e.g., `.claude/feature/...`, `.claude/.Arena/...`) remain relative to the **project root** (git repository root).
 
 Templates are retrieved via the CLI: `'<kratos-path>' template get <template-name>` (omit the `.md` extension). The CLI handles file location regardless of where the plugin is installed.
 

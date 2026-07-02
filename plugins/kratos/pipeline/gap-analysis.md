@@ -24,7 +24,7 @@ Before scoring, read the request carefully:
 
 ## Step 2: Run the Gap Checklist
 
-Read `plugins/kratos/references/athena-gap-checklist.md` for the 17-item checklist. Work through it and identify which items are uncovered — each uncovered item is a gap.
+Read `<KRATOS_ROOT>/references/athena-gap-checklist.md` for the 17-item checklist. Work through it and identify which items are uncovered — each uncovered item is a gap.
 
 ---
 
@@ -115,7 +115,7 @@ CLARIFIED_REQUIREMENTS:
   - [assumption]: [risk-if-wrong]
 [Final clarity score]: [X]%
 
-Read plugins/kratos/agents/athena.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/athena.md for the full instruction set before starting.
 
 Create prd.md and decisions.md before completing. The CLARIFIED_REQUIREMENTS above contain the full gap analysis conversation — reconstruct the decision tree from it for the prd.md appendix. Kratos validates the deliverable after you finish.",
   description: "athena - PRD creation"

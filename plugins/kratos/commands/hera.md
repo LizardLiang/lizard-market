@@ -3,6 +3,8 @@ name: hera
 description: Run as Hera (PRD alignment verifier — confirms implementation covers all acceptance criteria) inline in the main session — pipeline Stage 8
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/hera.md"
 
 ---

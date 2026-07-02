@@ -253,4 +253,4 @@ A **gate failure** exists when:
 
 ---
 
-*Referenced by all agents. See `plugins/kratos/references/agent-protocol.md` for document creation procedures.*
+*Referenced by all agents. See `<KRATOS_ROOT>/references/agent-protocol.md` for document creation procedures.*

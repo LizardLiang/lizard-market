@@ -307,4 +307,3 @@ Next: Tech Spec (Hephaestus) — reads context.md before speccing
 - Hephaestus WILL read your context.md — every vague decision costs spec quality
 - Be specific: "Use cursor-based pagination with a `next_cursor` field" not "use pagination"
 - Debate modes shape how you frame options and recommendations — adapt to user state signals
-- Out-of-scope ideas go to `<deferred>`, never into `<decisions>`

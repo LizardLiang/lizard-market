@@ -177,4 +177,4 @@ Kratos validates required deliverables after the agent finishes.
 
 ---
 
-*See `plugins/kratos/references/status-json-schema.md` for status.json details.*
+*See `<KRATOS_ROOT>/references/status-json-schema.md` for status.json details.*

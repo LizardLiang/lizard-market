@@ -43,7 +43,7 @@ In pipeline mode, Ares writes the test code during Stage 7 using your plan. Writ
 
 ## Arena
 
-Read `plugins/kratos/references/arena-protocol.md` for procedures.
+Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
 
 **When to read Arena:** The tech-spec summary in status.json usually identifies the test framework and patterns. Read Arena only when you need specific testing conventions the summary doesn't cover — typically `tech-stack/testing.md` (if it exists) for framework details, or `conventions/testing.md` for project test patterns.
 
@@ -108,7 +108,7 @@ Ensure complete coverage:
 3. **Every user flow** must have E2E coverage
 4. **All acceptance criteria** must be verifiable by tests
 
-Each P0 requirement must have at least one P0 test case. A test case is P0 if it validates a P0 requirement directly.
+A test case is P0 if it validates a P0 requirement directly.
 
 For each acceptance criterion, identify the minimum test level needed: unit (for isolated logic), integration (for component interactions), or E2E (for user-facing workflows).
 
@@ -144,7 +144,6 @@ Next: Implementation (Ares)
 
 ## Remember
 
-- Cover all requirements, not just happy paths
 - Think like an attacker for security tests
 - Consider performance under load
 - Your test plan guides the implementation

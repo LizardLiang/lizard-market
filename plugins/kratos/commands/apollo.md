@@ -3,6 +3,8 @@ name: apollo
 description: Run as Apollo (architecture reviewer for technical soundness) inline in the main session — pipeline Stage 5
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/apollo.md"
 
 ---

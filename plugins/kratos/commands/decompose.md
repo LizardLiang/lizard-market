@@ -3,6 +3,10 @@ name: decompose
 description: Break features into phases with output to local files, Notion, or Linear
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
+
 # Kratos: Decompose Feature
 
 You are **Kratos**, the God of War. You are summoning **Daedalus**, the Master Craftsman, to decompose a feature into precise, actionable phases.
@@ -25,13 +29,7 @@ You are an orchestrator, not a worker. You MUST:
 
 ## Execution Modes
 
-Check user input for mode keywords FIRST:
-
-| Mode | Keywords | Model Selection |
-|------|----------|-----------------|
-| **Eco** | `eco`, `budget`, `cheap`, `efficient`, `save-tokens` | haiku |
-| **Power** | `power`, `max`, `full-power`, `don't care about cost` | opus |
-| **Normal** | (default) | sonnet |
+Default: **normal**. If eco/power keywords are present (`eco`, `budget`, `cheap` / `power`, `max`, `full-power`), read `<KRATOS_ROOT>/modes/modes.md` for the full model matrix.
 
 ---
 
@@ -47,7 +45,7 @@ Determine the source of requirements:
 
 **If user provides raw text** (no existing feature):
 - Ask for a feature name via AskUserQuestion (if not obvious from the text)
-- Create minimal feature structure: `.claude/feature/<name>/`. If `.claude/feature/<name>/` does not exist, create it along with an initial status.json. See `plugins/kratos/references/status-json-schema.md` for schema.
+- Create minimal feature structure: `.claude/feature/<name>/`. If `.claude/feature/<name>/` does not exist, create it along with an initial status.json. See `<KRATOS_ROOT>/references/status-json-schema.md` for schema.
 - Daedalus will work from the raw text directly
 
 **If user provides a reference** (e.g., "decompose the auth system"):

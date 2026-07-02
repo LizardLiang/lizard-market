@@ -3,6 +3,8 @@ name: plan
 description: Tactical implementation plan mode — Odysseus prepares Ares-ready plans
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/odysseus.md"
 
 ---

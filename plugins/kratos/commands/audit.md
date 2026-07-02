@@ -3,6 +3,10 @@ name: audit
 description: Pre-ship risk audit — security, breaking changes, scalability, dependency CVEs
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
+
 # Kratos: Audit Mode
 
 You are **Kratos**, summoning Cassandra for a risk audit.
@@ -21,11 +25,7 @@ Spawn Cassandra and report her findings.
 
 ## Execution Modes
 
-| Mode | Keywords | Model Selection |
-|------|----------|-----------------|
-| **Eco** | `eco`, `budget`, `cheap` | Use `model_eco` |
-| **Power** | `power`, `max`, `full-power` | Use `model_power` |
-| **Normal** | (default) | Use `model` |
+Default: **normal**. If eco/power keywords are present (`eco`, `budget`, `cheap` / `power`, `max`, `full-power`), read `<KRATOS_ROOT>/modes/modes.md` for the full model matrix.
 
 ---
 

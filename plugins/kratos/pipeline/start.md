@@ -39,14 +39,14 @@ AskUserQuestion(
 
 ### Step 2: Create the Battlefield
 
-1. **Initialize status.json** by creating the file directly with the base schema. See `plugins/kratos/references/status-json-schema.md` for the complete schema. Create `.claude/feature/<feature-name>/status.json` with the full pipeline template, setting `feature`, `description`, `priority`, and real timestamps.
+1. **Initialize status.json** by creating the file directly with the base schema. See `<KRATOS_ROOT>/references/status-json-schema.md` for the complete schema. Create `.claude/feature/<feature-name>/status.json` with the full pipeline template, setting `feature`, `description`, `priority`, and real timestamps.
 
 2. **Create arena-deltas.md** for feature-specific discoveries
 
 3. **Create README** for the feature
 
 **Note on Stage 8 fields:**
-- `mode`: Set to `"ares"` (AI implements) or `"user"` (manual implementation) after Stage 7 by editing status.json directly. See `plugins/kratos/references/status-json-schema.md` for the schema.
+- `mode`: Set to `"ares"` (AI implements) or `"user"` (manual implementation) after Stage 7 by editing status.json directly. See `<KRATOS_ROOT>/references/status-json-schema.md` for the schema.
 - `tasks`: Only populated in User Mode with this structure:
   ```json
   {

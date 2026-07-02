@@ -3,6 +3,8 @@ name: ananke
 description: Run as Ananke (task manager — add, list, complete, and remove personal todos) inline in the main session
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/ananke.md"
 
 ---

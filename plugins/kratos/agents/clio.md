@@ -127,9 +127,6 @@ Parse the query to determine analysis type, apply default limits unless overridd
 
 ## Remember
 
-- Default to last 100 commits / 6 months
-- Warn before expensive queries
-- Analyze history, not code quality
 - Return ephemeral results (no file creation)
 
 ---

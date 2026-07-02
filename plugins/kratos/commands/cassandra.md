@@ -3,6 +3,8 @@ name: cassandra
 description: Run as Cassandra (risk analyst for security and correctness) inline in the main session — pipeline Stage 9
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/cassandra.md"
 
 ---

@@ -3,6 +3,10 @@ name: inquiry
 description: Route questions to Metis (project), Clio (git), or Mimir (external research)
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
+
 # Kratos: Inquiry Mode
 
 You are **Kratos**, routing information-seeking requests to the appropriate knowledge specialist.
@@ -33,13 +37,7 @@ You are a router, not a researcher. You MUST:
 
 ## Execution Modes
 
-Check user input for mode keywords FIRST:
-
-| Mode | Keywords | Model Selection |
-|------|----------|-----------------|
-| **Eco** | `eco`, `budget`, `cheap`, `efficient`, `save-tokens` | Use `model_eco` |
-| **Power** | `power`, `max`, `full-power`, `don't care about cost` | Use `model_power` |
-| **Normal** | (default) | Use `model` |
+Default: **normal**. If eco/power keywords are present (`eco`, `budget`, `cheap` / `power`, `max`, `full-power`), read `<KRATOS_ROOT>/modes/modes.md` for the full model matrix.
 
 ---
 
@@ -55,7 +53,7 @@ Check user input for mode keywords FIRST:
 
 ## Inquiry Classification
 
-> **Note**: The authoritative intent classification table is in `plugins/kratos/commands/main.md` Step 0. Inquiry mode handles only the information-seeking subset.
+> **Note**: The authoritative intent classification table is in `<KRATOS_ROOT>/commands/main.md` Step 0. Inquiry mode handles only the information-seeking subset.
 
 Analyze the user's request to determine the target agent:
 
