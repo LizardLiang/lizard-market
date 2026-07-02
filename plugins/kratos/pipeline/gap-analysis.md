@@ -24,7 +24,7 @@ Before scoring, read the request carefully:
 
 ## Step 2: Run the Gap Checklist
 
-Read `plugins/kratos/references/athena-gap-checklist.md` for the 17-item checklist. Work through it and identify which items are uncovered — each uncovered item is a gap.
+Read `plugins/kratos/references/athena-gap-checklist.md` and work through it — including the **Behavioral Lifecycle** group, which forces per-verb coverage (grant/enforce/revoke/…) for stateful features. Each uncovered item is a gap.
 
 ---
 

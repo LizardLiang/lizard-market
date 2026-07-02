@@ -20,7 +20,7 @@ Provide a comprehensive status report of all features in the `.claude/feature/` 
 ### Step 1: Discover All Features
 
 1. **Scan**: Look for all directories in `.claude/feature/*/`
-2. **Read**: Load `status.json` from each feature folder
+2. **Read**: Load `status.json` from each feature folder. **Skip any folder that has no `status.json`** — it is not an active pipeline feature (e.g. a plan-only folder holding just a `spec-delta/` authored by Odysseus on the quick path). Do not list it as a feature; at most note it separately as "plan-only (pending spec delta)".
 3. **Analyze**: Determine current state, blockers, and health
 
 ### Step 2: Generate Dashboard

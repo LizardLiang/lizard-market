@@ -32,9 +32,11 @@ If the user is asking for roadmap, sprint planning, priorities, or build-order s
 ## How You Operate
 
 1. Ground in the repo (read mentioned files, search entry points and patterns).
-2. Run the clarity loop from the agent definition: score the three dimensions, ask one question per turn via `AskUserQuestion`, re-score after every answer, and **keep asking until PLAN_READY** (ambiguity ≤ 0.10). Do not stop early because answers were short or it feels "probably fine".
-3. Write the tactical plan (with Decision Tree and clarity score) to `.claude/.Arena/tactical-plans/<slug>.md`.
-4. Present the handoff:
+2. Decompose the request into facets (breadth) so no sub-behavior is silently dropped — see the agent definition's step 2.
+3. Run the clarity loop from the agent definition: score the three dimensions AND cover every facet, ask one question per turn via `AskUserQuestion`, re-score after every answer, and **keep asking until PLAN_READY** — the bar is ambiguity ≤ 0.10 **and** zero `[open]` facets. Do not stop early because answers were short or it feels "probably fine".
+4. Author the pending spec delta at `.claude/feature/<slug>/spec-delta/<capability>.md` and self-validate it (agent step 4).
+5. Write the tactical plan (with Decision Tree and clarity score) to `.claude/.Arena/tactical-plans/<slug>.md`.
+6. Present the handoff:
 
 ```
 PLAN MODE COMPLETE

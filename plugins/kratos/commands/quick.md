@@ -150,7 +150,9 @@ No PRD or tech spec needed - work directly on the task.",
 
 Read `plugins/kratos/agents/odysseus.md`, adopt the Odysseus persona, and operate in the main context:
 - Inspect the repo first
-- Run the clarity loop: score Target/Approach/Validation, ask one question per turn, re-score after each answer, and keep asking until PLAN_READY (ambiguity ≤ 0.10)
+- Decompose the request into facets (breadth) so no sub-behavior is silently dropped
+- Run the clarity loop: score Target/Approach/Validation AND cover every facet, ask one question per turn, re-score after each answer, and keep asking until PLAN_READY — the bar is ambiguity ≤ 0.10 **and** zero `[open]` facets
+- Author the pending spec delta at `.claude/feature/<slug>/spec-delta/<capability>.md` and self-validate it (`<kratos-bin> spec validate <slug>`)
 - Save the plan (with Decision Tree and clarity score) to `.claude/.Arena/tactical-plans/<slug>.md`
 - Do not implement code
 
@@ -321,6 +323,19 @@ After Hermes completes, apply this logic — do NOT re-spawn blindly:
 | BLOCKER persists after Ares fix | Stop. Report the unresolved BLOCKER to the user and ask how to proceed |
 
 **Rule**: Ares is re-spawned at most **once** per review cycle. If a BLOCKER survives the fix, surface it — never loop again.
+
+### Optional Post-Task Spec Promotion
+
+If this quick task **implemented an Odysseus tactical plan** (the plan carried a pending spec delta at `.claude/feature/<slug>/spec-delta/<capability>.md`), the behavior is now built — so offer to promote it into the living spec:
+
+```
+AskUserQuestion(
+  question: "Implementation is done. Archive the spec delta into the living spec now?",
+  options: ["Yes — /kratos:spec-archive <slug>", "No, leave it pending"]
+)
+```
+
+If yes, run `/kratos:spec-archive <slug>` (which validates, then merges the delta into `.claude/.Arena/specs/<capability>/spec.md` and moves it to `spec-delta/archived/`). If no, the delta stays pending — `kratos spec list --changes` and the session-end reminder will keep surfacing it until archived. Only offer this when a pending delta for the implemented slug actually exists.
 
 If the user declines the review, the task is complete.
 

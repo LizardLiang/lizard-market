@@ -18,6 +18,18 @@ Check coverage across these areas. Each unchecked item is a gap.
 - [ ] User roles and permissions considered
 - [ ] State transitions defined (what happens before/during/after)
 
+**Behavioral Lifecycle** (for any stateful/CRUD-ish capability — enumerate per verb, don't collapse to one)
+
+- [ ] Create / grant — how does the thing come into being? (e.g. for a permission feature: *how is permission granted*, by whom, through what surface)
+- [ ] Read / list / inspect — how is current state viewed or queried?
+- [ ] Update / change — can it be modified after creation, and how?
+- [ ] Revoke / delete — how is it removed or turned off, and what cascades?
+- [ ] Enforce / check — where and when is the rule applied at runtime?
+- [ ] Defaults / initial state — what holds before anything is configured?
+- [ ] Roles / scopes — does behavior differ by actor, tier, or scope?
+
+> Covering enforcement while ignoring the grant/revoke paths is the classic gap. If the feature is stateful, every verb above is a gap until explicitly answered or marked out of scope.
+
 **Data & Integration**
 
 - [ ] What data is involved and where does it come from?
