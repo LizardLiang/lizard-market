@@ -132,7 +132,7 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 | 6-test-plan | — | Pre-implementation gate → 8 |
 | 7-implementation | Ares Mode | 8-prd-alignment (hera) |
 | 7-implementation | User Mode | Wait — user completes tasks, then `/kratos:task-complete all` |
-| 8-prd-alignment | Aligned | 9-review (hermes + cassandra parallel) |
+| 8-prd-alignment | Aligned | Spec archive offer (see below) → 9-review (hermes + cassandra parallel) |
 | 8-prd-alignment | Gaps | 7-implementation (ares) — add missing test coverage |
 | 8-prd-alignment | Misaligned | Blocked — escalate to user, fundamental scope issue |
 | 9-review | Approved + risk CLEAR/CAUTION | VICTORY |
@@ -142,6 +142,10 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 ### Optional Stage Gates (3)
 
 After Stage 2 APPROVED verdict, Kratos offers Stage 3 (Decompose) based on complexity signals. Stage 3 is optional — the user may skip it and proceed directly to Stage 4.
+
+### Spec Archive Offer (after 8-prd-alignment Aligned)
+
+Before spawning Stage 9, run `<kratos-bin> spec list --changes` for this feature. If a pending spec delta exists, offer a single confirmation prompt to archive it (`<kratos-bin> spec archive [feature-name]`) — see `plugins/kratos/pipeline/stages.md` Stage 8 section for the exact procedure. This is decoupled from Hera: declining, or Hera never running (User Mode, abandoned features), never loses the delta — it persists on disk until archived via this prompt, `/kratos:spec-archive`, or `kratos spec backfill`. Do not auto-commit the result.
 
 ---
 

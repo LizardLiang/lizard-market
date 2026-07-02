@@ -41,6 +41,7 @@ Read only the files relevant to your current task. Do not read the entire Arena.
   features/                 ← digest of past completed features
   research/                 ← Mimir's cached external research
   review-rules/             ← Hermes review standards and proposals
+  specs/                    ← living, capability-organized behavioral specs (see below)
 ```
 
 ### Step 3: Use what you find
@@ -126,6 +127,27 @@ Permanent entries are decisions intended to outlast any single feature and never
 
 ---
 
+## Behavioral Specs (`specs/`)
+
+`.claude/.Arena/specs/<capability>/spec.md` is a **living, capability-organized behavioral contract** — the durable cross-feature memory of what the system SHALL do, organized by capability rather than by feature. Concepts are lifted from OpenSpec; format is defined in `templates/spec-shard-template.md`.
+
+**This is the deliberate exception to "no PRD in Arena" (see the table below):** a living spec is not a PRD. It holds only the *distilled, durable contract* — `### Requirement: <Name>` + SHALL statement + scenarios — never the full PRD body (executive summary, personas, metrics, risks, open questions). The PRD stays in `.claude/feature/<name>/prd.md`; the spec shard is what survives after the feature folder is forgotten.
+
+**Capability organization**: one shard per capability. A capability is a cohesive area of system behavior (e.g. `auth`, `billing`, `spec-lifecycle`) — not a feature name. Multiple features contribute deltas to the same capability over time.
+
+**Requirement identity**: the `### Requirement: <Name>` header is the durable ID, matched by trimmed, case-sensitive string equality across features. Renaming a requirement is an explicit `RENAMED` delta operation, never a silent header edit.
+
+**How specs change**: features never edit `specs/` directly. Athena authors a **delta** at `.claude/feature/<name>/spec-delta/<capability>.md` (format: `templates/spec-delta-template.md`) describing ADDED/MODIFIED/REMOVED/RENAMED requirements. The delta is a durable file — it survives even if the feature never reaches Hera. `kratos spec archive <feature>` mechanically merges an approved delta into the living spec (merge order: RENAMED → REMOVED → MODIFIED → ADDED; conflicts block, no partial merge).
+
+**Write ownership**:
+- **Athena** — author of record for deltas (assigns the capability emergently on first delta: picks an existing `specs/<capability>/` if one fits, else names a new one; no Metis prerequisite).
+- **Metis** — may opportunistically seed a capability shard during FULL_RESEARCH bootstrapping, but this is never a prerequisite for Athena's delta authoring.
+- **The `kratos spec archive` binary command** — applies the merge mechanically. No agent hand-authors changes to `specs/*/spec.md` directly.
+
+**Read access**: any agent may read `specs/` for context (Hera maps acceptance criteria against living-spec requirement headers; Nemesis reviews the delta as a focused diff against the existing shard).
+
+---
+
 ## Updating index.md
 
 Always update `index.md` as the last step after any Arena write.
@@ -165,7 +187,7 @@ Applied by the writing agent during the pre-write read:
 |------|-----|---------------|
 | Package manager | Handled by PreToolUse `fix-pm` hook | Hook |
 | Feature-specific context | Orchestrator passes in agent prompt | Agent prompt |
-| Full PRD / tech spec | Too large, source of truth elsewhere | `.claude/feature/<name>/` |
+| Full PRD / tech spec | Too large, source of truth elsewhere | `.claude/feature/<name>/` (exception: the distilled `### Requirement:` contract lives in `specs/` — see "Behavioral Specs" above) |
 | Git history | Read git directly | `git log` |
 | Session-specific state | Does not persist usefully | `status.json` |
 | Anything derivable from the codebase | Agents can read the filesystem | Filesystem |

@@ -57,6 +57,15 @@ Read `prd.md` in full. Read `decisions.md` if it exists.
 
 **API Validation Pre-check**: If `prd.md` references external APIs or third-party services, use context7 to validate the API claims and Mimir to check for recent deprecations or breaking changes before running the lenses below.
 
+**Spec Delta Review**: Read `.claude/feature/<name>/spec-delta/<capability>.md` (Athena writes this alongside the PRD — see `references/arena-protocol.md` § Behavioral Specs). Review it as a **focused diff**, not a restatement of the PRD:
+
+- Does each ADDED/MODIFIED requirement's SHALL statement match what the PRD actually says, or has something drifted between the PRD and the delta?
+- Do the requirement names read as durable behavior (survives past this feature), not as feature-scoped jargon or an `FR-###` alias?
+- For MODIFIED/REMOVED/RENAMED entries: does the delta reference the exact existing requirement name from the capability's living spec (`.claude/.Arena/specs/<capability>/spec.md`, if it exists), or does it look like it invented a new name that won't match on archive?
+- Are scenarios concrete and testable, or vague restatements of the requirement itself?
+
+Flag: `[SPEC_DRIFT]` — delta requirement doesn't match what the PRD describes, or targets a requirement name that won't resolve against the living spec. Treat `[SPEC_DRIFT]` as a MAJOR finding (BLOCKING if it would cause `kratos spec validate` to fail, e.g. a MODIFIED/REMOVED target that doesn't exist in the living spec).
+
 Then run both lenses.
 
 ---
@@ -262,6 +271,7 @@ Across all findings from both parts:
 - Missing personas (first-time, infrequent users)
 - High cognitive load on primary flows
 - Vague language on core requirements
+- `[SPEC_DRIFT]` between the PRD and its spec delta (**BLOCKING** if the delta targets a requirement name absent from the living spec — it would fail `kratos spec validate`)
 
 **MINOR** — informational, can be addressed in implementation:
 - Vague language in low-stakes areas

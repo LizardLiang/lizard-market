@@ -33,6 +33,7 @@ func main() {
 	rootCmd.AddCommand(cli.TemplateCmd())
 	rootCmd.AddCommand(cli.AgentCmd())
 	rootCmd.AddCommand(cli.HermesListCmd())
+	rootCmd.AddCommand(cli.SpecCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

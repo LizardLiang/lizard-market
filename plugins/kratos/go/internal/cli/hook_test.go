@@ -337,6 +337,7 @@ func TestMalformedStopPayloadFailsClosed(t *testing.T) {
 		{"hephaestus truncated json", `{"agent_type":"kratos:hephaestus","last_assistant_message":"`},
 		{"hermes garbage", `not json at all but mentions hermes`},
 		{"nemesis garbage", `{bad json nemesis`},
+		{"athena garbage", `not json at all but mentions athena`},
 	}
 	for _, tt := range gatedCases {
 		t.Run("blocks/"+tt.name, func(t *testing.T) {
@@ -364,7 +365,7 @@ func TestMalformedStopPayloadFailsClosed(t *testing.T) {
 
 	// Ungated agents on a malformed payload still fail open (don't break the pipeline).
 	t.Run("ungated agent not blocked", func(t *testing.T) {
-		raw := []byte(`{bad json athena`)
+		raw := []byte(`{bad json cassandra`)
 		if agent := gatedAgentInRaw(raw); agent != "" {
 			t.Errorf("gatedAgentInRaw = %q; ungated agent should fail open", agent)
 		}

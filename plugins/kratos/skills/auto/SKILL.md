@@ -44,6 +44,8 @@ This skill handles only the clearly non-pipeline utilities directly. Everything 
 | "audit", "risk check", "security check" | Audit mode | `Skill(skill: "kratos:audit")` |
 | "plan", "roadmap", "strategy" | Plan mode | `Skill(skill: "kratos:plan")` |
 | "decompose", "break down", "split into phases" | Decompose mode | `Skill(skill: "kratos:decompose")` |
+| "archive spec", "promote spec delta", "archive the delta" | Spec archive | `Skill(skill: "kratos:spec-archive")` |
+| "backfill spec", "backfill living specs" | Spec backfill | `Skill(skill: "kratos:spec-backfill")` |
 | Everything else (simple tasks, complex features, "continue", "build X", "fix Y", stage artifacts) | Full pipeline — `classify.md` decides quick vs pipeline | `Skill(skill: "kratos:main")` |
 
 ## How to Route

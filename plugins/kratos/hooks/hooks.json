@@ -221,6 +221,11 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook subagent-stop",
+            "timeout": 10000
           }
         ]
       },

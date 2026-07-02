@@ -477,7 +477,7 @@ func outputSubagentStartContext(additionalContext string) error {
 
 // gatedAgents are the agents whose SubagentStop has a quality gate that must not be
 // bypassable via a malformed payload.
-var gatedAgents = []string{"ares", "hephaestus", "hermes", "nemesis"}
+var gatedAgents = []string{"ares", "hephaestus", "hermes", "nemesis", "athena"}
 
 // gatedAgentInRaw reports which gated agent (if any) a raw, unparseable payload appears
 // to concern. It scans the whole payload, so a message body that merely mentions a gated
@@ -626,6 +626,12 @@ func subagentStopCmd() *cobra.Command {
 				}
 			}
 
+			// Athena (PRD agent) spec-delta validation gate — runs in addition to the
+			// existing "check --verify" Tier 1 file-existence gate (hooks.json wires both).
+			if strings.Contains(agentType, "athena") {
+				return handleAthenaStop(input)
+			}
+
 			// Nemesis (PRD challenge agent) quality checks
 			if strings.Contains(agentType, "nemesis") {
 				return handleNemesisStop(input)
@@ -639,6 +645,78 @@ func subagentStopCmd() *cobra.Command {
 			return outputSubagentOK()
 		},
 	}
+}
+
+// handleAthenaStop verifies that Athena wrote a spec delta and that it passes
+// `kratos spec validate` (non-strict — warnings do not block completion). Fails open
+// when no feature directory with a prd.md can be found (quick/command mode, or a
+// non-CREATE_PRD Athena invocation that never touches prd.md).
+func handleAthenaStop(input subagentStopInput) error {
+	cwd := input.Cwd
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
+
+	featureDir := findMostRecentFeatureDirWithFile(cwd, "prd.md")
+	if featureDir == "" {
+		debugLog("athena-stop: no feature dir with prd.md found, failing open")
+		return outputSubagentOK()
+	}
+	feature := filepath.Base(featureDir)
+
+	files, err := listFeatureDeltaFilesIn(cwd, feature)
+	if err != nil {
+		debugLog("athena-stop: error listing delta files for %q: %v", feature, err)
+		return outputSubagentOK()
+	}
+	if len(files) == 0 {
+		return outputSubagentBlock(fmt.Sprintf(
+			"Athena quality gate failed: no spec delta found at .claude/feature/%s/spec-delta/. After writing prd.md, assign a capability (existing or new) and write spec-delta/<capability>.md using the spec-delta-template before completing.",
+			feature,
+		))
+	}
+
+	ok, messages, err := specValidateIn(cwd, feature, false)
+	if err != nil {
+		debugLog("athena-stop: spec validate error for %q: %v", feature, err)
+		return outputSubagentOK()
+	}
+	if !ok {
+		return outputSubagentBlock(fmt.Sprintf(
+			"Athena quality gate failed: kratos spec validate found errors in the spec delta:\n%s\nFix the delta before completing.",
+			strings.Join(messages, "\n"),
+		))
+	}
+
+	debugLog("athena-stop: spec delta valid for %q, allowing stop", feature)
+	return outputSubagentOK()
+}
+
+// findMostRecentFeatureDirWithFile scans .claude/feature/*/<filename> and returns the
+// feature directory whose file has the most recent modification time.
+func findMostRecentFeatureDirWithFile(cwd, filename string) string {
+	pattern := filepath.Join(cwd, ".claude", "feature", "*", filename)
+	matches, err := filepath.Glob(pattern)
+	if err != nil || len(matches) == 0 {
+		return ""
+	}
+
+	best := matches[0]
+	bestInfo, err := os.Stat(best)
+	if err != nil {
+		return filepath.Dir(best)
+	}
+	for _, m := range matches[1:] {
+		info, err := os.Stat(m)
+		if err != nil {
+			continue
+		}
+		if info.ModTime().After(bestInfo.ModTime()) {
+			best = m
+			bestInfo = info
+		}
+	}
+	return filepath.Dir(best)
 }
 
 // challengeHeadingRe matches any markdown heading that contains the word "challenge".

@@ -132,7 +132,11 @@ When ALL tasks are complete:
    )
    ```
 
-    If Hera returns **aligned**, immediately spawn Hermes + Cassandra in parallel (stage 9):
+    If Hera returns **aligned**, first check for a pending spec delta and offer to archive it (same procedure as Ares Mode — see `plugins/kratos/pipeline/stages.md` Stage 8 section: "After Hera Returns: Spec Archive Offer"):
+   ```bash
+   <kratos-bin> spec list --changes
+   ```
+   If this feature has a pending delta, ask the user to confirm archiving before continuing. Then immediately spawn Hermes + Cassandra in parallel (stage 9):
    ```
    Task(
      subagent_type: "kratos:hermes",

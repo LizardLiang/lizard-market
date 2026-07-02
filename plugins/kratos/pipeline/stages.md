@@ -253,6 +253,31 @@ Verify every acceptance criterion in prd.md is covered by a test and that tests 
 )
 ```
 
+### After Hera Returns: Spec Archive Offer
+
+If Hera's verdict is **aligned**, before spawning Stage 9, check whether the feature has a pending spec delta:
+
+```bash
+<kratos-bin> spec list --changes
+```
+
+If `.claude/feature/[feature-name]/spec-delta/*.md` has any pending (un-archived) file, offer the user a single confirmation prompt:
+
+```
+Feature [name] is aligned. Archive its spec delta into the living spec now?
+  - Capability: [capability]
+  - Changes: [N] added, [N] modified, [N] removed, [N] renamed
+
+Archive? (y/n)
+```
+
+If confirmed, run:
+```bash
+<kratos-bin> spec archive [feature-name]
+```
+
+This is **decoupled** from Hera itself — the binary mechanically applies Athena's authored delta, no extra agent spawn. Declining does not lose the delta: it stays on disk until archived via this prompt, `/kratos:spec-archive`, or a later `kratos spec backfill` sweep. Do not auto-commit the resulting spec.md change.
+
 ---
 
 ## Stage 9: Code Review + Risk Analysis — Parallel

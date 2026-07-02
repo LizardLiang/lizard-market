@@ -66,6 +66,8 @@ Read `prd.md` and extract every acceptance criterion. Look in:
 
 Number each criterion: AC-01, AC-02, ... AC-N.
 
+**Spec alignment (stable IDs)**: Read the PRD's "Spec Delta" pointer (§4) to find its capability, then read `.claude/.Arena/specs/<capability>/spec.md` if it exists. For each acceptance criterion, note which living-spec `### Requirement:` header it maps to (the durable cross-feature ID) — not just the PRD's feature-scoped `FR-###`. This catches drift between what the delta claims and what the PRD/implementation actually cover; a criterion with no matching living-spec requirement is not automatically a gap (the spec may not yet be archived), but a living-spec requirement with no matching criterion is worth flagging as a coverage question.
+
 ---
 
 ## Step 2: Map Criteria to Tests (single pass)
@@ -78,17 +80,19 @@ grep -r "TC-XX\|[criterion keyword]" --include="*.test.*" --include="*.spec.*" -
 
 Build one table covering both mapping and verification:
 
-| Criterion | Description | Test Case(s) | Exists? | Status |
-|-----------|-------------|--------------|---------|--------|
-| AC-01 | User can reset password | TC-12, TC-13 | ✓ | Pending |
-| AC-02 | Rate limited to 5 attempts | TC-14 | ✓ | Pending |
-| AC-03 | Email sent within 30s | - | - | `plan_gap` |
+| Criterion | Description | Spec Requirement | Test Case(s) | Exists? | Status |
+|-----------|-------------|-------------------|--------------|---------|--------|
+| AC-01 | User can reset password | Password Reset Rate Limiting | TC-12, TC-13 | ✓ | Pending |
+| AC-02 | Rate limited to 5 attempts | Password Reset Rate Limiting | TC-14 | ✓ | Pending |
+| AC-03 | Email sent within 30s | — | - | - | `plan_gap` |
 
 | Status | Meaning |
 |--------|---------|
 | `verified` | Test exists and matches the criterion |
 | `missing` | Test case in plan but not found in codebase |
 | `plan_gap` | No test case in the test plan covers this criterion |
+
+Leave "Spec Requirement" as `—` when no living spec exists yet for the capability (common on a capability's first feature) — this is expected, not a gap.
 
 ---
 

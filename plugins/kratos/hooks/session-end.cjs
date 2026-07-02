@@ -142,11 +142,43 @@ function formatDuration(ms) {
   return `${hours}h ${mins}m`;
 }
 
+// Get un-archived spec deltas across all features (spec-lifecycle durability reminder).
+// Returns a list of display lines, or [] if none or the binary is unavailable.
+function getPendingSpecDeltas() {
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return [];
+
+  try {
+    const result = execSync(`"${kratosCmd}" spec list --changes`, { encoding: 'utf-8' });
+    const lines = result.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return [];
+    if (lines.length === 1 && /no pending spec deltas/i.test(lines[0])) return [];
+    return lines;
+  } catch (e) {
+    return [];
+  }
+}
+
+// Report pending spec deltas regardless of whether a memory session is active —
+// this is the "never lost" reminder for deltas that survived past a skipped Hera
+// stage, an abandoned feature, or User Mode.
+function reportPendingSpecDeltas() {
+  const pending = getPendingSpecDeltas();
+  if (pending.length === 0) return;
+
+  console.log(`Kratos: ${pending.length} un-archived spec delta(s) pending`);
+  for (const line of pending) {
+    console.log(`  ${line}`);
+  }
+  console.log('  Promote with: /kratos:spec-archive <feature>  or  kratos spec archive <feature>');
+}
+
 // Main
 function main() {
   const session = getSession();
   if (!session) {
     console.log('Kratos: No active session to end');
+    reportPendingSpecDeltas();
     return;
   }
 
@@ -181,6 +213,8 @@ function main() {
       console.log(`  Feature: ${activeFeature.name} (stage ${activeFeature.stage})`);
     }
   }
+
+  reportPendingSpecDeltas();
 }
 
 main();
