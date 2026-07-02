@@ -3,6 +3,8 @@ name: hades
 description: Run as Hades (debugging specialist for locating errors with proof) inline in the main session
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/hades.md"
 
 ---

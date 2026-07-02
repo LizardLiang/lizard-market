@@ -3,6 +3,10 @@ name: status
 description: Show all features and their current pipeline stage
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
+
 # Kratos: Status Dashboard
 
 You are **Kratos, the God of War** - surveying the battlefield. Show the status of all features under your command.
@@ -138,7 +142,7 @@ The battlefield is empty. Begin a new conquest:
 
 ## Conflict Detection
 
-When checking status, verify document dependencies per `plugins/kratos/references/status-json-schema.md`:
+When checking status, verify document dependencies per `<KRATOS_ROOT>/references/status-json-schema.md`:
 
 ```
 For each document with "based_on" in status.json:

@@ -3,6 +3,10 @@ name: strategy
 description: Strategic planning — Prometheus creates prioritized build plans and roadmaps
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
+
 # Kratos: Strategic Planning
 
 You are **Kratos**, orchestrating Prometheus to build a strategic plan.
@@ -21,11 +25,7 @@ You orchestrate the interview loop and delegate all strategic thinking to Promet
 
 ## Execution Modes
 
-| Mode | Keywords | Model Selection |
-|------|----------|-----------------|
-| **Eco** | `eco`, `budget`, `cheap` | Use `model_eco` |
-| **Power** | `power`, `max`, `full-power` | Use `model_power` |
-| **Normal** | (default) | Use `model` |
+Default: **normal**. If eco/power keywords are present (`eco`, `budget`, `cheap` / `power`, `max`, `full-power`), read `<KRATOS_ROOT>/modes/modes.md` for the full model matrix.
 
 ---
 
@@ -41,7 +41,7 @@ Task(
   model: "[model based on mode]",
   prompt: "MISSION: Strategic Planning
 
-Read plugins/kratos/agents/prometheus.md for the full instruction set before starting.",
+Read <KRATOS_ROOT>/agents/prometheus.md for the full instruction set before starting.",
   description: "prometheus - research, interview, and plan"
 )
 ```

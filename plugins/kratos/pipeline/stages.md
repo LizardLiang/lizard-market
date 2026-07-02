@@ -7,6 +7,8 @@ description: Exact Task invocations for each pipeline stage (0–11)
 
 This file contains the exact Task tool calls for each pipeline stage. Read the relevant section when you need to spawn an agent for a specific stage.
 
+**IMPORTANT — resolving `<KRATOS_ROOT>`:** Before spawning, replace every `<KRATOS_ROOT>` in the prompt with the resolved absolute plugin root (from the `KRATOS_ROOT=` line echoed by the command, or `plugins/kratos/` from project root as fallback). Subagents cannot resolve it themselves.
+
 **IMPORTANT — filling `ORIGINAL_USER_REQUEST`:** Copy the user's actual first message (the request that triggered this pipeline) verbatim from your conversation context. Do NOT use the one-sentence description from start.md. Preserve original wording exactly — do not summarize, rephrase, or truncate.
 
 ---
@@ -34,7 +36,7 @@ Analyze the codebase and document findings in the Arena. This knowledge will gui
 
 ### Stage 1a: Gap Analysis (Kratos, inline)
 
-Read `plugins/kratos/pipeline/gap-analysis.md` and run the gap analysis yourself. Use your own `AskUserQuestion` to collect requirements — do not delegate this to Athena.
+Read `<KRATOS_ROOT>/pipeline/gap-analysis.md` and run the gap analysis yourself. Use your own `AskUserQuestion` to collect requirements — do not delegate this to Athena.
 
 ### Stage 1b: PRD Creation (Athena)
 
@@ -55,7 +57,7 @@ FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 ORIGINAL_USER_REQUEST: [paste the user's request verbatim — same text passed to Athena in Stage 1]
 
-Read plugins/kratos/agents/nemesis.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/nemesis.md for the full instruction set before starting.
 
 Create prd-challenge.md before completing. Kratos validates the deliverable after you finish.
 
@@ -112,7 +114,7 @@ FOLDER: .claude/feature/[feature-name]/
 INPUT: Read prd.md in the feature folder
 OUTPUT_TARGETS: [user selection]
 
-Read plugins/kratos/agents/daedalus.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/daedalus.md for the full instruction set before starting.
 
 Create decomposition.md at .claude/feature/[feature-name]/decomposition.md (for local target).
 
@@ -125,13 +127,13 @@ This decomposition enriches the feature — downstream agents (Hephaestus, Artem
 )
 ```
 
-If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status.json. See `plugins/kratos/references/status-json-schema.md`.
+If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status.json. See `<KRATOS_ROOT>/references/status-json-schema.md`.
 
 ---
 
 ## Stage 4: Tech Spec
 
-Read `plugins/kratos/pipeline/hephaestus-gate.md` and run the full procedure:
+Read `<KRATOS_ROOT>/pipeline/hephaestus-gate.md` and run the full procedure:
 - Phase 4a: Kratos spawns Metis for codebase scan
 - Phase 4b: Kratos spawns Hephaestus ANALYZE — asks user about approaches + gray areas via AskUserQuestion → `tech-spec-proposal.md` with locked decisions
 - Phase 4c: Kratos spawns Hephaestus WRITE_SPEC → `tech-spec.md` (may ask follow-ups if new gaps surface)
@@ -149,7 +151,7 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/apollo.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/apollo.md for the full instruction set before starting.
 
 Create spec-review-sa.md before completing. Kratos validates the deliverable after you finish.
 
@@ -172,7 +174,7 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/artemis.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/artemis.md for the full instruction set before starting.
 
 Create test-plan.md before completing. Kratos validates the deliverable after you finish.
 
@@ -181,7 +183,7 @@ Use Artemis's document-selection policy. If a needed prerequisite file is missin
 )
 ```
 
-After Stage 6 completes: read `plugins/kratos/pipeline/pre-implementation.md` and execute its procedure.
+After Stage 6 completes: read `<KRATOS_ROOT>/pipeline/pre-implementation.md` and execute its procedure.
 
 ---
 
@@ -195,7 +197,7 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/ares.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/ares.md for the full instruction set before starting.
 
 Create implementation-notes.md before completing. Kratos validates the deliverable after you finish.
 
@@ -216,7 +218,7 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/ares.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/ares.md for the full instruction set before starting.
 
 You are in USER MODE — create task files, do not implement code yourself.
 
@@ -244,7 +246,7 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/hera.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/hera.md for the full instruction set before starting.
 
 Create prd-alignment.md before completing. If `prd.md` is missing when you need it, stop and report Athena as the owning upstream agent to Kratos.
 
@@ -292,7 +294,7 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/hermes.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/hermes.md for the full instruction set before starting.
 
 Create code-review.md before completing. Kratos validates the deliverable after you finish.
 
@@ -308,7 +310,7 @@ MODE: pipeline
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/cassandra.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/cassandra.md for the full instruction set before starting.
 
 Create risk-analysis.md before completing. Kratos validates the deliverable after you finish.
 

@@ -34,7 +34,7 @@ CLI stage: `8`
 
 ## Arena
 
-Read `plugins/kratos/references/arena-protocol.md` for procedures.
+Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
 
 **Read before starting:**
 - `index.md` (always first) → then `project/`, `glossary.md`, `constraints.md`
@@ -195,7 +195,5 @@ Verdict: ALIGNED / GAPS / MISALIGNED
 
 ## Remember
 
-- Be thorough — check every criterion
-- Verify actual test code, don't just trust the test plan
 - Be honest about gaps
 - Your verdict determines readiness for final review

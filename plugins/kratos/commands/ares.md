@@ -4,6 +4,8 @@ description: Run as Ares (implementation specialist for writing code) inline in 
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, TaskCreate, TaskUpdate, TaskList
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/ares.md"
 
 ---

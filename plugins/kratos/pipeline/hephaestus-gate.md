@@ -29,7 +29,7 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/themis.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/themis.md for the full instruction set before starting.
 
 Surface implementation gray areas from prd.md, debate options with the user, and lock decisions into context.md.
 After writing context.md, set status.json `4-tech-spec.status` to `in-progress` and add a document entry for context.md.",
@@ -66,7 +66,7 @@ Task(
 PHASE: CODEBASE_SCAN
 FEATURE: [feature-name]
 
-Read plugins/kratos/agents/metis.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/metis.md for the full instruction set before starting.
 
 METIS_SEARCH_DIRECTIVE:
   FEATURE_DOMAIN: [what is being built — one phrase]
@@ -104,7 +104,7 @@ PHASE: ANALYZE
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/hephaestus.md for the full instruction set before starting.
 
 CODEBASE_CONTEXT:
 [paste either CODEBASE_SCAN_RESULT from Metis, or the relevant Arena shard contents]
@@ -136,7 +136,7 @@ PHASE: WRITE_SPEC
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/hephaestus.md for the full instruction set before starting.
+Read <KRATOS_ROOT>/agents/hephaestus.md for the full instruction set before starting.
 
 APPROACH_SELECTED: [approach name]
 GRAY_AREA_ANSWERS:

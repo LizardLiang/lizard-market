@@ -56,7 +56,7 @@ AskUserQuestion(
 )
 ```
 
-Update status.json: set `stages["7-implementation"].status` to `"in-progress"` and `stages["7-implementation"].mode` to `"ares"` or `"user"`. See `plugins/kratos/references/status-json-schema.md` for schema.
+Update status.json: set `stages["7-implementation"].status` to `"in-progress"` and `stages["7-implementation"].mode` to `"ares"` or `"user"`. See `<KRATOS_ROOT>/references/status-json-schema.md` for schema.
 
 ---
 

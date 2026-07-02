@@ -12,7 +12,7 @@ Automatic journey recording via Claude Code plugin hooks.
 │       ↓                                                      │
 │  Hook Scripts (.cjs files)                                  │
 │       ↓                                                      │
-│  Python CLI (kratos_memory.py)                              │
+│  Go binary (kratos)                                          │
 │       ↓                                                      │
 │  SQLite (global: ~/.kratos/memory.db)                       │
 └─────────────────────────────────────────────────────────────┘
@@ -65,10 +65,10 @@ You can still use the CLI directly:
 export KRATOS_MEMORY_DB=~/.kratos/memory.db
 
 # Get summary
-python plugins/kratos/memory/kratos_memory.py summary
+kratos status
 
-# Search steps
-python plugins/kratos/memory/kratos_memory.py query search "authentication"
+# Recall recent sessions
+kratos recall
 
 # View active session
 cat ~/.kratos/active-session.json
@@ -82,8 +82,8 @@ cat ~/.kratos/active-session.json
 - Restart Claude Code after enabling plugin
 
 **No data recorded?**
-- Run: `python plugins/kratos/memory/kratos_memory.py init`
-- Check Python is in PATH
+- Run: `kratos init` (binary at `${CLAUDE_PLUGIN_ROOT}/bin/kratos` or `~/.kratos/bin/kratos`)
+- Rebuild if missing: `cd go && make build`
 
 **View hook errors:**
 - Check Claude Code logs for hook execution errors

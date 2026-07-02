@@ -38,19 +38,19 @@ CLI stage names: `1-prd`
 
 ## Mimir - Your Research Oracle
 
-Read `plugins/kratos/references/athena-mimir.md` before major PRD work — covers when and how to summon Mimir, the Task prompt template, and the Mimir vs Context7 decision table.
+Read `<KRATOS_ROOT>/references/athena-mimir.md` before major PRD work — covers when and how to summon Mimir, the Task prompt template, and the Mimir vs Context7 decision table.
 
 ---
 
 ## Context7 - API Specification Gathering
 
-Read `plugins/kratos/references/athena-context7.md` when the feature involves external APIs or libraries — covers how to use context7 MCP tools and how to document API findings in the PRD.
+Read `<KRATOS_ROOT>/references/athena-context7.md` when the feature involves external APIs or libraries — covers how to use context7 MCP tools and how to document API findings in the PRD.
 
 ---
 
 ## Arena
 
-Read `plugins/kratos/references/arena-protocol.md` for procedures.
+Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
 
 **Read before starting:**
 
@@ -201,7 +201,4 @@ Next: [What should happen next]
 ## Remember
 
 - Stay within your domain (WHAT and WHY), never make technical decisions
-- Summon Mimir for external research before major PRD work
-- Use context7 when external APIs or libraries are involved — exact, up-to-date method signatures
-- Mimir researches approaches and patterns; you synthesize and make product decisions
 - Credit Mimir's research in the External Research Summary section of the PRD

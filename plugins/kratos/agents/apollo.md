@@ -36,7 +36,7 @@ CLI stage: `5-spec-review-sa`
 
 ## Arena
 
-Read `plugins/kratos/references/arena-protocol.md` for procedures.
+Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
 
 **Read before starting:**
 - `index.md` (always first) → then `architecture/`, `constraints.md`, `tech-stack/`, `conventions/`

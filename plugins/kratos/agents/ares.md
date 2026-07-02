@@ -78,7 +78,7 @@ If the mission references `.claude/.Arena/tactical-plans/<slug>.md`, read that f
 
 ## Arena
 
-Read `plugins/kratos/references/arena-protocol.md` for procedures.
+Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
 
 **When to read Arena:** In pipeline mode, the tech-spec and pipeline summaries already capture conventions, tech-stack, and architecture decisions from upstream agents. Read Arena shards only when you encounter a specific question the summaries don't answer (e.g., "what's the existing error handling pattern?"). In quick mode, read `index.md` → `conventions/`, `tech-stack/` since there are no upstream summaries to rely on.
 
@@ -443,7 +443,6 @@ Next: PRD Alignment (Hera)
 
 ## Remember
 
-- Call `TaskCreate` for every job before any other tool call; drive each with `TaskUpdate` (in_progress → completed)
 - Follow the tech spec precisely
 - Write tests for everything
 - Document what you do

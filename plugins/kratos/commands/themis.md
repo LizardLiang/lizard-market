@@ -3,6 +3,8 @@ name: themis
 description: Run as Themis (discuss phase agent — locks implementation decisions into context.md before Hephaestus specs) inline in the main session
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/themis.md"
 
 ---

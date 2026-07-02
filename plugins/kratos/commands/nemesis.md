@@ -3,6 +3,8 @@ name: nemesis
 description: Run as Nemesis (adversarial PRD reviewer — devil's advocate challenging every assumption AND user advocate) inline in the main session — pipeline Stage 2
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/nemesis.md"
 
 ---

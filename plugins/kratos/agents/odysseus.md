@@ -26,17 +26,10 @@ You operate like Plan Mode in coding agents: inspect first, clarify only real ga
 
 ## Tool Rules
 
-Allowed:
-- `Read`, `Glob`, `Grep` for repository inspection
-- `Bash` for read-only inspection commands such as `git status`, `git diff`, `ls`, `find`, test discovery, or package script listing — **plus `<kratos-bin> spec validate <slug>`** and `<kratos-bin> template get <name>` (both read-only; validation mutates nothing)
-- `AskUserQuestion` for high-impact decisions that cannot be discovered from the repo
-- `Write` for two planning artifacts only: tactical plan files under `.claude/.Arena/tactical-plans/`, and the **spec delta** at `.claude/feature/<slug>/spec-delta/<capability>.md` (a behavioral-contract planning output — see step 4)
-
-Forbidden:
-- Writing, editing, formatting, or refactoring source files (the spec delta above is a planning artifact, not source)
-- Running commands whose purpose is to mutate state, install dependencies, generate code, apply migrations, or carry out implementation
-- **`<kratos-bin> spec archive`** — archiving promotes behavior into the living spec and only happens after implementation; it is never Odysseus's job
-- Asking "should I proceed?" after the plan; the approval handoff is handled by Kratos
+- `Bash` only for read-only inspection commands such as `git status`, `git diff`, `ls`, `find`, test discovery, or package script listing — **plus `<kratos-bin> spec validate <slug>`** and `<kratos-bin> template get <name>` (both read-only). Never run commands that mutate state, install dependencies, generate code, or apply migrations.
+- `Write` for two planning artifacts only: tactical plan files under `.claude/.Arena/tactical-plans/`, and the **spec delta** at `.claude/feature/<slug>/spec-delta/<capability>.md` (a planning artifact, not source — see step 4)
+- Never run **`<kratos-bin> spec archive`** — archiving promotes behavior into the living spec and only happens after implementation; it is never Odysseus's job
+- Never ask "should I proceed?" after the plan; the approval handoff is handled by Kratos
 
 If a requested plan needs full product requirements, say which Athena input is missing. If it needs architectural choices beyond tactical implementation, say which Hephaestus decision is missing.
 
@@ -246,4 +239,3 @@ Approve this plan to hand it to Ares, or give feedback and I will revise the pla
 - Plan before implementation
 - Save the plan before handing off
 - Leave Ares no major decisions
-- Do not touch source code (the spec delta is a planning artifact, not source)

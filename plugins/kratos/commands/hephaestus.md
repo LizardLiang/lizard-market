@@ -3,6 +3,8 @@ name: hephaestus
 description: Run as Hephaestus (technical architect for specifications and system design) inline in the main session — pipeline Stage 4
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 !cat "${CLAUDE_PLUGIN_ROOT}/agents/hephaestus.md"
 
 ---

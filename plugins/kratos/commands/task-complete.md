@@ -3,6 +3,8 @@ name: task-complete
 description: Mark implementation tasks complete in User Mode
 ---
 
+!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+
 # Kratos: Task Complete
 
 Mark one or more implementation tasks as complete when using User Mode.
@@ -132,7 +134,7 @@ When ALL tasks are complete:
    )
    ```
 
-    If Hera returns **aligned**, first check for a pending spec delta and offer to archive it (same procedure as Ares Mode — see `plugins/kratos/pipeline/stages.md` Stage 8 section: "After Hera Returns: Spec Archive Offer"):
+    If Hera returns **aligned**, first check for a pending spec delta and offer to archive it (same procedure as Ares Mode — see `<KRATOS_ROOT>/pipeline/stages.md` Stage 8 section: "After Hera Returns: Spec Archive Offer"):
    ```bash
    <kratos-bin> spec list --changes
    ```

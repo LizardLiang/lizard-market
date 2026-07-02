@@ -36,7 +36,7 @@ Kratos is a **Claude Code plugin** (`.claude-plugin/plugin.json`) that orchestra
 - **`templates/`** — Document templates agents fill in (PRD, tech spec, test plan, code review, etc.).
 - **`rules/`** — Code review standards (tiered). `default.md` is the baseline; language-specific files (e.g., `react.md`) auto-load based on file types.
 - **`references/`** — Protocol docs agents read: `agent-protocol.md` (shared procedures), `arena-protocol.md` (knowledge base read/write rules), `status-json-schema.md`.
-- **`modes/`** — Execution mode overrides (`eco-mode.md`, `power-mode.md`) that change which model each agent uses.
+- **`modes/`** — Execution mode reference (`modes.md`) with the eco/normal/power model matrix for every agent.
 - **`hooks/`** — Claude Code hooks (`hooks.json` + JS/Go implementations). Key hooks: SubagentStart/Stop gates for Ares/Hephaestus/Hermes, PreToolUse for npm→project-PM rewriting.
 
 ### 2. Go Binary Layer (optional, enhances pipeline tracking)
@@ -60,8 +60,8 @@ Pull-model knowledge base in the target project. Agents read what they need; Met
 
 ## Important Conventions
 
-- All paths in agent prompts are relative to the **project root** (git repo root), not the plugin directory.
-- `schema.sql` exists in both `go/internal/db/` and `memory/src/` — keep them in sync on schema changes.
+- Plugin-internal paths are written as `<KRATOS_ROOT>/...`. Orchestrators resolve the actual root (from `${CLAUDE_PLUGIN_ROOT}` or the skill base directory) and substitute it into agent prompts before spawning; `plugins/kratos/` from project root is the fallback for in-repo installs. See `references/agent-protocol.md`.
+- `schema.sql` exists in both `go/internal/db/` and `memory/` (legacy) — keep them in sync on schema changes.
 - Hook commands use fallback chains: try `${CLAUDE_PLUGIN_ROOT}/bin/kratos` first, then `~/.kratos/bin/kratos`.
 - The Go binary is optional — all agents gracefully fall back to direct file edits when it's unavailable.
-- Version is tracked in `.claude-plugin/plugin.json` (currently v2.27.0).
+- Version is tracked in `.claude-plugin/plugin.json`.
