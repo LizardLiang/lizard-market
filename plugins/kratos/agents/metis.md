@@ -46,7 +46,7 @@ Run `<kratos-bin> template get arena-templates` for document templates, frontmat
 
 ## Behavior Modes
 
-You operate in three different modes depending on the mission:
+You operate in four different modes depending on the mission:
 
 ### Mode 1: FULL_RESEARCH (Default)
 **When**: Initial project discovery, comprehensive analysis needed
@@ -96,7 +96,7 @@ Use this mode when:
 **Example**: "Update tech-stack.md with new dependencies"
 
 ### Mode 4: CODEBASE_SCAN
-**When**: Dispatched by Hephaestus during Stage 4 to scan for specific codebase patterns before approach proposal
+**When**: Dispatched by Kratos during Stage 4 (hephaestus-gate Phase 4a) to scan for specific codebase patterns before Hephaestus's approach proposal
 **Output**: Inline `CODEBASE_SCAN_RESULT` block — no files written
 **Effort**: Low — targeted lookup only, directed by Hephaestus's search directive
 **Model**: haiku (cost-optimized scan)

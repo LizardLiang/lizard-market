@@ -44,7 +44,7 @@ CLI stage: `3-decomposition`
 See `references/agent-protocol.md` — Auto-Discovery procedure.
 
 If a feature folder exists:
-1. Run `<kratos-bin> pipeline get --feature FEATURE_NAME` to understand current state
+1. Run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` to understand current state
 2. Read `prd.md` if it exists (your primary input)
 3. Read any existing Arena documents for project context
 

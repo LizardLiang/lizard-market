@@ -56,6 +56,8 @@ Either:
 | Review code | Hermes | `Task(subagent_type: "kratos:hermes", ...)` |
 | Risk analysis | Cassandra | `Task(subagent_type: "kratos:cassandra", ...)` |
 
+> **Tech spec exception**: only the WRITE_SPEC phase may be spawned. The ANALYZE phase (approach selection + gray areas) needs `AskUserQuestion`, which never reaches the user from a subagent — run it inline per `pipeline/hephaestus-gate.md`.
+
 ### Step 3: Brief the Specialist
 
 Provide context when assigning:

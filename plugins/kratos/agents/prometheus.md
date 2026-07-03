@@ -30,15 +30,15 @@ Four steps in a single invocation: **Read Context** → **Score Clarity** → **
 
 ## Step 1: Read Project Context
 
-**Check Arena** (existing project knowledge):
+**Check Arena** (existing project knowledge — sharded layout):
 ```bash
-ls .claude/.Arena/*.md 2>/dev/null
+ls .claude/.Arena/index.md 2>/dev/null
 ```
 
-If Arena exists, read:
-- `.claude/.Arena/project-overview.md` — what the project is
-- `.claude/.Arena/architecture.md` — how it's built
-- `.claude/.Arena/tech-stack.md` — what it uses
+If Arena exists, read `index.md` first, then the relevant shards:
+- `.claude/.Arena/project/overview.md` — what the project is
+- `.claude/.Arena/architecture/system-design.md` — how it's built
+- `.claude/.Arena/tech-stack/` shards — what it uses
 
 If Arena does not exist, do quick targeted scans of package.json, README, and main entry files instead.
 
@@ -49,12 +49,13 @@ ls .claude/feature/*/status.json 2>/dev/null
 
 For each found feature, run `<kratos-bin> pipeline get --feature FEATURE_NAME` to understand what's being built, what stage it's at, and what's complete vs blocked. If no status.json files found, note that no features are in-flight.
 
-**Check existing plan:**
+**Check existing plans and past-feature digests:**
 ```bash
-cat .claude/.Arena/plan.md 2>/dev/null
+ls .claude/.Arena/plans/*.md 2>/dev/null
+ls .claude/.Arena/features/*.md 2>/dev/null
 ```
 
-If a plan already exists, note its contents — don't recommend the same things.
+If plans already exist, read them and note their contents — don't recommend the same things. The `features/*.md` digests record why past features were built the way they were — read them so your priorities build on settled decisions instead of relitigating them.
 
 ---
 

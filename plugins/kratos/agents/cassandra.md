@@ -64,7 +64,7 @@ See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
 3. Implementation files exist
 
 **Pipeline mode document selection**:
-- Run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and the Stage 4, 8, and 9 summaries
+- Run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state and the Stage 4, 8, and 9 summaries
 - Use the changed files and git diff as your primary risk surface
 - Use `tech-spec.md` when a risk depends on intended architecture, contracts, data flow, or rollout assumptions beyond the summaries
 - Use other feature documents only to verify a specific risk
@@ -124,6 +124,8 @@ Evaluate the changed files across these dimensions:
 Create `risk-analysis.md`. Run `<kratos-bin> template get risk-analysis-template` to get the template structure and follow it.
 
 **If verdict is Blocked**, append your CRITICAL findings to `decisions.md` at `.claude/feature/<name>/decisions.md`. Like Hermes, you must provide the why — a blocked gate without a clear rationale and required action is just a frustration.
+
+**If verdict is Clear or Caution**, still record the positive path: append a one-line sign-off to `decisions.md` under a `## Review Sign-offs` section (create it if absent): `[date] — Cassandra: Clear/Caution — [one sentence on the residual risk you accepted and why]`. A clean risk pass with no recorded reasoning is a decision no one can revisit later.
 
 Append this block under `## Revision Requests`:
 ```markdown

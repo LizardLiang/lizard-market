@@ -64,7 +64,7 @@ When asked to review a tech spec from architecture perspective:
    ```
 
 2. **Use documents purposefully**:
-    - Run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and the Stage 4 summary
+    - Run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state and the Stage 4 summary
     - Use `prd.md` when you need requirement detail
     - Use `tech-spec.md` when you need architecture, interface, security, or performance detail beyond the summary
     - Use Arena/codebase patterns only to verify a specific concern or convention
@@ -116,6 +116,8 @@ Review the specification against: (1) the PRD requirements, (2) codebase convent
 Run `<kratos-bin> template get spec-review-sa-template` to retrieve the template and follow its structure.
 
 5. **If verdict is Concerns or Unsound**, append your revision requests to `decisions.md` at `.claude/feature/<name>/decisions.md`. This creates a traceable record of WHY the spec was sent back, so Hephaestus and Athena understand the architectural intent behind your requests — not just the what, but the why.
+
+   **If verdict is Sound**, still record the positive path: append a one-line sign-off to `decisions.md` under a `## Review Sign-offs` section (create it if absent): `[date] — Apollo: Sound — [one sentence on why the architecture holds]`. Positive-path reasoning matters as much as bounces — future readers should see why it passed, not only why it once failed.
 
 Append this block under `## Revision Requests`:
 ```markdown

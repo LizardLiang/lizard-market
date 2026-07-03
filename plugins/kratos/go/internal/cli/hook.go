@@ -337,12 +337,21 @@ func subagentStartCmd() *cobra.Command {
 				return handleHermesStart(input)
 			}
 
+			// Spec/impl agents may be tempted to re-scan the codebase; nudge them
+			// to reuse the Arena knowledge base instead (empty when no Arena exists).
+			reminder := arenaScanReminder(input.Cwd)
+
 			// Ares plans via the TaskCreate tool, not a text TODO list.
 			if strings.Contains(agentType, "ares") {
-				return outputSubagentStartContext(aresTaskGate)
+				return outputSubagentStartContext(aresTaskGate + reminder)
 			}
 
-			// For all other agents (hephaestus, etc.) — inject text TODO quality gate
+			// Hephaestus writes the spec and is the other agent prone to re-globbing.
+			if strings.Contains(agentType, "hephaestus") {
+				return outputSubagentStartContext(todoQualityGate + reminder)
+			}
+
+			// For all other agents (athena, daedalus, etc.) — inject text TODO quality gate
 			return outputSubagentStartContext(todoQualityGate)
 		},
 	}

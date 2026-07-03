@@ -32,7 +32,7 @@ type stageCheck struct {
 	Verdicts      map[string][]string // file -> accepted verdict strings (lowercase)
 	MaxRetries    int
 	Optional      bool                  // true for stages 3, 4 (skip if status == "skipped")
-	AgentDispatch map[string]stageCheck // for stage 11: agent_type -> sub-check
+	AgentDispatch map[string]stageCheck // for stage 9-review: agent_type -> sub-check
 }
 
 // stageChecks is the declarative stage-to-deliverable mapping for all Tier 1 stages.
@@ -163,20 +163,24 @@ func handleCheckInit(stage, feature string) error {
 		cwd, _ = os.Getwd()
 	}
 
-	// For stage 11, dispatch by agent_type so each agent sees only its own deliverables
+	// For stage 9-review, dispatch by agent_type so each agent sees only its own deliverables
 	if len(check.AgentDispatch) > 0 {
 		agentType := strings.ToLower(input.AgentType)
 		if sub, ok := check.AgentDispatch[agentType]; ok {
 			ctx := buildInitContext(stage, sub)
 			return outputSubagentStartContext(ctx)
 		}
-		// Unknown agent type at stage 11 — fail open
-		checkDebugLog("init: stage 11 unknown agent_type %q, returning empty context", input.AgentType)
+		// Unknown agent type at stage 9-review — fail open
+		checkDebugLog("init: stage 9-review unknown agent_type %q, returning empty context", input.AgentType)
 		return outputSubagentStartContext("")
 	}
 
 	// Build the additional context listing expected deliverables
 	ctx := buildInitContext(stage, check)
+	// Apollo (stage 5) reviews architecture and may re-scan; nudge it to reuse Arena.
+	if stage == "5-spec-review-sa" {
+		ctx += arenaScanReminder(cwd)
+	}
 	return outputSubagentStartContext(ctx)
 }
 
@@ -261,13 +265,13 @@ func handleCheckVerify(stage, feature string) error {
 		}
 	}
 
-	// Stage 11: dispatch by agent_type
+	// Stage 9-review: dispatch by agent_type
 	if len(check.AgentDispatch) > 0 {
 		agentType := strings.ToLower(input.AgentType)
 		subCheck, found := check.AgentDispatch[agentType]
 		if !found {
-			// Unknown agent type at stage 11 — fail open (includes kratos:hermes)
-			checkDebugLog("verify: stage 11 unknown agent_type %q, failing open", agentType)
+			// Unknown agent type at stage 9-review — fail open (includes kratos:hermes)
+			checkDebugLog("verify: stage 9-review unknown agent_type %q, failing open", agentType)
 			return outputSubagentOK()
 		}
 		// Run the sub-check for the dispatched agent

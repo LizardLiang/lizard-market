@@ -137,9 +137,9 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 | 7-implementation | Ares Mode | 8-prd-alignment (hera) |
 | 7-implementation | User Mode | Wait — user completes tasks, then `/kratos:task-complete all` |
 | 8-prd-alignment | Aligned | Spec archive offer (see below) → 9-review (hermes + cassandra parallel) |
-| 8-prd-alignment | Gaps | 7-implementation (ares) — add missing test coverage |
+| 8-prd-alignment | Gaps | 7-implementation (ares) — add missing test coverage AND/OR remove scope-creep code Hera flagged |
 | 8-prd-alignment | Misaligned | Blocked — escalate to user, fundamental scope issue |
-| 9-review | Approved + risk CLEAR/CAUTION | VICTORY |
+| 9-review | Approved + risk CLEAR/CAUTION | **Ship gate** — run `<kratos-bin> verify --final --feature FEATURE_NAME`. VICTORY **only** on exit 0; any non-zero output → BLOCKED with the listed failures. |
 | 9-review | Approved + risk CRITICAL | Blocked — fix risks, re-run stage 9 |
 | 9-review | Changes Required | 7-implementation (ares) |
 
@@ -188,10 +188,34 @@ Current status: [what's missing]
 ```
 
 ### Victory
+
+**VICTORY is a mechanically-earned state, never a self-declaration.** Before printing it, you MUST run the consolidated ship gate:
+
+```
+<kratos-bin> verify --final --feature FEATURE_NAME
+```
+
+The gate checks that every stage produced its deliverable AND every reviewer declared a *passing* verdict (read from the deliverable files, since the status.json `verdict` field is unreliable at stage 9). Only on exit 0 (output begins `VERIFIED:`) may you print VICTORY. On any non-zero exit (output begins `BLOCKED:`), print the ⚔️ BLOCKED ⚔️ format instead, listing the reported failures, and route back to the failing stage — do not declare victory.
+
+If the `kratos` binary is unavailable, fall back to confirming each deliverable exists and its verdict section reads as passing (approved / sound / aligned / clear|caution) before declaring victory.
+
+**After the gate passes, record the feature digest (durable cross-feature memory).** The per-feature `decisions.md` and `context.md` are stranded in the feature folder; distill their essence into `.claude/.Arena/features/FEATURE_NAME.md` so the *reasoning* survives alongside the behavioral contract that `spec archive` already promotes. Create `.claude/.Arena/features/` if absent. Write a dated one-paragraph digest:
+
+```markdown
+# FEATURE_NAME — [date]
+
+**What & why:** [1–2 sentences: what shipped and the core product decision behind it]
+**Key decisions:** [2–4 bullets distilled from decisions.md — decision → rationale, including any rejected alternative that still matters]
+**Implementation choices:** [1–2 bullets from context.md <decisions> that a future related feature should know]
+**Sign-offs:** Apollo [verdict], Hera aligned, Hermes approved, Cassandra [clear/caution]
+```
+
+Keep it to a paragraph — this is a digest, not a copy. A future Themis/Prometheus run reads these to avoid re-deciding settled questions.
+
 ```
 🏆 VICTORY 🏆
 
-Feature [name] is COMPLETE!
+Feature [name] is COMPLETE! (ship gate: VERIFIED)
 
 ✅ prd.md  ✅ prd-challenge.md  ✅ tech-spec.md
 ✅ spec-review-sa.md  ✅ test-plan.md

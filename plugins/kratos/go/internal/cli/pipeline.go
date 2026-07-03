@@ -398,22 +398,24 @@ func pipelineUpdate(feature, stage, newStatus, mode, verdict, document, summary 
 
 func pipelineGetCmd() *cobra.Command {
 	var feature string
+	var compact bool
 
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Get current pipeline status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return pipelineGet(feature)
+			return pipelineGet(feature, compact)
 		},
 	}
 
 	cmd.Flags().StringVar(&feature, "feature", "", "Feature name (required)")
+	cmd.Flags().BoolVar(&compact, "compact", false, "Omit the audit-only history[] and per-stage check_failures[] to save tokens (agents should prefer this)")
 	cmd.MarkFlagRequired("feature")
 
 	return cmd
 }
 
-func pipelineGet(feature string) error {
+func pipelineGet(feature string, compact bool) error {
 	path := statusPath(feature)
 
 	statusJSON, err := readStatusJSON(path)
@@ -421,9 +423,52 @@ func pipelineGet(feature string) error {
 		return err
 	}
 
+	if compact {
+		statusJSON = compactStatus(statusJSON)
+	}
+
 	out, _ := json.MarshalIndent(statusJSON, "", "  ")
 	fmt.Println(string(out))
 	return nil
+}
+
+// compactStatus returns a projection of status.json for downstream agents that
+// need current state, not the audit trail. It drops the monotonically-growing
+// top-level history[] and each stage's append-only check_failures[] — the two
+// fields that make `pipeline get` output balloon over a feature's life. All
+// decision-relevant fields (status, verdicts, summary, document, mode, timing)
+// are preserved. The underlying status.json file is never modified.
+func compactStatus(status map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(status))
+	for k, v := range status {
+		if k == "history" {
+			continue
+		}
+		out[k] = v
+	}
+
+	pipeline, ok := status["pipeline"].(map[string]interface{})
+	if !ok {
+		return out
+	}
+	trimmedPipeline := make(map[string]interface{}, len(pipeline))
+	for stageKey, stageVal := range pipeline {
+		stageMap, ok := stageVal.(map[string]interface{})
+		if !ok {
+			trimmedPipeline[stageKey] = stageVal
+			continue
+		}
+		trimmedStage := make(map[string]interface{}, len(stageMap))
+		for k, v := range stageMap {
+			if k == "check_failures" {
+				continue
+			}
+			trimmedStage[k] = v
+		}
+		trimmedPipeline[stageKey] = trimmedStage
+	}
+	out["pipeline"] = trimmedPipeline
+	return out
 }
 
 // pipelineSetPendingCmd sets pending_stage in status.json so that kratos check --init
@@ -505,10 +550,11 @@ func pipelineDiscoverList(all bool) error {
 	}
 
 	type entry struct {
-		feature  string
-		updated  string
-		complete bool
-		data     map[string]interface{}
+		feature    string
+		updated    string
+		structural bool
+		verified   bool
+		data       map[string]interface{}
 	}
 
 	var entries []entry
@@ -519,11 +565,18 @@ func pipelineDiscoverList(all bool) error {
 		}
 		feature, _ := data["feature"].(string)
 		updated, _ := data["updated"].(string)
-		complete := isFeatureComplete(data)
-		if !all && complete {
+		// A feature is only "done" when every stage is complete AND every
+		// review passed. Verdict verification (file-based) runs only once the
+		// structural check passes, so a failed review keeps the feature visible.
+		structural := isFeatureComplete(data)
+		verified := false
+		if structural {
+			verified = isFeatureVerified(filepath.Dir(path), data)
+		}
+		if !all && structural && verified {
 			continue
 		}
-		entries = append(entries, entry{feature, updated, complete, data})
+		entries = append(entries, entry{feature, updated, structural, verified, data})
 	}
 
 	if len(entries) == 0 {
@@ -543,7 +596,7 @@ func pipelineDiscoverList(all bool) error {
 		if i > 0 {
 			fmt.Println()
 		}
-		printFeatureStatus(e.feature, e.complete, e.data)
+		printFeatureStatus(e.feature, e.structural, e.verified, e.data)
 	}
 	return nil
 }
@@ -698,11 +751,17 @@ func discoverStatusSymbol(status string) string {
 	}
 }
 
-// printFeatureStatus writes one feature block to stdout.
-func printFeatureStatus(feature string, complete bool, data map[string]interface{}) {
+// printFeatureStatus writes one feature block to stdout. structural means every
+// non-optional stage is complete; verified means every review passed the ship
+// gate. A feature that is structurally complete but failed a review is flagged
+// so it is never mistaken for shippable.
+func printFeatureStatus(feature string, structural, verified bool, data map[string]interface{}) {
 	doneLabel := ""
-	if complete {
+	switch {
+	case structural && verified:
 		doneLabel = "  [done]"
+	case structural && !verified:
+		doneLabel = "  [complete — verification FAILED, not shippable]"
 	}
 	fmt.Printf("feature:  %s%s\n", feature, doneLabel)
 

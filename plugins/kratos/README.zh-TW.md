@@ -1,33 +1,62 @@
-# Kratos - 戰神 (v2.19.0)
+# ⚔️ Kratos — 給 Claude Code 的對抗式 Spec-Driven 流水線
 
 > *「我就是眾神所造之物。」* — 現在，眾神為**你**服務。
 
-Kratos 是主要的協調者插件，指揮專業**代理人**交付功能與智慧。從快速修復到完整的 8 階段功能流水線，Kratos 一手包辦，並具備持久記憶、外部研究能力與 Git 歷史專業知識。
+![version](https://img.shields.io/badge/version-2.83.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-18-orange) ![pipeline](https://img.shields.io/badge/pipeline-11%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-## 安裝
+**別再交付 AI 垃圾。** Kratos 讓你的功能走一條真正的流水線：PM 撰寫 PRD、魔鬼代言人（**Nemesis**）逐條挑戰、架構師寫出技術規格、對齊門（**Hera**）驗證實作確實對得上你**真正**要的東西。具名代理人、由 Hooks 強制執行的評審門、跨 session 的持久記憶 — 不是又一堆 subagent。
 
-完整的安裝步驟（建置二進位檔、安裝 Hooks、設定自動啟動），請參閱 **[INSTALL.md](INSTALL.md)**。
+## 為什麼用 Kratos，而不是單一「做完整功能」的 agent？
+
+|                                    | 單一大 agent | agent 大雜燴 | **Kratos**                    |
+| ---------------------------------- | :----------: | :----------: | ----------------------------- |
+| 需求在動工**前**就被挑戰            |      ✗       |      ✗       | ✅ Nemesis 對抗式評審          |
+| 實作對照原始需求驗證                |      ✗       |      ✗       | ✅ Hera 對齊門                 |
+| 品質門**強制執行**，不只是建議      |      ✗       |      ✗       | ✅ Claude Code Hooks           |
+| 跨 session 持久記憶                 |      ✗       |     少見     | ✅ SQLite + `/kratos:recall`   |
+
+## 你實際會得到什麼 — lite vs full
+
+Kratos 分兩層運作。**markdown 層獨立可用 — 免建置、免二進位檔、免設定。** 選用的 Go 二進位檔只是讓追蹤更精確。
+
+|                                      | markdown 層 *(預設)* | + Go 二進位檔 *(選用)* |
+| ------------------------------------ | :------------------: | :--------------------: |
+| 全部 18 代理人 + 11 階段流水線       |          ✅          |           ✅          |
+| 指令（`/kratos:quick`、`review`…）   |          ✅          |           ✅          |
+| 強制品質門 Hooks                     |          ✅          |           ✅          |
+| 流水線時間戳與階段歷史               |       檔案備援       |        ✅ 精確        |
+| Session 記憶 / recall                |          —           |        ✅ SQLite      |
 
 ### 快速開始
 
 ```bash
-# 1. 建置二進位檔
-cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos && cd ..
-
-# 2. 初始化資料庫並安裝 Hooks
-./bin/kratos init && ./bin/kratos install
-
-# 3. 驗證安裝
-./bin/kratos status
+# 1. 加入市場並安裝插件 — 這一步就能用上完整流水線
+claude plugin marketplace add https://github.com/LizardLiang/lizard-market
+claude plugin install kratos@lizard-market
 ```
 
-接著安裝插件，並將自動啟動區塊加入你的 `CLAUDE.md`（參見 [INSTALL.md - 步驟 2](INSTALL.md#step-2-install-the-plugin-into-claude-code) 和 [步驟 5](INSTALL.md#step-5-enable-auto-activation)）。
+就這樣 — 試試 `/kratos:quick 幫 UserService.js 加測試`。markdown 層零額外設定即可運作。
 
-> **注意**：二進位檔為選用。沒有它 Kratos 仍可運作 — 代理人會直接編輯檔案作為備援。安裝後，`status.json` 將記錄真實時間戳記與完整流水線歷史。
+**選用 — 啟用精確追蹤與記憶**（使用 `bin/` 內附的預建二進位檔，涵蓋 Linux、macOS arm64/amd64、Windows amd64）：
+
+```bash
+cd ~/.claude/plugins/cache/kratos
+./bin/kratos init && ./bin/kratos install   # 初始化資料庫 + 註冊 Hooks
+./bin/kratos status                         # 驗證
+```
+
+想從原始碼建置？請參閱 **[INSTALL.md — Option B](INSTALL.md)**。接著將自動啟動區塊加入你的 `CLAUDE.md`（參見 [INSTALL.md - 步驟 5](INSTALL.md#step-5-enable-auto-activation)）。
 
 ---
 
 ## 架構
+
+**一個請求如何流經 Kratos** — 從你的提示詞，經過 Hooks 與路由器，進入對應的代理人，最後輸出交付成果。開啟 [`kratos-agent-flow.html`](kratos-agent-flow.html) 可看可縮放的互動版本（明／暗、流程與代理人視圖）。
+
+![Kratos 代理人指令載入流程](docs/assets/agent-flow.png)
+
+<details>
+<summary>文字版（代理人陣容）</summary>
 
 ```
                          ⚔️ KRATOS ⚔️
@@ -62,6 +91,8 @@ cd plugins/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos 
                             │   除錯（按需啟用）   │
                             └─────────────────────┘
 ```
+
+</details>
 
 ## 眾神陣容（代理人）
 

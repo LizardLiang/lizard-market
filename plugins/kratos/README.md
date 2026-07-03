@@ -1,8 +1,35 @@
-# Kratos - The God of War (v2.79.0)
+# ⚔️ Kratos — Adversarial Spec-Driven Pipeline for Claude Code
 
-> *"I am what the gods have made me."* - Now, the gods serve **you**.
+> *"I am what the gods have made me."* — now the gods serve **you**.
 
-Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom. It handles everything from quick bug fixes to full 11-stage feature pipelines — with persistent memory, external research capabilities, and git history expertise.
+![version](https://img.shields.io/badge/version-2.83.1-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-18-orange) ![pipeline](https://img.shields.io/badge/pipeline-11%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+
+**Stop shipping AI slop.** Kratos runs your feature through a real pipeline: a PM drafts the PRD, a devil's advocate (**Nemesis**) tears it apart, an architect specs it, and an alignment gate (**Hera**) proves the implementation matches what you *actually* asked for. Named agents, review gates enforced by hooks, persistent memory across sessions — not another pile of subagents.
+
+## Why Kratos, not a single "do the whole feature" agent?
+
+|                                              | One big agent | Agent grab-bags | **Kratos**                       |
+| -------------------------------------------- | :-----------: | :-------------: | -------------------------------- |
+| Requirements challenged *before* you build   |       ✗       |        ✗        | ✅ Nemesis adversarial review     |
+| Implementation verified against the ask      |       ✗       |        ✗        | ✅ Hera alignment gate            |
+| Quality gates *enforced*, not just suggested |       ✗       |        ✗        | ✅ Claude Code hooks              |
+| Persistent cross-session memory              |       ✗       |      rare       | ✅ SQLite + `/kratos:recall`      |
+
+## What you actually get — lite vs full
+
+Kratos works at two levels. **The markdown layer runs standalone — no build, no binary, no setup.** The optional Go binary only sharpens tracking.
+
+|                                       | Markdown layer *(default)* | + Go binary *(optional)* |
+| ------------------------------------- | :------------------------: | :----------------------: |
+| All 18 agents + 11-stage pipeline     |             ✅              |            ✅            |
+| Commands (`/kratos:quick`, `review`…) |             ✅              |            ✅            |
+| Enforced quality-gate hooks           |             ✅              |            ✅            |
+| Pipeline timestamps & stage history   |       file fallback        |       ✅ precise         |
+| Session memory / recall               |             —              |       ✅ SQLite          |
+
+> Install the plugin and go. Add the binary later if you want precise pipeline tracking.
+
+Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom — from quick bug fixes to full 11-stage feature pipelines, with persistent memory, external research, and git history expertise.
 
 ## Recommended: Use Commands, Not the Pipeline
 
@@ -28,19 +55,22 @@ For the full step-by-step guide (building the binary, installing hooks, configur
 ### Quick Start
 
 ```bash
-# 1. Add marketplace & install plugin
+# 1. Add marketplace & install plugin — this alone gets you the full pipeline
 claude plugin marketplace add https://github.com/LizardLiang/lizard-market
 claude plugin install kratos@lizard-market
-
-# 2. Build binary, initialize database & install hooks
-cd ~/.claude/plugins/cache/kratos/go && go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos && cd ..
-./bin/kratos init && ./bin/kratos install
-
-# 3. Verify
-./bin/kratos status
 ```
 
-Pre-built binaries for Linux, macOS (arm64/amd64), and Windows (amd64) are also included in `bin/`. Use them directly if you don't want to build from source.
+That's it — try `/kratos:quick Add tests for UserService.js`. The markdown layer works with zero further setup.
+
+**Optional — enable precise tracking & memory** (uses the pre-built binary that ships in `bin/` for Linux, macOS arm64/amd64, and Windows amd64):
+
+```bash
+cd ~/.claude/plugins/cache/kratos
+./bin/kratos init && ./bin/kratos install   # initialize DB + register hooks
+./bin/kratos status                         # verify
+```
+
+Prefer to build from source? See **[INSTALL.md — Option B](INSTALL.md)**.
 
 Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5](INSTALL.md#step-5-enable-auto-activation)).
 
@@ -49,6 +79,13 @@ Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5
 ---
 
 ## Architecture
+
+**How a request flows through Kratos** — from your prompt, through the hooks and router, into the right agent, and out to deliverables. Open [`kratos-agent-flow.html`](kratos-agent-flow.html) for the interactive, zoomable version (light/dark, flow & agent views).
+
+![Kratos agent command-loading flow](docs/assets/agent-flow.png)
+
+<details>
+<summary>Text version (agent pantheon)</summary>
 
 ```
                          ⚔️ KRATOS ⚔️
@@ -83,6 +120,8 @@ Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5
                             │  Debug (on-demand)  │
                             └─────────────────────┘
 ```
+
+</details>
 
 ## The Pantheon (Agents)
 
@@ -371,7 +410,7 @@ Themis writes `context.md` which Hephaestus reads before writing the tech spec. 
 
 Hephaestus is unique: it **never reads the codebase directly**. Kratos spawns Metis (Haiku) with a directed scan query first. This enforces clean separation between architectural thinking and file exploration.
 
-After receiving the codebase scan, Hephaestus asks the user directly via `AskUserQuestion` — presenting 2-3 concrete implementation approaches with tradeoffs, then resolving gray areas one at a time. During spec writing, Hephaestus may ask follow-up questions if new ambiguities surface (edge cases, interface design choices, decision tensions). The spec is never written with silent assumptions.
+After receiving the codebase scan, the ANALYZE phase runs **inline in the main session** (AskUserQuestion never reaches the user from a spawned subagent) — presenting 2-3 concrete implementation approaches with tradeoffs, then resolving gray areas one at a time. During spec writing (spawned, non-interactive), Hephaestus returns a `HEPHAESTUS NEEDS DECISIONS` block if new ambiguities surface (edge cases, interface design choices, decision tensions); Kratos asks the user and re-spawns. The spec is never written with silent assumptions.
 
 The tech spec contains:
 - Architecture overview and component diagram (ASCII)

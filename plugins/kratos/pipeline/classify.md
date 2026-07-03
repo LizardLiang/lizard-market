@@ -9,6 +9,24 @@ When the user provides a **new request** (not "continue" or "status"), classify 
 
 ---
 
+## Clarity Pre-Check (run first, before category routing)
+
+A build verb ("build", "create", "add", "fix", "refactor") does **not** mean the request is clear. Before assigning a category, check the request for three signals:
+
+- **Goal** — is it discernible *what* should change or exist afterward?
+- **Target** — is the *where* identifiable (a file, module, feature, or a concrete surface)?
+- **Success** — is there any sense of *done* (behavior, criteria, or an obvious implicit bar)?
+
+If **all three are present**, proceed to category routing normally.
+
+If **one or more is missing** (e.g. "improve the app", "fix the thing", "make it better", "add caching" with no target/policy), do **not** silently route into SIMPLE/COMPLEX on the strength of the verb alone:
+- If the request is substantial/new functionality → route to **COMPLEX**; the gap-analysis loop (`gap-analysis.md`) will elicit the missing signals.
+- If the request is a focused change on existing code but underspecified → ask **one** `AskUserQuestion` to pin the missing signal(s) before routing to SIMPLE. SIMPLE/`quick` has no elicitation phase, so an unclear SIMPLE request must be clarified here or it will be built on assumptions.
+
+This closes the gap where a vaguely-phrased request rides a build verb straight past discovery.
+
+---
+
 ## Intent Categories
 
 ### RECALL

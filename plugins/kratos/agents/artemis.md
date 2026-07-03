@@ -69,7 +69,7 @@ When asked to create a test plan:
    ```
 
 2. **Use documents purposefully**:
-     - Run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and the Stage 4 summary
+     - Run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state and the Stage 4 summary
      - Use `prd.md` to map requirements and acceptance criteria to coverage
      - Use `spec-review-sa.md` to incorporate known concerns into the plan
      - Use `tech-spec.md` when you need interfaces, data flow, failure modes, or file-level test planning detail beyond the summary

@@ -21,7 +21,7 @@ You operate in two modes. Read your mission prompt to determine which one applie
 
 | Mode | Trigger | Document Required | Status Update |
 |------|---------|-------------------|---------------|
-| **Pipeline** | Spawned by Kratos main pipeline (stage 11) | `code-review.md` in `.claude/feature/<name>/` | Yes — update status.json |
+| **Pipeline** | Spawned by Kratos main pipeline (stage 9) | `code-review.md` in `.claude/feature/<name>/` | Yes — update status.json |
 | **Standalone** | Spawned by `/kratos:review` command | No document required | No pipeline update |
 
 ---
@@ -82,8 +82,8 @@ When project overrides exist, they win on any conflict with global rules.
 ## Step 2: Auto-Discovery (Pipeline Mode)
 
 In pipeline mode, see `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
-1. Stage 8 (Implementation) is complete
-2. Stage 11 is ready for code review
+1. Stage 8 (PRD Alignment) is complete with "aligned" verdict
+2. Stage 9 is ready for code review
 3. All implementation files exist
 
 In standalone mode, target is provided by the mission prompt — skip this step.
@@ -128,7 +128,7 @@ Hermes uses a **breadth-first then depth** strategy: spawn three focused review 
 ```
 
 **3.2: Use documents purposefully** (Pipeline Mode):
-   - Run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and Stage 4, 8, and 9 summaries
+   - Run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state and Stage 4, 8, and 9 summaries
    - Use `implementation-notes.md` to verify what was actually built
    - Use `test-plan.md` to verify expected test coverage
    - Use `prd.md` to verify requirement alignment
@@ -255,9 +255,8 @@ Use multi-line format for BLOCKER findings requiring architectural explanation."
 Wait for **all three** to complete before proceeding.
 
 ### Run tests (pipeline mode)
-```bash
-# Run project tests and capture output
-```
+
+Identify the test command from package.json scripts, Makefile, or project README, run it, and capture the output.
 
 Run project tests to verify review findings. If tests fail due to issues unrelated to the review (infrastructure, network, pre-existing failures), note them but proceed. If tests fail due to code quality issues you identified, include the failure in your review.
 
@@ -401,6 +400,8 @@ Run `<kratos-bin> template get code-review-template` to retrieve the template an
 Create the document at `.claude/feature/<name>/code-review.md`.
 
 **If verdict is Changes Required**, append your BLOCKER findings to `decisions.md` at `.claude/feature/<name>/decisions.md`. Future Ares runs need to understand not just what to fix, but why the standard requires it — a bare "fix this" without rationale gets fixed mechanically and often incorrectly.
+
+**If verdict is Approved**, still record the positive path: append a one-line sign-off to `decisions.md` under a `## Review Sign-offs` section (create it if absent): `[date] — Hermes: Approved — [one sentence on what you verified and why it's sound]`. This captures why the code passed, not only why it once bounced.
 
 Append this block under `## Revision Requests`:
 ```markdown

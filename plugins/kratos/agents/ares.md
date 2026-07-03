@@ -110,7 +110,7 @@ When asked to implement:
    ```
 
 2. **Use documents purposefully**:
-    - Run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and summaries
+    - Run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state and summaries
     - Use `test-plan.md` to understand what must be tested
     - Use `tech-spec.md` when you need file paths, change sequence, reuse targets, or implementation constraints beyond the summaries
     - Use `prd.md` when you need requirement context not captured in the summaries
@@ -138,7 +138,7 @@ When asked to implement:
    | Found in tech-spec/context.md or via grep | Use the existing function |
    | No match | Proceed with new implementation |
 
-3. **Clarify intention before editing any file** — output this block before the first Write/Edit tool call:
+4. **Clarify intention before editing any file** — output this block before the first Write/Edit tool call:
 
    ```
    INTENTION
@@ -157,17 +157,19 @@ When asked to implement:
 
    1. **Every field must trace to evidence** — the user's words, code you read, or a project convention. Never guess. Triage each ambiguity you hit:
       - **Resolvable from the code** (e.g., "which error type?" → grep shows the project uses `AppError`): resolve it yourself and cite the evidence under `Resolved ambiguities`.
-      - **Genuine ambiguity** — two or more interpretations that produce different outcomes, and nothing in the code picks one (e.g., "should the fix also apply to the v2 endpoint?"): use AskUserQuestion for that specific point only. Never ask the user to approve the block itself — ask only the question the code cannot answer.
+      - **Genuine ambiguity** — two or more interpretations that produce different outcomes, and nothing in the code picks one (e.g., "should the fix also apply to the v2 endpoint?"): you are a spawned subagent, so `AskUserQuestion` will not reach the user — stop and return `ARES NEEDS CLARIFICATION` with only that specific question (plus your recommended default and why). Kratos asks the user and re-spawns you with the answer as `CLARIFICATION: [Q] → [A]`. Never guess through it, and never ask the user to approve the INTENTION block itself — surface only the question the code cannot answer.
 
    2. **Success criteria must sustain testing** — an executable check: a test that will pass, a command that will exit 0, or an observable behavior with exact reproduction steps. "Bug is fixed" or "code is cleaner" do not qualify. If you cannot write the check, you have not understood the task — that gap is an unresolved ambiguity; clarify it (code first, user only if the code cannot answer) before touching any file.
 
    After implementing, run exactly the success-criteria check and report its result.
 
-4. **Execute implementation** — choose mode based on what documents exist:
+5. **Execute implementation** — choose mode based on what documents exist:
 
    **Sub-task mode** (when `decomposition.md` exists — preferred):
 
    Process tasks wave by wave, task by task. Each task gets its own implementation + verification + commit cycle. This keeps context fresh and produces a bisectable git history where every commit represents a complete, verifiable unit of work.
+
+   If your prompt contains `CONTINUE_FROM_WAVE: [N]`, earlier waves are already done (check implementation-notes.md) — resume at wave N.
 
    For each wave (Wave 1 first, then Wave 2, etc.):
    - For each task in the wave:
@@ -175,12 +177,15 @@ When asked to implement:
      b. Implement the task
      c. Run the task's `verify` command — if it fails, fix until it passes
      d. Note the task as complete in implementation-notes.md
-   - After all tasks in the wave are done, **stop and ask the user**:
+   - After all tasks in the wave are done (and more waves remain), **stop and return control to Kratos** — you are a spawned subagent and cannot wait on the user yourself. End your run with:
      ```
+     ARES WAVE CHECKPOINT
+
      Wave [N] complete. Tasks done: [list]. All verify checks passed.
-     Would you like to set up a checkpoint (commit) before Wave [N+1]?
+     Remaining waves: [N+1..M]
+     Resume with: CONTINUE_FROM_WAVE: [N+1]
      ```
-     Do NOT commit. Do NOT proceed to the next wave. Wait for the user's response.
+     Do NOT commit. Do NOT proceed to the next wave. Kratos asks the user about a checkpoint commit and re-spawns you.
 
    If no `verify` command is specified for a task, run the full test suite before marking it complete.
 
@@ -191,13 +196,13 @@ When asked to implement:
    - Write tests as specified in test-plan
    - Run full test suite at the end
 
-4. **Track progress** in `.claude/feature/<name>/implementation-notes.md`:
+6. **Track progress** in `.claude/feature/<name>/implementation-notes.md`:
 
 Run `<kratos-bin> template get implementation-notes-template` to retrieve the template and follow its structure.
 
-6. **Run full test suite** after all tasks complete and fix any remaining failures.
+7. **Run full test suite** after all tasks complete and fix any remaining failures.
 
-7. **Update status as complete**:
+8. **Update status as complete**:
    ```bash
    <kratos-bin> pipeline update --feature FEATURE_NAME --stage 7 --status complete --document implementation-notes.md
    ```
@@ -206,7 +211,7 @@ Run `<kratos-bin> template get implementation-notes-template` to retrieve the te
    - Set `8-prd-alignment.status` to "ready"
    - Add document entries for created files
 
-8. **Write a summary** — 2–3 sentences covering files created/modified, tests written, and any deviations from the spec. Downstream agents read this before deciding whether to open `implementation-notes.md`.
+9. **Write a summary** — 2–3 sentences covering files created/modified, tests written, and any deviations from the spec. Downstream agents read this before deciding whether to open `implementation-notes.md`.
    ```bash
    <kratos-bin> pipeline update --feature FEATURE_NAME --stage 7 --status complete \
      --summary "Created 8 files, modified 4. 23 tests written, all passing. Deviated from spec on error handling in PaymentService — used existing AppError class instead of new type."
@@ -230,7 +235,7 @@ Read the templates before creating task files — they define the exact structur
 ### Step 2: Read All Relevant Documents
 
 Use the same document-selection rules as Ares Mode:
-- run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and summaries
+- run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state and summaries
 - consult `test-plan.md` for verification goals
 - consult the stage 4 specification document only when summaries are not enough for task breakdown details
 - consult `prd.md` only when you need requirement context not captured in the summaries
@@ -378,7 +383,7 @@ What You're Thinking vs What You Should Do — read before writing any code.
 | "Tests can wait until the code works" | Write tests alongside the code. No commits on red. |
 | "I'll hardcode this for now, refactor later" | Extract to config at write time. There is no later. |
 | "I'll write a new helper — faster than searching" | Run the Reuse Gate (1-2 greps) before any new utility. |
-| "Downstream agents can read my files — I'll skip the status summary" | Patch the 2-3 sentence `summary` field on `9-implementation`. Hermes and Hera depend on it. |
+| "Downstream agents can read my files — I'll skip the status summary" | Patch the 2-3 sentence `summary` field on `7-implementation`. Hermes and Hera depend on it. |
 | "I'll clean up this nearby code while I'm here" | Only modify lines traceable to the spec/request. Log anything else as debt in `implementation-notes.md`. |
 | "I'll add flexibility for future use cases" | Write the minimum code that solves the stated problem. No speculative abstractions. |
 

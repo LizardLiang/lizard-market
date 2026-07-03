@@ -23,7 +23,7 @@ Task(
 TARGET: [project root or specific area]
 OUTPUT: .claude/.Arena/
 
-Create ALL Arena documents before completing: project-overview.md, tech-stack.md, architecture.md, file-structure.md, conventions.md. Verify they exist before reporting completion.
+Create ALL Arena documents before completing (sharded layout): index.md, project/overview.md, architecture/system-design.md, architecture/file-structure.md, tech-stack/ shards, conventions/ shards. Verify they exist before reporting completion.
 
 Analyze the codebase and document findings in the Arena. This knowledge will guide all other gods.",
   description: "metis - research project"
@@ -134,9 +134,12 @@ If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status
 ## Stage 4: Tech Spec
 
 Read `<KRATOS_ROOT>/pipeline/hephaestus-gate.md` and run the full procedure:
-- Phase 4a: Kratos spawns Metis for codebase scan
-- Phase 4b: Kratos spawns Hephaestus ANALYZE — asks user about approaches + gray areas via AskUserQuestion → `tech-spec-proposal.md` with locked decisions
-- Phase 4c: Kratos spawns Hephaestus WRITE_SPEC → `tech-spec.md` (may ask follow-ups if new gaps surface)
+- Phase 4pre: Kratos runs Themis **inline** (if no context.md) — gray-area debate via AskUserQuestion → `context.md`
+- Phase 4a: Kratos spawns Metis for codebase scan (or reads Arena directly)
+- Phase 4b: Kratos runs Hephaestus ANALYZE **inline** — asks user about approaches + gray areas via AskUserQuestion → `tech-spec-proposal.md` with locked decisions
+- Phase 4c: Kratos spawns Hephaestus WRITE_SPEC → `tech-spec.md` (if it returns HEPHAESTUS NEEDS DECISIONS, Kratos asks the user and re-spawns)
+
+Interactive phases run inline because AskUserQuestion never reaches the user from a spawned subagent.
 
 ---
 ## Stage 5: Spec Review (Architecture)
@@ -205,6 +208,10 @@ Use Ares's document-selection policy. If a needed prerequisite file is missing, 
   description: "ares - implement feature"
 )
 ```
+
+**Wave checkpoints** (when `decomposition.md` exists): Ares returns `ARES WAVE CHECKPOINT` after each completed wave instead of finishing the mission — a spawned subagent cannot ask the user directly. When you receive it: ask the user via your own `AskUserQuestion` whether to commit a checkpoint, run the commit if accepted, then re-spawn Ares with the same prompt plus `CONTINUE_FROM_WAVE: [N+1]`. Repeat until Ares returns `ARES COMPLETE`.
+
+**Clarification requests**: if Ares returns `ARES NEEDS CLARIFICATION` with a specific question, ask the user via `AskUserQuestion` and re-spawn with the answer appended to the prompt as `CLARIFICATION: [Q] → [A]`.
 
 ---
 

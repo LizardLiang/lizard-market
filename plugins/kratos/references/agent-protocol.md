@@ -20,7 +20,7 @@ Templates are retrieved via the CLI: `'<kratos-path>' template get <template-nam
 
 Choose documents based on the decision you are making; don't mechanically read every input.
 
-- Use `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state, summaries, and quick context (do not read `status.json` directly)
+- Use `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state, summaries, and quick context (do not read `status.json` directly). The `--compact` flag omits the audit-only `history[]` and `check_failures[]`, which grow every stage and waste tokens — always prefer it unless you specifically need the audit trail.
 - Use `prd.md` for requirements, acceptance criteria, and product intent
 - Use `tech-spec.md` for architecture, interfaces, sequencing, and implementation constraints
 - Use `test-plan.md` for expected coverage and verification scope
@@ -41,7 +41,7 @@ Search: .claude/feature/*/status.json
 
 Then read the pipeline state:
 ```bash
-<kratos-bin> pipeline get --feature FEATURE_NAME
+<kratos-bin> pipeline get --compact --feature FEATURE_NAME
 ```
 
 Your agent definition lists the stage-specific prerequisites to verify. In command mode (inline invocation), Auto-Discovery may find no active feature — follow the feature name derivation instructions in your command-mode suffix if present.

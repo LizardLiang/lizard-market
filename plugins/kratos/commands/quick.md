@@ -31,6 +31,12 @@ Default: **normal** (sonnet for all quick-mode agents). If eco/power keywords ar
 
 ---
 
+## Clarity guard (before classifying)
+
+Quick mode has **no requirements-elicitation phase** — whatever you route is built on the request as-is. So before classifying, confirm the request has a discernible **goal**, **target**, and **sense of done** (see `<KRATOS_ROOT>/pipeline/classify.md` → Clarity Pre-Check). If a signal is missing (e.g. "fix the thing", "clean it up", "make it faster" with no target), ask **one** `AskUserQuestion` to pin it down before spawning an agent — or, if the ambiguity is structural, hand back to the full pipeline. Never let an agent guess at an unclear SIMPLE task.
+
+---
+
 ## Task Classification
 
 | Task Type | Keywords/Patterns | Target Agent |
@@ -79,10 +85,10 @@ No PRD or tech spec needed - work directly from the code/input.",
 | Agent | Mission title | Mission emphasis (include in prompt) |
 |-------|---------------|--------------------------------------|
 | **Artemis** | Quick Test Planning | Create a structured test plan: per test case give name, scenario, inputs, expected result, edge cases. List acceptance criteria per functional area. Do NOT write runnable test code or full function bodies — define what to test and how to verify it. |
-| **Ares** | Bug Fix / Refactor / Documentation / Small Feature | Before any edit, follow your INTENTION protocol: resolve every ambiguity with evidence from the code, ask the user only outcome-changing questions the code cannot answer, and define an executable success criterion. Then: root-cause + fix + verify (bug), preserve behavior (refactor), clear docs (documentation), or exactly the requested functionality (feature). |
+| **Ares** | Bug Fix / Refactor / Documentation / Small Feature | Before any edit, follow your INTENTION protocol: resolve every ambiguity with evidence from the code, return ARES NEEDS CLARIFICATION for any outcome-changing question the code cannot answer (you cannot reach the user directly), and define an executable success criterion. Then: root-cause + fix + verify (bug), preserve behavior (refactor), clear docs (documentation), or exactly the requested functionality (feature). |
 | **Hermes** | Quick Code Review | Review for correctness/logic errors, security vulnerabilities, performance, quality/maintainability, best practices. Provide actionable feedback. |
 | **Metis** | Quick Research | Analyze and explain how the target works, key patterns and relationships, relevant context and dependencies. Provide clear, actionable insights. |
-| **Daedalus** | Standalone Decomposition | Break the feature/idea into precise phases with dependencies, boundaries, tasks, acceptance criteria. Run `<kratos-bin> template get decomposition-template` for the local file format. Ask the user for OUTPUT_TARGETS if not specified. |
+| **Daedalus** | Standalone Decomposition | Break the feature/idea into precise phases with dependencies, boundaries, tasks, acceptance criteria. Run `<kratos-bin> template get decomposition-template` for the local file format. Default to local decomposition.md unless the user specified Notion/Linear (if they didn't, ask them yourself via AskUserQuestion BEFORE spawning — Daedalus cannot reach the user). |
 | **Hades** | Debug Session | Include ERROR DESCRIPTION, COMMAND TO RUN, RELEVANT FILES in the prompt. Two-phase protocol: (1) run the failing command and analyze output for the error location; (2) if inconclusive, add [HADES-DEBUG] logs, re-run, analyze, then remove all debug logs. Report the confirmed failure location with proof. Do NOT fix anything. |
 
 ### Odysseus — Tactical Plan Mode (inline, NOT a subagent)
@@ -123,6 +129,10 @@ Files changed: [list, if code was modified]
 ```
 
 Example — "Fix the null pointer exception in auth.js line 42" → Classification: Bug Fix → Ares (sonnet) → spawn via Task tool.
+
+### Agent Clarification Relay
+
+Spawned agents cannot reach the user — `AskUserQuestion` only works from your top-level session. If an agent returns **`ARES NEEDS CLARIFICATION`** (or any agent returns a specific blocking question): ask the user via your own `AskUserQuestion`, then re-spawn the agent with the original prompt plus `CLARIFICATION: [Q] → [A]`. Never answer on the agent's behalf and never drop the question.
 
 ---
 
@@ -183,6 +193,7 @@ Recommend **Plan Mode** when the complexity is implementation ambiguity (missing
 6. **ESCALATE WHEN NEEDED** - Suggest full pipeline for complex tasks
 7. **PLAN BEFORE GUESSING** - If Ares would need to guess target files, approach, or acceptance criteria, route to Odysseus first
 8. **NO LOOPS** - Re-spawn Ares at most once per review cycle; surface unresolved BLOCKERs to the user instead of looping
+9. **RECORD NON-OBVIOUS DECISIONS** - Quick mode produces no `decisions.md`. If the task involved a real choice (picked approach A over a viable B, changed an interface, resolved an ambiguity a certain way), append a dated 2-line entry to `.claude/.Arena/decisions.md` (create it if absent) so the reasoning isn't lost: `[YYYY-MM-DD | quick | <short task>] <decision> — <why>`. Skip this for mechanical tasks with no decision (typo fixes, adding an obvious test).
 
 ---
 

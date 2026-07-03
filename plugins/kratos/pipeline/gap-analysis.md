@@ -26,6 +26,8 @@ Before scoring, read the request carefully:
 
 Read `<KRATOS_ROOT>/references/athena-gap-checklist.md` and work through it — including the **Behavioral Lifecycle** group, which forces per-verb coverage (grant/enforce/revoke/…) for stateful features. Each uncovered item is a gap.
 
+**Seed a gap tree** (same discipline as Odysseus's facet enumeration): every checklist item the request does not cover becomes an `[open]` branch. An `[open]` branch is a promise you still owe an answer to — it can only close by becoming a `[leaf]` (answered by the user), `[assumed: X]` (documented assumption with risk-if-wrong), or `[out of scope]` (explicitly marked, one line of why). The clarity score below measures how well-specified the covered ground is; the gap tree is what stops you from scoring a tunnel-visioned slice at 0.05 while an entire lifecycle verb sits unasked.
+
 ---
 
 ## Step 3: Score Clarity
@@ -42,8 +44,8 @@ Use the checklist results + the original requirements to score across three weig
 ambiguity = 1 - (goal_clarity × 0.40 + constraint_clarity × 0.30 + criteria_clarity × 0.30)
 ```
 
-- **WRITE_READY: true** when ambiguity ≤ 0.10 — or when you can honestly say "Athena could write this PRD without guessing on any major decision"
-- **WRITE_READY: false** — keep asking; target the lowest-scoring dimension next
+- **WRITE_READY: true** requires **both**: (a) ambiguity ≤ 0.10, **and** (b) zero `[open]` branches in the gap tree — every checklist gap is a `[leaf]`, `[assumed: X]`, or `[out of scope]`. If both hold, you can honestly say "Athena could write this PRD without guessing on any major decision or inventing a behavior nobody asked about."
+- **WRITE_READY: false** if either the score is too high **or** any branch is still `[open]` — keep asking; prefer an `[open]` branch over polishing an already-clear dimension
 
 ---
 
@@ -82,12 +84,12 @@ If a gap remains genuinely unresolvable after the user says "TBD" or "doesn't ma
 
 After the user answers, **do not proceed to Step 5**. Instead:
 
-1. Fold the answer into your understanding
+1. Fold the answer into your understanding and update the gap tree — mark the branch `[leaf]`, or add sub-questions the answer revealed as new `[open]` branches
 2. Re-run the ambiguity formula with the new information
-3. If **WRITE_READY: false** → identify the next highest-priority gap and go back to Step 4
+3. If **WRITE_READY: false** (score too high **or** any `[open]` branch remains) → identify the next highest-priority gap and go back to Step 4
 4. If **WRITE_READY: true** → proceed to Step 5
 
-**You must keep asking until WRITE_READY is true.** Do not stop early because the user gave short answers or because you think you have "enough" — the threshold is ambiguity ≤ 0.10, not "probably fine".
+**You must keep asking until WRITE_READY is true.** Do not stop early because the user gave short answers or because you think you have "enough" — the bar is ambiguity ≤ 0.10 **and** zero `[open]` branches, not "probably fine". A documented assumption clears the gate; an unwritten gap does not.
 
 ---
 

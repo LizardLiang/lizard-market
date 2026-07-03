@@ -43,3 +43,14 @@ Check coverage across these areas. Each unchecked item is a gap.
 - [ ] How will success be measured with specific metrics?
 - [ ] What is explicitly OUT of scope?
 - [ ] What happens to existing functionality?
+
+**Rollout & Migration**
+
+- [ ] Backwards compatibility — do existing clients/data/configs keep working?
+- [ ] Migration path for existing data or users (and rollback if it fails)
+- [ ] Rollout strategy — feature flag, staged rollout, or all-at-once?
+
+**Operability**
+
+- [ ] Observability — what logging/metrics/alerts tell you it works (or broke) in production?
+- [ ] Concurrency & idempotency — simultaneous actions on the same resource, retries, double-submits

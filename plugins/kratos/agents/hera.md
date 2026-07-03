@@ -118,6 +118,7 @@ For each criterion with a verified test, record whether it passed or failed.
 | Test in codebase but not in test plan | `[WARNING]` | Coverage gap in plan, may still be correct |
 | Test missing from codebase | `[BLOCKER]` | Criterion has no verification |
 | No test in plan or codebase | `[BLOCKER]` | Criterion completely unverified |
+| Code with no traceable criterion | `[SCOPE_CREEP]` | Implementation built something the PRD/spec never asked for — over-build |
 
 ---
 
@@ -129,13 +130,32 @@ Coverage = (verified + passing criteria) / total criteria x 100%
 
 ---
 
+## Step 5b: Reverse Coverage — Scope Check (over-build)
+
+Forward coverage (Steps 2–5) proves every criterion is *built*. This step proves the reverse: **nothing was built that no criterion asked for**. Over-building is scope creep and must be caught here — it is the one place in the pipeline that can.
+
+Read the implementation diff (`implementation-notes.md` lists the files; `git diff` the changed files if available). For each **new file, new function/method, new endpoint, new config surface, or new dependency**, trace it to either:
+- a PRD acceptance criterion (AC-XX), OR
+- a `tech-spec.md` section that the spec author deliberately included, OR
+- an unavoidable mechanical necessity of the above (a helper a required function needs, a test file, a migration for a required schema change).
+
+Anything that traces to **none** of these is `[SCOPE_CREEP]`. Common examples: speculative abstractions "for future use", unrequested endpoints/flags/options, gratuitous refactors of untouched nearby code, added dependencies not needed by any criterion.
+
+Do **not** flag: test files, mechanical helpers of required code, or changes the spec explicitly authorized. When unsure whether something is required, treat it as in-scope but note it as a coverage question rather than a blocker.
+
+List each `[SCOPE_CREEP]` finding with the file/symbol and why it traces to nothing.
+
+---
+
 ## Step 6: Verdict
 
 | Verdict | Condition | Next Stage |
 |---------|-----------|------------|
-| `aligned` | All criteria verified and passing | Proceed to stage 9 (Hermes + Cassandra) |
-| `gaps` | 1+ criteria missing tests or failing | Return to stage 7 (Ares) to add missing coverage |
+| `aligned` | All criteria verified and passing, AND no `[SCOPE_CREEP]` findings | Proceed to stage 9 (Hermes + Cassandra) |
+| `gaps` | 1+ criteria missing tests/failing, OR 1+ `[SCOPE_CREEP]` findings | Return to stage 7 (Ares): add missing coverage AND/OR remove untraceable code |
 | `misaligned` | Core feature functionality not built | Escalate to user - fundamental scope issue |
+
+**`gaps` covers both directions**: under-coverage (a criterion with no passing test) and over-build (code with no criterion). When returning to Ares for scope creep, name the specific additions to remove — Ares removes them or, if the user actually wants them, the PRD/spec must be updated first so they trace to a criterion.
 
 **`misaligned`** is reserved for cases where a major user story is absent from the implementation entirely - not just missing a test, but missing the functionality itself. Use it sparingly.
 
@@ -165,6 +185,8 @@ Append to `decisions.md` if verdict is `gaps` or `misaligned`:
 | AC-XX | gaps | [what's missing] |
 ```
 
+If verdict is `aligned`, still record the positive path: append a one-line sign-off under a `## Review Sign-offs` section (create it if absent): `[date] — Hera: Aligned — [coverage]%, no scope creep — [one sentence]`. This captures why alignment passed, not only why it bounced.
+
 ---
 
 ## Output Format
@@ -182,6 +204,7 @@ Acceptance Criteria: [N] total
   Missing tests: [N]
   Failing tests: [N]
   No plan coverage: [N]
+  Scope creep (untraceable code): [N]
 
 Coverage: [N]%
 
@@ -189,6 +212,7 @@ Verdict: ALIGNED / GAPS / MISALIGNED
 
 [If GAPS or MISALIGNED]: Returning to stage 7.
   Ares must cover: AC-XX, AC-YY
+  Ares must remove (scope creep): [file/symbol], ...
 ```
 
 ---
