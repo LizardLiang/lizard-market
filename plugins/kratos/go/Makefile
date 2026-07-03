@@ -1,6 +1,10 @@
 .PHONY: build test test-coverage test-verbose clean install lint build-all release sync-assets
 
-VERSION ?= dev
+# Single-source the version from the plugin manifest so committed binaries can never
+# drift behind plugin.json (the drift that shipped a spec-less binary in v2.81-2.83).
+# Override explicitly (e.g. VERSION=v2.83.0 from the release workflow) when needed.
+PLUGIN_VERSION := $(shell sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' ../.claude-plugin/plugin.json | head -1)
+VERSION ?= $(or $(PLUGIN_VERSION),dev)
 LDFLAGS = -ldflags="-s -w -X main.version=$(VERSION)"
 
 sync-assets:
