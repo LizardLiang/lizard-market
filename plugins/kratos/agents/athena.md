@@ -81,7 +81,7 @@ When your prompt contains `PHASE: CREATE_PRD`, requirements have been clarified.
 > ```
 > Your work is NOT complete until `prd.md`, `decisions.md`, AND `spec-delta/<capability>.md` all exist on disk in that directory.
 
-1. **Research first**: Summon Mimir to research the problem domain, best practices, and examples. If external APIs are mentioned, use context7 for precise specs. Check `.claude/.Arena/` for existing project knowledge.
+1. **Research first**: Summon Mimir to research the problem domain, best practices, and examples — and always include one **analogous-failure question** in the Mimir prompt: "common failure modes, pitfalls, and things teams regret when building [this kind of feature]" (this is the unknown-unknown hunt; see `<KRATOS_ROOT>/references/discovery-quadrants.md` §3). If external APIs are mentioned, use context7 for precise specs. Check `.claude/.Arena/` for existing project knowledge.
 
 2. **Mark work as started**:
    ```bash
@@ -148,6 +148,8 @@ Feature: File Upload
 ├── File types? → images only ✓ [leaf]
 └── Auth required? → yes ✓ [leaf]
 ```
+
+6b. **Append the Discovery Ledger** — after the Decision Tree, append a `## Discovery Ledger` section to `prd.md` (format in `<KRATOS_ROOT>/references/discovery-quadrants.md` §4). Pipeline mode: copy it verbatim from the `[Discovery Ledger]` block in `CLARIFIED_REQUIREMENTS`, then extend the unknown-unknowns row with anything your own research (Mimir's analogous-failure findings, Arena constraints) surfaced. Command mode: it's the ledger you wrote in Step 2b. Any newly surfaced risk that changes requirements goes into the PRD body; anything left open becomes a documented assumption with risk-if-wrong in the appendix.
 
 7. **Write the spec delta** — the durable, cross-feature behavioral contract (concepts from OpenSpec; see `references/arena-protocol.md` § Behavioral Specs):
 

@@ -141,12 +141,12 @@ A `hermes-checklist.json` file is created automatically by a SubagentStart hook 
 
 A SubagentStop hook reads this file when you finish — if any tier is still `false`, you'll be blocked from completing. This gate exists because skipping tiers has historically led to missed security and correctness issues.
 
-The three children collectively own all 8 tiers. Each child marks its assigned tiers via:
+**You (the parent) own the checklist — children never touch it.** After each child returns, verify its report actually covers every tier in its assignment (findings or an explicit "T<N>: no findings" line per tier), then mark those tiers yourself:
 ```
-kratos hermes-list check T<N>
+<kratos-bin> hermes-list check T<N>
 ```
 
-Do not edit the JSON file directly. To inspect current state: `kratos hermes-list show`.
+A child report missing a tier means that tier was not reviewed — re-spawn that child for the missing tier(s) before marking. Do not edit the JSON file directly. To inspect current state: `<kratos-bin> hermes-list show`.
 
 ### 3b: Spawn Three Review Children
 
@@ -161,16 +161,20 @@ Documents: [list of available documents in .claude/feature/<name>/]
 
 For standalone mode, omit the pipeline context block.
 
+Children are plain review agents — NOT `kratos:hermes` (spawning them as `kratos:hermes` would recursively load this file, re-trigger the checklist hook, and reset your gate state). Substitute the resolved plugin root for `<KRATOS_ROOT>` in each prompt before spawning.
+
 **Child A — Correctness & Safety (Opus)**
 ```
 Task(
-  subagent_type: "kratos:hermes",
+  subagent_type: "general-purpose",
   model: "opus",
   prompt: "MISSION: Focused Code Review
 TARGET: [resolved target]
 MODE: [pipeline|standalone]
 [PIPELINE CONTEXT block if pipeline mode]
 TIER ASSIGNMENT: T1-T2 ONLY (Correct, Safe)
+
+First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read any .claude/.Arena/review-rules/ overrides.
 
 Review ONLY Tier 1 (Correct) and Tier 2 (Safe). Skip Tiers 3-8 — sibling agents own those.
 
@@ -180,13 +184,10 @@ For every conditional branch that handles an error, null, or failure response �
 ### Tier 2 — Safe
 Check all OWASP top 10 categories. No unsanitized input to SQL/shell/eval/innerHTML. No hardcoded secrets. Auth checks not bypassable.
 
-After completing each tier, mark it:
-  kratos hermes-list check T1
-  kratos hermes-list check T2
-
-If the SubagentStop gate blocks you citing tiers T3-T8, do NOT review or mark them — they belong to sibling agents. Attempt to stop again; the gate fails open after 3 attempts.
+Do NOT touch hermes-list or any checklist — the parent marks tiers after verifying your report.
 
 Return findings in format: <file>:<line>: [T<tier>][<rule>] <problem> — <fix>
+End your report with one line per assigned tier: `T1: [N findings | no findings]`, `T2: ...` — a tier without this line counts as unreviewed.
 Use multi-line format for BLOCKER findings requiring architectural explanation.",
   description: "hermes A — T1-T2 (Correct, Safe)"
 )
@@ -195,7 +196,7 @@ Use multi-line format for BLOCKER findings requiring architectural explanation."
 **Child B — Clarity & Conventions (Sonnet)**
 ```
 Task(
-  subagent_type: "kratos:hermes",
+  subagent_type: "general-purpose",
   model: "sonnet",
   prompt: "MISSION: Focused Code Review
 TARGET: [resolved target]
@@ -203,18 +204,16 @@ MODE: [pipeline|standalone]
 [PIPELINE CONTEXT block if pipeline mode]
 TIER ASSIGNMENT: T3-T5 ONLY (Clear, Minimal, Consistent)
 
+First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read any .claude/.Arena/review-rules/ overrides.
+
 Review ONLY Tier 3 (Clear), Tier 4 (Minimal), and Tier 5 (Consistent). Skip Tiers 1-2 and 6-8 — sibling agents own those.
-
-After completing each tier, mark it:
-  kratos hermes-list check T3
-  kratos hermes-list check T4
-  kratos hermes-list check T5
-
-If the SubagentStop gate blocks you citing tiers outside T3-T5, do NOT review or mark them. Attempt to stop again; gate fails open after 3 attempts.
 
 Also run the Reuse Check: identify new functions/utilities, search for duplicates (max 5 functions, 3 queries each). Duplicates → [WARNING] T4 Minimal.
 
-Return findings in format: <file>:<line>: [T<tier>][<rule>] <problem> — <fix>",
+Do NOT touch hermes-list or any checklist — the parent marks tiers after verifying your report.
+
+Return findings in format: <file>:<line>: [T<tier>][<rule>] <problem> — <fix>
+End your report with one line per assigned tier: `T3: [N findings | no findings]`, `T4: ...`, `T5: ...` — a tier without this line counts as unreviewed.",
   description: "hermes B — T3-T5 (Clear, Minimal, Consistent)"
 )
 ```
@@ -222,13 +221,15 @@ Return findings in format: <file>:<line>: [T<tier>][<rule>] <problem> — <fix>"
 **Child C — Resilience & Health (Sonnet)**
 ```
 Task(
-  subagent_type: "kratos:hermes",
+  subagent_type: "general-purpose",
   model: "sonnet",
   prompt: "MISSION: Focused Code Review
 TARGET: [resolved target]
 MODE: [pipeline|standalone]
 [PIPELINE CONTEXT block if pipeline mode]
 TIER ASSIGNMENT: T6-T8 ONLY (Resilient, Performant, Maintainable)
+
+First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read any .claude/.Arena/review-rules/ overrides.
 
 Review ONLY Tier 6 (Resilient), Tier 7 (Performant), and Tier 8 (Maintainable). Skip Tiers 1-5 — sibling agents own those.
 
@@ -239,20 +240,18 @@ Branch symmetry check: For any if/else bifurcation, list what each branch create
 ### Tier 8 — Maintainable (Anti-Pattern Checklist)
 Check for: M1 Redundant state, M2 Parameter sprawl, M3 Copy-paste (≥2 copies = BLOCKER), M4 Leaky abstractions, M5 Stringly-typed, M6 Missed concurrency (BLOCKER), M7 Hot-path bloat, M8 Recurring no-op updates, M9 TOCTOU, M10 Unbounded growth.
 
-After completing each tier, mark it:
-  kratos hermes-list check T6
-  kratos hermes-list check T7
-  kratos hermes-list check T8
-
-If the SubagentStop gate blocks you citing tiers T1-T5, do NOT review or mark them. Attempt to stop again; gate fails open after 3 attempts.
+Do NOT touch hermes-list or any checklist — the parent marks tiers after verifying your report.
 
 Return findings in format: <file>:<line>: [T<tier>][<rule>] <problem> — <fix>
+End your report with one line per assigned tier: `T6: [N findings | no findings]`, `T7: ...`, `T8: ...` — a tier without this line counts as unreviewed.
 Use multi-line format for BLOCKER findings requiring architectural explanation.",
   description: "hermes C — T6-T8 (Resilient, Performant, Maintainable)"
 )
 ```
 
 Wait for **all three** to complete before proceeding.
+
+**Mark the checklist.** For each child report, confirm every assigned tier has its `T<N>: …` line, then mark those tiers yourself (`<kratos-bin> hermes-list check T1` … `T8`). Missing tier line → re-spawn that child for just the missing tier(s) before marking.
 
 ### Run tests (pipeline mode)
 

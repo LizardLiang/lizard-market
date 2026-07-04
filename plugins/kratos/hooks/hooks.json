@@ -127,7 +127,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --init --stage 4-spec-review-sa",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --init --stage 5-spec-review-sa",
             "timeout": 3000
           }
         ]
@@ -137,7 +137,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --init --stage 5-test-plan",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --init --stage 6-test-plan",
             "timeout": 3000
           }
         ]
@@ -147,7 +147,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --init --stage 7-prd-alignment",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --init --stage 8-prd-alignment",
             "timeout": 3000
           }
         ]
@@ -157,7 +157,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --init --stage 8-review",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --init --stage 9-review",
             "timeout": 3000
           }
         ]
@@ -234,7 +234,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify --stage 4-spec-review-sa",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify --stage 5-spec-review-sa",
             "timeout": 5000
           }
         ]
@@ -244,7 +244,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify --stage 5-test-plan",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify --stage 6-test-plan",
             "timeout": 5000
           }
         ]
@@ -254,7 +254,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify --stage 7-prd-alignment",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify --stage 8-prd-alignment",
             "timeout": 5000
           }
         ]
@@ -264,7 +264,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify --stage 8-review",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify --stage 9-review",
             "timeout": 5000
           }
         ]

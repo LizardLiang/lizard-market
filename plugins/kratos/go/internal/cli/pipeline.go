@@ -27,6 +27,57 @@ var stageNumberToKey = map[string]string{
 	"9": "9-review",
 }
 
+// verdictSynonyms maps common misspellings to the canonical verdict value.
+var verdictSynonyms = map[string]string{
+	"changes-requested": "changes-required",
+	"changes required":  "changes-required",
+}
+
+// verdictFields maps each verdict-bearing stage to its accepted values and the
+// schema field each value lands in (references/status-json-schema.md). Stage 9
+// is shared by Hermes and Cassandra — their vocabularies are disjoint, so the
+// value alone selects the right field and the two agents cannot clobber each
+// other's verdicts.
+var verdictFields = map[string]map[string]string{
+	"2-prd-review": {
+		"approved": "nemesis_verdict", "revisions": "nemesis_verdict", "rejected": "nemesis_verdict",
+	},
+	"5-spec-review-sa": {
+		"sound": "verdict", "concerns": "verdict", "unsound": "verdict",
+	},
+	"8-prd-alignment": {
+		"aligned": "alignment_verdict", "gaps": "alignment_verdict", "misaligned": "alignment_verdict",
+	},
+	"9-review": {
+		"approved": "code_review_verdict", "changes-required": "code_review_verdict",
+		"clear": "risk_verdict", "caution": "risk_verdict", "blocked": "risk_verdict",
+	},
+}
+
+// verdictField resolves the schema field and canonical value for a verdict on a
+// stage. Unknown values or verdicts on non-review stages are hard errors — a
+// silently misfiled verdict reads as a missing gate signal downstream.
+func verdictField(stage, verdict string) (field, normalized string, err error) {
+	normalized = strings.ToLower(strings.TrimSpace(verdict))
+	if canon, ok := verdictSynonyms[normalized]; ok {
+		normalized = canon
+	}
+	fields, ok := verdictFields[stage]
+	if !ok {
+		return "", "", fmt.Errorf("stage %s takes no --verdict", stage)
+	}
+	field, ok = fields[normalized]
+	if !ok {
+		accepted := make([]string, 0, len(fields))
+		for v := range fields {
+			accepted = append(accepted, v)
+		}
+		sort.Strings(accepted)
+		return "", "", fmt.Errorf("invalid verdict %q for stage %s: accepted values are %s", verdict, stage, strings.Join(accepted, ", "))
+	}
+	return field, normalized, nil
+}
+
 // PipelineCmd returns the 'pipeline' command group
 func PipelineCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -284,7 +335,7 @@ func pipelineUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&stage, "stage", "", "Pipeline stage number 1-9 (required)")
 	cmd.Flags().StringVar(&status, "status", "", "New status: in-progress, complete, blocked, ready, skipped (required)")
 	cmd.Flags().StringVar(&mode, "mode", "", "Implementation mode: ares or user (stage 8 only)")
-	cmd.Flags().StringVar(&verdict, "verdict", "", "Review verdict: approved, revisions, sound, concerns, unsound, changes-requested, rejected")
+	cmd.Flags().StringVar(&verdict, "verdict", "", "Review verdict — stage 2: approved/revisions/rejected; stage 5: sound/concerns/unsound; stage 8: aligned/gaps/misaligned; stage 9: approved/changes-required (Hermes) or clear/caution/blocked (Cassandra)")
 	cmd.Flags().StringVar(&document, "document", "", "Document path to record")
 	cmd.Flags().StringVar(&summary, "summary", "", "2-3 sentence summary for downstream agents")
 	cmd.MarkFlagRequired("feature")
@@ -316,10 +367,13 @@ func pipelineUpdate(feature, stage, newStatus, mode, verdict, document, summary 
 		return fmt.Errorf("invalid pipeline structure in status.json")
 	}
 
-	// Get stage map
+	// Get stage map — upsert when absent. Quick-path features and recovered
+	// pipelines carry partial pipeline maps; erroring here pushes agents into
+	// the hand-edit fallback (fabricated timestamps, drifted field names).
 	stageData, ok := pipeline[stage]
 	if !ok {
-		return fmt.Errorf("unknown stage: %s", stage)
+		stageData = map[string]interface{}{"status": "pending"}
+		pipeline[stage] = stageData
 	}
 	stageMap, ok := stageData.(map[string]interface{})
 	if !ok {
@@ -346,7 +400,15 @@ func pipelineUpdate(feature, stage, newStatus, mode, verdict, document, summary 
 		stageMap["mode"] = mode
 	}
 	if verdict != "" {
-		stageMap["verdict"] = verdict
+		field, normalized, err := verdictField(stage, verdict)
+		if err != nil {
+			return err
+		}
+		stageMap[field] = normalized
+		// Stages whose schema also carries the generic field keep it in sync.
+		if stage == "2-prd-review" || stage == "5-spec-review-sa" {
+			stageMap["verdict"] = normalized
+		}
 	}
 	if document != "" {
 		stageMap["document"] = document

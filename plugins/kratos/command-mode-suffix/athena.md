@@ -29,7 +29,15 @@ Before scoring, read the request carefully:
 
 ## Step 2: Run the Gap Checklist
 
-Read `plugins/kratos/references/athena-gap-checklist.md` for the 17-item checklist. Work through it and identify which items are uncovered — each uncovered item is a gap.
+Read `plugins/kratos/references/athena-gap-checklist.md` and work through it — including the **Behavioral Lifecycle** group, which forces per-verb coverage (grant/enforce/revoke/…) for stateful features. Each uncovered item is a gap.
+
+**Seed a gap tree**: every checklist item the request does not cover becomes an `[open]` branch. An `[open]` branch can only close by becoming a `[leaf]` (answered by the user), `[assumed: X]` (documented assumption with risk-if-wrong), or `[out of scope]` (explicitly marked, one line of why). The clarity score below measures how well-specified the covered ground is; the gap tree is what stops you from scoring a tunnel-visioned slice at 0.05 while an entire lifecycle verb sits unasked.
+
+---
+
+## Step 2b: Run the Quadrant Sweep
+
+The checklist only finds gaps you already know to look for. Read `plugins/kratos/references/discovery-quadrants.md` and run the full sweep — evidence check on silently-resolved branches, assumption surfacing (yours / the user's / the repo's), and all six unknown-unknown techniques (premortem, inversion, boundary probe, actor sweep, analogous failures, checklist escape). Fold every discovery into the gap tree as a new `[open]` or `[assumed: X]` branch, and write the **Discovery Ledger** — the PRD appendix carries it, and WRITE_READY requires it.
 
 ---
 
@@ -47,8 +55,8 @@ Use the checklist results + the original request to score across three weighted 
 ambiguity = 1 - (goal_clarity × 0.40 + constraint_clarity × 0.30 + criteria_clarity × 0.30)
 ```
 
-- **WRITE_READY: true** when ambiguity ≤ 0.10
-- **WRITE_READY: false** — keep asking; target the lowest-scoring dimension next
+- **WRITE_READY: true** requires **all three**: (a) ambiguity ≤ 0.10, (b) zero `[open]` branches in the gap tree, **and** (c) the Quadrant Sweep was run and its Discovery Ledger is written, with each unknown-unknown technique showing intermediate output or an explicit "nothing surfaced"
+- **WRITE_READY: false** if the score is too high, any branch is still `[open]`, or the sweep hasn't been run — keep asking; prefer an `[open]` branch over polishing an already-clear dimension
 
 ---
 
@@ -89,12 +97,12 @@ If a gap remains genuinely unresolvable after the user says "TBD" or "doesn't ma
 
 After the user answers, **do not proceed to Step 5**. Instead:
 
-1. Fold the answer into your understanding
+1. Fold the answer into your understanding and update the gap tree — mark the branch `[leaf]`, or add sub-questions the answer revealed as new `[open]` branches
 2. Re-run the ambiguity formula with the new information
-3. If **WRITE_READY: false** → identify the next highest-priority gap and go back to Step 4
+3. If **WRITE_READY: false** (score too high **or** any `[open]` branch remains) → identify the next highest-priority gap and go back to Step 4
 4. If **WRITE_READY: true** → proceed to Step 5
 
-**You must keep asking until WRITE_READY is true.** Do not stop early because the user gave short answers or because you think you have "enough" — the threshold is ambiguity ≤ 0.10, not "probably fine".
+**You must keep asking until WRITE_READY is true.** Do not stop early because the user gave short answers or because you think you have "enough" — the bar is ambiguity ≤ 0.10 **and** zero `[open]` branches, not "probably fine". A documented assumption clears the gate; an unwritten gap does not.
 
 ---
 

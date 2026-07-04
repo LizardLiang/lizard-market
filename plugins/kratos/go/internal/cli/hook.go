@@ -408,11 +408,11 @@ func handleHermesStart(input subagentStartInput) error {
 	additionalContext := fmt.Sprintf(
 		"TIER CHECKLIST FILE: %s\n"+
 			"After each tier review run (Bash tool, do NOT edit the file directly):\n"+
-			"  kratos hermes-list check T1   # after T1, T2 for T2, … T8 for T8\n"+
+			"  '%s' hermes-list check T1   # after T1, T2 for T2, … T8 for T8\n"+
 			"Run immediately after each tier — not in a batch at the end.\n"+
 			"A hook verifies all 8 tiers on stop — incomplete tiers block completion.\n\n"+
 			"Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.",
-		checklistPath,
+		checklistPath, kratosBinPath(),
 	)
 
 	return outputSubagentStartContext(additionalContext)
@@ -904,14 +904,26 @@ func handleHermesStop(input subagentStopInput) error {
 		}
 
 		return outputSubagentBlock(fmt.Sprintf(
-			"Hermes tier checklist incomplete. The following tiers were not reviewed: %s. Run `kratos hermes-list check <tier>` via the Bash tool for each missing tier. (attempt %d/3)",
+			"Hermes tier checklist incomplete. The following tiers were not reviewed: %s. Review each missing tier (or verify its child report), then run `'%s' hermes-list check <tier>` via the Bash tool for each. (attempt %d/3)",
 			tierList,
+			kratosBinPath(),
 			checklist.BlockCount,
 		))
 	}
 
 	debugLog("hermes-stop: all 8 tiers complete, allowing stop")
 	return outputSubagentOK()
+}
+
+// kratosBinPath returns this binary's absolute path for embedding in agent-facing
+// instructions. A bare `kratos` is not guaranteed on PATH (the plugin resolves the
+// binary via ${CLAUDE_PLUGIN_ROOT}/bin or ~/.kratos/bin), so injected commands must
+// carry the full path or the agent's calls silently fail.
+func kratosBinPath() string {
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		return exe
+	}
+	return "kratos"
 }
 
 // findHermesChecklist scans .claude/feature/*/hermes-checklist.json and returns

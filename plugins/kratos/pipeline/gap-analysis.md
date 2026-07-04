@@ -30,6 +30,12 @@ Read `<KRATOS_ROOT>/references/athena-gap-checklist.md` and work through it — 
 
 ---
 
+## Step 2b: Run the Quadrant Sweep
+
+The checklist only finds gaps you already know to look for. Read `<KRATOS_ROOT>/references/discovery-quadrants.md` and run the full sweep — evidence check on silently-resolved branches, assumption surfacing (yours / the user's / the repo's), and all six unknown-unknown techniques (premortem, inversion, boundary probe, actor sweep, analogous failures, checklist escape). Fold every discovery into the gap tree as a new `[open]` or `[assumed: X]` branch, and write the **Discovery Ledger** — Step 5 passes it to Athena, and WRITE_READY requires it.
+
+---
+
 ## Step 3: Score Clarity
 
 Use the checklist results + the original requirements to score across three weighted dimensions (0.0–1.0 each):
@@ -44,8 +50,8 @@ Use the checklist results + the original requirements to score across three weig
 ambiguity = 1 - (goal_clarity × 0.40 + constraint_clarity × 0.30 + criteria_clarity × 0.30)
 ```
 
-- **WRITE_READY: true** requires **both**: (a) ambiguity ≤ 0.10, **and** (b) zero `[open]` branches in the gap tree — every checklist gap is a `[leaf]`, `[assumed: X]`, or `[out of scope]`. If both hold, you can honestly say "Athena could write this PRD without guessing on any major decision or inventing a behavior nobody asked about."
-- **WRITE_READY: false** if either the score is too high **or** any branch is still `[open]` — keep asking; prefer an `[open]` branch over polishing an already-clear dimension
+- **WRITE_READY: true** requires **all three**: (a) ambiguity ≤ 0.10, (b) zero `[open]` branches in the gap tree — every checklist gap is a `[leaf]`, `[assumed: X]`, or `[out of scope]` — **and** (c) the Quadrant Sweep was run and its Discovery Ledger is written, with each unknown-unknown technique showing intermediate output or an explicit "nothing surfaced". If all three hold, you can honestly say "Athena could write this PRD without guessing on any major decision or inventing a behavior nobody asked about."
+- **WRITE_READY: false** if the score is too high, any branch is still `[open]`, **or** the sweep hasn't been run — keep asking; prefer an `[open]` branch over polishing an already-clear dimension
 
 ---
 
@@ -115,6 +121,8 @@ CLARIFIED_REQUIREMENTS:
   ...
 [Documented assumptions]:
   - [assumption]: [risk-if-wrong]
+[Discovery Ledger]:
+  [the full four-quadrant ledger table from Step 2b — verbatim]
 [Final clarity score]: [X]%
 
 Read <KRATOS_ROOT>/agents/athena.md for the full instruction set before starting.

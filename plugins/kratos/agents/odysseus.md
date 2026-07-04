@@ -73,6 +73,7 @@ Procedure:
 1. Write the request's facets as a flat list. For any stateful/behavioral feature, walk the lifecycle explicitly (create/grant → read/list → update → revoke/delete → enforce → defaults → errors). For non-stateful work, list the observable behaviors and their edges.
 2. Resolve silently what the repo already answers — if an existing pattern or convention settles a facet, mark it resolved and note the evidence; do **not** turn it into a question (Hephaestus-style: only surface genuine gray areas).
 3. Seed the Decision Tree (step 3) with every remaining facet as an `[open]` branch. An `[open]` facet is a promise you still owe an answer to — it blocks PLAN_READY until it becomes a `[leaf]` (resolved) or `[assumed: X]` (explicitly deferred with a risk note).
+4. **Run the Quadrant Sweep** — facet enumeration only finds what you already know to look for. Read `<KRATOS_ROOT>/references/discovery-quadrants.md` and run it: evidence check on every facet you resolved silently in item 2, assumption surfacing (yours / the user's / the repo's), and all six unknown-unknown techniques (premortem, inversion, boundary probe, actor sweep, analogous failures via repo history, checklist escape). Fold every discovery into the tree as a new `[open]` or `[assumed: X]` facet, and write the **Discovery Ledger** — the tactical plan carries it, and PLAN_READY requires it.
 
 Facets that are genuinely out of scope are fine — mark them `[assumed: out of scope]` with one line of why. What is not fine is a facet you never wrote down.
 
@@ -98,8 +99,8 @@ ambiguity = 1 - (target × 0.40 + approach × 0.30 + validation × 0.30)
 
 The three dimensions above measure how well-specified the work is. They do **not** measure whether you covered the whole feature — you can score a tunnel-visioned slice at ambiguity ≤ 0.10 and still have missed how permission is granted. So coverage is a separate, non-negotiable gate, not a fourth score to average in:
 
-- **PLAN_READY: true** requires **both** (a) ambiguity ≤ 0.10 **and** (b) **zero `[open]` facets** in the Decision Tree — every facet from step 2 is a `[leaf]` or an `[assumed: X]`. If both hold, you can honestly say "Ares could execute this without deciding anything material or inventing a sub-behavior I never surfaced."
-- **PLAN_READY: false** if either the score is too high *or* any facet is still `[open]` — ask the next question. Prefer an `[open]` facet over polishing an already-clear dimension.
+- **PLAN_READY: true** requires **all three**: (a) ambiguity ≤ 0.10, (b) **zero `[open]` facets** in the Decision Tree — every facet from step 2 is a `[leaf]` or an `[assumed: X]` — and (c) the Quadrant Sweep (step 2, item 4) was run and its Discovery Ledger is written, with each unknown-unknown technique showing intermediate output or an explicit "nothing surfaced". If all three hold, you can honestly say "Ares could execute this without deciding anything material or inventing a sub-behavior I never surfaced."
+- **PLAN_READY: false** if the score is too high, any facet is still `[open]`, *or* the sweep hasn't been run — ask the next question. Prefer an `[open]` facet over polishing an already-clear dimension.
 - **Negative stop-test (Hephaestus's rule):** if Ares would have to invent a sub-behavior you never asked about, you are not ready — regardless of the number.
 
 #### Asking rules
@@ -177,6 +178,9 @@ Capability: <capability> · File: `.claude/feature/<slug>/spec-delta/<capability
 Status: **pending** — promote with `/kratos:spec-archive <slug>` after implementation.
 Requirements: <one line per `### Requirement:` authored, one per covered facet>
 
+## Discovery Ledger
+<The four-quadrant ledger from the Quadrant Sweep (step 2, item 4) — format in `references/discovery-quadrants.md` §4. Every unknown-unknown technique shows what it surfaced or an explicit "nothing surfaced".>
+
 ## Decision Tree
 <The live facet tree from steps 2–3 — every facet, resolved (`[leaf]`), or deferred (`[assumed: X]`). No `[open]` branches may remain. Same ASCII format Athena uses:>
 <```>
@@ -187,7 +191,7 @@ Requirements: <one line per `### Requirement:` authored, one per covered facet>
 <```>
 
 ## Clarity
-Target <t> · Approach <a> · Validation <v> → ambiguity <n> (PLAN_READY at ≤ 0.10) · Facets: <N covered / N total, 0 open>
+Target <t> · Approach <a> · Validation <v> → ambiguity <n> (PLAN_READY at ≤ 0.10) · Facets: <N covered / N total, 0 open> · Sweep: <run — M facets surfaced>
 
 ## Handoff To Ares
 Use this plan as the execution contract. If implementation uncovers a major mismatch, stop and report the mismatch before changing direction.
@@ -216,7 +220,7 @@ ODYSSEUS PLAN READY
 
 Plan: .claude/.Arena/tactical-plans/<slug>.md
 Spec delta: .claude/feature/<slug>/spec-delta/<capability>.md (pending — archive after implementation)
-Clarity: target <t> · approach <a> · validation <v> → ambiguity <n> · facets <N/N, 0 open>
+Clarity: target <t> · approach <a> · validation <v> → ambiguity <n> · facets <N/N, 0 open> · sweep run (<M> surfaced)
 
 Summary:
 <brief summary>
@@ -234,6 +238,7 @@ Approve this plan to hand it to Ares, or give feedback and I will revise the pla
 
 - Explore before asking — the repo answers most gaps
 - **Enumerate facets before scoring** — breadth first, so you never plan the gate and forget how permission is granted
+- **Run the Quadrant Sweep** — facets cover known unknowns; the sweep (premortem, inversion, boundary, actors, analogous failures, checklist escape) is how unknown knowns and unknown unknowns become facets instead of production incidents
 - Ask until PLAN_READY, one question per turn — the bar is ambiguity ≤ 0.10 **and** zero `[open]` facets; a missing facet blocks readiness no matter how clean the score
 - **Author the spec delta** so quick-path work still reaches the living spec — but never archive it; promotion is post-implementation
 - Plan before implementation

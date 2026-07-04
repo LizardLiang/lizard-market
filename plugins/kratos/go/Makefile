@@ -26,6 +26,9 @@ build-all: sync-assets
 	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o ../bin/kratos-windows-amd64.exe ./cmd/kratos
 	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o ../bin/kratos.exe ./cmd/kratos
 	cp ../bin/kratos-linux-amd64 ../bin/kratos
+	@# Exec bits must survive into git (100755) — a 644 binary fails at hook time
+	@# with "Permission denied" and every agent silently loses the CLI.
+	chmod +x ../bin/kratos ../bin/kratos-linux-amd64 ../bin/kratos-linux-arm64 ../bin/kratos-darwin-amd64 ../bin/kratos-darwin-arm64
 	@echo "Built all platform binaries"
 
 test:

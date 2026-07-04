@@ -54,3 +54,7 @@ Check coverage across these areas. Each unchecked item is a gap.
 
 - [ ] Observability — what logging/metrics/alerts tell you it works (or broke) in production?
 - [ ] Concurrency & idempotency — simultaneous actions on the same resource, retries, double-submits
+
+---
+
+> This checklist finds **known unknowns** — gaps you already know to look for. It is a floor, not a ceiling. After working through it, run the Quadrant Sweep in `references/discovery-quadrants.md` to hunt tacit assumptions (unknown knowns) and blind spots (unknown unknowns).
