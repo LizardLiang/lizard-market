@@ -40,6 +40,16 @@ jobs:
       working-directory: kratos-dev/go
       run: go mod download
 
+    - name: Sync embedded assets
+      shell: bash
+      working-directory: kratos-dev/go
+      run: |
+        mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/agent-protocol-slices
+        cp ../../plugins/kratos/agents/*.md internal/cli/agents/
+        cp ../../plugins/kratos/templates/*.md internal/cli/templates/
+        cp ../../plugins/kratos/command-mode-suffix/*.md internal/cli/command-mode-suffix/
+        cp ../../plugins/kratos/references/agent-protocol-slices/*.md internal/cli/agent-protocol-slices/
+
     - name: Run tests
       working-directory: kratos-dev/go
       shell: bash
@@ -65,6 +75,16 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: '1.25'
+
+    - name: Sync embedded assets
+      shell: bash
+      working-directory: kratos-dev/go
+      run: |
+        mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/agent-protocol-slices
+        cp ../../plugins/kratos/agents/*.md internal/cli/agents/
+        cp ../../plugins/kratos/templates/*.md internal/cli/templates/
+        cp ../../plugins/kratos/command-mode-suffix/*.md internal/cli/command-mode-suffix/
+        cp ../../plugins/kratos/references/agent-protocol-slices/*.md internal/cli/agent-protocol-slices/
 
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v8
@@ -100,6 +120,16 @@ jobs:
           echo "::error::Committed bin/ is stale (binary reports '$ACTUAL', plugin.json is '$EXPECTED'). Run 'cd kratos-dev/go && make build-all' and commit plugins/kratos/bin/."
           exit 1
         fi
+
+    - name: Sync embedded assets
+      shell: bash
+      working-directory: kratos-dev/go
+      run: |
+        mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/agent-protocol-slices
+        cp ../../plugins/kratos/agents/*.md internal/cli/agents/
+        cp ../../plugins/kratos/templates/*.md internal/cli/templates/
+        cp ../../plugins/kratos/command-mode-suffix/*.md internal/cli/command-mode-suffix/
+        cp ../../plugins/kratos/references/agent-protocol-slices/*.md internal/cli/agent-protocol-slices/
 
     - name: Build all platforms
       working-directory: kratos-dev/go
