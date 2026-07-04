@@ -21,8 +21,8 @@ func TestVerdictField(t *testing.T) {
 		{"9-review", "changes-requested", "code_review_verdict", "changes-required", false}, // synonym normalized
 		{"9-review", "Approved", "code_review_verdict", "approved", false},                  // case-insensitive
 		{"9-review", "caution", "risk_verdict", "caution", false},
-		{"9-review", "bogus", "", "", true},   // unknown value
-		{"1-prd", "approved", "", "", true},   // non-review stage
+		{"9-review", "bogus", "", "", true},    // unknown value
+		{"1-prd", "approved", "", "", true},    // non-review stage
 		{"6-test-plan", "clear", "", "", true}, // non-review stage
 	}
 	for _, c := range cases {

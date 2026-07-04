@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/db"
+	"github.com/spf13/cobra"
 )
 
 // StepCmd returns the 'step' command

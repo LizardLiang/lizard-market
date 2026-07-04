@@ -8,6 +8,7 @@ import (
 // schemaSQL embeds the schema.sql file at compile time
 // This ensures the Go binary can initialize the database without external files
 // Note: This is a copy of ../../../memory/schema.sql maintained for Go embedding
+//
 //go:embed schema.sql
 var schemaSQL string
 

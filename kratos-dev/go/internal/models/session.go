@@ -1,3 +1,4 @@
+// Package models defines the data models for sessions and steps.
 package models
 
 // Session represents a Kratos development session

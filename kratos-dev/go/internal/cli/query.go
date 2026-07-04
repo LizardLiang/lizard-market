@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/db"
+	"github.com/spf13/cobra"
 )
 
 // QueryCmd returns the 'query' command for querying Kratos data
@@ -49,11 +49,12 @@ Can filter by status, project, or get recent sessions with a limit.`,
 			var sessions interface{}
 
 			// Determine which query to use based on flags
-			if status != "" {
+			switch {
+			case status != "":
 				sessions, err = db.GetSessionsByStatus(conn, status)
-			} else if project != "" {
+			case project != "":
 				sessions, err = db.GetSessionsByProject(conn, normalizeProjectPath(project))
-			} else {
+			default:
 				sessions, err = db.GetRecentSessions(conn, limit)
 			}
 

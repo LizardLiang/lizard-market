@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
 )
 
 // Helper function
@@ -55,16 +55,16 @@ func TestFormatSessionContext(t *testing.T) {
 
 	steps := []*models.Step{
 		{
-			ID:          1,
-			SessionID:   "sess-123",
-			StepNumber:  1,
-			StepType:    "agent_spawn",
-			Timestamp:   now,
-			AgentName:   stringPtr("athena"),
-			AgentModel:  stringPtr("opus"),
-			Action:      "create_prd",
-			Target:      stringPtr("prd.md"),
-			Result:      stringPtr("success"),
+			ID:         1,
+			SessionID:  "sess-123",
+			StepNumber: 1,
+			StepType:   "agent_spawn",
+			Timestamp:  now,
+			AgentName:  stringPtr("athena"),
+			AgentModel: stringPtr("opus"),
+			Action:     "create_prd",
+			Target:     stringPtr("prd.md"),
+			Result:     stringPtr("success"),
 		},
 	}
 
@@ -125,8 +125,8 @@ func TestFormatTimestamp(t *testing.T) {
 		ts       int64
 		expected string
 	}{
-		{"recent", now - 1000, "just now"},     // Very recent
-		{"older", now - 3600000, "ago"},        // 1 hour ago
+		{"recent", now - 1000, "just now"},   // Very recent
+		{"older", now - 3600000, "ago"},      // 1 hour ago
 		{"very old", now - 86400000, "days"}, // Should show days
 	}
 

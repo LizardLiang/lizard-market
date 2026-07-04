@@ -96,12 +96,13 @@ func checkStatus() error {
 
 	// Overall status
 	fmt.Println("\n===========================")
-	if hooksInstalled && hasKratosHooks && kratosInHooks {
+	switch {
+	case hooksInstalled && hasKratosHooks && kratosInHooks:
 		fmt.Println("Status: ✅ FULLY OPERATIONAL")
-	} else if hooksInstalled && hasKratosHooks {
+	case hooksInstalled && hasKratosHooks:
 		fmt.Println("Status: ⚠ INSTALLED (Binary missing)")
 		fmt.Println("\nRun 'kratos install' to reinstall.")
-	} else {
+	default:
 		fmt.Println("Status: ❌ NOT INSTALLED")
 		fmt.Println("\nRun 'kratos install' to install.")
 	}

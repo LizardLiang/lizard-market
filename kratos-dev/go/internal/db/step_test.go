@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
 )
 
 // Test 1: Create step

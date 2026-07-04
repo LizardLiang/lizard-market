@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/db"
+	"github.com/spf13/cobra"
 )
 
 // getProject returns the current project name from git or directory name

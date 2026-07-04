@@ -1,3 +1,4 @@
+// Package db provides the SQLite persistence layer for sessions, steps, and features.
 package db
 
 import (
@@ -6,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	// Pure-Go SQLite driver registration (no CGO).
 	_ "modernc.org/sqlite"
 )
 

@@ -34,7 +34,7 @@ type requirement struct {
 	Name      string // trimmed header text — the durable, cross-feature ID
 	Body      string // raw markdown from the header line to the next boundary (exclusive)
 	HasShall  bool   // a SHALL statement appears before the first scenario
-	Scenarios int     // count of "#### Scenario:" blocks in this requirement
+	Scenarios int    // count of "#### Scenario:" blocks in this requirement
 }
 
 // renamePair is one "FROM: ... / TO: ..." entry in a delta's RENAMED Requirements section.

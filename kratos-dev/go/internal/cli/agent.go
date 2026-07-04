@@ -1,3 +1,4 @@
+// Package cli implements all kratos CLI subcommands.
 package cli
 
 import (

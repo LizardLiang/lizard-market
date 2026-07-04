@@ -8,19 +8,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/spf13/cobra"
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/db"
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
+	"github.com/google/uuid"
+	"github.com/spf13/cobra"
 )
 
 // normalizeProjectPath canonicalizes a project path so that storage and lookups
 // always match regardless of trailing slashes, slash direction, or Windows path-case.
 func normalizeProjectPath(path string) string {
-	path = filepath.ToSlash(path)          // C:\foo\bar → C:/foo/bar (no-op on Unix)
-	path = strings.TrimRight(path, "/")    // strip trailing slashes
+	path = filepath.ToSlash(path)       // C:\foo\bar → C:/foo/bar (no-op on Unix)
+	path = strings.TrimRight(path, "/") // strip trailing slashes
 	if runtime.GOOS == "windows" {
-		path = strings.ToLower(path)       // case-insensitive filesystem
+		path = strings.ToLower(path) // case-insensitive filesystem
 	}
 	return path
 }

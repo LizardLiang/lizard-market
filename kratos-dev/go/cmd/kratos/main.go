@@ -1,11 +1,13 @@
+// Command kratos is the Kratos plugin CLI: pipeline tracking, quality-gate hooks,
+// session memory, and embedded agent/template assets.
 package main
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/cli"
+	"github.com/spf13/cobra"
 )
 
 var version = "2.83.1-go"

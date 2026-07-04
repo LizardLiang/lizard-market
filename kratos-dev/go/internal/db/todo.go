@@ -10,9 +10,9 @@ import (
 type Todo struct {
 	ID          int64   `json:"id"`
 	Text        string  `json:"text"`
-	Status      string  `json:"status"`       // open, done
-	Source      string  `json:"source"`       // user, jira, ananke
-	SourceRef   *string `json:"source_ref"`   // Jira ticket ID, if source=jira
+	Status      string  `json:"status"`     // open, done
+	Source      string  `json:"source"`     // user, jira, ananke
+	SourceRef   *string `json:"source_ref"` // Jira ticket ID, if source=jira
 	Project     string  `json:"project"`
 	CreatedAt   int64   `json:"created_at"`
 	CompletedAt *int64  `json:"completed_at"` // null if open

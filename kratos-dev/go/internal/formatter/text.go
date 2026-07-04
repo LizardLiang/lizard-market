@@ -1,3 +1,4 @@
+// Package formatter renders CLI output for display.
 package formatter
 
 import (
