@@ -1,0 +1,13 @@
+{
+  "name": "kratos",
+  "owner": {
+    "name": "Lizard Liang"
+  },
+  "plugins": [
+    {
+      "name": "kratos",
+      "source": ".",
+      "description": "The God of War - Master orchestrator that commands specialist agents, enforces workflow gates, tracks feature progress, and guides features from inception to completion."
+    }
+  ]
+}

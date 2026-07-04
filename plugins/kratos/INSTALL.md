@@ -17,7 +17,7 @@ This guide covers installing Kratos into your Claude Code environment. Follow ev
 ## Step 1: Add the Marketplace
 
 ```bash
-claude plugin marketplace add https://github.com/LizardLiang/lizard-market
+claude plugin marketplace add https://github.com/LizardLiang/kratos
 ```
 
 ---
@@ -28,13 +28,13 @@ This registers Kratos's skills, commands, and agents so Claude Code can discover
 
 ```bash
 # User scope — all projects on this machine (recommended)
-claude plugin install kratos@lizard-market
+claude plugin install kratos@kratos
 
 # Project scope — committed alongside your project
-claude plugin install kratos@lizard-market --scope project
+claude plugin install kratos@kratos --scope project
 
 # Local scope — this machine only, not committed
-claude plugin install kratos@lizard-market --scope local
+claude plugin install kratos@kratos --scope local
 ```
 
 After installation the plugin lives at `~/.claude/plugins/cache/kratos/` (user scope).
@@ -262,8 +262,8 @@ rm ~/.kratos/memory.db
 
 ```bash
 # 1. Add marketplace + install plugin
-claude plugin marketplace add https://github.com/LizardLiang/lizard-market
-claude plugin install kratos@lizard-market
+claude plugin marketplace add https://github.com/LizardLiang/kratos
+claude plugin install kratos@kratos
 
 # 2. Pre-built binaries ship in bin/ for all platforms — no build needed.
 #    (To build from source instead, clone the repo and see kratos-dev/go.)

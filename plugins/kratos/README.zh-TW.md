@@ -31,8 +31,8 @@ Kratos 分兩層運作。**markdown 層獨立可用 — 免建置、免二進位
 
 ```bash
 # 1. 加入市場並安裝插件 — 這一步就能用上完整流水線
-claude plugin marketplace add https://github.com/LizardLiang/lizard-market
-claude plugin install kratos@lizard-market
+claude plugin marketplace add https://github.com/LizardLiang/kratos
+claude plugin install kratos@kratos
 ```
 
 就這樣 — 試試 `/kratos:quick 幫 UserService.js 加測試`。markdown 層零額外設定即可運作。

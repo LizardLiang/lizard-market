@@ -56,8 +56,8 @@ For the full step-by-step guide (building the binary, installing hooks, configur
 
 ```bash
 # 1. Add marketplace & install plugin — this alone gets you the full pipeline
-claude plugin marketplace add https://github.com/LizardLiang/lizard-market
-claude plugin install kratos@lizard-market
+claude plugin marketplace add https://github.com/LizardLiang/kratos
+claude plugin install kratos@kratos
 ```
 
 That's it — try `/kratos:quick Add tests for UserService.js`. The markdown layer works with zero further setup.
