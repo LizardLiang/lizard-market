@@ -75,11 +75,13 @@ chmod +x ~/.claude/plugins/cache/kratos/bin/kratos
 
 ### Option B: Build from Source
 
+The Go source is not shipped with the installed plugin (only runtime files are). Clone the repo and build into the cached plugin's `bin/`:
+
 ```bash
-cd ~/.claude/plugins/cache/kratos/go
-go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos
-# Windows:
-# go build -ldflags="-s -w" -o ../bin/kratos.exe ./cmd/kratos
+git clone https://github.com/LizardLiang/lizard-market.git
+cd lizard-market/kratos-dev/go
+go build -ldflags="-s -w" -o ~/.claude/plugins/cache/kratos/bin/kratos ./cmd/kratos
+# Windows: -o .../bin/kratos.exe
 ```
 
 ### Initialize the Database
@@ -263,10 +265,9 @@ rm ~/.kratos/memory.db
 claude plugin marketplace add https://github.com/LizardLiang/lizard-market
 claude plugin install kratos@lizard-market
 
-# 2. Build binary (or skip if pre-built binary works for your platform)
-cd ~/.claude/plugins/cache/kratos/go
-go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos
-cd ..
+# 2. Pre-built binaries ship in bin/ for all platforms — no build needed.
+#    (To build from source instead, clone the repo and see kratos-dev/go.)
+cd ~/.claude/plugins/cache/kratos
 
 # 3. Initialize database + install hooks
 ./bin/kratos init && ./bin/kratos install

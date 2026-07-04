@@ -534,11 +534,12 @@ ls .claude/feature/<name>/
 The `<kratos-bin>` placeholder is injected by the SubagentStart hook at runtime so agents always have the correct binary path. If agents report the binary is unavailable:
 
 ```bash
-# Rebuild
-cd ~/.claude/plugins/cache/kratos/go
-go build -ldflags="-s -w" -o ../bin/kratos ./cmd/kratos
-cd ..
+# Use the shipped platform binary
+cd ~/.claude/plugins/cache/kratos
+cp bin/kratos-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') bin/kratos
+chmod +x bin/kratos
 ./bin/kratos install
+# (Building from source requires cloning the repo — see kratos-dev/go; source is not shipped with the plugin.)
 
 # Verify hook registration
 cat ~/.claude/settings.json | python3 -m json.tool | grep -A3 SubagentStart

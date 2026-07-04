@@ -14,7 +14,7 @@ import (
 // hooks.json passed 4-spec-review-sa/5-test-plan/7-prd-alignment/8-review while
 // stageChecks used 5-/6-/8-/9- keys).
 func TestHooksJSONStageKeysExist(t *testing.T) {
-	hooksPath := filepath.Join("..", "..", "..", "hooks", "hooks.json")
+	hooksPath := filepath.Join("..", "..", "..", "..", "plugins", "kratos", "hooks", "hooks.json")
 	data, err := os.ReadFile(hooksPath)
 	if err != nil {
 		t.Fatalf("cannot read hooks.json at %s: %v", hooksPath, err)

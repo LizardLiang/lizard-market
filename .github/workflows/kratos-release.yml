@@ -1,4 +1,4 @@
-name: Release
+name: Kratos Release
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
         go-version: '1.25'
 
     - name: Run tests
-      working-directory: go
+      working-directory: kratos-dev/go
       run: go test -v ./...
 
   release:
@@ -47,26 +47,26 @@ jobs:
       run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
     - name: Build binaries
-      working-directory: go
+      working-directory: kratos-dev/go
       run: |
         # Linux AMD64
-        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../bin/kratos-linux-amd64 ./cmd/kratos
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../../plugins/kratos/bin/kratos-linux-amd64 ./cmd/kratos
 
         # Linux ARM64
-        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../bin/kratos-linux-arm64 ./cmd/kratos
+        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../../plugins/kratos/bin/kratos-linux-arm64 ./cmd/kratos
 
         # macOS AMD64
-        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../bin/kratos-darwin-amd64 ./cmd/kratos
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../../plugins/kratos/bin/kratos-darwin-amd64 ./cmd/kratos
 
         # macOS ARM64 (Apple Silicon)
-        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../bin/kratos-darwin-arm64 ./cmd/kratos
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../../plugins/kratos/bin/kratos-darwin-arm64 ./cmd/kratos
 
         # Windows AMD64
-        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../bin/kratos-windows-amd64.exe ./cmd/kratos
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../../plugins/kratos/bin/kratos-windows-amd64.exe ./cmd/kratos
 
     - name: Create archives
       run: |
-        cd bin
+        cd plugins/kratos/bin
 
         # Create tar.gz for Unix systems
         tar -czf kratos-${{ steps.get_version.outputs.VERSION }}-linux-amd64.tar.gz kratos-linux-amd64
@@ -79,7 +79,7 @@ jobs:
 
     - name: Generate checksums
       run: |
-        cd bin
+        cd plugins/kratos/bin
         sha256sum *.tar.gz *.zip > checksums.txt
 
     - name: Generate changelog
@@ -107,9 +107,9 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          bin/*.tar.gz
-          bin/*.zip
-          bin/checksums.txt
+          plugins/kratos/bin/*.tar.gz
+          plugins/kratos/bin/*.zip
+          plugins/kratos/bin/checksums.txt
         body: |
           # Kratos ${{ steps.get_version.outputs.VERSION }}
 

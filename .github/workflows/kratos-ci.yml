@@ -1,10 +1,12 @@
-name: CI
+name: Kratos CI
 
 on:
   push:
     branches: [ master, main, develop ]
+    paths: [ 'plugins/kratos/**', 'kratos-dev/**', '.github/workflows/kratos-*.yml' ]
   pull_request:
     branches: [ master, main, develop ]
+    paths: [ 'plugins/kratos/**', 'kratos-dev/**', '.github/workflows/kratos-*.yml' ]
 
 jobs:
   test:
@@ -35,18 +37,18 @@ jobs:
           ${{ runner.os }}-go-
 
     - name: Install dependencies
-      working-directory: go
+      working-directory: kratos-dev/go
       run: go mod download
 
     - name: Run tests
-      working-directory: go
+      working-directory: kratos-dev/go
       run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
     - name: Upload coverage
       if: matrix.os == 'ubuntu-latest'
       uses: codecov/codecov-action@v4
       with:
-        file: ./go/coverage.txt
+        file: ./kratos-dev/go/coverage.txt
         flags: unittests
         name: codecov-umbrella
 
@@ -67,7 +69,7 @@ jobs:
       uses: golangci/golangci-lint-action@v6
       with:
         version: latest
-        working-directory: go
+        working-directory: kratos-dev/go
 
   build:
     name: Build binaries
@@ -89,27 +91,27 @@ jobs:
     # time, so a version match proves it was rebuilt from current source.
     - name: Verify committed binaries are not stale
       run: |
-        EXPECTED=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' .claude-plugin/plugin.json | head -1)
-        chmod +x bin/kratos-linux-amd64
-        ACTUAL=$(./bin/kratos-linux-amd64 --version | awk '{print $NF}')
+        EXPECTED=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' plugins/kratos/.claude-plugin/plugin.json | head -1)
+        chmod +x plugins/kratos/bin/kratos-linux-amd64
+        ACTUAL=$(./plugins/kratos/bin/kratos-linux-amd64 --version | awk '{print $NF}')
         echo "plugin.json=$EXPECTED  committed bin/kratos-linux-amd64=$ACTUAL"
         if [ "$ACTUAL" != "$EXPECTED" ]; then
-          echo "::error::Committed bin/ is stale (binary reports '$ACTUAL', plugin.json is '$EXPECTED'). Run 'cd go && make build-all' and commit bin/."
+          echo "::error::Committed bin/ is stale (binary reports '$ACTUAL', plugin.json is '$EXPECTED'). Run 'cd kratos-dev/go && make build-all' and commit plugins/kratos/bin/."
           exit 1
         fi
 
     - name: Build all platforms
-      working-directory: go
+      working-directory: kratos-dev/go
       run: |
-        GOOS=linux GOARCH=amd64 go build -o ../bin/kratos-linux-amd64 ./cmd/kratos
-        GOOS=linux GOARCH=arm64 go build -o ../bin/kratos-linux-arm64 ./cmd/kratos
-        GOOS=darwin GOARCH=amd64 go build -o ../bin/kratos-darwin-amd64 ./cmd/kratos
-        GOOS=darwin GOARCH=arm64 go build -o ../bin/kratos-darwin-arm64 ./cmd/kratos
-        GOOS=windows GOARCH=amd64 go build -o ../bin/kratos-windows-amd64.exe ./cmd/kratos
+        GOOS=linux GOARCH=amd64 go build -o ../../plugins/kratos/bin/kratos-linux-amd64 ./cmd/kratos
+        GOOS=linux GOARCH=arm64 go build -o ../../plugins/kratos/bin/kratos-linux-arm64 ./cmd/kratos
+        GOOS=darwin GOARCH=amd64 go build -o ../../plugins/kratos/bin/kratos-darwin-amd64 ./cmd/kratos
+        GOOS=darwin GOARCH=arm64 go build -o ../../plugins/kratos/bin/kratos-darwin-arm64 ./cmd/kratos
+        GOOS=windows GOARCH=amd64 go build -o ../../plugins/kratos/bin/kratos-windows-amd64.exe ./cmd/kratos
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: kratos-binaries
-        path: bin/kratos-*
+        path: plugins/kratos/bin/kratos-*
         retention-days: 7

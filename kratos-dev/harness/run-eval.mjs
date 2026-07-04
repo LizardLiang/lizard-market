@@ -27,7 +27,7 @@ import { fileURLToPath } from "url";
 import { spawnSync } from "child_process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const KRATOS_ROOT = path.resolve(__dirname, "..");
+const KRATOS_ROOT = path.resolve(__dirname, "../../plugins/kratos");
 
 // Resolve the SDK from local node_modules or the sibling test-harness install.
 let query;

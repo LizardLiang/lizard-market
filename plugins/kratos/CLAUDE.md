@@ -5,23 +5,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Test Commands
 
 ```bash
-# Build the Go binary (from go/ directory)
-cd plugins/kratos/go && make build        # outputs to ../bin/kratos
+# Build the Go binary (dev tree lives at repo-root kratos-dev/, outside the shipped plugin)
+cd kratos-dev/go && make build        # outputs to plugins/kratos/bin/kratos
 
 # Run all Go tests
-cd plugins/kratos/go && make test
+cd kratos-dev/go && make test
 
 # Run a single test file or package
-cd plugins/kratos/go && go test ./internal/cli/ -run TestRecall -v
+cd kratos-dev/go && go test ./internal/cli/ -run TestRecall -v
 
 # Test with race detector
-cd plugins/kratos/go && make test-race
+cd kratos-dev/go && make test-race
 
 # Lint (requires golangci-lint)
-cd plugins/kratos/go && make lint
+cd kratos-dev/go && make lint
 
 # Initialize DB + install hooks after build
-./bin/kratos init && ./bin/kratos install
+./plugins/kratos/bin/kratos init && ./plugins/kratos/bin/kratos install
 ```
 
 ## Architecture Overview
@@ -40,6 +40,9 @@ Kratos is a **Claude Code plugin** (`.claude-plugin/plugin.json`) that orchestra
 - **`hooks/`** — Claude Code hooks (`hooks.json` + JS/Go implementations). Key hooks: SubagentStart/Stop gates for Ares/Hephaestus/Hermes, PreToolUse for npm→project-PM rewriting.
 
 ### 2. Go Binary Layer (optional, enhances pipeline tracking)
+
+Source lives at repo-root `kratos-dev/go/` — outside `plugins/kratos/` so plugin installs copy only runtime files. `make build` outputs committed binaries into `plugins/kratos/bin/`.
+
 - **`go/cmd/kratos/main.go`** — CLI entry point using Cobra.
 - **`go/internal/cli/`** — Command implementations: `hook.go` (all hook subcommands), `pipeline.go` (stage updates), `session.go`/`recall.go` (session tracking), `todo.go`, `status.go`.
 - **`go/internal/db/`** — SQLite layer with WAL mode. `schema.sql` is embedded. Session/step/feature CRUD. DB lives at `~/.kratos/memory.db`.
@@ -61,7 +64,8 @@ Pull-model knowledge base in the target project. Agents read what they need; Met
 ## Important Conventions
 
 - Plugin-internal paths are written as `<KRATOS_ROOT>/...`. Orchestrators resolve the actual root (from `${CLAUDE_PLUGIN_ROOT}` or the skill base directory) and substitute it into agent prompts before spawning; `plugins/kratos/` from project root is the fallback for in-repo installs. See `references/agent-protocol.md`.
-- `schema.sql` exists in both `go/internal/db/` and `memory/` (legacy) — keep them in sync on schema changes.
+- `schema.sql` lives in `kratos-dev/go/internal/db/` (a legacy copy sits in `kratos-dev/memory/`).
+- Dev-only assets (Go source, eval harness, legacy memory prototype, CI docs) live in repo-root `kratos-dev/`; GitHub workflows in repo-root `.github/workflows/kratos-*.yml`. Nothing outside runtime needs lives in `plugins/kratos/` — installs copy the whole plugin dir.
 - Hook commands use fallback chains: try `${CLAUDE_PLUGIN_ROOT}/bin/kratos` first, then `~/.kratos/bin/kratos`.
 - The Go binary is optional — all agents gracefully fall back to direct file edits when it's unavailable.
 - Version is tracked in `.claude-plugin/plugin.json`.
