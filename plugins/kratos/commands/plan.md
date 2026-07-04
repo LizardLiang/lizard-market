@@ -49,6 +49,8 @@ To implement this plan, run:
 /kratos:quick implement the approved plan at .claude/.Arena/tactical-plans/<slug>.md
 ```
 
+`/kratos:ares implement the approved plan at .claude/.Arena/tactical-plans/<slug>.md` also works — either path offers to archive the pending spec delta once implementation completes.
+
 Do not spawn Ares automatically from `/kratos:plan`. Do not modify source files — plan only.
 
 ---
