@@ -10,7 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "2.83.1-go"
+// Dev fallback only — release builds inject the plugin.json version via
+// -ldflags (see Makefile).
+var version = "2.85.0-dev"
 
 func main() {
 	rootCmd := &cobra.Command{
@@ -37,6 +39,7 @@ func main() {
 	rootCmd.AddCommand(cli.AgentCmd())
 	rootCmd.AddCommand(cli.HermesListCmd())
 	rootCmd.AddCommand(cli.SpecCmd())
+	rootCmd.AddCommand(cli.SlugCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

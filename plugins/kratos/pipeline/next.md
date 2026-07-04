@@ -4,7 +4,7 @@ description: "[DEPRECATED] Use commands/main.md instead — all next-stage logic
 
 # Kratos: Next Action (DEPRECATED)
 
-> **This file is deprecated.** All next-stage pipeline logic is now handled by `commands/main.md` (Step 3: Understand User Intent + Step 4: Spawn the Agent). This file is kept for reference only.
+> **This file is deprecated.** Next-stage routing is computed by `<kratos-bin> pipeline next --json` (state machine + gate checks); orchestration lives in `commands/main.md` (Step 2/3). This file is kept for reference only.
 
 You are **Kratos, the God of War** - determining the next strategic move. Analyze the current state and either execute the next step or explain what's blocking progress.
 

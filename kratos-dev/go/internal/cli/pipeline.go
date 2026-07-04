@@ -91,6 +91,9 @@ func PipelineCmd() *cobra.Command {
 	cmd.AddCommand(pipelineGetCmd())
 	cmd.AddCommand(pipelineSetPendingCmd())
 	cmd.AddCommand(pipelineDiscoverCmd())
+	cmd.AddCommand(pipelineTasksCmd())
+	cmd.AddCommand(pipelineStatusCmd())
+	cmd.AddCommand(pipelineNextCmd())
 
 	return cmd
 }
@@ -359,8 +362,26 @@ func pipelineUpdate(feature, stage, newStatus, mode, verdict, document, summary 
 		return err
 	}
 
-	ts := now()
+	if err := applyStageUpdate(statusJSON, stage, newStatus, mode, verdict, document, summary, now()); err != nil {
+		return err
+	}
 
+	if err := writeStatusJSON(path, statusJSON); err != nil {
+		return err
+	}
+
+	// Output result
+	out, _ := json.MarshalIndent(statusJSON, "", "  ")
+	fmt.Println(string(out))
+	return nil
+}
+
+// applyStageUpdate mutates statusJSON in memory with the exact semantics of
+// `pipeline update`: status transition, auto timestamps, verdict filing,
+// document/summary recording, top-level stage/updated, and a history entry.
+// Callers own reading and writing the file, so several updates can share one
+// atomic write. stage must already be a full pipeline key.
+func applyStageUpdate(statusJSON map[string]interface{}, stage, newStatus, mode, verdict, document, summary, ts string) error {
 	// Get pipeline map
 	pipeline, ok := statusJSON["pipeline"].(map[string]interface{})
 	if !ok {
@@ -446,13 +467,6 @@ func pipelineUpdate(feature, stage, newStatus, mode, verdict, document, summary 
 		statusJSON["documents"] = docs
 	}
 
-	if err := writeStatusJSON(path, statusJSON); err != nil {
-		return err
-	}
-
-	// Output result
-	out, _ := json.MarshalIndent(statusJSON, "", "  ")
-	fmt.Println(string(out))
 	return nil
 }
 
@@ -780,6 +794,87 @@ func isFeatureComplete(data map[string]interface{}) bool {
 		}
 	}
 	return true
+}
+
+// stageNumber returns the 1-based position of a pipeline stage key in the
+// canonical display order ("N of 9"), or 0 for unknown keys.
+func stageNumber(key string) int {
+	for i, k := range stageDisplayOrder {
+		if k == key {
+			return i + 1
+		}
+	}
+	return 0
+}
+
+// ambiguousFeatureError is returned by resolveFeatureIn when several
+// incomplete features exist and no explicit name was given. Callers surface
+// the candidates so the orchestrator can ask the user instead of guessing.
+type ambiguousFeatureError struct {
+	Candidates []string
+}
+
+func (e *ambiguousFeatureError) Error() string {
+	return fmt.Sprintf("multiple incomplete features: %s — pass --feature to pick one", strings.Join(e.Candidates, ", "))
+}
+
+var errNoFeature = fmt.Errorf("no incomplete feature found — run 'kratos pipeline init' to start one")
+
+// resolveFeatureIn resolves which feature under root a command operates on.
+// With an explicit name it validates against featureNameRE and loads it.
+// Without one it scans .claude/feature/*/status.json for incomplete features:
+// exactly one → use it; none → errNoFeature; several → *ambiguousFeatureError.
+func resolveFeatureIn(root, explicit string) (name, dir string, status map[string]interface{}, err error) {
+	if explicit != "" {
+		if !featureNameRE.MatchString(explicit) {
+			return "", "", nil, fmt.Errorf("invalid feature name %q", explicit)
+		}
+		path := filepath.Join(root, ".claude", "feature", explicit, "status.json")
+		status, err = readStatusJSON(path)
+		if err != nil {
+			return "", "", nil, err
+		}
+		return explicit, filepath.Dir(path), status, nil
+	}
+
+	pattern := filepath.Join(root, ".claude", "feature", "*", "status.json")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("glob error: %w", err)
+	}
+
+	type candidate struct {
+		name, dir string
+		data      map[string]interface{}
+	}
+	var candidates []candidate
+	for _, path := range matches {
+		data, err := readStatusJSON(path)
+		if err != nil {
+			continue
+		}
+		if isFeatureComplete(data) {
+			continue
+		}
+		fname, _ := data["feature"].(string)
+		if fname == "" {
+			fname = filepath.Base(filepath.Dir(path))
+		}
+		candidates = append(candidates, candidate{fname, filepath.Dir(path), data})
+	}
+
+	switch len(candidates) {
+	case 0:
+		return "", "", nil, errNoFeature
+	case 1:
+		return candidates[0].name, candidates[0].dir, candidates[0].data, nil
+	}
+	names := make([]string, len(candidates))
+	for i, c := range candidates {
+		names[i] = c.name
+	}
+	sort.Strings(names)
+	return "", "", nil, &ambiguousFeatureError{Candidates: names}
 }
 
 // featureProgress returns (completedCount, totalNonOptional).

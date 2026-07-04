@@ -77,15 +77,19 @@ All agents that read or update status.json MUST follow this schema.
       "completed": "<ISO8601>",
       "documents": ["implementation-notes.md"],
       "summary": "<2-3 sentence digest: files created/modified, tests written, any deviations from spec>",
-      "tasks": [
-        {
-          "id": "01",
-          "file": "tasks/01-task-name.md",
-          "title": "Task title",
-          "status": "pending | in-progress | complete",
-          "completed_at": "<ISO8601> | null"
-        }
-      ]
+      "tasks": {
+        "total": 0,
+        "completed": 0,
+        "items": [
+          {
+            "id": "01",
+            "file": "tasks/01-task-name.md",
+            "name": "Task title",
+            "status": "pending | in-progress | complete",
+            "completed_at": "<ISO8601> | null"
+          }
+        ]
+      }
     },
     "8-prd-alignment": {
       "status": "pending | in-progress | complete",

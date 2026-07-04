@@ -73,7 +73,8 @@ AskUserQuestion(
 **If "Approve & save":**
 
 1. Derive the save path from the plan's title line (`## Strategic Plan — <Name>`):
-   - Slugify `<Name>`: lowercase, spaces and non-alphanumeric chars → `-`, collapse consecutive `-`, strip leading/trailing `-`
+   - Slugify `<Name>` via the CLI: `SLUG=$(<kratos-bin> slug "<Name>")`
+   - Fallback (binary unavailable): lowercase, spaces and non-alphanumeric chars → `-`, collapse consecutive `-`, strip leading/trailing `-`
    - Path = `.claude/.Arena/plans/<slug>.md`
 
 2. Write the plan to that path:

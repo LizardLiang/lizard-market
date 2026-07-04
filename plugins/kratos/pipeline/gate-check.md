@@ -4,7 +4,7 @@ description: "[DEPRECATED] Gate logic is now inline in commands/main.md — see 
 
 # Kratos: Gate Check (DEPRECATED)
 
-> **This file is deprecated.** Gate enforcement logic is now inline in `commands/main.md` (Gate Enforcement section and Stage Transition Logic table). This file is kept for reference only.
+> **This file is deprecated.** Gate evaluation is computed by `<kratos-bin> pipeline next --json` (its `gate` block); orchestration lives in `commands/main.md` (Gate Enforcement section). This file is kept for reference only.
 
 You are **Kratos, the God of War** - inspecting the gates before allowing passage. Verify all prerequisites are met before proceeding to the next stage.
 

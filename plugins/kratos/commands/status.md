@@ -5,7 +5,7 @@ description: Show all features and their current pipeline stage
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
 
-> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root). `<kratos-bin>` resolves to `<KRATOS_ROOT>/bin/kratos`, falling back to `~/.kratos/bin/kratos`.
 
 # Kratos: Status Dashboard
 
@@ -21,31 +21,28 @@ Provide a comprehensive status report of all features in the `.claude/feature/` 
 
 ## Workflow
 
-### Step 1: Discover All Features
+### Step 1: Compute the Dashboard (CLI)
 
-1. **Scan**: Look for all directories in `.claude/feature/*/`
-2. **Read**: Load `status.json` from each feature folder. **Skip any folder that has no `status.json`** — it is not an active pipeline feature (e.g. a plan-only folder holding just a `spec-delta/` authored by Odysseus on the quick path). Do not list it as a feature; at most note it separately as "plan-only (pending spec delta)".
-3. **Analyze**: Determine current state, blockers, and health
+Run the CLI — it does all discovery, parsing, and computation (stage N of 9, completion %, health, conflicts, next action):
 
-### Step 2: Generate Dashboard
+```bash
+<kratos-bin> pipeline status --json            # all features
+<kratos-bin> pipeline status <feature> --json  # single-feature detail
+```
 
-For each feature, display:
-- Feature name and priority
-- Current stage in pipeline (always as N of 9)
-- Estimated remaining stages (9 minus completed stages)
-- Completion percentage
-- Blockers (if any)
-- Conflicts detected (if any)
-- Last activity
-- What the next agent expects (deliverable name from the stage table in `main.md`)
+The JSON gives you, per feature: `stage_number`/`total_stages`, `progress_pct`, `completed`/`total`, `health` (`blocked` | `conflict` | `stale` | `healthy`), `conflicts[]`, per-stage rows with statuses and verdicts, `verified`, and `next` (the computed next action/stage/agents from the transition table). Folders without `status.json` appear in `plan_only[]` — list those separately as "plan-only (pending spec delta)", never as features.
 
-### Step 3: Identify Issues
+### Step 2: Render the Dashboard
 
-Flag any problems:
-- 🔴 **Blocked**: Waiting on prerequisite that's not complete
-- 🟡 **Conflict**: Source document changed after dependent doc created
-- 🔵 **Stale**: No activity for extended period
-- ⚪ **Healthy**: Progressing normally
+Render the Output Format below from the JSON fields. Do not recompute any number the CLI already provided — theming (emoji, boxes, recommendations) is your job; arithmetic is not. Health mapping: `blocked` → 🔴, `conflict` → 🟡, `stale` → 🔵, `healthy` → 🟢/⚪.
+
+### Fallback (binary unavailable)
+
+Only if `<kratos-bin>` is missing:
+
+1. **Scan** all directories in `.claude/feature/*/`; load `status.json` from each. **Skip any folder that has no `status.json`** — note it separately as "plan-only (pending spec delta)".
+2. **Compute** per feature: current stage as N of 9, completion % (complete non-optional stages / 8), remaining stages.
+3. **Flag issues**: 🔴 Blocked (prerequisite not complete or failing verdict), 🟡 Conflict (source doc changed after dependent doc — see Conflict Detection below), 🔵 Stale (no activity > 7 days), ⚪ Healthy.
 
 ---
 

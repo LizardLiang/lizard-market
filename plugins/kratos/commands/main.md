@@ -74,14 +74,26 @@ For new requests (not "continue" / "status"), read `<KRATOS_ROOT>/pipeline/class
 
 Read `<KRATOS_ROOT>/pipeline/check-arena-staleness.md` and execute its procedure.
 
-### Step 2: Discover Active Feature
+### Step 2: Discover Active Feature and Next Action
 
-Search `.claude/feature/*/status.json`:
-- **No feature** → use AskUserQuestion to ask what to build, then read `<KRATOS_ROOT>/pipeline/start.md`
-- **One feature** → use it automatically
-- **Multiple** → list them, use AskUserQuestion to pick one
+Run the CLI — it discovers the feature, reads its state, walks the transition table, and checks gates in one shot:
 
-Read `status.json` to find: current stage, stage status, what action is needed.
+```bash
+<kratos-bin> pipeline next --json
+```
+
+Route on `action`:
+- **`no-feature`** → use AskUserQuestion to ask what to build, then read `<KRATOS_ROOT>/pipeline/start.md`
+- **`ambiguous`** → present `candidates[]` via AskUserQuestion, then re-run with `--feature <choice>`
+- **`next`** → the `next` block tells you the stage, agent(s) + default models, expected documents, and `procedure` (see the token table in Step 3)
+- **`wait-user-tasks`** → User Mode; tell the user to finish tasks then run `/kratos:task-complete all`
+- **`ship-gate`** → run the Victory ship gate (`<kratos-bin> verify --final`)
+- **`complete`** → feature is done and verified; report it
+- **`blocked`** → surface `reason` and `gate.failures[]` using the BLOCKED format; if the reason mentions recovery, read `<KRATOS_ROOT>/pipeline/recovery.md`
+
+The CLI never picks among multiple features, never opts into optional stages, and reports default models only — those judgments (plus eco/power model overrides per `<KRATOS_ROOT>/modes/modes.md`) are yours.
+
+**Fallback (binary unavailable):** search `.claude/feature/*/status.json` yourself — no feature → ask; one → use it; multiple → AskUserQuestion — then read `status.json` for current stage/status and route with the Stage Transition Logic table below.
 
 ### Step 3: Understand Intent
 
@@ -91,10 +103,24 @@ Read `status.json` to find: current stage, stage status, what action is needed.
 | Information question | Classify → inquiry mode |
 | Simple task | Classify → quick mode |
 | "Create/build/start [feature]" | Read `pipeline/start.md`, initialize, spawn Athena |
-| "Continue" / "Next" | Check current stage → spawn next agent (see stages below) |
-| "Status" | Show pipeline progress |
+| "Continue" / "Next" | Act on `pipeline next` output (Step 2) — the `procedure` token maps to a doc below |
+| "Status" | Show pipeline progress (`/kratos:status` renders `pipeline status --json`) |
 
-Note: "Continue" at Stage 1 with no `prd.md` yet must run the full gap analysis → clarification → PRD creation flow, not just advance the stage.
+**Procedure token → what to do** (from `pipeline next` output):
+
+| `procedure` | Action |
+|-------------|--------|
+| `spawn` | Spawn the listed agent(s) per `<KRATOS_ROOT>/pipeline/stages.md` |
+| `spawn-parallel` | Spawn the listed agents in parallel (stage 9) |
+| `gap-analysis` | Read `<KRATOS_ROOT>/pipeline/gap-analysis.md`, run the inline loop |
+| `complexity-check` | Offer optional Stage 3 decompose / discuss, then proceed to stage 4 via the hephaestus gate |
+| `hephaestus-gate` | Read `<KRATOS_ROOT>/pipeline/hephaestus-gate.md`, run the 3-phase gate |
+| `pre-implementation` | Read `<KRATOS_ROOT>/pipeline/pre-implementation.md`, run the gate |
+| `spec-archive-offer` | Run the Spec Archive Offer (below), then spawn stage 9 in parallel |
+| `ship-gate` | Run `<kratos-bin> verify --final --feature FEATURE_NAME` (Victory section) |
+| `recovery` | Read `<KRATOS_ROOT>/pipeline/recovery.md` |
+
+Note: "Continue" at Stage 1 with no `prd.md` yet must run the full gap analysis → clarification → PRD creation flow, not just advance the stage (`pipeline next` reports `procedure: gap-analysis` for exactly this case).
 
 ### Step 4: Spawn the Agent
 
@@ -122,6 +148,8 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 
 ## Stage Transition Logic
 
+> **Fallback / reference — `<kratos-bin> pipeline next` encodes this table.** Use the CLI (Step 2); consult this table only when the binary is unavailable or you need to sanity-check its output.
+
 | Stage Complete | Verdict | Next |
 |----------------|---------|------|
 | *(new feature)* | — | **1-prd** — read `<KRATOS_ROOT>/pipeline/gap-analysis.md` and run the inline gap analysis loop. Do NOT spawn Athena with PHASE: GAP_ANALYSIS. |
@@ -130,10 +158,10 @@ If the document is missing, re-spawn the same agent — agents sometimes fail si
 | 2-prd-review | Revisions | 1-prd (athena) — revise PRD and re-review |
 | 2-prd-review | Rejected | Blocked — escalate to user, fundamental PRD issue |
 | 3-decomposition | Complete/Skipped | **4-tech-spec** — read `<KRATOS_ROOT>/pipeline/hephaestus-gate.md` and run the 3-phase gate (Metis scan → Hephaestus ANALYZE → user questions → Hephaestus WRITE_SPEC). Do NOT spawn Hephaestus directly. |
-| 4-tech-spec | — | 6 (apollo) |
+| 4-tech-spec | — | 5-spec-review-sa (apollo) |
 | 5-spec-review-sa | Sound | 6-test-plan (artemis) |
 | 5-spec-review-sa | Concerns/Unsound | 4-tech-spec (hephaestus) |
-| 6-test-plan | — | Pre-implementation gate → 8 |
+| 6-test-plan | — | Pre-implementation gate → 7-implementation (ares) |
 | 7-implementation | Ares Mode | 8-prd-alignment (hera) |
 | 7-implementation | User Mode | Wait — user completes tasks, then `/kratos:task-complete all` |
 | 8-prd-alignment | Aligned | Spec archive offer (see below) → 9-review (hermes + cassandra parallel) |
@@ -227,7 +255,9 @@ Feature [name] is COMPLETE! (ship gate: VERIFIED)
 
 ## Gate Enforcement
 
-Before spawning any agent, verify prerequisites are complete. If a prior stage is not done, surface the block and offer to work on the prerequisite instead. See `<KRATOS_ROOT>/references/status-json-schema.md` for status.json schema and `<KRATOS_ROOT>/references/agent-handoff-spec.md` for agent contracts.
+`<kratos-bin> pipeline next --json` evaluates gates for you — its `gate` block reports `passed` and `failures[]` (missing deliverables, missing prerequisites). Never spawn an agent when `gate.passed` is false; surface the failures with the BLOCKED format and offer to work on the prerequisite instead.
+
+Fallback (binary unavailable): before spawning any agent, verify the prior stage is complete and its deliverable file exists. See `<KRATOS_ROOT>/references/status-json-schema.md` for status.json schema and `<KRATOS_ROOT>/references/agent-handoff-spec.md` for agent contracts.
 
 ---
 

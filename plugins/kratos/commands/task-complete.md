@@ -30,94 +30,29 @@ Mark one or more implementation tasks as complete when using User Mode.
 
 ## Workflow
 
-### Step 1: Parse Arguments
+### Step 1: Complete Tasks (CLI)
 
-Extract task IDs from the command arguments:
-- Single ID: `01`
-- Multiple IDs: `01 02 03`
-- Special keyword: `all`
+One call does everything deterministic — feature auto-detection, stage-7 + User-Mode validation, batch validation (atomic: an unknown ID fails the whole batch with the file untouched), marking tasks complete with real timestamps, progress-bar rendering, and auto-advancing stage 7 → complete / stage 8 → ready when the last task completes:
 
-### Step 2: Find Active Feature
-
-Search for the active feature:
-```
-.claude/feature/*/status.json
+```bash
+<kratos-bin> pipeline tasks complete <task-id> [task-id2] ... --json
+<kratos-bin> pipeline tasks complete all --json
 ```
 
-Verify:
-1. Feature exists
-2. Stage 7 (implementation) is active
-3. Mode is "user" (User Mode)
+The JSON returns `completed_now[]`, `already_complete[]` (idempotent no-ops), `remaining[]`, `total`/`completed`/`pct`, a pre-rendered `bar`, `all_complete`, and `advanced`. On validation errors the command exits non-zero with the exact reason (wrong stage / not in user mode / unknown IDs + available list) — render the matching error block from Output Formats below.
 
-### Step 3: Validate Tasks
+To show progress without changing anything: `<kratos-bin> pipeline tasks list --json`.
 
-For each task ID provided:
-1. Check if task file exists: `tasks/XX-*.md`
-2. Check if task is in status.json tasks array
-3. Verify task is not already complete
+### Step 2: Update Task Docs (optional)
 
-### Step 4: Update Status
+- Task file: change `Status` from `Pending` to `Complete`
+- `00-overview.md`: update Task Index status column and Progress Tracking section
 
-For each valid task:
+### Step 3: Handle All Complete
 
-1. **Update status.json**:
-   ```json
-   {
-     "pipeline": {
-        "7-implementation": {
-         "tasks": {
-           "items": [
-             { "id": "01", "name": "...", "status": "complete" }
-           ]
-         }
-       }
-     }
-   }
-   ```
+When the CLI returns `all_complete: true` (status.json stages already advanced when `advanced: true`):
 
-2. **Update task file** (optional):
-   - Change `Status` field from `Pending` to `Complete`
-
-3. **Update 00-overview.md**:
-   - Update Task Index status column
-   - Update Progress Tracking section
-
-### Step 5: Check Completion
-
-After updating, check if ALL tasks are complete:
-
-Check if every task in `status.json` `pipeline["7-implementation"].tasks` has `status: "complete"`.
-
-### Step 6: Handle All Complete
-
-When ALL tasks are complete:
-
-1. **Update status.json** via CLI (stamps real timestamps automatically):
-   ```bash
-    <kratos-bin> pipeline update --feature FEATURE_NAME --stage 7 --status complete
-    <kratos-bin> pipeline update --feature FEATURE_NAME --stage 8 --status ready
-   ```
-   If the CLI is unavailable, get a real timestamp first:
-   ```bash
-   TS=$(<kratos-bin> now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
-   ```
-   Then write:
-   ```json
-   {
-      "stage": "8-prd-alignment",
-      "pipeline": {
-        "7-implementation": {
-          "status": "complete",
-          "completed": "$TS"
-        },
-        "8-prd-alignment": {
-          "status": "ready"
-        }
-      }
-   }
-   ```
-
-2. **Spawn Hera** (PRD alignment check, stage 8):
+1. **Spawn Hera** (PRD alignment check, stage 8):
    ```
    Task(
      subagent_type: "kratos:hera",
@@ -172,6 +107,30 @@ When ALL tasks are complete:
 
    If Hera returns **gaps**, report missing coverage to user — Ares must be re-spawned to fill the gaps.
    If Hera returns **misaligned**, block and escalate to user.
+
+---
+
+## Fallback (binary unavailable)
+
+Only if `<kratos-bin>` is missing, do the CLI's work by hand:
+
+1. Find the active feature in `.claude/feature/*/status.json`; verify stage 7 is active and `mode` is `"user"` (render the error blocks below otherwise).
+2. Validate every task ID against `pipeline["7-implementation"].tasks.items[]` before editing anything; unknown ID → error listing available tasks.
+3. Set each task's `status` to `"complete"`, recompute `total`/`completed`, update top-level `updated` with a real timestamp:
+   ```bash
+   TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+   ```
+4. When every task is complete, write in the same edit:
+   ```json
+   {
+      "stage": "8-prd-alignment",
+      "pipeline": {
+        "7-implementation": { "status": "complete", "completed": "$TS" },
+        "8-prd-alignment": { "status": "ready" }
+      }
+   }
+   ```
+   Then continue with Step 3 (spawn Hera).
 
 ---
 

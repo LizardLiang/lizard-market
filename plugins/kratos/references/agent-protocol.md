@@ -21,6 +21,7 @@ Templates are retrieved via the CLI: `'<kratos-path>' template get <template-nam
 Choose documents based on the decision you are making; don't mechanically read every input.
 
 - Use `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state, summaries, and quick context (do not read `status.json` directly). The `--compact` flag omits the audit-only `history[]` and `check_failures[]`, which grow every stage and waste tokens — always prefer it unless you specifically need the audit trail.
+- Other deterministic pipeline work also belongs to the CLI, never hand computation: `pipeline next --json` (next stage, agents, gate check per the transition table), `pipeline status [feature] --json` (dashboard: progress %, health, conflicts), `pipeline tasks list|complete --json` (User Mode task bookkeeping with atomic writes and auto-advance), `slug <text>` (kebab-case slugs).
 - Use `prd.md` for requirements, acceptance criteria, and product intent
 - Use `tech-spec.md` for architecture, interfaces, sequencing, and implementation constraints
 - Use `test-plan.md` for expected coverage and verification scope

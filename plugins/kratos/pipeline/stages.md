@@ -239,7 +239,7 @@ You are in USER MODE — create task files, do not implement code yourself.
 )
 ```
 
-After User Mode completes: do NOT spawn Hermes automatically. Tell the user to work through tasks with `/kratos:task-complete <id>`.
+After User Mode completes: do NOT spawn Hermes automatically. Tell the user to work through tasks with `/kratos:task-complete <id>` (backed by `<kratos-bin> pipeline tasks complete`, which validates User Mode, updates status.json atomically, and auto-advances 7→complete / 8→ready when the last task lands).
 
 ---
 
