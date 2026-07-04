@@ -28,3 +28,4 @@ memory/.pytest_cache/
 
 # Harness eval outputs
 harness/results/
+go/kratos.exe
