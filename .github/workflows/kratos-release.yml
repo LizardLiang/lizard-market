@@ -62,12 +62,19 @@ jobs:
 
     - name: Get version from tag
       id: get_version
+      env:
+        INPUT_TAG: ${{ github.event.inputs.tag }}
       run: |
-        if [ -n "${{ github.event.inputs.tag }}" ]; then
-          echo "VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+        if [ -n "$INPUT_TAG" ]; then
+          VERSION="$INPUT_TAG"
         else
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          VERSION="${GITHUB_REF#refs/tags/}"
         fi
+        if ! printf '%s' "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+          echo "::error::Refusing to release: tag '$VERSION' is not a vX.Y.Z version"
+          exit 1
+        fi
+        echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
     - name: Sync embedded assets
       shell: bash
@@ -81,34 +88,38 @@ jobs:
 
     - name: Build binaries
       working-directory: kratos-dev/go
+      env:
+        VERSION: ${{ steps.get_version.outputs.VERSION }}
       run: |
         # Linux AMD64
-        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../../plugins/kratos/bin/kratos-linux-amd64 ./cmd/kratos
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${VERSION}" -o ../../plugins/kratos/bin/kratos-linux-amd64 ./cmd/kratos
 
         # Linux ARM64
-        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../../plugins/kratos/bin/kratos-linux-arm64 ./cmd/kratos
+        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.version=${VERSION}" -o ../../plugins/kratos/bin/kratos-linux-arm64 ./cmd/kratos
 
         # macOS AMD64
-        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../../plugins/kratos/bin/kratos-darwin-amd64 ./cmd/kratos
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X main.version=${VERSION}" -o ../../plugins/kratos/bin/kratos-darwin-amd64 ./cmd/kratos
 
         # macOS ARM64 (Apple Silicon)
-        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../../plugins/kratos/bin/kratos-darwin-arm64 ./cmd/kratos
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.version=${VERSION}" -o ../../plugins/kratos/bin/kratos-darwin-arm64 ./cmd/kratos
 
         # Windows AMD64
-        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" -o ../../plugins/kratos/bin/kratos-windows-amd64.exe ./cmd/kratos
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.version=${VERSION}" -o ../../plugins/kratos/bin/kratos-windows-amd64.exe ./cmd/kratos
 
     - name: Create archives
+      env:
+        VERSION: ${{ steps.get_version.outputs.VERSION }}
       run: |
         cd plugins/kratos/bin
 
         # Create tar.gz for Unix systems
-        tar -czf kratos-${{ steps.get_version.outputs.VERSION }}-linux-amd64.tar.gz kratos-linux-amd64
-        tar -czf kratos-${{ steps.get_version.outputs.VERSION }}-linux-arm64.tar.gz kratos-linux-arm64
-        tar -czf kratos-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.tar.gz kratos-darwin-amd64
-        tar -czf kratos-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar.gz kratos-darwin-arm64
+        tar -czf kratos-"$VERSION"-linux-amd64.tar.gz kratos-linux-amd64
+        tar -czf kratos-"$VERSION"-linux-arm64.tar.gz kratos-linux-arm64
+        tar -czf kratos-"$VERSION"-darwin-amd64.tar.gz kratos-darwin-amd64
+        tar -czf kratos-"$VERSION"-darwin-arm64.tar.gz kratos-darwin-arm64
 
         # Create zip for Windows
-        zip kratos-${{ steps.get_version.outputs.VERSION }}-windows-amd64.zip kratos-windows-amd64.exe
+        zip kratos-"$VERSION"-windows-amd64.zip kratos-windows-amd64.exe
 
     - name: Generate checksums
       run: |
@@ -139,6 +150,7 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
         files: |
           plugins/kratos/bin/*.tar.gz
           plugins/kratos/bin/*.zip
