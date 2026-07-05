@@ -51,6 +51,7 @@ This skill handles only the clearly non-pipeline utilities directly. Everything 
 | "plan", "plan mode", "make a plan" | Tactical plan mode | `Skill(skill: "kratos:plan")` |
 | "roadmap", "strategy", "priorities", "build order" | Strategic planning | `Skill(skill: "kratos:strategy")` |
 | "decompose", "break down", "split into phases" | Decompose mode | `Skill(skill: "kratos:decompose")` |
+| "view specs", "show spec", "list specs", "living specs", "what specs do we have" | Spec viewer | `Skill(skill: "kratos:spec-view")` |
 | "archive spec", "promote spec delta", "archive the delta" | Spec archive | `Skill(skill: "kratos:spec-archive")` |
 | "backfill spec", "backfill living specs" | Spec backfill | `Skill(skill: "kratos:spec-backfill")` |
 | Everything else (simple tasks, complex features, "continue", "build X", "fix Y", stage artifacts) | Full pipeline — `classify.md` decides quick vs pipeline | `Skill(skill: "kratos:main")` |
