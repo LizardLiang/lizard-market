@@ -144,6 +144,35 @@ CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
 CREATE INDEX IF NOT EXISTS idx_todos_source ON todos(source);
 CREATE INDEX IF NOT EXISTS idx_todos_created ON todos(created_at DESC);
 
+-- User memories: durable facts about the user (preferences, habits, weak spots)
+CREATE TABLE IF NOT EXISTS user_memories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'context',  -- preference, habit, weak-spot, context
+    created_at INTEGER NOT NULL                -- Unix epoch ms
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_memories_category ON user_memories(category);
+CREATE INDEX IF NOT EXISTS idx_user_memories_created ON user_memories(created_at DESC);
+
+-- User profile: structured facts about the master (global key/value)
+CREATE TABLE IF NOT EXISTS user_profile (
+    key TEXT PRIMARY KEY,                      -- snake_case: timezone, work_hours, goals, current_focus, name, role
+    value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL                -- Unix epoch ms
+);
+
+-- Routines: recurring personal rituals (global, not project-scoped)
+CREATE TABLE IF NOT EXISTS routines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT NOT NULL,
+    cadence TEXT NOT NULL,                     -- daily | weekly:mon[,thu,...] | monthly:<1-28>
+    last_done INTEGER,                         -- Unix epoch ms, NULL if never done
+    created_at INTEGER NOT NULL                -- Unix epoch ms
+);
+
+CREATE INDEX IF NOT EXISTS idx_routines_created ON routines(created_at DESC);
+
 -- Indexes for fast queries
 CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project);
 CREATE INDEX IF NOT EXISTS idx_sessions_feature ON sessions(feature_name);

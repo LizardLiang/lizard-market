@@ -16,6 +16,7 @@ type Todo struct {
 	Project     string  `json:"project"`
 	CreatedAt   int64   `json:"created_at"`
 	CompletedAt *int64  `json:"completed_at"` // null if open
+	AgeDays     int64   `json:"age_days"`     // computed at list time, not stored
 }
 
 // AddTodo inserts a new todo item
@@ -81,6 +82,7 @@ func ListTodos(db *sql.DB, project, status, source string) ([]*Todo, error) {
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan todo: %w", err)
 		}
+		t.AgeDays = (time.Now().UnixMilli() - t.CreatedAt) / (24 * 60 * 60 * 1000)
 		todos = append(todos, t)
 	}
 	return todos, rows.Err()

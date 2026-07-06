@@ -2,7 +2,7 @@
 
 > *"I am what the gods have made me."* — now the gods serve **you**.
 
-![version](https://img.shields.io/badge/version-2.83.1-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-18-orange) ![pipeline](https://img.shields.io/badge/pipeline-11%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-2.87.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-11%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **Stop shipping AI slop.** Kratos runs your feature through a real pipeline: a PM drafts the PRD, a devil's advocate (**Nemesis**) tears it apart, an architect specs it, and an alignment gate (**Hera**) proves the implementation matches what you *actually* asked for. Named agents, review gates enforced by hooks, persistent memory across sessions — not another pile of subagents.
 
@@ -21,7 +21,7 @@ Kratos works at two levels. **The markdown layer runs standalone — no build, n
 
 |                                       | Markdown layer *(default)* | + Go binary *(optional)* |
 | ------------------------------------- | :------------------------: | :----------------------: |
-| All 18 agents + 11-stage pipeline     |             ✅              |            ✅            |
+| All 19 agents + 11-stage pipeline     |             ✅              |            ✅            |
 | Commands (`/kratos:quick`, `review`…) |             ✅              |            ✅            |
 | Enforced quality-gate hooks           |             ✅              |            ✅            |
 | Pipeline timestamps & stage history   |       file fallback        |       ✅ precise         |
@@ -40,6 +40,7 @@ Most tasks don't need the full pipeline. Start with a command — Kratos routes 
 /kratos:quick debug: TypeError in auth middleware   # debugging
 /kratos:review src/auth.ts                          # code review
 /kratos:inquiry Who worked on payments last month?  # questions (git, codebase, external)
+/kratos:iris good morning                           # daily briefing (routines, todos, advice)
 /kratos:iris teach me how CRDTs work                # daily assistant (learn, brainstorm, notes)
 /kratos:explain src/core/                           # understand a subsystem
 /kratos:audit                                       # pre-ship security/risk scan
@@ -146,7 +147,7 @@ Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5
 | **Odysseus** | Tactical Planning | Codex/Claude-style plan mode before Ares | Sonnet |
 | **Prometheus** | Strategic Planning | Interview-driven prioritized build plans | Opus |
 | **Ananke** | Task Management | Personal todo list (binary + file fallback) | Sonnet |
-| **Iris** | Secretary | Daily assistant — learn, brainstorm, dig, notes; delegates to specialists | Sonnet |
+| **Iris** | Secretary | Daily briefing + assistant — learn, brainstorm, dig, notes; knows the user via profile, memory, routines | Sonnet |
 
 ---
 
@@ -170,6 +171,8 @@ Fires when **Ares** or **Hephaestus** attempt to finish. Blocks completion and f
 | **Hephaestus** | Spec must cover at least 2 of: architecture, data model, API, implementation, schema, interface |
 
 When `stop_hook_active` is true (hook-triggered re-run), the gate passes automatically to prevent infinite loops.
+
+**Ares verify gate (v2.87):** the same SubagentStop hook scans the session transcript and blocks Ares completion when code files were edited but no test command ran — fail-open on scan errors, and waived by stating `TESTS-NOT-APPLICABLE: <reason>` for changes with no runtime surface. The check is sidechain-scoped, so it only looks at the subagent's own activity. Ares also records fail-then-pass evidence per task in `implementation-notes.md` — a RED (failing) result before the fix and a GREEN (passing) result after — which Hera verifies at Stage 8.
 
 ### PreToolUse — Plan Guard + Package Manager Auto-Correction
 
@@ -204,7 +207,7 @@ Commands are the primary interface. Each routes directly to the right agent — 
 | `/kratos:review` | **Code Review** — Standards-enforced with severity tiers and auto-fix | Before merging any PR |
 | `/kratos:inquiry` | **Knowledge Seek** — Routes to Metis, Clio, or Mimir | Questions about codebase, git history, or external docs |
 | `/kratos:explain` | **Explain Codebase** — Architecture, patterns, history, and the "why" | Onboarding or understanding unfamiliar code |
-| `/kratos:iris` | **Secretary** — Learn a topic, think through an idea, take notes | Daily assistance outside the pipeline |
+| `/kratos:iris` | **Secretary** — Daily briefing, learn a topic, think through an idea, take notes | Start your day, or daily assistance outside the pipeline |
 | `/kratos:plan` | **Plan Mode** — Odysseus creates tactical implementation plans for Ares | Before Ares on ambiguous implementation work |
 | `/kratos:strategy` | **Strategic Plan** — Prometheus interviews you and produces a prioritized build plan | Starting a new initiative, roadmap, or sprint plan |
 | `/kratos:decompose` | **Decompose** — Break features into phases (files, Notion, Linear) | Large feature needs phased delivery |
@@ -212,7 +215,11 @@ Commands are the primary interface. Each routes directly to the right agent — 
 | `/kratos:recall` | **Session Resume** — Where did we stop? (uses persistent memory) | Picking up after a break |
 | `/kratos:status` | **Battlefield View** — Status of all active features | Checking pipeline progress |
 | `/kratos:spec-view` | **Spec View** — Living specs by capability, plus pending deltas | Checking what the system SHALL do |
+| `/kratos:spec-archive` | **Spec Archive** — Promote a feature's spec delta into its living spec | After implementation, anytime (doesn't require Hera) |
+| `/kratos:spec-backfill` | **Spec Backfill** — Migrate pre-existing shipped features into living specs | One-time sweep after adopting living specs on an established project |
 | `/kratos:main` | **Full Pipeline** — 11-stage PRD → spec → implement → review | Only for substantial new features |
+
+Every agent also has an inline command (`/kratos:athena`, `/kratos:ares`, `/kratos:hephaestus`, …) that runs it directly in the main session instead of spawning a subagent.
 
 ---
 
@@ -322,6 +329,20 @@ Each shard has a `## Permanent` section (written only by Metis at bootstrap, Ath
 | Ares | conventions/, tech-stack/, debt.md | conventions/, tech-stack/, debt.md |
 | Hermes | conventions/, constraints.md, review-rules/ | debt.md, conventions/, review-rules/ |
 | Hades | architecture/, debt.md | debt.md |
+
+---
+
+## Living Specs
+
+A living spec is the durable, capability-scoped record of what the system SHALL do: `.claude/.Arena/specs/<capability>/spec.md`. Unlike the PRD (per-feature, point-in-time), living specs accumulate across features and stay current.
+
+The lifecycle:
+1. Athena authors a **spec delta** per feature at `.claude/feature/<slug>/spec-delta/<capability>.md` — ADDED/MODIFIED/REMOVED/RENAMED requirements.
+2. After Hera returns an `aligned` verdict (or anytime, manually), promote the delta with `/kratos:spec-archive <slug>` — merges it into the living spec and archives the delta file.
+3. `/kratos:spec-view` renders living specs and lists pending (un-archived) deltas — read-only.
+4. `/kratos:spec-backfill` is a one-time (or occasional) sweep that generates living specs from features that shipped before the spec-lifecycle existed.
+
+See `references/arena-protocol.md` for the full validation and merge rules.
 
 ---
 
@@ -607,6 +628,20 @@ kratos pipeline set-pending --feature <name> \
 kratos pipeline discover                          # list incomplete features with stage status
 kratos pipeline discover --all                    # list all features including complete
 kratos pipeline discover --verify                 # auto-find stage-7-ready feature (Ares)
+kratos pipeline next --feature <name>              # compute next stage/agent from status.json
+kratos pipeline status [feature]                   # dashboard: progress, health, conflicts
+kratos pipeline tasks list --feature <name>        # list stage-7 tasks with progress (User Mode)
+kratos pipeline tasks complete <id>... | --all     # mark stage-7 tasks complete (User Mode)
+kratos slug <text>...                              # generate a URL/dir-safe feature slug
+
+# Living specs
+kratos spec list                                  # living capability shards + requirement counts
+kratos spec list --changes                        # pending un-archived deltas across all features
+kratos spec show <capability>                     # render one capability's living spec
+kratos spec diff <feature>                         # show a feature's pending spec delta
+kratos spec validate <feature>                     # validate a feature's spec delta
+kratos spec archive <feature>                      # merge a feature's spec delta into its living spec
+kratos spec backfill                              # generate living specs from pre-existing shipped features
 
 # Session tracking
 kratos session active <project>                   # get session ID
@@ -671,16 +706,22 @@ Rules override the global `rules/default.md`. Higher-specificity rules (project-
 
 ### Adding Language-Specific Rules
 
-Create a file in `plugins/kratos/rules/<language>.md`. Hermes auto-loads language-specific rules when reviewing files with matching extensions. For example, `rules/react.md` loads when reviewing `.tsx` and `.jsx` files.
+Create a file in `rules/<language>.md`. Hermes auto-loads language-specific rules when reviewing files with matching extensions. For example, `rules/react.md` loads when reviewing `.tsx` and `.jsx` files.
 
 ### Running Without the Binary
 
 All agents fall back gracefully:
 - `status.json` updated via direct file edit using `date` command for timestamps
-- Templates retrieved by reading `plugins/kratos/templates/*.md` directly
+- Templates retrieved by reading `templates/*.md` directly
 - Session tracking silently skipped
 
 The pipeline works correctly without the binary — timestamps may be less precise.
+
+---
+
+## Development & Contributing
+
+Development, issues, and pull requests happen in the `LizardLiang/lizard-market` monorepo, under `plugins/kratos/`. `LizardLiang/kratos` (this repo, if you're reading it there) is a distribution mirror whose history is force-pushed fresh on every publish — please don't open PRs against it.
 
 ---
 

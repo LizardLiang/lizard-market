@@ -49,6 +49,7 @@ This skill handles only the clearly non-pipeline utilities directly. Everything 
 | "explain", "walk me through", "context restore" | Explain mode | `Skill(skill: "kratos:explain")` |
 | "learn", "teach me", "give me a lesson" (external topic) | Iris — learn | `Skill(skill: "kratos:iris")` |
 | "think through", "brainstorm", "bounce ideas", "note that", "remember this" | Iris — secretary | `Skill(skill: "kratos:iris")` |
+| "good morning", "brief me", "what's my day", "daily briefing", "start my day" | Iris — briefing | `Skill(skill: "kratos:iris")` |
 | "audit", "risk check", "security check" | Audit mode | `Skill(skill: "kratos:audit")` |
 | "plan", "plan mode", "make a plan" | Tactical plan mode | `Skill(skill: "kratos:plan")` |
 | "roadmap", "strategy", "priorities", "build order" | Strategic planning | `Skill(skill: "kratos:strategy")` |
