@@ -11,8 +11,10 @@
  *
  * This is a session-wide safety net: Iris only sweeps during its own missions,
  * so facts revealed during ordinary (non-Iris) Kratos work would otherwise be
- * lost. Guarded to run at most once per session and to fail open whenever the
- * hook contract, transcript, or binary is unavailable — see hooks/README.md.
+ * lost. Guarded to run at most once per session, to skip sessions where Iris
+ * already swept (transcript contains `IRIS COMPLETE`), and to fail open
+ * whenever the hook contract, transcript, or binary is unavailable — see
+ * hooks/README.md.
  */
 
 const fs = require('fs');
@@ -51,21 +53,15 @@ function pruneOldMarkers() {
   }
 }
 
-// Count transcript lines that look like a user turn. Returns null when the
-// transcript can't be read — callers must treat null as "fail open, allow stop".
-function countUserMessages(transcriptPath) {
-  let raw;
+// Read the raw transcript once for both the user-message count and the Iris
+// skip check below. Returns null when the transcript can't be read — callers
+// must treat null as "fail open, allow stop".
+function readTranscript(transcriptPath) {
   try {
-    raw = fs.readFileSync(transcriptPath, 'utf-8');
+    return fs.readFileSync(transcriptPath, 'utf-8');
   } catch (e) {
     return null;
   }
-
-  let count = 0;
-  for (const line of raw.split('\n')) {
-    if (line.includes('"type":"user"')) count++;
-  }
-  return count;
 }
 
 function buildReason(kratosBin) {
@@ -110,8 +106,17 @@ process.stdin.on('end', () => {
   const transcriptPath = data.transcript_path;
   if (!transcriptPath) return;
 
-  const userMessageCount = countUserMessages(transcriptPath);
-  if (userMessageCount === null || userMessageCount < MIN_USER_MESSAGES) return;
+  const transcript = readTranscript(transcriptPath);
+  if (transcript === null) return;
+
+  let userMessageCount = 0;
+  for (const line of transcript.split('\n')) {
+    if (line.includes('"type":"user"')) userMessageCount++;
+  }
+  if (userMessageCount < MIN_USER_MESSAGES) return;
+
+  // Iris sweeps her own missions before IRIS COMPLETE — don't double-sweep.
+  if (transcript.includes('IRIS COMPLETE')) return;
 
   // No CLI, no sweep.
   const kratosBin = resolveBinary();
