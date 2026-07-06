@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -102,6 +103,12 @@ type subagentStopInput struct {
 	StopHookActive       bool   `json:"stop_hook_active"`
 	LastAssistantMessage string `json:"last_assistant_message"`
 	Cwd                  string `json:"cwd"`
+	// Transcript paths for the verify gate. AgentTranscriptPath points at the
+	// subagent's own sidechain JSONL; TranscriptPath may point at the main
+	// session transcript depending on Claude Code version. Both optional —
+	// the gate is inactive when neither resolves.
+	AgentTranscriptPath string `json:"agent_transcript_path"`
+	TranscriptPath      string `json:"transcript_path"`
 }
 
 // subagentStopOutput is returned to allow or block subagent completion
@@ -511,6 +518,160 @@ func rawHasStopHookActive(raw []byte) bool {
 	return strings.Contains(s, `"stop_hook_active":true`)
 }
 
+// testCmdRE matches test-runner invocations across common ecosystems. Word-bounded so
+// "attest" or "npmrc test" don't count as evidence.
+var testCmdRE = regexp.MustCompile(`(?i)(^|[\s;&|(])(pytest\b|go\s+test\b|cargo\s+test\b|(npm|pnpm)\s+(run\s+)?test\b|yarn\s+test\b|bun\s+test\b|npx\s+(vitest|jest|playwright)\b|vitest\b|jest\b|playwright\s+test\b|dotnet\s+test\b|make\s+test\b|mvnw?\s+(\S+\s+)*test\b|gradlew?\s+(\S+\s+)*test\b|rspec\b|phpunit\b|ctest\b|python3?\s+-m\s+(pytest|unittest)\b|deno\s+test\b|node\s+--test\b|mix\s+test\b)`)
+
+// codeFileExts are the extensions that count as "code was edited" for the verify gate.
+// Deliberately excludes .md/.json/.yaml — deliverable and config writes alone must not
+// demand a test run.
+var codeFileExts = map[string]bool{
+	".ts": true, ".tsx": true, ".js": true, ".jsx": true, ".mjs": true, ".cjs": true,
+	".py": true, ".go": true, ".rs": true, ".java": true, ".cs": true, ".rb": true,
+	".c": true, ".cpp": true, ".h": true, ".hpp": true, ".php": true, ".swift": true,
+	".kt": true, ".ex": true, ".exs": true,
+}
+
+func isCodeFile(path string) bool {
+	return codeFileExts[strings.ToLower(filepath.Ext(path))]
+}
+
+// transcriptEntry is the subset of a transcript JSONL line the verify gate needs.
+type transcriptEntry struct {
+	Type        string `json:"type"`
+	IsSidechain bool   `json:"isSidechain"`
+	Message     struct {
+		Content json.RawMessage `json:"content"`
+	} `json:"message"`
+}
+
+// transcriptToolUse is a tool_use block inside an assistant message's content array.
+type transcriptToolUse struct {
+	Type  string `json:"type"`
+	Name  string `json:"name"`
+	Input struct {
+		FilePath     string `json:"file_path"`
+		NotebookPath string `json:"notebook_path"`
+		Command      string `json:"command"`
+	} `json:"input"`
+}
+
+// localCommandPrefixes mark user entries that are harness-injected, not real prompts.
+var localCommandPrefixes = []string{
+	"<command-name>", "<local-command-stdout>", "<local-command-stderr>", "<local-command-caveat>",
+}
+
+// isRealUserPrompt reports whether a transcript entry is a genuine main-session user
+// message (tool_result entries carry a content array, not a string; sidechain "user"
+// entries belong to a subagent's inner loop).
+func isRealUserPrompt(entry transcriptEntry) bool {
+	if entry.Type != "user" || entry.IsSidechain {
+		return false
+	}
+	var text string
+	if json.Unmarshal(entry.Message.Content, &text) != nil {
+		return false
+	}
+	trimmed := strings.TrimSpace(text)
+	for _, p := range localCommandPrefixes {
+		if strings.HasPrefix(trimmed, p) {
+			return false
+		}
+	}
+	return true
+}
+
+// transcriptTestEvidence scans a session transcript and reports whether, since the last
+// real user prompt, sidechain (subagent) tool calls edited code files and whether any
+// test command ran. SubagentStop only receives the MAIN session transcript, so the
+// sidechain filter is what scopes the scan to subagent activity, and resetting at each
+// real user prompt scopes it to the current turn's spawn. Unparseable lines are skipped
+// (fail open per line); only I/O-level errors are returned.
+func transcriptTestEvidence(path string, sidechainOnly bool) (editedCode, ranTests bool, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, false, err
+	}
+	defer f.Close()
+
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	for sc.Scan() {
+		line := sc.Bytes()
+		if len(strings.TrimSpace(string(line))) == 0 {
+			continue
+		}
+		var entry transcriptEntry
+		if json.Unmarshal(line, &entry) != nil {
+			continue
+		}
+		if isRealUserPrompt(entry) {
+			// New turn: evidence from earlier turns (e.g. a previous agent's test
+			// run) must not vouch for this one.
+			editedCode, ranTests = false, false
+			continue
+		}
+		if entry.Type != "assistant" || (sidechainOnly && !entry.IsSidechain) {
+			continue
+		}
+		var blocks []transcriptToolUse
+		if json.Unmarshal(entry.Message.Content, &blocks) != nil {
+			continue
+		}
+		for _, b := range blocks {
+			if b.Type != "tool_use" {
+				continue
+			}
+			switch b.Name {
+			case "Write", "Edit", "MultiEdit", "NotebookEdit":
+				p := b.Input.FilePath
+				if p == "" {
+					p = b.Input.NotebookPath
+				}
+				if isCodeFile(p) {
+					editedCode = true
+				}
+			case "Bash", "PowerShell":
+				if testCmdRE.MatchString(b.Input.Command) {
+					ranTests = true
+				}
+			}
+		}
+	}
+	if scanErr := sc.Err(); scanErr != nil {
+		return false, false, scanErr
+	}
+	return editedCode, ranTests, nil
+}
+
+// aresVerifyGateFailure runs the fail-then-pass verify gate for Ares: if the transcript
+// shows code edits with no test command since the last user prompt, it returns a
+// non-empty failure string. Every infra problem (missing path, unreadable file) fails
+// OPEN — this gate must never block on anything but genuine missing test evidence.
+func aresVerifyGateFailure(input subagentStopInput) string {
+	if strings.Contains(strings.ToLower(input.LastAssistantMessage), "tests-not-applicable:") {
+		return ""
+	}
+	path := input.AgentTranscriptPath
+	sidechainOnly := false
+	if path == "" {
+		path = input.TranscriptPath
+		sidechainOnly = true
+	}
+	if path == "" {
+		return ""
+	}
+	editedCode, ranTests, err := transcriptTestEvidence(path, sidechainOnly)
+	if err != nil {
+		debugLog("ares verify gate: transcript scan failed (fail-open): %v", err)
+		return ""
+	}
+	if editedCode && !ranTests {
+		return "code files were edited but no test command was run (run the relevant tests and record fail-then-pass evidence, or state TESTS-NOT-APPLICABLE: <reason> if this change genuinely has no runtime surface)"
+	}
+	return ""
+}
+
 // subagentStopCmd verifies that Ares and Hephaestus produced complete deliverables.
 // Returns {"ok": true} to allow completion or {"ok": false, "reason": "..."} to block.
 func subagentStopCmd() *cobra.Command {
@@ -580,6 +741,10 @@ func subagentStopCmd() *cobra.Command {
 					strings.Contains(msgLower, "implemented")
 				if !declaresComplete {
 					failures = append(failures, "implementation completion was not confirmed")
+				}
+
+				if f := aresVerifyGateFailure(input); f != "" {
+					failures = append(failures, f)
 				}
 
 				if len(failures) > 0 {

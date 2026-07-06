@@ -39,6 +39,16 @@
 
 ---
 
+## Fail-Then-Pass Evidence
+
+One row per task (or per success criterion in quick mode). RED must be captured **before** the implementing change; a check that never failed proves nothing.
+
+| Task | Test / Check | RED (before) | GREEN (after) |
+|------|--------------|--------------|---------------|
+| [task id or name] | [command or test name] | [one-line failing output, or `EVIDENCE-SKIPPED: reason`] | [one-line passing output] |
+
+---
+
 ## Deviations from Tech Spec
 
 | Section | Specified | Actual | Reason |

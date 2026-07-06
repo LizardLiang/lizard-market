@@ -40,6 +40,7 @@ Most tasks don't need the full pipeline. Start with a command — Kratos routes 
 /kratos:quick debug: TypeError in auth middleware   # debugging
 /kratos:review src/auth.ts                          # code review
 /kratos:inquiry Who worked on payments last month?  # questions (git, codebase, external)
+/kratos:iris teach me how CRDTs work                # daily assistant (learn, brainstorm, notes)
 /kratos:explain src/core/                           # understand a subsystem
 /kratos:audit                                       # pre-ship security/risk scan
 /kratos:plan Add authentication                     # tactical plan mode with Odysseus
@@ -145,6 +146,7 @@ Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5
 | **Odysseus** | Tactical Planning | Codex/Claude-style plan mode before Ares | Sonnet |
 | **Prometheus** | Strategic Planning | Interview-driven prioritized build plans | Opus |
 | **Ananke** | Task Management | Personal todo list (binary + file fallback) | Sonnet |
+| **Iris** | Secretary | Daily assistant — learn, brainstorm, dig, notes; delegates to specialists | Sonnet |
 
 ---
 
@@ -202,6 +204,7 @@ Commands are the primary interface. Each routes directly to the right agent — 
 | `/kratos:review` | **Code Review** — Standards-enforced with severity tiers and auto-fix | Before merging any PR |
 | `/kratos:inquiry` | **Knowledge Seek** — Routes to Metis, Clio, or Mimir | Questions about codebase, git history, or external docs |
 | `/kratos:explain` | **Explain Codebase** — Architecture, patterns, history, and the "why" | Onboarding or understanding unfamiliar code |
+| `/kratos:iris` | **Secretary** — Learn a topic, think through an idea, take notes | Daily assistance outside the pipeline |
 | `/kratos:plan` | **Plan Mode** — Odysseus creates tactical implementation plans for Ares | Before Ares on ambiguous implementation work |
 | `/kratos:strategy` | **Strategic Plan** — Prometheus interviews you and produces a prioritized build plan | Starting a new initiative, roadmap, or sprint plan |
 | `/kratos:decompose` | **Decompose** — Break features into phases (files, Notion, Linear) | Large feature needs phased delivery |

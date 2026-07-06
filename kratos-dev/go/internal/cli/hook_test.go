@@ -658,3 +658,211 @@ func TestHermesChecklistEnforcement(t *testing.T) {
 		})
 	}
 }
+
+// writeTranscript writes JSONL lines to a temp file and returns its path.
+func writeTranscript(t *testing.T, lines ...string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "transcript.jsonl")
+	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// Transcript line builders for verify-gate tests.
+func userPromptLine(text string) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":    "user",
+		"message": map[string]any{"content": text},
+	})
+	return string(b)
+}
+
+func toolUseLine(sidechain bool, toolName string, input map[string]any) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":        "assistant",
+		"isSidechain": sidechain,
+		"message": map[string]any{
+			"content": []map[string]any{
+				{"type": "tool_use", "name": toolName, "input": input},
+			},
+		},
+	})
+	return string(b)
+}
+
+func TestTranscriptTestEvidence(t *testing.T) {
+	tests := []struct {
+		name           string
+		lines          []string
+		sidechainOnly  bool
+		wantEditedCode bool
+		wantRanTests   bool
+	}{
+		{
+			name: "code edit plus test run",
+			lines: []string{
+				userPromptLine("implement the feature"),
+				toolUseLine(true, "Edit", map[string]any{"file_path": "src/auth.go"}),
+				toolUseLine(true, "Bash", map[string]any{"command": "go test ./..."}),
+			},
+			sidechainOnly:  true,
+			wantEditedCode: true,
+			wantRanTests:   true,
+		},
+		{
+			name: "code edit without test run",
+			lines: []string{
+				userPromptLine("implement the feature"),
+				toolUseLine(true, "Write", map[string]any{"file_path": "src/auth.ts"}),
+			},
+			sidechainOnly:  true,
+			wantEditedCode: true,
+			wantRanTests:   false,
+		},
+		{
+			name: "markdown-only edits do not count as code",
+			lines: []string{
+				userPromptLine("write the notes"),
+				toolUseLine(true, "Write", map[string]any{"file_path": "implementation-notes.md"}),
+			},
+			sidechainOnly:  true,
+			wantEditedCode: false,
+			wantRanTests:   false,
+		},
+		{
+			name: "main-session edits ignored when sidechainOnly",
+			lines: []string{
+				userPromptLine("implement the feature"),
+				toolUseLine(false, "Edit", map[string]any{"file_path": "src/auth.go"}),
+			},
+			sidechainOnly:  true,
+			wantEditedCode: false,
+			wantRanTests:   false,
+		},
+		{
+			name: "evidence resets at a new user prompt",
+			lines: []string{
+				userPromptLine("first task"),
+				toolUseLine(true, "Edit", map[string]any{"file_path": "src/old.go"}),
+				toolUseLine(true, "Bash", map[string]any{"command": "go test ./..."}),
+				userPromptLine("second task"),
+				toolUseLine(true, "Edit", map[string]any{"file_path": "src/new.go"}),
+			},
+			sidechainOnly:  true,
+			wantEditedCode: true,
+			wantRanTests:   false,
+		},
+		{
+			name: "word boundary rejects attest and npmrc test",
+			lines: []string{
+				userPromptLine("task"),
+				toolUseLine(true, "Edit", map[string]any{"file_path": "src/a.py"}),
+				toolUseLine(true, "Bash", map[string]any{"command": "attest --verify"}),
+				toolUseLine(true, "Bash", map[string]any{"command": "npmrc test"}),
+			},
+			sidechainOnly:  true,
+			wantEditedCode: true,
+			wantRanTests:   false,
+		},
+		{
+			name: "npm run test and pytest -k both match",
+			lines: []string{
+				userPromptLine("task"),
+				toolUseLine(true, "Edit", map[string]any{"file_path": "src/a.py"}),
+				toolUseLine(true, "Bash", map[string]any{"command": "cd app && npm run test"}),
+				toolUseLine(true, "Bash", map[string]any{"command": "pytest -k auth"}),
+			},
+			sidechainOnly:  true,
+			wantEditedCode: true,
+			wantRanTests:   true,
+		},
+		{
+			name: "garbage lines are tolerated",
+			lines: []string{
+				"not json at all {{{",
+				userPromptLine("task"),
+				"", 
+				toolUseLine(true, "Edit", map[string]any{"file_path": "src/a.rs"}),
+				`{"type":"assistant","message":{"content":"plain string content"}}`,
+				toolUseLine(true, "Bash", map[string]any{"command": "cargo test"}),
+			},
+			sidechainOnly:  true,
+			wantEditedCode: true,
+			wantRanTests:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := writeTranscript(t, tt.lines...)
+			editedCode, ranTests, err := transcriptTestEvidence(path, tt.sidechainOnly)
+			if err != nil {
+				t.Fatalf("transcriptTestEvidence() error = %v", err)
+			}
+			if editedCode != tt.wantEditedCode {
+				t.Errorf("editedCode = %v, want %v", editedCode, tt.wantEditedCode)
+			}
+			if ranTests != tt.wantRanTests {
+				t.Errorf("ranTests = %v, want %v", ranTests, tt.wantRanTests)
+			}
+		})
+	}
+}
+
+func TestAresVerifyGateFailure(t *testing.T) {
+	codeEditNoTest := []string{
+		userPromptLine("implement"),
+		toolUseLine(true, "Edit", map[string]any{"file_path": "src/auth.go"}),
+	}
+	codeEditWithTest := append(append([]string{}, codeEditNoTest...),
+		toolUseLine(true, "Bash", map[string]any{"command": "go test ./..."}))
+
+	t.Run("blocks on code edit without test", func(t *testing.T) {
+		input := subagentStopInput{TranscriptPath: writeTranscript(t, codeEditNoTest...)}
+		if f := aresVerifyGateFailure(input); f == "" {
+			t.Error("expected a failure, got none")
+		}
+	})
+
+	t.Run("passes on code edit with test", func(t *testing.T) {
+		input := subagentStopInput{TranscriptPath: writeTranscript(t, codeEditWithTest...)}
+		if f := aresVerifyGateFailure(input); f != "" {
+			t.Errorf("expected no failure, got %q", f)
+		}
+	})
+
+	t.Run("escape phrase waives the gate", func(t *testing.T) {
+		input := subagentStopInput{
+			TranscriptPath:       writeTranscript(t, codeEditNoTest...),
+			LastAssistantMessage: "Docs-only change. TESTS-NOT-APPLICABLE: no runtime surface.",
+		}
+		if f := aresVerifyGateFailure(input); f != "" {
+			t.Errorf("expected escape phrase to waive gate, got %q", f)
+		}
+	})
+
+	t.Run("missing transcript fails open", func(t *testing.T) {
+		input := subagentStopInput{TranscriptPath: filepath.Join(t.TempDir(), "missing.jsonl")}
+		if f := aresVerifyGateFailure(input); f != "" {
+			t.Errorf("expected fail-open on missing file, got %q", f)
+		}
+	})
+
+	t.Run("no transcript path means gate inactive", func(t *testing.T) {
+		if f := aresVerifyGateFailure(subagentStopInput{}); f != "" {
+			t.Errorf("expected inactive gate, got %q", f)
+		}
+	})
+
+	t.Run("agent transcript path scans without sidechain filter", func(t *testing.T) {
+		lines := []string{
+			userPromptLine("implement"),
+			toolUseLine(false, "Edit", map[string]any{"file_path": "src/auth.go"}),
+		}
+		input := subagentStopInput{AgentTranscriptPath: writeTranscript(t, lines...)}
+		if f := aresVerifyGateFailure(input); f == "" {
+			t.Error("expected failure via agent_transcript_path without sidechain flag")
+		}
+	})
+}

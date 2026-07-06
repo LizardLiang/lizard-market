@@ -63,6 +63,17 @@ Optional files (`context.md`, `decomposition.md`, Arena shards, language-specifi
 
 ---
 
+## Spawn Prompt Fields (recommended)
+
+Alongside the usual `MISSION:` / `FEATURE:` / `FOLDER:` fields, orchestrators SHOULD include two scope-control fields when spawning agents that write files:
+
+- `NON-GOALS:` — what this spawn must NOT touch, lifted from the PRD's Non-Goals or the tech-spec's scope section. Agents treat this as a scope fence: work that would cross it gets logged (e.g., as debt in implementation-notes.md), never done "while you're here".
+- `STOP-CONDITIONS:` — the named early-return signals for this agent (e.g., missing prerequisite → report the owning upstream agent; genuine ambiguity → `<AGENT> NEEDS CLARIFICATION`; wave boundary → checkpoint). Naming them in the packet makes stopping the expected move, not a failure.
+
+Both fields are advisory for read-only spawns (Explore-style searches) but mandatory-in-spirit for implementation spawns — a spawn prompt without a scope fence invites scope creep.
+
+---
+
 ## Document Creation
 
 Your primary deliverable is a document file. Kratos verifies this file exists after you complete — if missing, Kratos will re-spawn you, wasting time and tokens.

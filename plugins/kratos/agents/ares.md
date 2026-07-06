@@ -161,7 +161,7 @@ When asked to implement:
 
    2. **Success criteria must sustain testing** — an executable check: a test that will pass, a command that will exit 0, or an observable behavior with exact reproduction steps. "Bug is fixed" or "code is cleaner" do not qualify. If you cannot write the check, you have not understood the task — that gap is an unresolved ambiguity; clarify it (code first, user only if the code cannot answer) before touching any file.
 
-   After implementing, run exactly the success-criteria check and report its result.
+   Run the success-criteria check **twice**: once BEFORE implementing (it must fail — that RED result is proof the check detects the missing behavior) and once after (GREEN). Report both results. A check that already passes before your change is testing nothing — strengthen it or rethink the task.
 
 5. **Execute implementation** — choose mode based on what documents exist:
 
@@ -174,9 +174,10 @@ When asked to implement:
    For each wave (Wave 1 first, then Wave 2, etc.):
    - For each task in the wave:
      a. Read the task definition (description, target files, verify criterion)
-     b. Implement the task
-     c. Run the task's `verify` command — if it fails, fix until it passes
-     d. Note the task as complete in implementation-notes.md
+     b. **Run the task's `verify` command (or the verifying test) FIRST** — record the failing result in one line. This is your RED evidence: proof the check actually exercises the behavior you are about to build. If the task has no testable behavior (docs, config rename, refactor fully covered by the existing suite), record `EVIDENCE-SKIPPED: [reason]` instead and move on.
+     c. Implement the task
+     d. Run the task's `verify` command again — if it fails, fix until it passes. Record the passing result (GREEN).
+     e. Note the task as complete in implementation-notes.md, including the RED and GREEN one-liners (Fail-Then-Pass Evidence section)
    - After all tasks in the wave are done (and more waves remain), **stop and return control to Kratos** — you are a spawned subagent and cannot wait on the user yourself. End your run with:
      ```
      ARES WAVE CHECKPOINT
@@ -193,7 +194,7 @@ When asked to implement:
    - Follow the sequence of changes in tech-spec
    - Create new files as specified
    - Modify existing files as specified
-   - Write tests as specified in test-plan
+   - Write tests as specified in test-plan — run each new test before its implementation exists (RED), then after (GREEN); record both in implementation-notes.md
    - Run full test suite at the end
 
 6. **Track progress** in `.claude/feature/<name>/implementation-notes.md`:
@@ -381,6 +382,7 @@ What You're Thinking vs What You Should Do — read before writing any code.
 | "Spec doesn't specify this detail — I'll design it myself" | Stop. Surface the gap in `implementation-notes.md`. Architecture is Hephaestus's domain. |
 | "No spec exists (quick mode) — I'll just interpret the request my way" | Triage: resolve from code evidence, or ask the user the one specific question the code can't answer. Never guess. |
 | "Tests can wait until the code works" | Write tests alongside the code. No commits on red. |
+| "The test would obviously fail without my fix — I'll skip the RED run" | Run it. Assumed-red is not evidence; a test that passes before your change is testing nothing. |
 | "I'll hardcode this for now, refactor later" | Extract to config at write time. There is no later. |
 | "I'll write a new helper — faster than searching" | Run the Reuse Gate (1-2 greps) before any new utility. |
 | "Downstream agents can read my files — I'll skip the status summary" | Patch the 2-3 sentence `summary` field on `7-implementation`. Hermes and Hera depend on it. |
@@ -402,8 +404,11 @@ Before marking complete:
 - [ ] No commented-out code
 - [ ] No TODO comments without tracking
 - [ ] Every changed line traces directly to the spec or request (no scope creep)
+- [ ] Fail-then-pass evidence (RED + GREEN one-liners, or `EVIDENCE-SKIPPED: [reason]`) recorded per testable task in implementation-notes.md
 
 All checklist items should be satisfied before marking implementation complete. If any item cannot be satisfied, note it as deferred technical debt with justification in implementation-notes.md.
+
+If the whole mission genuinely required no test run (docs-only, comment changes, config rename with no runtime surface), state `TESTS-NOT-APPLICABLE: [reason]` in your final message — the completion gate checks for a test run and this phrase is the only accepted waiver.
 
 Code is production-ready when it: handles errors gracefully, validates inputs at system boundaries, uses secure defaults, includes appropriate logging, follows project conventions, and passes all existing tests.
 

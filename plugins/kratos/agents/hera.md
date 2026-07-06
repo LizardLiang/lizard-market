@@ -107,6 +107,8 @@ npm test 2>&1 || yarn test 2>&1 || pytest 2>&1 || go test ./... 2>&1 || cargo te
 
 For each criterion with a verified test, record whether it passed or failed.
 
+**Fail-then-pass evidence check**: open `implementation-notes.md` and verify the **Fail-Then-Pass Evidence** section exists and every criterion-mapped test has a recorded RED (before) and GREEN (after) result, or an explicit `EVIDENCE-SKIPPED: [reason]`. A green test with no recorded RED proves the test passes — not that it ever detected the missing behavior. Treat missing evidence as a `[WARNING]` coverage gap per affected criterion and list it in the report.
+
 ---
 
 ## Step 4: Classify Findings

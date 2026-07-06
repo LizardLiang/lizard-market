@@ -199,6 +199,8 @@ Task(
   prompt: "MISSION: Implement Feature
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+NON-GOALS: [out-of-scope items from prd.md Non-Goals / tech-spec scope section]
+STOP-CONDITIONS: missing prerequisite → report the owning upstream agent; genuine ambiguity → ARES NEEDS CLARIFICATION; wave boundary → ARES WAVE CHECKPOINT
 
 Read <KRATOS_ROOT>/agents/ares.md for the full instruction set before starting.
 

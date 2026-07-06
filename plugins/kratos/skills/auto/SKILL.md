@@ -4,8 +4,8 @@ description: >-
   Kratos orchestrator activated by: "Kratos" keyword, any god-agent name
   (Athena, Ares, Metis, Apollo, Artemis, Hermes, Hephaestus, Daedalus, Clio,
   Mimir, Hades, Odysseus, Prometheus, Themis, Nemesis, Cassandra, Hera,
-  Ananke), "continue"/"next stage" during active pipelines, or queries about
-  features, PRDs, specs, code reviews, and implementation. When unsure,
+  Ananke, Iris), "continue"/"next stage" during active pipelines, or queries
+  about features, PRDs, specs, code reviews, and implementation. When unsure,
   activate.
 ---
 
@@ -33,7 +33,7 @@ If eco/power keywords detected, read `<KRATOS_ROOT>/modes/modes.md` for the full
 2. **"Kratos, [task]"** → Classify intent below, then read and execute the matched command file
 3. **"[god-name], [task]"** →
    - Quick-mode gods (Artemis, Ares, Hermes, Metis, Daedalus, Hades, Odysseus): read `<KRATOS_ROOT>/commands/quick.md` and route to that agent directly
-   - All other gods (Athena, Apollo, Cassandra, Clio, Mimir, Nemesis, Hephaestus, Hera, Themis, Prometheus, Ananke): invoke that god's own command — `Skill(skill: "kratos:<god-name>")`
+   - All other gods (Athena, Apollo, Cassandra, Clio, Mimir, Nemesis, Hephaestus, Hera, Themis, Prometheus, Ananke, Iris): invoke that god's own command — `Skill(skill: "kratos:<god-name>")`
 
 ## Intent Classification → Command Routing
 
@@ -47,6 +47,8 @@ This skill handles only the clearly non-pipeline utilities directly. Everything 
 | "add task", "my todos", "mark done" | Spawn Ananke | `Task(subagent_type: "kratos:ananke")` |
 | "what does X do", question about project/code/git | Inquiry mode | `Skill(skill: "kratos:inquiry")` |
 | "explain", "walk me through", "context restore" | Explain mode | `Skill(skill: "kratos:explain")` |
+| "learn", "teach me", "give me a lesson" (external topic) | Iris — learn | `Skill(skill: "kratos:iris")` |
+| "think through", "brainstorm", "bounce ideas", "note that", "remember this" | Iris — secretary | `Skill(skill: "kratos:iris")` |
 | "audit", "risk check", "security check" | Audit mode | `Skill(skill: "kratos:audit")` |
 | "plan", "plan mode", "make a plan" | Tactical plan mode | `Skill(skill: "kratos:plan")` |
 | "roadmap", "strategy", "priorities", "build order" | Strategic planning | `Skill(skill: "kratos:strategy")` |
@@ -55,6 +57,8 @@ This skill handles only the clearly non-pipeline utilities directly. Everything 
 | "archive spec", "promote spec delta", "archive the delta" | Spec archive | `Skill(skill: "kratos:spec-archive")` |
 | "backfill spec", "backfill living specs" | Spec backfill | `Skill(skill: "kratos:spec-backfill")` |
 | Everything else (simple tasks, complex features, "continue", "build X", "fix Y", stage artifacts) | Full pipeline — `classify.md` decides quick vs pipeline | `Skill(skill: "kratos:main")` |
+
+Disambiguation: "help me understand [thing in this repo]" stays with inquiry/explain, not Iris. "Discuss [feature]" during an active pipeline is Themis's decision-lock phase, never Iris.
 
 ## How to Route
 
