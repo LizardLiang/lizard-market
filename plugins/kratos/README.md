@@ -217,6 +217,7 @@ Commands are the primary interface. Each routes directly to the right agent — 
 | `/kratos:spec-view` | **Spec View** — Living specs by capability, plus pending deltas | Checking what the system SHALL do |
 | `/kratos:spec-archive` | **Spec Archive** — Promote a feature's spec delta into its living spec | After implementation, anytime (doesn't require Hera) |
 | `/kratos:spec-backfill` | **Spec Backfill** — Migrate pre-existing shipped features into living specs | One-time sweep after adopting living specs on an established project |
+| `/kratos:spec-export` | **Spec Export** — Pretty-print living specs to a self-contained HTML or Markdown document | Sharing specs offline, printing to PDF, pasting into a wiki/PR |
 | `/kratos:main` | **Full Pipeline** — 11-stage PRD → spec → implement → review | Only for substantial new features |
 
 Every agent also has an inline command (`/kratos:athena`, `/kratos:ares`, `/kratos:hephaestus`, …) that runs it directly in the main session instead of spawning a subagent.
@@ -341,6 +342,7 @@ The lifecycle:
 2. After Hera returns an `aligned` verdict (or anytime, manually), promote the delta with `/kratos:spec-archive <slug>` — merges it into the living spec and archives the delta file.
 3. `/kratos:spec-view` renders living specs and lists pending (un-archived) deltas — read-only.
 4. `/kratos:spec-backfill` is a one-time (or occasional) sweep that generates living specs from features that shipped before the spec-lifecycle existed.
+5. `/kratos:spec-export` pretty-prints living specs (never pending deltas) to a self-contained HTML or Markdown document — for offline browsing, printing to PDF, or pasting into a wiki/PR.
 
 See `references/arena-protocol.md` for the full validation and merge rules.
 

@@ -212,6 +212,16 @@ export const TASKS = [
     prompt:
       "/kratos:test-optimized build a key-value store CLI in Go named `kv` with set/get/delete/list commands backed by a local JSON file. Support --file flag to specify storage path. Stdlib only.",
   },
+
+  // Spec export test — run with --cwd pointing at a project pre-seeded with living
+  // spec shards (the default _test-project reset wipes .claude/.Arena).
+  {
+    name: "spec-export",
+    type: "quick-spec-export",
+    description: "Tests /kratos:spec-export renders living specs to a self-contained HTML export",
+    prompt:
+      "/kratos:spec-export",
+  },
 ];
 
 /**

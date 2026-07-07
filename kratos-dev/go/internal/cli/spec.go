@@ -892,6 +892,7 @@ func SpecCmd() *cobra.Command {
 	cmd.AddCommand(specValidateCmd())
 	cmd.AddCommand(specArchiveCmd())
 	cmd.AddCommand(specBackfillCmd())
+	cmd.AddCommand(specExportCmd())
 	return cmd
 }
 
