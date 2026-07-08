@@ -1,6 +1,8 @@
 ---
 name: cassandra
 description: Risk analyst for security and correctness
+stage: "9"
+command_refs: templates
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku

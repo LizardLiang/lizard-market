@@ -17,22 +17,35 @@ Examples: `eco fix the login bug` · `power: review this critical security code`
 
 ## Model Matrix
 
+<!-- gen:model-matrix -->
 | Agent | Stage | Normal | Eco | Power |
 |-------|-------|--------|-----|-------|
-| **Metis** (research) | 0 | sonnet | haiku | opus |
-| **Athena** (PRD) | 1 | opus | sonnet | opus |
-| **Nemesis** (PRD review) | 2 | opus | sonnet | opus |
-| **Daedalus** (decomposition) | 3 | sonnet | haiku | opus |
-| **Hephaestus** (tech spec) | 4 | opus | sonnet | opus |
-| **Apollo** (SA review) | 5 | opus | haiku | opus |
-| **Artemis** (test plan) | 6 | sonnet | haiku | opus |
-| **Ares** (implementation) | 7 | sonnet | haiku | opus |
-| **Hera** (PRD alignment) | 8 | sonnet | haiku | opus |
-| **Hermes** (code review) | 9 | opus | haiku | opus |
+| **Metis** | 0 | sonnet | haiku | opus |
+| **Athena** | 1 | opus | sonnet | opus |
+| **Nemesis** | 2 | opus | sonnet | opus |
+| **Daedalus** | 2→3 | sonnet | haiku | opus |
+| **Hephaestus** | 4 | opus | sonnet | opus |
+| **Apollo** | 5 | opus | haiku | opus |
+| **Artemis** | 6 | sonnet | haiku | opus |
+| **Ares** | 7a | sonnet | haiku | opus |
+| **Hera** | 8 | sonnet | haiku | opus |
+| **Cassandra** | 9 | sonnet | haiku | opus |
+| **Hermes** | 9 | opus | haiku | opus |
+| **Ananke** |  | haiku | haiku | sonnet |
+| **Clio** |  | sonnet | haiku | opus |
+| **Hades** |  | sonnet | haiku | opus |
+| **Iris** |  | sonnet | haiku | opus |
+| **Mimir** |  | sonnet | haiku | opus |
+| **Odysseus** |  | sonnet | haiku | opus |
+| **Prometheus** |  | opus | sonnet | opus |
+| **Themis** |  | sonnet | haiku | opus |
+<!-- /gen:model-matrix -->
 
 Quick-mode tasks (tests, fixes, refactor, review, research, docs, debug, plan): **normal = sonnet, eco = haiku, power = opus**.
 
-Summary: Normal ≈ 4 Opus / 6 Sonnet · Eco ≈ 0 Opus / 3 Sonnet / 7 Haiku (~70-85% cheaper) · Power = all Opus (~2-7× cost).
+<!-- gen:model-matrix-summary -->
+Summary: Normal ≈ 6 Opus / 12 Sonnet / 1 Haiku · Eco ≈ 0 Opus / 4 Sonnet / 15 Haiku (~70-85% cheaper) · Power ≈ 18 Opus / 1 Sonnet / 0 Haiku (~2-7× cost).
+<!-- /gen:model-matrix-summary -->
 
 ## How to Spawn
 

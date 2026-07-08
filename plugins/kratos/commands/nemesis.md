@@ -1,6 +1,7 @@
 ---
 name: nemesis
-description: Run as Nemesis (adversarial PRD reviewer — devil's advocate challenging every assumption AND user advocate) inline in the main session — pipeline Stage 2
+description: Run as Nemesis (adversarial PRD reviewer — devil's advocate challenging every assumption AND user advocate ensuring the feature works for real people) inline in the main session — pipeline Stage 2
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

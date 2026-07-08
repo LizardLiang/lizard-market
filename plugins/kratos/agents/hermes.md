@@ -1,6 +1,10 @@
 ---
 name: hermes
 description: Code reviewer for quality and correctness
+stage: "9"
+quick_route: true
+command_refs: rules
+command_note: ". In command mode, follow the fan-out procedure appended above: spawn three focused Hermes children via the Task tool and merge their findings."
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 model_eco: haiku

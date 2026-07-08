@@ -1,6 +1,7 @@
 ---
 name: cassandra
 description: Run as Cassandra (risk analyst for security and correctness) inline in the main session — pipeline Stage 9
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

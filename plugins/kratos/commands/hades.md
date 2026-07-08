@@ -1,6 +1,7 @@
 ---
 name: hades
 description: Run as Hades (debugging specialist for locating errors with proof) inline in the main session
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

@@ -1,4 +1,4 @@
-.PHONY: build test test-coverage test-verbose clean install lint build-all release sync-assets
+.PHONY: build test test-coverage test-verbose clean install lint build-all release sync-assets gen gen-check
 
 # Single-source the version from the plugin manifest so committed binaries can never
 # drift behind plugin.json (the drift that shipped a spec-less binary in v2.81-2.83).
@@ -27,11 +27,6 @@ build-all: sync-assets
 	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(PLUGIN_DIR)/bin/kratos-darwin-amd64 ./cmd/kratos
 	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(PLUGIN_DIR)/bin/kratos-darwin-arm64 ./cmd/kratos
 	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(PLUGIN_DIR)/bin/kratos-windows-amd64.exe ./cmd/kratos
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(PLUGIN_DIR)/bin/kratos.exe ./cmd/kratos
-	cp $(PLUGIN_DIR)/bin/kratos-linux-amd64 $(PLUGIN_DIR)/bin/kratos
-	@# Exec bits must survive into git (100755) — a 644 binary fails at hook time
-	@# with "Permission denied" and every agent silently loses the CLI.
-	chmod +x $(PLUGIN_DIR)/bin/kratos $(PLUGIN_DIR)/bin/kratos-linux-amd64 $(PLUGIN_DIR)/bin/kratos-linux-arm64 $(PLUGIN_DIR)/bin/kratos-darwin-amd64 $(PLUGIN_DIR)/bin/kratos-darwin-arm64
 	@echo "Built all platform binaries"
 
 test:
@@ -59,6 +54,15 @@ install: build
 	mkdir -p $(HOME)/.kratos/bin
 	cp $(PLUGIN_DIR)/bin/kratos $(HOME)/.kratos/bin/
 	@echo "Installed to $(HOME)/.kratos/bin/kratos"
+
+# God launcher codegen — regenerates plugins/kratos/commands/<god>.md and the
+# god-derived regions of skills/auto/SKILL.md from agents/*.md frontmatter.
+# See kratos-dev/codegen/README.md.
+gen:
+	go run ./cmd/gencommands
+
+gen-check:
+	go run ./cmd/gencommands --check
 
 # CI targets
 ci-test:

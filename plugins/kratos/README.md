@@ -64,15 +64,14 @@ claude plugin install kratos@kratos
 
 That's it — try `/kratos:quick Add tests for UserService.js`. The markdown layer works with zero further setup.
 
-**Optional — enable precise tracking & memory** (uses the pre-built binary that ships in `bin/` for Linux, macOS arm64/amd64, and Windows amd64):
+**Optional — enable precise tracking & memory** (the binary downloads automatically to `~/.kratos/bin/` on first session start; Linux, macOS arm64/amd64, and Windows amd64 all covered):
 
 ```bash
-cd ~/.claude/plugins/cache/kratos
-./bin/kratos init && ./bin/kratos install   # initialize DB + register hooks
-./bin/kratos status                         # verify
+~/.kratos/bin/kratos init && ~/.kratos/bin/kratos install   # initialize DB + register hooks
+~/.kratos/bin/kratos status                                 # verify
 ```
 
-Prefer to build from source? See **[INSTALL.md — Option B](INSTALL.md)**.
+Prefer manual download or to build from source? See **[INSTALL.md — Step 3](INSTALL.md#step-3-set-up-the-binary)**.
 
 Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5](INSTALL.md#step-5-enable-auto-activation)).
 
@@ -153,7 +152,7 @@ Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5
 
 ## Hooks & Quality Gates
 
-Kratos ships Claude Code hooks that enforce workflow discipline automatically — no configuration needed after `./bin/kratos install`.
+Kratos ships Claude Code hooks that enforce workflow discipline automatically — no configuration needed after `~/.kratos/bin/kratos install`.
 
 ### SubagentStart — TODO-First Gate
 
@@ -194,6 +193,10 @@ Intercepts every `Bash` tool call containing `npm` and rewrites it to the projec
 | `pnpm-lock.yaml` | `pnpm` |
 
 If no alternative lockfile is found, `npm` commands pass through unchanged.
+
+### PermissionRequest — Scoped Read Auto-Allow
+
+Fires on every `Read` tool permission request. `permission-read.cjs` auto-allows the read **only** when the requested file path resolves under the plugin's own root (`CLAUDE_PLUGIN_ROOT`) or `~/.kratos/` — Kratos's own files and database. Every other path (project source, `.env`, `~/.ssh`, anything outside those two roots) is left untouched and falls through to Claude Code's normal permission prompt. The hook fails open: empty/garbage input, a missing file path, or an unset `CLAUDE_PLUGIN_ROOT` all produce no output, so the request is never silently allowed by default.
 
 ---
 
@@ -541,14 +544,14 @@ Kratos auto-detects this and re-spawns. If Kratos misses it, say "continue" — 
 Manual verification:
 ```bash
 ls .claude/feature/<name>/
-./bin/kratos pipeline get --feature <name>
+~/.kratos/bin/kratos pipeline get --feature <name>
 ```
 
 ### Pipeline stuck or stage shows wrong status
 
 ```bash
 # Inspect full state
-./bin/kratos pipeline get --feature <name>
+~/.kratos/bin/kratos pipeline get --feature <name>
 
 # Reset a specific stage for re-run
 # Edit .claude/feature/<name>/status.json
@@ -561,11 +564,12 @@ ls .claude/feature/<name>/
 The `<kratos-bin>` placeholder is injected by the SubagentStart hook at runtime so agents always have the correct binary path. If agents report the binary is unavailable:
 
 ```bash
-# Use the shipped platform binary
-cd ~/.claude/plugins/cache/kratos
-cp bin/kratos-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') bin/kratos
-chmod +x bin/kratos
-./bin/kratos install
+# Manually download the release asset for your platform (see INSTALL.md Step 3, Option B)
+mkdir -p ~/.kratos/bin
+curl -L -o ~/.kratos/bin/kratos \
+  https://github.com/LizardLiang/lizard-market/releases/download/<tag>/kratos-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+chmod +x ~/.kratos/bin/kratos
+~/.kratos/bin/kratos install
 # (Building from source requires cloning the repo — see kratos-dev/go; source is not shipped with the plugin.)
 
 # Verify hook registration
@@ -602,7 +606,7 @@ If a BLOCKER persists after one Ares fix, Kratos surfaces it to you rather than 
 Agents skipped the two-step status update. Fix manually:
 ```bash
 # Get a real timestamp
-./bin/kratos now
+~/.kratos/bin/kratos now
 # → 2026-05-20T14:30:00+08:00
 
 # Edit status.json and set realistic started/completed timestamps

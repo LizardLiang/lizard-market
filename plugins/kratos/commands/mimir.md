@@ -1,6 +1,7 @@
 ---
 name: mimir
 description: Run as Mimir (external research specialist — web, GitHub, documentation, best practices, security advisories) inline in the main session
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

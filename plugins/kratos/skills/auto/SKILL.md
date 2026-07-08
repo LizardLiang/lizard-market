@@ -32,8 +32,8 @@ If eco/power keywords detected, read `<KRATOS_ROOT>/modes/modes.md` for the full
 1. **"Kratos" alone** → Respond: *"I am Kratos. Tell me what you seek."*
 2. **"Kratos, [task]"** → Classify intent below, then read and execute the matched command file
 3. **"[god-name], [task]"** →
-   - Quick-mode gods (Artemis, Ares, Hermes, Metis, Daedalus, Hades, Odysseus): read `<KRATOS_ROOT>/commands/quick.md` and route to that agent directly
-   - All other gods (Athena, Apollo, Cassandra, Clio, Mimir, Nemesis, Hephaestus, Hera, Themis, Prometheus, Ananke, Iris): invoke that god's own command — `Skill(skill: "kratos:<god-name>")`
+   - Quick-mode gods (<!-- gen:quick-gods -->Artemis, Ares, Hermes, Metis, Daedalus, Hades, Odysseus<!-- /gen:quick-gods -->): read `<KRATOS_ROOT>/commands/quick.md` and route to that agent directly
+   - All other gods (<!-- gen:skill-gods -->Athena, Apollo, Cassandra, Clio, Mimir, Nemesis, Hephaestus, Hera, Themis, Prometheus, Ananke, Iris<!-- /gen:skill-gods -->): invoke that god's own command — `Skill(skill: "kratos:<god-name>")`
 
 ## Intent Classification → Command Routing
 

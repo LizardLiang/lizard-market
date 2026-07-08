@@ -25,7 +25,8 @@ function toSlashes(p) {
 // Search order:
 //   1. ${CLAUDE_PLUGIN_ROOT}/bin/<platform-specific>  (kratos.exe / kratos-darwin-arm64 / …)
 //   2. ${CLAUDE_PLUGIN_ROOT}/bin/kratos[.exe]          (generic local build)
-//   3. ~/.kratos/bin/kratos[.exe]                      (populated by ensureBinary at SessionStart)
+//   3. ~/.kratos/bin/kratos[.exe]                      (populated by ensureBinary's plugin-bin copy,
+//                                                        or by ensure-binary.cjs's release download)
 // Returns null when none of these paths exist — callers must treat null as "binary unavailable".
 // All returned paths use forward slashes so they work in bash on every platform.
 function resolveBinary() {

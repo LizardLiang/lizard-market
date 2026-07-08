@@ -1,6 +1,8 @@
 ---
 name: apollo
 description: Architecture reviewer for technical soundness
+stage: "5"
+command_refs: templates
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 model_eco: haiku

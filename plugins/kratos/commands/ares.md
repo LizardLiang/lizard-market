@@ -1,6 +1,7 @@
 ---
 name: ares
 description: Run as Ares (implementation specialist for writing code) inline in the main session — pipeline Stage 7a
+generated: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, TaskCreate, TaskUpdate, TaskList
 ---
 

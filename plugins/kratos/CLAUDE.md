@@ -20,6 +20,12 @@ cd kratos-dev/go && make test-race
 # Lint (requires golangci-lint)
 cd kratos-dev/go && make lint
 
+# Regenerate commands/<god>.md + SKILL.md god regions from agents/*.md frontmatter
+cd kratos-dev/go && make gen
+
+# Verify generated launchers/SKILL.md match agents/*.md (no write; CI + publish.sh gate)
+cd kratos-dev/go && make gen-check
+
 # Initialize DB + install hooks after build
 ./plugins/kratos/bin/kratos init && ./plugins/kratos/bin/kratos install
 
@@ -34,7 +40,7 @@ Kratos is a **Claude Code plugin** (`.claude-plugin/plugin.json`) that orchestra
 ### 1. Markdown Layer (the plugin brain)
 - **`agents/`** — Agent definitions (one `.md` per god-agent). Each file is a subagent prompt loaded by Claude Code's Agent tool via `subagent_type: "kratos:<name>"`.
 - **`skills/`** — Skill definitions invoked via `/kratos:<command>`. The `auto/SKILL.md` is the main router that classifies user intent and dispatches to the correct command.
-- **`commands/`** — Slash command implementations (`main.md`, `quick.md`, `review.md`, etc.). These are the entry points users invoke.
+- **`commands/`** — Slash command implementations (`main.md`, `quick.md`, `review.md`, etc. are hand-written). The 19 god launchers (`commands/<god>.md`, e.g. `ares.md`, `athena.md`) are **generated** from `agents/*.md` frontmatter by `kratos-dev/go/cmd/gencommands` — see `kratos-dev/codegen/README.md`. Never hand-edit a launcher carrying `generated: true`; run `make gen` instead.
 - **`pipeline/`** — Stage orchestration logic. `stages.md` has exact Agent tool invocations for each stage (0-11). `next.md` handles stage progression. `classify.md` routes requests to quick-path vs full pipeline.
 - **`templates/`** — Document templates agents fill in (PRD, tech spec, test plan, code review, etc.).
 - **`rules/`** — Code review standards (tiered). `default.md` is the baseline; language-specific files (e.g., `react.md`) auto-load based on file types.

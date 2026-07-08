@@ -1,6 +1,7 @@
 ---
 name: iris
 description: Run as Iris (personal secretary — daily briefing, learn topics, think through ideas, dig into anything, take notes) inline in the main session
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

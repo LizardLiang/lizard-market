@@ -1,6 +1,7 @@
 ---
 name: artemis
 description: Run as Artemis (QA specialist for test planning) inline in the main session — pipeline Stage 6
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

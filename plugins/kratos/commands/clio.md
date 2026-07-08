@@ -1,6 +1,7 @@
 ---
 name: clio
 description: Run as Clio (git history specialist — blame, logs, diffs, contributors, timeline analysis) inline in the main session
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

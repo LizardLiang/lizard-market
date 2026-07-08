@@ -1,6 +1,7 @@
 ---
 name: athena
 description: Run as Athena (PM specialist for PRD creation) inline in the main session — pipeline Stage 1
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

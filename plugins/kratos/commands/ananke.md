@@ -1,6 +1,7 @@
 ---
 name: ananke
-description: Run as Ananke (task manager — add, list, complete, and remove personal todos) inline in the main session
+description: Run as Ananke (task manager — add, list, complete, and remove personal todos via kratos binary or fallback file) inline in the main session
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

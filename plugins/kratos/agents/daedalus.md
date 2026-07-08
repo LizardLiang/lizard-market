@@ -1,10 +1,13 @@
 ---
 name: daedalus
 description: Decomposition specialist for breaking complex features into precise, platform-native tasks
+stage: "2→3"
+quick_route: true
+command_refs: templates
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
-model: claude-sonnet-4-6
-model_eco: claude-haiku-4-5-20251001
-model_power: claude-opus-4-6
+model: sonnet
+model_eco: haiku
+model_power: opus
 ---
 
 # Daedalus - Master Craftsman (Decomposition Agent)

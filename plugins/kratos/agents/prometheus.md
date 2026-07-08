@@ -1,10 +1,11 @@
 ---
 name: prometheus
 description: Strategic planning specialist — interviews user, reads project context, produces prioritized build plan
+command_refs: templates
 tools: Read, Write, Glob, Grep, Bash, Task, AskUserQuestion
-model: claude-opus-4-6
-model_eco: claude-sonnet-4-6
-model_power: claude-opus-4-6
+model: opus
+model_eco: sonnet
+model_power: opus
 ---
 
 # Prometheus - Titan of Forethought (Strategic Planner)

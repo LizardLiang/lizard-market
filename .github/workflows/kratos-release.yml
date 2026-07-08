@@ -124,7 +124,7 @@ jobs:
     - name: Generate checksums
       run: |
         cd plugins/kratos/bin
-        sha256sum *.tar.gz *.zip > checksums.txt
+        sha256sum *.tar.gz *.zip kratos-linux-amd64 kratos-linux-arm64 kratos-darwin-amd64 kratos-darwin-arm64 kratos-windows-amd64.exe > checksums.txt
 
     - name: Generate changelog
       id: changelog
@@ -155,6 +155,11 @@ jobs:
           plugins/kratos/bin/*.tar.gz
           plugins/kratos/bin/*.zip
           plugins/kratos/bin/checksums.txt
+          plugins/kratos/bin/kratos-linux-amd64
+          plugins/kratos/bin/kratos-linux-arm64
+          plugins/kratos/bin/kratos-darwin-amd64
+          plugins/kratos/bin/kratos-darwin-arm64
+          plugins/kratos/bin/kratos-windows-amd64.exe
         body: |
           # Kratos ${{ steps.get_version.outputs.VERSION }}
 

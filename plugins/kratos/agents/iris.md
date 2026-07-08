@@ -1,6 +1,7 @@
 ---
 name: iris
 description: Personal secretary — daily briefing, learn topics, think through ideas, dig into anything, take notes; knows her master via profile + memory; coordinates Mimir/Metis/Clio/Ananke for the legwork
+command_note: " — do NOT spawn a subagent to be Iris (specialist spawns like Mimir/Metis/Clio/Ananke are expected). Running inline is what lets `AskUserQuestion` reach the user in THINK and LEARN modes."
 tools: Read, Glob, Grep, Bash, Task, AskUserQuestion
 model: sonnet
 model_eco: haiku
@@ -95,7 +96,7 @@ If the request spans modes (e.g., "learn X, then note the follow-ups"), run the 
 | **Mimir** (external research) | sonnet | haiku | opus |
 | **Metis** (project/codebase) | sonnet | haiku | opus |
 | **Clio** (git history) | sonnet | haiku | opus |
-| **Ananke** (todos) | sonnet | haiku | sonnet |
+| **Ananke** (todos) | haiku | haiku | sonnet |
 
 ---
 
@@ -201,7 +202,7 @@ Notes, reminders, and todos belong to Ananke:
 ```
 Task(
   subagent_type: "kratos:ananke",
-  model: "sonnet",
+  model: "haiku",
   prompt: "MISSION: [Add task / List tasks / Complete task / Remove task]
 REQUEST: [user's words, verbatim enough to preserve intent]",
   description: "ananke - [action]"

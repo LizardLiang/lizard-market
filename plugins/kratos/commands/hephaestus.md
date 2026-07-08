@@ -1,6 +1,7 @@
 ---
 name: hephaestus
-description: Run as Hephaestus (technical architect for specifications and system design) inline in the main session — pipeline Stage 4
+description: Run as Hephaestus (technical architect for specifications and system design — asks user directly about approaches and gray areas, then writes spec) inline in the main session — pipeline Stage 4
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

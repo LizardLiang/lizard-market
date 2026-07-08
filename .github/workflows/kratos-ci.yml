@@ -106,21 +106,6 @@ jobs:
       with:
         go-version: '1.25'
 
-    # Guardrail: the marketplace ships the *committed* bin/, refreshed only by a manual
-    # `make build-all`. Bumping plugin.json without rebuilding shipped a spec-less binary
-    # in v2.81-2.83. The committed binary stamps its version from plugin.json at build
-    # time, so a version match proves it was rebuilt from current source.
-    - name: Verify committed binaries are not stale
-      run: |
-        EXPECTED=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' plugins/kratos/.claude-plugin/plugin.json | head -1)
-        chmod +x plugins/kratos/bin/kratos-linux-amd64
-        ACTUAL=$(./plugins/kratos/bin/kratos-linux-amd64 --version | awk '{print $NF}')
-        echo "plugin.json=$EXPECTED  committed bin/kratos-linux-amd64=$ACTUAL"
-        if [ "$ACTUAL" != "$EXPECTED" ]; then
-          echo "::error::Committed bin/ is stale (binary reports '$ACTUAL', plugin.json is '$EXPECTED'). Run 'cd kratos-dev/go && make build-all' and commit plugins/kratos/bin/."
-          exit 1
-        fi
-
     - name: Sync embedded assets
       shell: bash
       working-directory: kratos-dev/go

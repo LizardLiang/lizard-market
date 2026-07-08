@@ -44,7 +44,8 @@ function initDb() {
   const kratosCmd = findKratosBinary();
   if (!kratosCmd) {
     console.error(
-      "Kratos binary not found. Please build: cd go && go build -o ../bin/kratos ./cmd/kratos",
+      "Kratos binary not found yet. Downloading in the background to ~/.kratos/bin/ - " +
+        "retry shortly, or build from source: cd go && go build -o ../bin/kratos ./cmd/kratos",
     );
     return false;
   }
@@ -190,7 +191,23 @@ function ensureBinary() {
   const srcName = platformBinaryName();
 
   const srcPath = path.join(srcDir, srcName);
-  if (!fs.existsSync(srcPath)) return; // no source binary available
+  if (!fs.existsSync(srcPath)) {
+    // No plugin-local binary (release install, not a dev checkout) - fall
+    // back to a background download. SessionStart hooks have a 5s timeout
+    // and a ~10MB download cannot fit inline, so spawn detached and return
+    // immediately; ensure-binary.cjs degrades silently on any failure.
+    try {
+      const ensureBinaryScript = path.join(__dirname, "ensure-binary.cjs");
+      const child = spawn(process.execPath, [ensureBinaryScript], {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
+    } catch (e) {
+      // best-effort - never block session start on the downloader
+    }
+    return;
+  }
 
   // Copy if target missing or source is newer
   let needsCopy = !fs.existsSync(targetPath);

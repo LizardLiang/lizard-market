@@ -1,6 +1,7 @@
 ---
 name: apollo
 description: Run as Apollo (architecture reviewer for technical soundness) inline in the main session — pipeline Stage 5
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

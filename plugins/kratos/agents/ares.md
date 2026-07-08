@@ -1,6 +1,9 @@
 ---
 name: ares
 description: Implementation specialist for writing code
+stage: "7a"
+quick_route: true
+command_refs: templates
 tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, TaskCreate, TaskUpdate, TaskList
 model: sonnet
 model_eco: haiku

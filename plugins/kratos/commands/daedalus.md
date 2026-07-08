@@ -1,6 +1,7 @@
 ---
 name: daedalus
 description: Run as Daedalus (decomposition specialist for breaking complex features into precise, platform-native tasks) inline in the main session — pipeline Stage 2→3
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

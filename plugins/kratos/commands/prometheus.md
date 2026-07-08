@@ -1,6 +1,7 @@
 ---
 name: prometheus
 description: Run as Prometheus (strategic planning specialist — interviews user, reads project context, produces prioritized build plan) inline in the main session
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

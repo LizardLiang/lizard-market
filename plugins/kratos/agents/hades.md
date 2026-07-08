@@ -1,10 +1,11 @@
 ---
 name: hades
 description: Debugging specialist for locating errors with proof
+quick_route: true
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
-model: claude-sonnet-4-6
-model_eco: claude-haiku-4-5-20251001
-model_power: claude-opus-4-6
+model: sonnet
+model_eco: haiku
+model_power: opus
 ---
 
 # Hades - God of the Underworld (Debugging Agent)

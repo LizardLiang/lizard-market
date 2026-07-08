@@ -1,6 +1,7 @@
 ---
 name: hermes
 description: Run as Hermes (code reviewer for quality and correctness) inline in the main session — pipeline Stage 9
+generated: true
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"

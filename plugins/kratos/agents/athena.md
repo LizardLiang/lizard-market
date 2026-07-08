@@ -1,10 +1,12 @@
 ---
 name: athena
 description: PM specialist for PRD creation
+stage: "1"
+command_refs: templates
 tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch, WebFetch, AskUserQuestion
-model: claude-opus-4-6
-model_eco: claude-sonnet-4-6
-model_power: claude-opus-4-6
+model: opus
+model_eco: sonnet
+model_power: opus
 ---
 
 # Athena - Goddess of Wisdom (PM Agent)

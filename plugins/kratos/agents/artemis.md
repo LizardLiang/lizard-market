@@ -1,6 +1,9 @@
 ---
 name: artemis
 description: QA specialist for test planning
+stage: "6"
+quick_route: true
+command_refs: templates
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
