@@ -102,9 +102,16 @@ func resolveTokens(body, rootFlag string) string {
 		body = strings.ReplaceAll(body, "<KRATOS_ROOT>", root)
 	}
 	if exe, err := os.Executable(); err == nil && exe != "" {
-		body = strings.ReplaceAll(body, "<kratos-bin>", filepath.ToSlash(exe))
+		body = strings.ReplaceAll(body, "<kratos-bin>", toSlash(exe))
 	}
 	return body
+}
+
+// toSlash normalizes path separators to forward slashes on every host OS.
+// filepath.ToSlash is a no-op on Linux, but Windows-style paths can arrive
+// via --root or CLAUDE_PLUGIN_ROOT regardless of where the binary runs.
+func toSlash(p string) string {
+	return strings.ReplaceAll(p, `\`, "/")
 }
 
 // discoverRoot resolves the plugin root directory for <KRATOS_ROOT>
@@ -114,15 +121,15 @@ func resolveTokens(body, rootFlag string) string {
 // misidentifying an unrelated install layout).
 func discoverRoot(rootFlag string) string {
 	if rootFlag != "" {
-		return filepath.ToSlash(rootFlag)
+		return toSlash(rootFlag)
 	}
 	if env := os.Getenv("CLAUDE_PLUGIN_ROOT"); env != "" {
-		return filepath.ToSlash(env)
+		return toSlash(env)
 	}
 	if exe, err := os.Executable(); err == nil && exe != "" {
 		candidate := filepath.Dir(filepath.Dir(exe))
 		if info, statErr := os.Stat(filepath.Join(candidate, "agents")); statErr == nil && info.IsDir() {
-			return filepath.ToSlash(candidate)
+			return toSlash(candidate)
 		}
 	}
 	return ""
