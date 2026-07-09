@@ -7,7 +7,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, TaskC
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
 
-!cat "${CLAUDE_PLUGIN_ROOT}/agents/ares.md"
+!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load ares --resolve
 
 ---
 

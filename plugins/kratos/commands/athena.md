@@ -6,7 +6,7 @@ generated: true
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
 
-!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load athena --mode=command
+!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load athena --resolve --mode=command
 
 ---
 

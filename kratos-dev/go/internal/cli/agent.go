@@ -4,6 +4,8 @@ package cli
 import (
 	"embed"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -41,6 +43,8 @@ func AgentCmd() *cobra.Command {
 
 func agentLoadCmd() *cobra.Command {
 	var mode string
+	var resolve bool
+	var rootFlag string
 
 	cmd := &cobra.Command{
 		Use:          "load <name>",
@@ -74,11 +78,52 @@ func agentLoadCmd() *cobra.Command {
 				}
 			}
 
+			if resolve {
+				out = resolveTokens(out, rootFlag)
+			}
+
 			fmt.Fprint(cmd.OutOrStdout(), out)
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&mode, "mode", "", "Execution mode: 'command' appends command-mode suffix if one exists")
+	cmd.Flags().BoolVar(&resolve, "resolve", false, "Substitute <KRATOS_ROOT> and <kratos-bin> tokens with discovered absolute paths")
+	cmd.Flags().StringVar(&rootFlag, "root", "", "Explicit plugin root for <KRATOS_ROOT> substitution (overrides discovery); only used with --resolve")
 	return cmd
+}
+
+// resolveTokens replaces every <KRATOS_ROOT> and <kratos-bin> token in body
+// with discovered absolute paths, normalized to forward slashes. <KRATOS_ROOT>
+// is left unmodified if no root can be discovered (never guess); <kratos-bin>
+// is left unmodified if os.Executable() fails.
+func resolveTokens(body, rootFlag string) string {
+	if root := discoverRoot(rootFlag); root != "" {
+		body = strings.ReplaceAll(body, "<KRATOS_ROOT>", root)
+	}
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		body = strings.ReplaceAll(body, "<kratos-bin>", filepath.ToSlash(exe))
+	}
+	return body
+}
+
+// discoverRoot resolves the plugin root directory for <KRATOS_ROOT>
+// substitution, or "" if undiscoverable. Precedence: explicit rootFlag >
+// CLAUDE_PLUGIN_ROOT env > the executable's grandparent directory (only if
+// that directory contains an agents/ subdirectory, guarding against
+// misidentifying an unrelated install layout).
+func discoverRoot(rootFlag string) string {
+	if rootFlag != "" {
+		return filepath.ToSlash(rootFlag)
+	}
+	if env := os.Getenv("CLAUDE_PLUGIN_ROOT"); env != "" {
+		return filepath.ToSlash(env)
+	}
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		candidate := filepath.Dir(filepath.Dir(exe))
+		if info, statErr := os.Stat(filepath.Join(candidate, "agents")); statErr == nil && info.IsDir() {
+			return filepath.ToSlash(candidate)
+		}
+	}
+	return ""
 }

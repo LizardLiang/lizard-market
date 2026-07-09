@@ -72,7 +72,7 @@ Pull-model knowledge base in the target project. Agents read what they need; Met
 
 ## Important Conventions
 
-- Plugin-internal paths are written as `<KRATOS_ROOT>/...`. Orchestrators resolve the actual root (from `${CLAUDE_PLUGIN_ROOT}` or the skill base directory) and substitute it into agent prompts before spawning; `plugins/kratos/` from project root is the fallback for in-repo installs. See `references/agent-protocol.md`.
+- Plugin-internal paths are written as `<KRATOS_ROOT>/...`. Resolution is deterministic, not LLM substitution: the SubagentStart hook (`hooks/path-inject.cjs`) injects the resolved root into every spawned subagent's context, and `kratos agent load <name> --resolve` (used by every generated launcher) substitutes the token before an inline command-mode god ever sees its own body. Orchestrators pass `<KRATOS_ROOT>` through spawn prompts unmodified; `plugins/kratos/` from project root is the last-resort fallback. See `references/agent-protocol.md`.
 - `schema.sql` lives in `kratos-dev/go/internal/db/` (a legacy copy sits in `kratos-dev/memory/`).
 - Dev-only assets (Go source, eval harness, legacy memory prototype, CI docs) live in repo-root `kratos-dev/`; GitHub workflows in repo-root `.github/workflows/kratos-*.yml`. Nothing outside runtime needs lives in `plugins/kratos/` — installs copy the whole plugin dir.
 - **`LizardLiang/kratos` is the main publish repo** — a runtime-only mirror users install from (`claude plugin marketplace add LizardLiang/kratos`). After each release commit + tag here, run `kratos-dev/publish.sh` to force-push the plugin subtree (and tag) there. Development never happens in that repo.

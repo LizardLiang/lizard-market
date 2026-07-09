@@ -6,7 +6,7 @@ generated: true
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
 
-!cat "${CLAUDE_PLUGIN_ROOT}/agents/odysseus.md"
+!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load odysseus --resolve
 
 ---
 

@@ -93,9 +93,10 @@ func refsParagraph(kind string) string {
 }
 
 // RenderCommand renders the full commands/<name>.md launcher content for the
-// given agent. hasSuffixLoader selects the launch.cjs loader (used when a
-// command-mode-suffix/<name>.md file exists) instead of the plain !cat
-// loader. partial may be nil.
+// given agent. Every god uses the launch.cjs loader with --resolve (so the
+// emitted body carries no <KRATOS_ROOT>/<kratos-bin> tokens); hasSuffixLoader
+// appends --mode=command when a command-mode-suffix/<name>.md file exists.
+// partial may be nil.
 func RenderCommand(a *Agent, partial *Partial, hasSuffixLoader bool) string {
 	var fm strings.Builder
 	fm.WriteString("---\n")
@@ -109,11 +110,9 @@ func RenderCommand(a *Agent, partial *Partial, hasSuffixLoader bool) string {
 
 	echoLine := `!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
-	var loaderLine string
+	loaderLine := fmt.Sprintf(`!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load %s --resolve`, a.Name)
 	if hasSuffixLoader {
-		loaderLine = fmt.Sprintf(`!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load %s --mode=command`, a.Name)
-	} else {
-		loaderLine = fmt.Sprintf(`!cat "${CLAUDE_PLUGIN_ROOT}/agents/%s.md"`, a.Name)
+		loaderLine += " --mode=command"
 	}
 
 	note := standardNoteSeparator

@@ -6,7 +6,7 @@ generated: true
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
 
-!cat "${CLAUDE_PLUGIN_ROOT}/agents/cassandra.md"
+!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load cassandra --resolve
 
 ---
 

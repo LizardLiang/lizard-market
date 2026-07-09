@@ -6,7 +6,7 @@ generated: true
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
 
-!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load hermes --mode=command
+!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load hermes --resolve --mode=command
 
 ---
 

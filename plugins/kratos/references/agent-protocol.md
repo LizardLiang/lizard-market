@@ -6,7 +6,11 @@ Procedures shared across all Kratos agents. Read sections relevant to your missi
 
 ## Path Resolution
 
-Plugin-internal paths are written as `<KRATOS_ROOT>/...` (e.g., `<KRATOS_ROOT>/references/...`). Orchestrators resolve the actual root — from `${CLAUDE_PLUGIN_ROOT}` (echoed in the command preamble) or the skill's base directory — and **substitute the absolute path into every agent prompt before spawning**. If you receive an unsubstituted `<KRATOS_ROOT>` reference, fall back to `plugins/kratos/` relative to the project root (in-repo installs).
+Plugin-internal paths are written as `<KRATOS_ROOT>/...` (e.g., `<KRATOS_ROOT>/references/...`). Resolution is deterministic, not LLM text-substitution:
+
+- **Spawned subagents**: the SubagentStart hook (`hooks/path-inject.cjs`) injects the resolved absolute plugin root into your context alongside the `<kratos-bin>` path. Use the injected root wherever you see `<KRATOS_ROOT>`. Orchestrators do not (and should not) rewrite `<KRATOS_ROOT>` in spawn prompts themselves.
+- **Inline command-mode gods** (e.g. `/kratos:ares`): the generated launcher loads your body via `kratos agent load <name> --resolve`, which substitutes `<KRATOS_ROOT>` and `<kratos-bin>` before you ever see the text — by the time you're reading your persona, the tokens are already gone.
+- **Fallback**: if you receive an unsubstituted `<KRATOS_ROOT>` reference (no root was injected and no `--resolve` ran — e.g. the binary is unavailable and the JS fallback in `launch.cjs` also couldn't resolve it), fall back to `plugins/kratos/` relative to the project root (in-repo installs).
 
 Project-artifact paths (e.g., `.claude/feature/...`, `.claude/.Arena/...`) remain relative to the **project root** (git repository root).
 

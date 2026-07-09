@@ -7,7 +7,7 @@ description: Exact Task invocations for each pipeline stage (0–11)
 
 This file contains the exact Task tool calls for each pipeline stage. Read the relevant section when you need to spawn an agent for a specific stage.
 
-**IMPORTANT — resolving `<KRATOS_ROOT>`:** Before spawning, replace every `<KRATOS_ROOT>` in the prompt with the resolved absolute plugin root (from the `KRATOS_ROOT=` line echoed by the command, or `plugins/kratos/` from project root as fallback). Subagents cannot resolve it themselves.
+**Resolving `<KRATOS_ROOT>`:** Leave `<KRATOS_ROOT>` tokens verbatim in spawn prompts — do not substitute them yourself. The SubagentStart hook (`hooks/path-inject.cjs`) injects the resolved absolute plugin root into every spawned subagent's context, and the subagent uses that injected path wherever it sees `<KRATOS_ROOT>`. `plugins/kratos/` from project root remains the last-resort fallback if no root was injected.
 
 **IMPORTANT — filling `ORIGINAL_USER_REQUEST`:** Copy the user's actual first message (the request that triggered this pipeline) verbatim from your conversation context. Do NOT use the one-sentence description from start.md. Preserve original wording exactly — do not summarize, rephrase, or truncate.
 
