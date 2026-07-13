@@ -82,7 +82,7 @@ Record the user's choice as `APPROACH_SELECTED`.
 
 ### Step 3: Ask the User — Gray Areas
 
-For each gray area, call `AskUserQuestion` — one at a time, sequentially:
+For each gray area, call `AskUserQuestion` — one at a time, sequentially, with exactly one entry in the `questions` array per call:
 
 ```
 AskUserQuestion(

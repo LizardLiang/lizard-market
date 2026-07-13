@@ -107,7 +107,7 @@ The three dimensions above measure how well-specified the work is. They do **not
 
 #### Asking rules
 
-- **One question per turn.** Never batch — a wall of questions makes people pick fast and wrong.
+- **One question per `AskUserQuestion` call — the `questions` array always has exactly one entry.** Never batch, and never pack multiple questions into one call — a wall of questions makes people pick fast and wrong.
 - Prioritize: correctness/security > data integrity > core behavior > edge cases > polish.
 - Every question offers 2–5 concrete options and your recommended default with brief reasoning, so the user can just confirm.
 - **Breadth first, then depth.** You already enumerated the facets in step 2 — so the breadth is on the table from the start. Resolve each facet depth-first to a leaf before fully closing it (if "which module?" resolves to `auth/`, the next question is an `auth/`-specific concern — token store? middleware? session model? — not a jump to an unrelated facet). But never let depth-first tunnel you into finishing one facet while sibling facets sit `[open]` and forgotten: every facet must be visited before PLAN_READY, none dropped.
@@ -141,9 +141,24 @@ The full pipeline captures behavior in living specs via Athena's deltas — but 
 Create the slug from the task title (lowercase; non-alphanumeric runs → `-`; trim leading/trailing `-`). Then:
 
 1. **Pick the capability** emergently: read `.claude/.Arena/specs/` if it exists and choose an existing `<capability>` that fits, or name a new one. No Metis prerequisite — the same rule Athena uses.
-2. **Fetch the template:** `<kratos-bin> template get spec-delta-template` (fallback `~/.kratos/bin/kratos`).
-3. **Write** `.claude/feature/<slug>/spec-delta/<capability>.md` with `## ADDED / ## MODIFIED / ## REMOVED Requirements` — one `### Requirement:` per facet from your Decision Tree, each with at least one `#### Scenario:`. Read any existing `.claude/.Arena/specs/<capability>/spec.md` first to choose ADDED vs MODIFIED and to match requirement-header names exactly.
-4. **Self-validate:** run `<kratos-bin> spec validate <slug>`. Fix any error it reports before finalizing the plan. If the binary is unavailable, note that validation was skipped and move on — do not block the plan on a missing binary.
+2. **Fetch the template:** `<kratos-bin> template get spec-delta-template` (fallback `~/.kratos/bin/kratos`). If the binary is unavailable, use the embedded skeleton below — **never write a prose delta**; a delta that doesn't start with an operation header will hard-fail `spec archive` later.
+3. **Write** `.claude/feature/<slug>/spec-delta/<capability>.md` with `## ADDED / ## MODIFIED / ## REMOVED Requirements` — one `### Requirement:` per facet from your Decision Tree, each with at least one `#### Scenario:`. Read any existing `.claude/.Arena/specs/<capability>/spec.md` first to choose ADDED vs MODIFIED and to match requirement-header names exactly. The file must start **directly** with an operation section header — no title, no preamble:
+
+   ```markdown
+   ## ADDED Requirements
+
+   ### Requirement: {name, under 50 chars, unique}
+
+   The system SHALL {precise, testable behavior statement}.
+
+   #### Scenario: {short description}
+
+   - **WHEN** {trigger}
+   - **THEN** {outcome}
+   ```
+
+   Same shape for `## MODIFIED Requirements` (target must exist in the living spec) and `## REMOVED Requirements` (header only, optional one-line reason). `## RENAMED Requirements` uses `- FROM:` / `- TO:` bullet pairs. Omit sections with no entries.
+4. **Self-validate:** run `<kratos-bin> spec validate <slug>`. Fix any error it reports before finalizing the plan. If the binary is unavailable, re-check your delta against the skeleton above (operation header first line, SHALL statement + ≥1 scenario per ADDED/MODIFIED requirement), note that binary validation was skipped, and move on — do not block the plan on a missing binary.
 
 The delta is **pending**: you never archive it. Promotion into the living spec happens after Ares implements (via `/kratos:spec-archive <slug>`), so the contract only absorbs behavior that was actually built.
 
@@ -241,7 +256,7 @@ Approve this plan to hand it to Ares, or give feedback and I will revise the pla
 - Explore before asking — the repo answers most gaps
 - **Enumerate facets before scoring** — breadth first, so you never plan the gate and forget how permission is granted
 - **Run the Quadrant Sweep** — facets cover known unknowns; the sweep (premortem, inversion, boundary, actors, analogous failures, checklist escape) is how unknown knowns and unknown unknowns become facets instead of production incidents
-- Ask until PLAN_READY, one question per turn — the bar is ambiguity ≤ 0.10 **and** zero `[open]` facets; a missing facet blocks readiness no matter how clean the score
+- Ask until PLAN_READY, one question per `AskUserQuestion` call (single-entry `questions` array) — the bar is ambiguity ≤ 0.10 **and** zero `[open]` facets; a missing facet blocks readiness no matter how clean the score
 - **Author the spec delta** so quick-path work still reaches the living spec — but never archive it; promotion is post-implementation
 - Plan before implementation
 - Save the plan before handing off

@@ -32,6 +32,8 @@ To know what the jobs are, read the available documents first (`pipeline get`, t
 
 When `decomposition.md` exists, create one task per wave/task it lists so the structure mirrors the plan. Granular tasks are what keep you honest about what is actually done.
 
+**Small-mission exception:** if the mission touches ≤2 files and has no wave boundaries, register ONE task (`Implement <mission>`), mark it `in_progress` at start and `completed` at the end. Skip per-step tasks and updates — a dozen task calls on a two-file change is ceremony, not honesty. Full ceremony applies to everything larger.
+
 **Then work the list with `TaskUpdate`:** set a task to `in_progress` the moment you start it and `completed` the moment it's truly done (tests green, file written) — never mark complete on partial work. If new work surfaces mid-mission, `TaskCreate` it rather than letting it slip. Use `TaskList` to recover your place if you lose track.
 
 This is the structured-tool equivalent of the quality gate that wraps you: the gate expects a task list before work begins, and `TaskCreate` is how you produce one.

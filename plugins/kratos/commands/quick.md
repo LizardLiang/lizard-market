@@ -69,6 +69,7 @@ Quick mode has **no requirements-elicitation phase** — whatever you route is b
 Task(
   subagent_type: "kratos:[agent]",
   model: "[sonnet|haiku|opus based on mode]",
+  mode: "acceptEdits",   // Ares spawns only — omit for reviewers/researchers. Ares edits are auto-approved; without this a foreground spawn can silently hang on a per-edit permission prompt. Harnesses without the param ignore it.
   prompt: "MISSION: [mission title from the agent table below]
 TARGET: [file/function/area]
 REQUIREMENTS: [user's specific requirements]

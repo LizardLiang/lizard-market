@@ -69,6 +69,7 @@ function buildReason(kratosBin) {
     + 'corrections, working style — not project/task facts, never secrets). '
     + `Run \`${kratosBin} memory list\` to dedupe. `
     + `Save at most 3 via \`${kratosBin} memory add "<fact>" --category <preference|habit|weak-spot|context>\`. `
+    + 'Each fact must be ≤200 characters — write it short the first time. '
     + 'If nothing durable, save nothing. Then finish with a one-line 📝 note (or nothing) and stop.';
 }
 

@@ -196,6 +196,7 @@ After Stage 6 completes: read `<KRATOS_ROOT>/pipeline/pre-implementation.md` and
 Task(
   subagent_type: "kratos:ares",
   model: "sonnet",
+  mode: "acceptEdits",
   prompt: "MISSION: Implement Feature
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -211,6 +212,8 @@ Use Ares's document-selection policy. If a needed prerequisite file is missing, 
 )
 ```
 
+**Why `mode: "acceptEdits"`**: Ares edits are auto-approved inside the subagent; Hermes review is the quality gate. Without it, a foreground spawn can silently hang on a per-edit permission prompt (observed: 71 minutes of a "running" Ares waiting for one Edit approval). Harnesses without the `mode` param ignore it — harmless.
+
 **Wave checkpoints** (when `decomposition.md` exists): Ares returns `ARES WAVE CHECKPOINT` after each completed wave instead of finishing the mission — a spawned subagent cannot ask the user directly. When you receive it: ask the user via your own `AskUserQuestion` whether to commit a checkpoint, run the commit if accepted, then re-spawn Ares with the same prompt plus `CONTINUE_FROM_WAVE: [N+1]`. Repeat until Ares returns `ARES COMPLETE`.
 
 **Clarification requests**: if Ares returns `ARES NEEDS CLARIFICATION` with a specific question, ask the user via `AskUserQuestion` and re-spawn with the answer appended to the prompt as `CLARIFICATION: [Q] → [A]`.
@@ -223,6 +226,7 @@ Use Ares's document-selection policy. If a needed prerequisite file is missing, 
 Task(
   subagent_type: "kratos:ares",
   model: "sonnet",
+  mode: "acceptEdits",
   prompt: "MISSION: Create Implementation Tasks (User Mode)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/

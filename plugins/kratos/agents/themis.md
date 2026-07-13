@@ -150,7 +150,7 @@ If `ANSWERED_SO_FAR` is present in your prompt (from a continuation), skip Steps
 
 ## Step 5: Ask Gray Areas Directly
 
-For each gray area identified in Step 4, call `AskUserQuestion` — one at a time:
+For each gray area identified in Step 4, call `AskUserQuestion` — one at a time, with exactly one entry in the `questions` array per call:
 
 ```
 AskUserQuestion(

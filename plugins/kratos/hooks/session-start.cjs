@@ -104,6 +104,33 @@ function getLastSessionInfo() {
   }
 }
 
+// Stored user memories (preferences/habits) — read-side of the memory sweep.
+// Injected every session so the main session and inline command-mode gods
+// actually consume what the Stop-hook sweep saved. Silent on any failure.
+function formatMemories() {
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return null;
+
+  try {
+    const result = execSync(`"${kratosCmd}" memory list`, {
+      encoding: "utf-8",
+      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
+    });
+    const data = JSON.parse(result);
+    if (!data.memories || data.memories.length === 0) return null;
+
+    const lines = ["", "## Stored user preferences"];
+    for (const m of data.memories) {
+      const cat = m.category ? ` [${m.category}]` : "";
+      lines.push(`- ${m.text}${cat}`);
+    }
+    lines.push("");
+    return lines.join("\n");
+  } catch (e) {
+    return null;
+  }
+}
+
 // Format time ago
 function formatTimeAgo(timestampMs) {
   if (!timestampMs) return "unknown";
@@ -235,6 +262,18 @@ function main() {
 
   // Always inject the output constraint, regardless of session resume/init path.
   console.log(OUTPUT_CONSTRAINT);
+
+  // Always inject the resolved binary path so inline gods never hunt for it
+  // (template get / spec validate silently got skipped when the binary wasn't
+  // found, producing prose spec deltas), plus stored user preferences.
+  const kratosBin = findKratosBinary();
+  if (kratosBin) {
+    console.log(`KRATOS_BIN: ${kratosBin}`);
+  }
+  const memoriesMsg = formatMemories();
+  if (memoriesMsg) {
+    console.log(memoriesMsg);
+  }
 
   // Check for existing active session
   if (fs.existsSync(SESSION_FILE)) {

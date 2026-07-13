@@ -310,6 +310,7 @@ const aresTaskGate = `
 ╠══════════════════════════════════════════════════════════════╣
 ║  1. Call TaskCreate once per job BEFORE any other tool       ║
 ║     — one task per file/module, not one vague "implement"    ║
+║     (small missions ≤2 files: one umbrella task is enough)   ║
 ║  2. TaskUpdate a task in_progress when you start it          ║
 ║  3. TaskUpdate completed ONLY when truly done (tests green)  ║
 ║  4. TaskCreate any new work that surfaces mid-mission        ║

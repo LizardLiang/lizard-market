@@ -84,10 +84,10 @@ ambiguity = 1 - (outcome_clarity × 0.40 + constraint_clarity × 0.30 + priority
 
 Run this loop only when PLAN_READY is false after Step 2.
 
-**Ask one question per turn.** Pick the highest-priority unresolved gap in the weakest clarity dimension. Reference specific Arena or project facts where relevant — never ask generic questions.
+**Ask one question per `AskUserQuestion` call — the `questions` array always has exactly one entry.** Pick the highest-priority unresolved gap in the weakest clarity dimension. Reference specific Arena or project facts where relevant — never ask generic questions.
 
 Questioning rules:
-- **One question per turn** — never batch questions
+- **One question per `AskUserQuestion` call** — never batch; never pack multiple entries into one call's `questions` array
 - Target the lowest-scoring dimension first
 - Every question must include 2–5 concrete options and your recommended answer with brief reasoning
 - Questions must be specific to their project context (not generic)
