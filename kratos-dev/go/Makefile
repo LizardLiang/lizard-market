@@ -19,6 +19,11 @@ sync-assets:
 
 build: sync-assets
 	go build $(LDFLAGS) -o $(PLUGIN_DIR)/bin/kratos ./cmd/kratos
+# hooks' resolveBinary() only looks for kratos.exe on Windows — keep it fresh so a
+# stale .exe never silently serves old commands (bit us in v2.93.0 dev).
+ifeq ($(OS),Windows_NT)
+	cp $(PLUGIN_DIR)/bin/kratos $(PLUGIN_DIR)/bin/kratos.exe
+endif
 
 build-all: sync-assets
 	@echo "Building for all platforms..."
