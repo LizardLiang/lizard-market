@@ -69,6 +69,16 @@
             "async": true
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook spec-delta-check",
+            "timeout": 5000
+          }
+        ]
       }
     ],
     "SubagentStart": [

@@ -198,6 +198,25 @@ If no alternative lockfile is found, `npm` commands pass through unchanged.
 
 Fires on every `Read` tool permission request. `permission-read.cjs` auto-allows the read **only** when the requested file path resolves under the plugin's own root (`CLAUDE_PLUGIN_ROOT`) or `~/.kratos/` — Kratos's own files and database. Every other path (project source, `.env`, `~/.ssh`, anything outside those two roots) is left untouched and falls through to Claude Code's normal permission prompt. The hook fails open: empty/garbage input, a missing file path, or an unset `CLAUDE_PLUGIN_ROOT` all produce no output, so the request is never silently allowed by default.
 
+### Reducing Permission Prompts in Pipeline Runs
+
+Ares subagents spawn with `mode: "acceptEdits"`, so file edits are auto-approved inside the spawn (Hermes review is the quality gate). **Bash commands still prompt**, and a foreground subagent waiting on a permission prompt looks like a hung pipeline — in one real session an Ares spawn sat 71 minutes on a single approval. For pipeline-heavy projects, add a build/test allowlist to the project's `.claude/settings.json` (tailor to your stack — allow only commands you'd approve every time):
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc*)",
+      "Bash(npm test*)",
+      "Bash(npm run build*)",
+      "Bash(go test*)",
+      "Bash(git status*)",
+      "Bash(git diff*)"
+    ]
+  }
+}
+```
+
 ---
 
 ## Commands

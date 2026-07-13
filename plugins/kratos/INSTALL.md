@@ -159,6 +159,27 @@ the Skill tool BEFORE generating any other response.
 
 ---
 
+## Optional: Build/Test Allowlist for Pipeline Projects
+
+Ares subagents auto-approve file edits (`mode: "acceptEdits"`), but Bash commands still hit permission prompts — a foreground subagent waiting on one looks like a hung pipeline. For projects that run the pipeline often, add an allowlist to the project's `.claude/settings.json` (tailor to your stack; allow only commands you'd approve every time):
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc*)",
+      "Bash(npm test*)",
+      "Bash(npm run build*)",
+      "Bash(go test*)",
+      "Bash(git status*)",
+      "Bash(git diff*)"
+    ]
+  }
+}
+```
+
+---
+
 ## Step 6: Verify the Full Installation
 
 Run these checks in order:

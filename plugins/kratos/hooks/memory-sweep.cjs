@@ -67,9 +67,10 @@ function readTranscript(transcriptPath) {
 function buildReason(kratosBin) {
   return 'Review this conversation for durable user facts (preferences, habits, weak spots, '
     + 'corrections, working style — not project/task facts, never secrets). '
+    + 'Project/task/repo facts belong in the project\'s Arena, not memory — when in doubt, save nothing. '
     + `Run \`${kratosBin} memory list\` to dedupe. `
     + `Save at most 3 via \`${kratosBin} memory add "<fact>" --category <preference|habit|weak-spot|context>\`. `
-    + 'Each fact must be ≤200 characters — write it short the first time. '
+    + 'Use only those four categories. Each fact must be ≤200 characters — write it short the first time. '
     + 'If nothing durable, save nothing. Then finish with a one-line 📝 note (or nothing) and stop.';
 }
 

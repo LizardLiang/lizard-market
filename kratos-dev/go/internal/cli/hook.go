@@ -153,7 +153,84 @@ func HookCmd() *cobra.Command {
 	cmd.AddCommand(subagentStartCmd())
 	cmd.AddCommand(subagentStopCmd())
 	cmd.AddCommand(fixPMCmd())
+	cmd.AddCommand(specDeltaCheckCmd())
 	return cmd
+}
+
+// specDeltaPathRE extracts the feature slug from a spec-delta file path,
+// tolerating both / and \ separators. Anchored on the .claude/feature/…/
+// spec-delta/…md shape so ordinary writes never match.
+var specDeltaPathRE = regexp.MustCompile(`\.claude[/\\]feature[/\\]([^/\\]+)[/\\]spec-delta[/\\][^/\\]+\.md$`)
+
+// postToolUseInput is the JSON Claude Code sends for PostToolUse (Write/Edit).
+type postToolUseInput struct {
+	ToolName  string `json:"tool_name"`
+	ToolInput struct {
+		FilePath string `json:"file_path"`
+	} `json:"tool_input"`
+}
+
+func specDeltaCheckCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "spec-delta-check",
+		Short: "PostToolUse gate — validate a just-written spec delta so malformed deltas fail immediately, not at archive time",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return handleSpecDeltaCheck(os.Stdin, cmd.OutOrStdout())
+		},
+	}
+}
+
+// handleSpecDeltaCheck validates the feature whose spec-delta file was just
+// written. Fail-open everywhere: any payload/parse/lookup problem exits
+// silently — the gate must never break ordinary Write/Edit calls.
+func handleSpecDeltaCheck(stdin io.Reader, stdout io.Writer) error {
+	raw, err := io.ReadAll(stdin)
+	if err != nil {
+		debugLog("spec-delta-check: stdin read error: %v", err)
+		return nil
+	}
+	return specDeltaCheckIn(gitRoot(), raw, stdout)
+}
+
+func specDeltaCheckIn(root string, raw []byte, stdout io.Writer) error {
+	var input postToolUseInput
+	if err := json.Unmarshal(raw, &input); err != nil {
+		debugLog("spec-delta-check: json parse error: %v", err)
+		return nil
+	}
+
+	m := specDeltaPathRE.FindStringSubmatch(input.ToolInput.FilePath)
+	if m == nil {
+		return nil
+	}
+	feature := m[1]
+
+	ok, messages, err := specValidateIn(root, feature, false)
+	if err != nil {
+		// Missing feature dir, unreadable delta, invalid slug — not this
+		// gate's problem. The write itself succeeded; archive will report.
+		debugLog("spec-delta-check: validate error for %s: %v", feature, err)
+		return nil
+	}
+	if ok {
+		return nil
+	}
+	// "no spec delta files found" means this process's root doesn't see the
+	// just-written file (cwd mismatch, unusual layout) — an infra condition,
+	// not a malformed delta. Fail open rather than block on it.
+	if len(messages) == 1 && strings.Contains(messages[0], "no spec delta files found") {
+		debugLog("spec-delta-check: root mismatch for %s — failing open", feature)
+		return nil
+	}
+
+	reason := fmt.Sprintf(
+		"Spec delta validation failed for feature %q: %s — fix the delta now (the file must start directly with ## ADDED/MODIFIED/REMOVED/RENAMED Requirements; every ADDED/MODIFIED requirement needs a SHALL statement and ≥1 #### Scenario:).",
+		feature, strings.Join(messages, "; "),
+	)
+	return json.NewEncoder(stdout).Encode(map[string]string{
+		"decision": "block",
+		"reason":   reason,
+	})
 }
 
 func promptSubmitCmd() *cobra.Command {

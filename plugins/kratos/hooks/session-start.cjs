@@ -119,10 +119,19 @@ function formatMemories() {
     const data = JSON.parse(result);
     if (!data.memories || data.memories.length === 0) return null;
 
+    // CLI returns newest-first (ORDER BY created_at DESC); cap the injection
+    // so a growing store doesn't bloat every session's context.
+    const MAX_MEMORIES = 15;
+    const shown = data.memories.slice(0, MAX_MEMORIES);
+    const older = data.memories.length - shown.length;
+
     const lines = ["", "## Stored user preferences"];
-    for (const m of data.memories) {
+    for (const m of shown) {
       const cat = m.category ? ` [${m.category}]` : "";
       lines.push(`- ${m.text}${cat}`);
+    }
+    if (older > 0) {
+      lines.push(`(+${older} older — run \`kratos memory list\` for all)`);
     }
     lines.push("");
     return lines.join("\n");

@@ -197,6 +197,7 @@ Task(
   subagent_type: "kratos:ares",
   model: "sonnet",
   mode: "acceptEdits",
+  name: "ares-[feature-name]",
   prompt: "MISSION: Implement Feature
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
@@ -214,9 +215,9 @@ Use Ares's document-selection policy. If a needed prerequisite file is missing, 
 
 **Why `mode: "acceptEdits"`**: Ares edits are auto-approved inside the subagent; Hermes review is the quality gate. Without it, a foreground spawn can silently hang on a per-edit permission prompt (observed: 71 minutes of a "running" Ares waiting for one Edit approval). Harnesses without the `mode` param ignore it — harmless.
 
-**Wave checkpoints** (when `decomposition.md` exists): Ares returns `ARES WAVE CHECKPOINT` after each completed wave instead of finishing the mission — a spawned subagent cannot ask the user directly. When you receive it: ask the user via your own `AskUserQuestion` whether to commit a checkpoint, run the commit if accepted, then re-spawn Ares with the same prompt plus `CONTINUE_FROM_WAVE: [N+1]`. Repeat until Ares returns `ARES COMPLETE`.
+**Wave checkpoints** (when `decomposition.md` exists): Ares returns `ARES WAVE CHECKPOINT` after each completed wave instead of finishing the mission — a spawned subagent cannot ask the user directly. When you receive it: ask the user via your own `AskUserQuestion` whether to commit a checkpoint, run the commit if accepted, then **continue the same agent** — `SendMessage(to: "ares-[feature-name]", message: "CONTINUE_FROM_WAVE: [N+1] — [commit decision]")`. Resuming keeps Ares's context (plan, spec, code already read); re-spawning throws it away and re-reads everything each wave. Repeat until Ares returns `ARES COMPLETE`. Fallback: on a harness without `SendMessage`, re-spawn with the same prompt plus `CONTINUE_FROM_WAVE: [N+1]`.
 
-**Clarification requests**: if Ares returns `ARES NEEDS CLARIFICATION` with a specific question, ask the user via `AskUserQuestion` and re-spawn with the answer appended to the prompt as `CLARIFICATION: [Q] → [A]`.
+**Clarification requests**: if Ares returns `ARES NEEDS CLARIFICATION` with a specific question, ask the user via `AskUserQuestion` and continue the same agent — `SendMessage(to: "ares-[feature-name]", message: "CLARIFICATION: [Q] → [A]")` (fallback: re-spawn with the answer appended to the prompt).
 
 ---
 
