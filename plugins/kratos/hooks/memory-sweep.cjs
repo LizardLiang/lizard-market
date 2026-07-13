@@ -5,9 +5,12 @@
  * Kratos Memory - Transcript Sweep Hook (Stop)
  *
  * Once per qualifying session, blocks the final Stop with an instruction that
- * asks Claude to review the whole conversation for durable user facts
- * (preferences, habits, weak spots, corrections, working style) and save them
- * via `kratos memory` — the same CLI, dedupe, and 📝 notice Iris uses inline.
+ * asks Claude to review the whole conversation for (1) durable user facts
+ * (preferences, habits, weak spots, corrections, working style), saved via
+ * `kratos memory` — the same CLI, dedupe, and 📝 notice Iris uses inline —
+ * and (2) corrections the user made to a specific god-agent's finished work,
+ * saved per agent via `kratos feedback` and re-injected at that agent's next
+ * spawn by path-inject.cjs.
  *
  * This is a session-wide safety net: Iris only sweeps during its own missions,
  * so facts revealed during ordinary (non-Iris) Kratos work would otherwise be
@@ -65,13 +68,19 @@ function readTranscript(transcriptPath) {
 }
 
 function buildReason(kratosBin) {
-  return 'Review this conversation for durable user facts (preferences, habits, weak spots, '
+  return 'Two memory sweeps, then stop. '
+    + '(1) USER FACTS: Review this conversation for durable user facts (preferences, habits, weak spots, '
     + 'corrections, working style — not project/task facts, never secrets). '
     + 'Project/task/repo facts belong in the project\'s Arena, not memory — when in doubt, save nothing. '
     + `Run \`${kratosBin} memory list\` to dedupe. `
     + `Save at most 3 via \`${kratosBin} memory add "<fact>" --category <preference|habit|weak-spot|context>\`. `
     + 'Use only those four categories. Each fact must be ≤200 characters — write it short the first time. '
-    + 'If nothing durable, save nothing. Then finish with a one-line 📝 note (or nothing) and stop.';
+    + '(2) AGENT LESSONS: If the user corrected or redirected work a specific Kratos god-agent had just delivered, '
+    + `run \`${kratosBin} feedback list --agent <god>\` to dedupe, then save at most 2 via `
+    + `\`${kratosBin} feedback add --agent <god> "<lesson>"\`. `
+    + 'A lesson is what that agent should do differently next time, ≤200 characters. '
+    + 'Only corrections clearly attributable to one agent\'s finished output — general preferences belong in memory, not feedback. '
+    + 'If nothing durable in either sweep, save nothing. Then finish with a one-line 📝 note (or nothing) and stop.';
 }
 
 function block(reason) {

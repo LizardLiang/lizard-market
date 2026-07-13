@@ -240,6 +240,7 @@ Commands are the primary interface. Each routes directly to the right agent — 
 | `/kratos:spec-archive` | **Spec Archive** — Promote a feature's spec delta into its living spec | After implementation, anytime (doesn't require Hera) |
 | `/kratos:spec-backfill` | **Spec Backfill** — Migrate pre-existing shipped features into living specs | One-time sweep after adopting living specs on an established project |
 | `/kratos:spec-export` | **Spec Export** — Pretty-print living specs to a self-contained HTML or Markdown document | Sharing specs offline, printing to PDF, pasting into a wiki/PR |
+| `/kratos:retro` | **Agent Retro** — Review per-agent lessons from your corrections, fold stable ones into the agent's definition | Periodically, when a god has accumulated lessons |
 | `/kratos:main` | **Full Pipeline** — 11-stage PRD → spec → implement → review | Only for substantial new features |
 
 Every agent also has an inline command (`/kratos:athena`, `/kratos:ares`, `/kratos:hephaestus`, …) that runs it directly in the main session instead of spawning a subagent.

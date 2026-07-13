@@ -79,10 +79,14 @@ cat ~/.kratos/active-session.json
 
 Registered as a second `Stop` hook (alongside `session-end.cjs`). Where Iris's inline memory
 capture only catches facts flagged during an Iris mission, this hook is a session-wide safety
-net: on the final `Stop` of a qualifying session, it blocks once with an instruction for Claude
-to review the whole conversation for durable user facts (preferences, habits, weak spots,
-corrections, working style — never project/task facts, never secrets), dedupe against
-`kratos memory list`, and save at most 3 via `kratos memory add`.
+net: on the final `Stop` of a qualifying session, it blocks once with a two-target instruction
+for Claude: (1) review the whole conversation for durable user facts (preferences, habits, weak
+spots, corrections, working style — never project/task facts, never secrets), dedupe against
+`kratos memory list`, and save at most 3 via `kratos memory add`; (2) identify corrections the
+user made to a specific god-agent's finished work and save at most 2 as per-agent lessons via
+`kratos feedback add --agent <god>`. Lessons are re-injected at that agent's next spawn by
+`path-inject.cjs` (≤5, current-project first via `feedback list --prefer-project`; fail-open —
+any error just drops the lessons block).
 
 **Guards** — the hook allows the stop silently (no output, no block) whenever any of these trip:
 

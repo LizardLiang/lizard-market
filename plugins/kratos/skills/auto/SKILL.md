@@ -58,6 +58,7 @@ This skill handles only the clearly non-pipeline utilities directly. Everything 
 | "archive spec", "promote spec delta", "archive the delta" | Spec archive | `Skill(skill: "kratos:spec-archive")` |
 | "backfill spec", "backfill living specs" | Spec backfill | `Skill(skill: "kratos:spec-backfill")` |
 | "export specs", "export spec to html", "print specs", "spec to pdf" | Spec export | `Skill(skill: "kratos:spec-export")` |
+| "retro", "consolidate lessons", "agent feedback", "fold lessons" | Retro mode | `Skill(skill: "kratos:retro")` |
 | Everything else (simple tasks, complex features, "continue", "build X", "fix Y", stage artifacts) | Full pipeline — `classify.md` decides quick vs pipeline | `Skill(skill: "kratos:main")` |
 
 Disambiguation: "help me understand [thing in this repo]" stays with inquiry/explain, not Iris. "Discuss [feature]" during an active pipeline is Themis's decision-lock phase, never Iris.

@@ -32,6 +32,7 @@ func main() {
 	rootCmd.AddCommand(cli.PipelineCmd())
 	rootCmd.AddCommand(cli.TodoCmd())
 	rootCmd.AddCommand(cli.MemoryCmd())
+	rootCmd.AddCommand(cli.FeedbackCmd())
 	rootCmd.AddCommand(cli.ProfileCmd())
 	rootCmd.AddCommand(cli.RoutineCmd())
 	rootCmd.AddCommand(cli.HookCmd())

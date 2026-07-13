@@ -155,6 +155,18 @@ CREATE TABLE IF NOT EXISTS user_memories (
 CREATE INDEX IF NOT EXISTS idx_user_memories_category ON user_memories(category);
 CREATE INDEX IF NOT EXISTS idx_user_memories_created ON user_memories(created_at DESC);
 
+-- Agent feedback: per-agent lessons from user corrections (post-completion feedback loop)
+CREATE TABLE IF NOT EXISTS agent_feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent TEXT NOT NULL,                       -- god name: ares, hermes, ...
+    lesson TEXT NOT NULL,
+    project TEXT NOT NULL,
+    created_at INTEGER NOT NULL                -- Unix epoch ms
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_feedback_agent ON agent_feedback(agent);
+CREATE INDEX IF NOT EXISTS idx_agent_feedback_created ON agent_feedback(created_at DESC);
+
 -- User profile: structured facts about the master (global key/value)
 CREATE TABLE IF NOT EXISTS user_profile (
     key TEXT PRIMARY KEY,                      -- snake_case: timezone, work_hours, goals, current_focus, name, role
