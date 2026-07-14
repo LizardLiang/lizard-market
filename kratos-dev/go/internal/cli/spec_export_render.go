@@ -188,7 +188,10 @@ func renderSpecExportHTML(shards []specExportShard) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("cannot read embedded export shell: %w", err)
 	}
-	tmpl, err := template.New("shell").Parse(string(raw))
+	// go:embed preserves checkout bytes: on a core.autocrlf=true checkout (the
+	// GitHub windows-latest image) shell.html embeds as CRLF, leaking \r into
+	// every export. Normalize so output is LF regardless of checkout style.
+	tmpl, err := template.New("shell").Parse(normalizeNewlines(string(raw)))
 	if err != nil {
 		return "", fmt.Errorf("cannot parse export shell template: %w", err)
 	}

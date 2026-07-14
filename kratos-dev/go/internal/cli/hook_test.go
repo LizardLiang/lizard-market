@@ -782,7 +782,7 @@ func TestTranscriptTestEvidence(t *testing.T) {
 			lines: []string{
 				"not json at all {{{",
 				userPromptLine("task"),
-				"", 
+				"",
 				toolUseLine(true, "Edit", map[string]any{"file_path": "src/a.rs"}),
 				`{"type":"assistant","message":{"content":"plain string content"}}`,
 				toolUseLine(true, "Bash", map[string]any{"command": "cargo test"}),
