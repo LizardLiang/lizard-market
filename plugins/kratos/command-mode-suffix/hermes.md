@@ -91,7 +91,7 @@ TARGET: [resolved target]
 MODE: standalone (not pipeline — no document, no status.json)
 TIER ASSIGNMENT: T1-T2 ONLY (Correct, Safe)
 
-First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also load language-specific rules for the file types under review and any .claude/.Arena/review-rules/ overrides.
+First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also load language-specific rules for the file types under review and every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/ — drafts are not standards).
 
 Review ONLY Tier 1 (Correct) and Tier 2 (Safe). Skip Tiers 3-8 completely — sibling agents own those.
 
@@ -116,7 +116,7 @@ TARGET: [resolved target]
 MODE: standalone (not pipeline — no document, no status.json)
 TIER ASSIGNMENT: T3-T5 ONLY (Clear, Minimal, Consistent)
 
-First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also load language-specific rules for the file types under review and any .claude/.Arena/review-rules/ overrides.
+First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also load language-specific rules for the file types under review and every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/ — drafts are not standards).
 
 Review ONLY Tier 3 (Clear), Tier 4 (Minimal), and Tier 5 (Consistent). Skip Tiers 1-2 and 6-8 completely — sibling agents own those.
 
@@ -137,7 +137,7 @@ TARGET: [resolved target]
 MODE: standalone (not pipeline — no document, no status.json)
 TIER ASSIGNMENT: T6-T8 ONLY (Resilient, Performant, Maintainable)
 
-First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also load language-specific rules for the file types under review and any .claude/.Arena/review-rules/ overrides.
+First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also load language-specific rules for the file types under review and every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/ — drafts are not standards).
 
 Review ONLY Tier 6 (Resilient), Tier 7 (Performant), and Tier 8 (Maintainable). Skip Tiers 1-5 completely — sibling agents own those.
 

@@ -166,12 +166,34 @@ Some findings can be auto-applied. Hermes must distinguish:
 
 ---
 
+## Project Rule File Format
+
+Active project rules live at `.claude/.Arena/review-rules/<topic>.md` — one file per topic (e.g. `conventions.md`, `go.md`, `security.md`). These are the rules Hermes and Ares both load; anything under `review-rules/proposals/` is a draft, never an active rule.
+
+Each rule is its own section:
+
+```markdown
+## <rule title>
+
+Statement: <checkable, one sentence — must be verifiable by reading a diff>
+Severity: BLOCKER / WARNING / SUGGESTION
+Example: <a real violation that created this rule, file:line or snippet>
+Scope: <globs and/or language this rule applies to, e.g. "*.go", "src/api/**">
+Date: <YYYY-MM-DD — when the rule was added>
+```
+
+**Concreteness gate:** a rule must be checkable against code. "Domain constants come from the model's exported consts, not re-declared as magic strings" is a rule. "Good API design" is not — it has no checkable statement. If a finding can't be reduced to a one-sentence check, it stays a human design-taste judgment call, not a rule.
+
+**Boundary:** design-taste findings (naming philosophy, abstraction shape, "is this the right pattern") stay with human review. Only concrete, checkable violations become rules.
+
+---
+
 ## Rule Proposal Protocol
 
 If Hermes observes a recurring pattern not covered by existing rules, it should:
 
 1. Write a proposal to `.claude/.Arena/review-rules/proposals/<date>-<short-description>.md`
-2. Format:
+2. Format (extends the active-rule format above with `Scope:` and `Date:` so a draft converts losslessly into an active rule on promotion):
 
    ```markdown
    # Rule Proposal: <title>
@@ -181,6 +203,8 @@ If Hermes observes a recurring pattern not covered by existing rules, it should:
    Proposed rule: <the rule in one sentence>
    Suggested tier: <1–8>
    Suggested severity: BLOCKER / WARNING / SUGGESTION
+   Scope: <globs and/or language this rule applies to>
+   Date: <YYYY-MM-DD>
    ```
 
 3. Mention the proposal in the review summary so the user can promote it

@@ -48,13 +48,19 @@ Group the lessons by `agent` and render the Overview format below (agent, lesson
    - **Fold** — stable, applies every time: goes into the agent's definition
    - **Keep** — still testing whether it holds: stays in the buffer, keeps injecting at spawn
    - **Discard** — stale, wrong, or superseded: remove without folding
+   - **Promote** — the lesson is review-standards-shaped (a checkable rule about code, not agent behavior): becomes an active rule in the current project's `.claude/.Arena/review-rules/`
 
 3. **Fold** the stable ones into `<KRATOS_ROOT>/agents/<god>.md`:
    - Edit the **body only** — append or extend a `## Learned Lessons` section near the end of the file
    - **NEVER touch the frontmatter** (name, description, model, tools) — it is codegen-owned; frontmatter changes require `make gen` in the dev tree and break the `make gen-check` CI gate
    - Rewrite each lesson as a direct instruction in the agent's voice, merging duplicates
 
-4. **Clear** every folded or discarded lesson from the buffer:
+3.5. **Promote** the review-standards-shaped ones directly to active rules:
+   - Before writing, check whether the lesson's recorded project matches the current working directory — if it differs, warn the user (a lesson captured in one project may not apply to the one you're standing in) and confirm before proceeding
+   - Write the rule into `.claude/.Arena/review-rules/<topic>.md` in the current project, using the format from `rules/default.md` (Project Rule File Format) — create the file/dir if absent, append a new `##` section if the file exists. Derive `<topic>` from the rule's code domain or language (e.g. `go.md`, `security.md`, `conventions.md`), matching the topic-file convention in `rules/default.md` — never name the file after the source agent (e.g. not `hermes.md`)
+   - Promotion writes directly to active (no proposals/ draft step) — retro's own user confirmation in step 2 is the confirmation a draft would otherwise wait for
+
+4. **Clear** every folded, discarded, or promoted lesson from the buffer:
 
    ```bash
    <kratos-bin> feedback rm <id>
@@ -62,7 +68,7 @@ Group the lessons by `agent` and render the Overview format below (agent, lesson
 
    Kept lessons stay untouched.
 
-5. **Report** using the Result format below: folded N, kept M, discarded K.
+5. **Report** using the Result format below: folded N, kept M, discarded K, promoted P.
 
 ### Marketplace-install caveat
 
@@ -106,20 +112,23 @@ When the buffer is empty: report that no god currently carries lessons, and that
 Folded into agents/<god>.md (## Learned Lessons):
   ✓ [lesson, as folded]
 
+Promoted to active rules (.claude/.Arena/review-rules/<topic>.md):
+  ★ [lesson, as promoted]
+
 Kept in buffer (still injecting at spawn):
   ~ [lesson]
 
 Discarded:
   ✗ [lesson]
 
-Folded 2 · Kept 1 · Discarded 1
+Folded 2 · Promoted 1 · Kept 1 · Discarded 1
 ```
 
 ---
 
 ## Kratos's Voice
 
-- **Decisive**: recommend fold/keep/discard for each lesson yourself; the user confirms or overrides
+- **Decisive**: recommend fold/keep/discard/promote for each lesson yourself; the user confirms or overrides
 - **Faithful**: folded lessons keep the user's intent, but write them as the agent's own standing orders
 - **Honest**: always surface the marketplace-install caveat before folding
 

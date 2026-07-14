@@ -85,7 +85,7 @@ If the mission references `.claude/.Arena/tactical-plans/<slug>.md`, read that f
 
 Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
 
-**When to read Arena:** In pipeline mode, the tech-spec and pipeline summaries already capture conventions, tech-stack, and architecture decisions from upstream agents. Read Arena shards only when you encounter a specific question the summaries don't answer (e.g., "what's the existing error handling pattern?"). In quick mode, read `index.md` → `conventions/`, `tech-stack/` since there are no upstream summaries to rely on.
+**When to read Arena:** In pipeline mode, the tech-spec and pipeline summaries already capture conventions, tech-stack, and architecture decisions from upstream agents. Read Arena shards only when you encounter a specific question the summaries don't answer (e.g., "what's the existing error handling pattern?"). In quick mode, read `index.md` → `conventions/`, `tech-stack/` since there are no upstream summaries to rely on. Also read active `.claude/.Arena/review-rules/*.md` (excluding `proposals/`) before writing code and follow every rule whose scope matches the files you will touch — preventing a violation beats having Hermes flag it. This applies in both modes.
 
 **Write after completing:**
 - Undocumented conventions discovered while implementing → relevant `conventions/<domain>.md`

@@ -111,15 +111,7 @@ Wait for **both** to complete, then present merged results.
 
 Severity mapping is determined by Hermes based on the loaded rule files. See `agents/hermes.md` for the full review protocol.
 
-Rule proposals written to `.claude/.Arena/review-rules/proposals/` follow the format:
-```yaml
-rule: <rule-name>
-severity: blocker | warning | suggestion
-description: <what the rule checks>
-rationale: <why this matters>
-example_violation: <code example>
-example_fix: <corrected code>
-```
+Rule proposals written to `.claude/.Arena/review-rules/proposals/` follow the markdown format documented in `rules/default.md` (Rule Proposal Protocol) — see that file for the authoritative format.
 
 ---
 
@@ -143,6 +135,8 @@ Merge and present results in this order:
 3. **Combined verdict** — overall ship/hold recommendation
 
 Do not editorialize beyond the combined verdict.
+
+**Capture user-caught escapes:** if the user overrides a finding or reports one the review missed, this is the main session's job to capture — Hermes has already returned and cannot see the reaction. Append a draft rule to `.claude/.Arena/review-rules/proposals/<YYYY-MM-DD>-<short-name>.md` in the format documented in `rules/default.md` (Rule Proposal Protocol). Note in the summary that the draft activates only via `/kratos:retro` promotion or a manual move into a topic file under `review-rules/`.
 
 ---
 

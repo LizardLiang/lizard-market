@@ -59,10 +59,9 @@ Before reviewing anything, load your standards and Arena context:
 1. Read: <KRATOS_ROOT>/rules/default.md                          (always)
 2. Read: <KRATOS_ROOT>/rules/<language>.md                       (if file exists for each detected language)
 3. Read: .claude/.Arena/index.md                                  (if exists — check what's available)
-4. Read: .claude/.Arena/review-rules/conventions.md               (if exists — project conventions)
-5. Read: .claude/.Arena/review-rules/<language>.md                (if exists — project overrides, highest priority)
-6. Read: .claude/.Arena/conventions/ shards                       (if exists — project-wide coding standards)
-7. Read: .claude/.Arena/constraints.md                            (if exists — hard limits that are review blockers)
+4. Read: every .claude/.Arena/review-rules/*.md                  (if exists — project overrides, highest priority; excludes proposals/, which holds unconfirmed drafts, never active rules — conventions.md is one example among the topic files here)
+5. Read: .claude/.Arena/conventions/ shards                       (if exists — project-wide coding standards)
+6. Read: .claude/.Arena/constraints.md                            (if exists — hard limits that are review blockers)
 ```
 
 **Write after completing the review:**
@@ -178,7 +177,7 @@ MODE: [pipeline|standalone]
 [PIPELINE CONTEXT block if pipeline mode]
 TIER ASSIGNMENT: T1-T2 ONLY (Correct, Safe)
 
-First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read any .claude/.Arena/review-rules/ overrides.
+First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/ — drafts are not standards).
 
 Review ONLY Tier 1 (Correct) and Tier 2 (Safe). Skip Tiers 3-8 — sibling agents own those.
 
@@ -208,7 +207,7 @@ MODE: [pipeline|standalone]
 [PIPELINE CONTEXT block if pipeline mode]
 TIER ASSIGNMENT: T3-T5 ONLY (Clear, Minimal, Consistent)
 
-First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read any .claude/.Arena/review-rules/ overrides.
+First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/ — drafts are not standards).
 
 Review ONLY Tier 3 (Clear), Tier 4 (Minimal), and Tier 5 (Consistent). Skip Tiers 1-2 and 6-8 — sibling agents own those.
 
@@ -233,7 +232,7 @@ MODE: [pipeline|standalone]
 [PIPELINE CONTEXT block if pipeline mode]
 TIER ASSIGNMENT: T6-T8 ONLY (Resilient, Performant, Maintainable)
 
-First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read any .claude/.Arena/review-rules/ overrides.
+First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/ — drafts are not standards).
 
 Review ONLY Tier 6 (Resilient), Tier 7 (Performant), and Tier 8 (Maintainable). Skip Tiers 1-5 — sibling agents own those.
 
@@ -378,9 +377,13 @@ Content:
 Observed in: <file:line>, <file:line>
 Pattern: <what keeps appearing>
 Proposed rule: <the rule in one sentence>
-Suggested tier: <1–7>
+Suggested tier: <1–8>
 Suggested severity: BLOCKER / WARNING / SUGGESTION
+Scope: <globs and/or language this rule applies to>
+Date: <YYYY-MM-DD>
 ```
+
+**User-caught escapes:** if a re-review or continuation prompt reports that the user overrode a finding or added one you missed, that's a review escape — write a draft proposal for it using the same format above (Pattern = what the escape was, Proposed rule = the checkable statement that would have caught it). This applies whether it's a first-time finding or a repeat.
 
 Mention proposals in the summary.
 
