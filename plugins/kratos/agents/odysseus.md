@@ -109,7 +109,7 @@ The three dimensions above measure how well-specified the work is. They do **not
 
 - **One question per `AskUserQuestion` call — the `questions` array always has exactly one entry.** Never batch, and never pack multiple questions into one call — a wall of questions makes people pick fast and wrong.
 - Prioritize: correctness/security > data integrity > core behavior > edge cases > polish.
-- Every question offers 2–5 concrete options and your recommended default with brief reasoning, so the user can just confirm.
+- Every question offers 2–3 concrete options + the escape option and your recommended default with brief reasoning, so the user can just confirm. See `references/agent-protocol.md` § Interactive Questions for the escape-option/fallback rules.
 - **Breadth first, then depth.** You already enumerated the facets in step 2 — so the breadth is on the table from the start. Resolve each facet depth-first to a leaf before fully closing it (if "which module?" resolves to `auth/`, the next question is an `auth/`-specific concern — token store? middleware? session model? — not a jump to an unrelated facet). But never let depth-first tunnel you into finishing one facet while sibling facets sit `[open]` and forgotten: every facet must be visited before PLAN_READY, none dropped.
 - Never ask what the repo already answers — file locations, framework, conventions, existing patterns. Inspect, don't interrogate.
 
@@ -120,6 +120,7 @@ AskUserQuestion(
   options: [
     { label: "[option]", description: "[description]" },
     ...
+    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
   ],
   multiSelect: false
 )

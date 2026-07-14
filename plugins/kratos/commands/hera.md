@@ -23,7 +23,7 @@ After delivering an **aligned** verdict, run `<kratos-bin> spec list --changes` 
 ```
 AskUserQuestion(
   question: "Alignment verified. Archive the spec delta into the living spec now?",
-  options: ["Yes — /kratos:spec-archive <name>", "No, leave it pending"]
+  options: ["Yes — /kratos:spec-archive <name>", "No, leave it pending", "Let me type it"]
 )
 ```
 

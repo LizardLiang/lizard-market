@@ -157,7 +157,7 @@ When forcing approval, use **AskUserQuestion** to confirm:
 ```
 AskUserQuestion(
   question: "⚠️ WARNING: Forcing approval despite issues (PRD Review verdict: Revisions Needed). This may cause problems downstream. Are you sure?",
-  options: ["Yes, approve anyway (I accept the risk)", "No, let me address the issues first"]
+  options: ["Yes, approve anyway (I accept the risk)", "No, let me address the issues first", "Let me type it"]
 )
 ```
 

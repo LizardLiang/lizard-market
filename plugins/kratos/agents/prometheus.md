@@ -89,7 +89,7 @@ Run this loop only when PLAN_READY is false after Step 2.
 Questioning rules:
 - **One question per `AskUserQuestion` call** — never batch; never pack multiple entries into one call's `questions` array
 - Target the lowest-scoring dimension first
-- Every question must include 2–5 concrete options and your recommended answer with brief reasoning
+- Every question must include 2–3 concrete options + the escape option and your recommended answer with brief reasoning. See `references/agent-protocol.md` § Interactive Questions for the escape-option/fallback rules.
 - Questions must be specific to their project context (not generic)
 - Avoid asking what you already know from Arena or in-flight features
 
@@ -105,6 +105,7 @@ AskUserQuestion(
   options: [
     { label: "[option]", description: "[description]" },
     ...
+    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
   ],
   multiSelect: false
 )

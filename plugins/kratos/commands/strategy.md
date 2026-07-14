@@ -61,7 +61,8 @@ AskUserQuestion(
   options: [
     { label: "Approve & save", description: "Save to .claude/.Arena/plans/ and start on Priority 1" },
     { label: "Adjust priorities", description: "Re-order or swap items" },
-    { label: "Re-run with different answers", description: "Start the interview over" }
+    { label: "Re-run with different answers", description: "Start the interview over" },
+    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
   ]
 )
 ```

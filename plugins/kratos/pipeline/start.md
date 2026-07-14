@@ -18,24 +18,28 @@ Initialize a new feature and prepare the battlefield for the specialist agents.
 
 ### Step 1: Gather Intel
 
-Use **AskUserQuestion** to gather information:
+Free-text intent (feature name, description) is asked in plain prose, not via `AskUserQuestion` with an empty `options` array — an empty options list is schema-invalid and the tool has no free-text mode. Ask each in prose and end the turn, waiting for the typed reply, one at a time:
 
 ```
-AskUserQuestion(
-  question: "What should we call this feature? (JIRA ticket ID or descriptive name)",
-  options: []  // Free text input
-)
+What should we call this feature? (JIRA ticket ID or descriptive name)
+```
 
-AskUserQuestion(
-  question: "Brief description - what does this feature do? (one sentence)",
-  options: []  // Free text input
-)
+Wait for the reply, then:
 
+```
+Brief description - what does this feature do? (one sentence)
+```
+
+Wait for the reply, then use **AskUserQuestion** for the priority (a real options question). Capped at 3 substantive options + the escape option (tool max 4) — P2/P3 merge into one option, with the escape option available for an exact level:
+
+```
 AskUserQuestion(
   question: "What priority is this feature?",
-  options: ["P0 (Critical)", "P1 (High)", "P2 (Medium)", "P3 (Low)"]
+  options: ["P0 (Critical)", "P1 (High)", "P2/P3 (Medium/Low)", "Let me type it"]
 )
 ```
+
+If the user selects "P2/P3 (Medium/Low)", ask one plain-prose follow-up — "P2 or P3?" — end the turn, and write only the atomic reply. **Never write the merged label into status.json**: `status.json`, the Go CLI, and `status.md` all expect exactly one of `P0`/`P1`/`P2`/`P3`.
 
 ### Step 2: Create the Battlefield
 

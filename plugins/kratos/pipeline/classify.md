@@ -74,10 +74,11 @@ Substantial new functionality requiring design:
 - Requires PRD-level requirements discussion
 
 ### UNCLEAR
-Use `AskUserQuestion` with these options:
+Use `AskUserQuestion` with these options (see `references/agent-protocol.md` § Interactive Questions):
 - "Information request (inquiry mode)"
 - "Quick task (direct agent)"
 - "Full feature pipeline (PRD → Tech Spec → Implementation)"
+- "Let me type it"
 
 ---
 

@@ -67,6 +67,19 @@ Optional files (`context.md`, `decomposition.md`, Arena shards, language-specifi
 
 ---
 
+## Interactive Questions (AskUserQuestion)
+
+Canonical rule for every `AskUserQuestion` call across kratos agents, commands, and pipeline prompts:
+
+1. **Escape option required.** Every `options` list ends with an explicit escape entry: `{ label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }`. Never rely on a client-provided "Other" choice — treat it as absent.
+2. **Escape selected → prose fallback.** If the user picks "Let me type it", end the turn, restate the question in plain prose, and wait for the typed reply.
+3. **Decline/interrupt/error → prose fallback, once.** If the tool call is declined, interrupted, or errors, ask the same question one time in plain prose and end the turn. Never immediately re-fire the tool for that question.
+4. **Option cap: 3 substantive + 1 escape.** The tool schema caps options at 4 total, so cap substantive (non-escape) options at 3 and reserve the 4th slot for the escape option.
+5. **Never call with an empty `options` array.** An empty options list means the intent is free text — ask in plain prose instead of calling the tool with no options.
+6. **Subagent caveat.** `AskUserQuestion` only reaches the user from the top-level session. If you find yourself running as a spawned subagent (questions won't surface), don't fake a conversation — flag the gap as an assumption and note that clarification was unavailable instead of calling the tool.
+
+---
+
 ## Spawn Prompt Fields (recommended)
 
 Alongside the usual `MISSION:` / `FEATURE:` / `FOLDER:` fields, orchestrators SHOULD include two scope-control fields when spawning agents that write files:

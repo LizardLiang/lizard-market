@@ -24,7 +24,7 @@ After the implementation is complete (tests green, implementation-notes written)
 ```
 AskUserQuestion(
   question: "Implementation is done. Archive the spec delta into the living spec now?",
-  options: ["Yes — /kratos:spec-archive <slug>", "No, leave it pending"]
+  options: ["Yes — /kratos:spec-archive <slug>", "No, leave it pending", "Let me type it"]
 )
 ```
 

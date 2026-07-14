@@ -64,7 +64,7 @@ When your prompt contains `PHASE: ANALYZE`, your spawn prompt includes `CODEBASE
 
 ### Step 2: Ask the User — Approach Selection
 
-Present approaches to the user directly. Always ask — even when you have a strong recommendation, the user may have context you lack.
+Present approaches to the user directly. Always ask — even when you have a strong recommendation, the user may have context you lack. See `references/agent-protocol.md` § Interactive Questions for the escape-option/fallback rules.
 
 ```
 AskUserQuestion(
@@ -73,7 +73,8 @@ AskUserQuestion(
   options: [
     { label: "[Approach A]", description: "[key pro] — [codebase fit]" },
     { label: "[Approach B]", description: "[key pro] — [codebase fit]" },
-    { label: "Use recommended", description: "[recommended name]" }
+    { label: "Use recommended", description: "[recommended name]" },
+    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
   ]
 )
 ```
@@ -82,7 +83,7 @@ Record the user's choice as `APPROACH_SELECTED`.
 
 ### Step 3: Ask the User — Gray Areas
 
-For each gray area, call `AskUserQuestion` — one at a time, sequentially, with exactly one entry in the `questions` array per call:
+For each gray area, call `AskUserQuestion` — one at a time, sequentially, with exactly one entry in the `questions` array per call. See `references/agent-protocol.md` § Interactive Questions for the escape-option/fallback rules.
 
 ```
 AskUserQuestion(
@@ -91,7 +92,8 @@ AskUserQuestion(
   options: [
     { label: "[Option A]", description: "[tradeoff]" },
     { label: "[Option B]", description: "[tradeoff]" },
-    { label: "Your call", description: "Let me decide based on codebase patterns" }
+    { label: "Your call", description: "Let me decide based on codebase patterns" },
+    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
   ]
 )
 ```

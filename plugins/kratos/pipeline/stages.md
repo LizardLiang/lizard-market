@@ -87,22 +87,20 @@ After Stage 2 APPROVED verdict, check PRD complexity before spawning Hephaestus.
 - External integrations
 - Complex data relationships
 
-If signals suggest a complex feature, offer decomposition:
+If signals suggest a complex feature, offer decomposition. Capped at 3 substantive options + the escape option (tool max 4) — see `references/agent-protocol.md` § Interactive Questions:
 
 ```
 AskUserQuestion(
   question: "This feature touches [N] areas with [description]. Decompose into phases before tech spec?",
   options: [
-    { label: "Yes, local files", description: "Create decomposition.md in the feature folder" },
-    { label: "Yes, Notion", description: "Create native Notion page with task database" },
-    { label: "Yes, Linear", description: "Create Linear project with phase issues" },
-    { label: "Yes, multiple targets", description: "Output to local files + Notion/Linear" },
-    { label: "No, proceed", description: "Skip decomposition, go straight to discuss/tech spec" }
+    { label: "Yes, decompose", description: "Choose the output target (local/Notion/Linear) next" },
+    { label: "No, proceed", description: "Skip decomposition, go straight to discuss/tech spec" },
+    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
   ]
 )
 ```
 
-If user chooses decomposition:
+If user chooses decomposition, ask the output-target follow-up question (same options as `commands/decompose.md` Step 2: local files only, Notion, Linear, or free text) before spawning Daedalus:
 
 ```
 Task(
@@ -128,6 +126,8 @@ This decomposition enriches the feature — downstream agents (Hephaestus, Artem
 ```
 
 If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status.json. See `<KRATOS_ROOT>/references/status-json-schema.md`.
+
+If user picks "Let me type it": read the free-text reply before re-asking anything. If it already implies a yes/no plus a target (e.g. "local + Notion", "skip it", "yes, Linear"), treat that as the equivalent structured choice and proceed directly — spawn Daedalus with the stated target, or skip per the No branch above. Only ask a follow-up if the reply is genuinely ambiguous about yes/no or target.
 
 ---
 
