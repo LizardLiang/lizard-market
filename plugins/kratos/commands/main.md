@@ -251,6 +251,8 @@ Feature [name] is COMPLETE! (ship gate: VERIFIED)
 ✅ code-review.md  ✅ risk-analysis.md
 ```
 
+Session done? `/kratos:wrap` writes a handoff so the next session boots with full context.
+
 ---
 
 ## Gate Enforcement

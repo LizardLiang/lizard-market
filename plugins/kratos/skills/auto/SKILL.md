@@ -43,6 +43,7 @@ This skill handles only the clearly non-pipeline utilities directly. Everything 
 |-------------|----------|-------|
 | "status", "progress" | Status dashboard | `Skill(skill: "kratos:status")` |
 | "where did we stop", "last session", "resume" | Recall mode | `Skill(skill: "kratos:recall")` |
+| "wrap", "wrap up the session", "write a handoff", "end session" | Wrap mode | `Skill(skill: "kratos:wrap")` |
 | "greet", "motivate", "inspire me" | Greet mode | `Skill(skill: "kratos:greet")` |
 | "add task", "my todos", "mark done" | Spawn Ananke | `Task(subagent_type: "kratos:ananke")` |
 | "what does X do", question about project/code/git | Inquiry mode | `Skill(skill: "kratos:inquiry")` |

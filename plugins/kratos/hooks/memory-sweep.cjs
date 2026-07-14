@@ -14,10 +14,11 @@
  *
  * This is a session-wide safety net: Iris only sweeps during its own missions,
  * so facts revealed during ordinary (non-Iris) Kratos work would otherwise be
- * lost. Guarded to run at most once per session, to skip sessions where Iris
- * already swept (transcript contains `IRIS COMPLETE`), and to fail open
- * whenever the hook contract, transcript, or binary is unavailable — see
- * hooks/README.md.
+ * lost. Guarded to run at most once per session, to skip sessions where the
+ * sweep already ran inline (transcript contains `IRIS COMPLETE` or
+ * `KRATOS WRAP COMPLETE` — /kratos:wrap runs this same sweep before printing
+ * its marker), and to fail open whenever the hook contract, transcript, or
+ * binary is unavailable — see hooks/README.md.
  */
 
 const fs = require('fs');
@@ -128,6 +129,10 @@ process.stdin.on('end', () => {
 
   // Iris sweeps her own missions before IRIS COMPLETE — don't double-sweep.
   if (transcript.includes('IRIS COMPLETE')) return;
+
+  // /kratos:wrap runs this same sweep inline before printing its marker —
+  // don't double-sweep.
+  if (transcript.includes('KRATOS WRAP COMPLETE')) return;
 
   // No CLI, no sweep.
   const kratosBin = resolveBinary();

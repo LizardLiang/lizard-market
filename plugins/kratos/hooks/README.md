@@ -97,6 +97,7 @@ any error just drops the lessons block).
 | Marker `~/.kratos/sweeps/<session_id>` exists | Already swept this session |
 | Transcript has fewer than 6 user messages | Session too short to be worth a sweep |
 | Transcript contains `IRIS COMPLETE` | Iris already swept her own mission — don't double-sweep |
+| Transcript contains `KRATOS WRAP COMPLETE` | `/kratos:wrap` already swept inline before printing its marker — don't double-sweep |
 | Transcript file missing or unreadable | Fail open — never block blind |
 | `kratos` binary unresolvable | No CLI, no sweep |
 
