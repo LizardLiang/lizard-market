@@ -24,7 +24,8 @@ The plugin registers hooks via `hooks.json`. Claude Code automatically loads the
 
 | Hook | Trigger | Action |
 |------|---------|--------|
-| `SessionStart` | Claude Code starts | Creates memory session |
+| `UserPromptSubmit` | Every prompt | Detects Kratos god keywords (skill activation) and resume phrases (on-demand session-handoff injection, once per session — see below) |
+| `SessionStart` | Claude Code starts | Creates memory session; prints a one-line notice if a fresh handoff exists (content stays on-demand, not injected here) |
 | `PostToolUse` | Task/Write/Edit tools | Records agent spawns & file changes |
 | `Stop` | Claude Code exits | Ends session with summary, then runs the transcript memory sweep |
 
@@ -33,10 +34,24 @@ The plugin registers hooks via `hooks.json`. Claude Code automatically loads the
 | File | Purpose |
 |------|---------|
 | `hooks.json` | Hook registration (loaded by Claude Code) |
-| `session-start.cjs` | Starts memory session |
+| `launch.cjs` | Dispatches `UserPromptSubmit`/`PostToolUse`/etc. to the Go binary's `hook` subcommands (e.g. `hook prompt-submit`) |
+| `session-start.cjs` | Starts memory session; prints a one-line handoff notice (no content) |
 | `tool-use.cjs` | Records tool usage |
 | `session-end.cjs` | Ends session with summary |
 | `memory-sweep.cjs` | Once-per-session transcript sweep for durable user facts (see below) |
+
+## On-Demand Session Handoff (`hook prompt-submit`)
+
+`/kratos:wrap` writes `.claude/.Arena/handoff.md`. Rather than auto-injecting its content into every fresh session, the content is injected on demand by the Go `UserPromptSubmit` hook (`kratos-dev/go/internal/cli/hook.go`, `handoffInjectionContext`):
+
+- **Trigger**: the prompt matches a resume phrase (`continue`, `resume`, `keep going`, `where were we`, `where did we stop`, `pick up` — word-boundary, case-insensitive, checked against the same sanitized text used for god-keyword matching).
+- **Freshness**: same 7-day mtime gate as the `session-start.cjs` notice and `/kratos:wrap`.
+- **Once per session**: a marker file at `~/.kratos/handoff-injections/<session_id>` suppresses repeat injections; markers older than 7 days are pruned on write (mirrors `memory-sweep.cjs`'s `pruneOldMarkers`). No `session_id` in the payload → the guard is skipped (always injects) rather than silently dropping the handoff.
+- **Byte cap**: content is capped at 8KB without splitting a multi-byte UTF-8 rune (`capUTF8Bytes`).
+- **Merged with keyword injection**: a god-keyword match and a resume-phrase match are independent — either, both, or neither may fire; the hook merges both contexts into one `additionalContext` and only passes the prompt through untouched when both are empty. (A bare "continue" with no god keyword still injects the handoff.)
+- **Fails open** on every error — a missing/stale/unreadable handoff or unresolvable `cwd` degrades to "no injection." A marker I/O failure does *not* suppress this run's injection; it only means the once-per-session guard may not take effect next time. No error path ever blocks the prompt.
+
+`/kratos:recall` is the explicit manual path to the same handoff file — it reads `handoff.md` directly (with or without the binary) and works regardless of resume-phrase detection. Note recall presents the file uncapped, whereas the on-demand hook caps injected content at 8KB (`capUTF8Bytes`), so the two paths can differ for an unusually large handoff.
 
 ## Global Storage
 

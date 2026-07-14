@@ -135,11 +135,20 @@ Or for global:
 
 If the Go binary is unavailable, fall back to scanning `.claude/feature/*/status.json` files directly using Glob and Read tools.
 
-### Step 3: Parse and Present
+### Step 3: Check for a session handoff
 
-Parse the JSON response and format it according to the templates above.
+Check whether `.claude/.Arena/handoff.md` exists and is less than 7 days old (same freshness gate as `/kratos:wrap` and the on-demand injection hook). This step works with or without the Go binary — it's a plain file check:
 
-### Step 4: Offer Continuation
+- Use Glob/Read (or `test -f` via Bash) to check `.claude/.Arena/handoff.md` exists.
+- If it exists, check its modification time is within 7 days.
+- If fresh, Read the file and present its content alongside the recall summary (see Response Format below) — this is the explicit manual path to the same content the resume-phrase hook injects on demand.
+- If missing or stale, skip silently — no mention of it in the output.
+
+### Step 4: Parse and Present
+
+Parse the JSON response and format it according to the templates above. If Step 3 found a fresh handoff, include it under a `## Session Handoff` heading after the pipeline summary.
+
+### Step 5: Offer Continuation
 
 If there's an incomplete feature, offer to continue:
 
@@ -263,8 +272,10 @@ If the binary is unavailable, use Glob to find `.claude/feature/*/status.json` a
 
 2. **Parse the JSON output**
 
-3. **Format and display** according to the templates above
+3. **Check for a session handoff** — Glob/Read `.claude/.Arena/handoff.md`; if it exists and is <7 days old, Read its content for Step 4. Works with or without the binary.
 
-4. **Offer continuation** if there's an incomplete feature
+4. **Format and display** according to the templates above, including the handoff content (if found in Step 3) under a `## Session Handoff` heading
+
+5. **Offer continuation** if there's an incomplete feature
 
 **Now execute the recall query and present the results.**

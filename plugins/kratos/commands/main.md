@@ -251,7 +251,7 @@ Feature [name] is COMPLETE! (ship gate: VERIFIED)
 ✅ code-review.md  ✅ risk-analysis.md
 ```
 
-Session done? `/kratos:wrap` writes a handoff so the next session boots with full context.
+Session done? `/kratos:wrap` writes a handoff — next session gets a one-line notice, and saying "continue" (or `/kratos:recall`) loads it on demand.
 
 ---
 

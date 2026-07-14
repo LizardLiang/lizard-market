@@ -141,28 +141,22 @@ function formatMemories() {
 }
 
 // Session handoff written by /kratos:wrap — .claude/.Arena/handoff.md.
-// Read-side of the wrap flow: injected fresh (<7 days old) so a wrap -> /clear
-// cycle boots the next session with full working context. Silent on any
+// Read-side of the wrap flow. Content injection now happens on demand in the Go
+// UserPromptSubmit hook (resume-phrase detection, once per session — see
+// hook.go handoffInjectionContext) — this only stats the file and prints a
+// one-line notice pointing at "continue" / /kratos:recall. Silent on any
 // failure (missing file, unreadable, stale) — never blocks session start.
 const HANDOFF_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const HANDOFF_MAX_BYTES = 8 * 1024; // fail-safe cap; template targets ~80 lines
 
-function formatHandoff() {
+function formatHandoffNotice() {
   try {
     const handoffPath = path.join(cwd, ".claude", ".Arena", "handoff.md");
-    if (!fs.existsSync(handoffPath)) return null;
-
     const stats = fs.statSync(handoffPath);
     const age = Date.now() - stats.mtimeMs;
     if (age >= HANDOFF_MAX_AGE_MS) return null;
 
-    let content = fs.readFileSync(handoffPath, "utf-8");
-    if (Buffer.byteLength(content, "utf-8") > HANDOFF_MAX_BYTES) {
-      content = content.slice(0, HANDOFF_MAX_BYTES) + "\n... (truncated)";
-    }
-
     const timeAgo = formatTimeAgo(stats.mtimeMs);
-    return `\n## Session handoff (last session, ${timeAgo})\n\n${content}\n`;
+    return `Kratos: handoff from last session (${timeAgo}) — say "continue" or /kratos:recall to load it`;
   } catch (e) {
     return null;
   }
@@ -312,13 +306,14 @@ function main() {
     console.log(memoriesMsg);
   }
 
-  // Inject a fresh session handoff (written by /kratos:wrap) if one exists.
-  // Placed here — BEFORE the session-reuse early return below — because a
-  // wrap -> /clear cycle reuses the same active-session.json (same project,
-  // <1hr old), which would otherwise return before any handoff logic ran.
-  const handoffMsg = formatHandoff();
-  if (handoffMsg) {
-    console.log(handoffMsg);
+  // Print a one-line notice if a fresh session handoff (written by /kratos:wrap)
+  // exists — no content here, just a pointer. Placed here — BEFORE the
+  // session-reuse early return below — because a wrap -> /clear cycle reuses
+  // the same active-session.json (same project, <1hr old), which would
+  // otherwise return before this ran.
+  const handoffNotice = formatHandoffNotice();
+  if (handoffNotice) {
+    console.log(handoffNotice);
   }
 
   // Check for existing active session

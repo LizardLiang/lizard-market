@@ -235,7 +235,7 @@ Commands are the primary interface. Each routes directly to the right agent — 
 | `/kratos:decompose` | **Decompose** — Break features into phases (files, Notion, Linear) | Large feature needs phased delivery |
 | `/kratos:audit` | **Pre-Ship Audit** — Security, breaking changes, CVEs, scalability | Before release or deploy |
 | `/kratos:recall` | **Session Resume** — Where did we stop? (uses persistent memory) | Picking up after a break |
-| `/kratos:wrap` | **Session Wrap** — Writes a handoff for the next session, runs the memory sweep inline | Before `/clear`, splitting a long session |
+| `/kratos:wrap` | **Session Wrap** — Writes a handoff loaded on demand (say "continue" or `/kratos:recall`), runs the memory sweep inline | Before `/clear`, splitting a long session |
 | `/kratos:status` | **Battlefield View** — Status of all active features | Checking pipeline progress |
 | `/kratos:spec-view` | **Spec View** — Living specs by capability, plus pending deltas | Checking what the system SHALL do |
 | `/kratos:spec-archive` | **Spec Archive** — Promote a feature's spec delta into its living spec | After implementation, anytime (doesn't require Hera) |

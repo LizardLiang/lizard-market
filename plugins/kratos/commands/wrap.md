@@ -107,7 +107,7 @@ Feedback: [N] lesson(s) saved for [agent] / none
 
 KRATOS WRAP COMPLETE
 
-Ready to /clear — the next session will pick up this handoff automatically.
+Ready to /clear — next session prints a one-line notice; say "continue" (or run /kratos:recall) to load this handoff.
 ```
 
 ---

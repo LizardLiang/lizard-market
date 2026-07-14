@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 )
@@ -68,6 +70,27 @@ func init() {
 			re:      regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(kw) + `\b`),
 		}
 	}
+}
+
+// resumePhraseREs match phrases signaling the user wants to resume prior work. Matched
+// against the same sanitizePrompt() output as god keywords (word-boundary,
+// case-insensitive), so code-fenced or quoted mentions don't false-positive.
+var resumePhraseREs = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)\bcontinue\b`),
+	regexp.MustCompile(`(?i)\bresume\b`),
+	regexp.MustCompile(`(?i)\bkeep\s+going\b`),
+	regexp.MustCompile(`(?i)\bwhere\s+were\s+we\b`),
+	regexp.MustCompile(`(?i)\bwhere\s+did\s+we\s+stop\b`),
+	regexp.MustCompile(`(?i)\bpick\s+up\b`),
+}
+
+func matchesResumePhrase(text string) bool {
+	for _, re := range resumePhraseREs {
+		if re.MatchString(text) {
+			return true
+		}
+	}
+	return false
 }
 
 // Patterns to strip before keyword matching (prevent false positives)
@@ -250,21 +273,28 @@ func handlePromptSubmit() error {
 		return outputPassthrough()
 	}
 
+	return outputJSON(promptSubmitIn(raw))
+}
+
+// promptSubmitIn computes the UserPromptSubmit hook response for a raw JSON payload.
+// Factored out from handlePromptSubmit so tests can exercise the merged
+// keyword+handoff logic without redirecting os.Stdin.
+func promptSubmitIn(raw []byte) hookOutput {
 	var input hookInput
 	if err := json.Unmarshal(raw, &input); err != nil {
 		debugLog("json parse error: %v", err)
-		return outputPassthrough()
+		return passthroughOutput()
 	}
 
 	prompt := input.Prompt
 	if prompt == "" {
-		return outputPassthrough()
+		return passthroughOutput()
 	}
 
 	// Direct Kratos skill invocations handle their own agent routing via CLI —
 	// suppress auto-routing injection so the skill is not double-routed through auto/quick.
 	if strings.HasPrefix(strings.TrimSpace(prompt), "/kratos:") {
-		return outputPassthrough()
+		return passthroughOutput()
 	}
 
 	// Sanitize: strip code blocks, URLs, paths, system reminders
@@ -273,24 +303,190 @@ func handlePromptSubmit() error {
 	// Match keywords (case-insensitive, word-boundary)
 	matched := matchKeywords(cleaned)
 
-	if len(matched) == 0 {
-		return outputPassthrough()
+	var keywordContext string
+	if len(matched) > 0 {
+		debugLog("matched keywords: %v", matched)
+		keywordContext = buildInjectionContext(matched)
 	}
 
-	debugLog("matched keywords: %v", matched)
+	// Independent of keyword matching — a bare "continue" must inject the handoff
+	// even when no god keyword was mentioned. Never let one context's absence
+	// suppress the other.
+	handoffContext := handoffInjectionContext(cleaned, input)
 
-	// Build injection context
-	context := buildInjectionContext(matched)
+	merged := mergeContexts(keywordContext, handoffContext)
+	if merged == "" {
+		return passthroughOutput()
+	}
 
-	output := hookOutput{
+	return hookOutput{
 		Continue: true,
 		HookSpecificOutput: &hookSpecificOutput{
 			HookEventName:     "UserPromptSubmit",
-			AdditionalContext: context,
+			AdditionalContext: merged,
 		},
 	}
+}
 
-	return outputJSON(output)
+// mergeContexts joins non-empty context blocks with a blank-line separator. Returns ""
+// when every part is empty, which signals the caller to pass the prompt through untouched.
+func mergeContexts(parts ...string) string {
+	var nonEmpty []string
+	for _, p := range parts {
+		if p != "" {
+			nonEmpty = append(nonEmpty, p)
+		}
+	}
+	return strings.Join(nonEmpty, "\n\n")
+}
+
+const (
+	handoffMaxAge       = 7 * 24 * time.Hour
+	handoffMaxBytes     = 8 * 1024
+	handoffMarkerMaxAge = 7 * 24 * time.Hour
+)
+
+// handoffInjectionContext returns the on-demand session-handoff injection for a
+// resume-phrase prompt, or "" when no injection should happen: no resume phrase
+// matched, no handoff file, the handoff is stale (>=7 days), or it was already
+// injected this session. Fails open on every error: a missing/unreadable handoff
+// file or unresolvable cwd degrades to "no injection"; a marker I/O failure does NOT
+// suppress this run's injection — it only means the once-per-session guard may not
+// take effect on the next matching prompt. No error path can block the prompt.
+func handoffInjectionContext(cleanedPrompt string, input hookInput) string {
+	if !matchesResumePhrase(cleanedPrompt) {
+		return ""
+	}
+
+	cwd := input.Cwd
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
+	if cwd == "" {
+		return ""
+	}
+
+	handoffPath := filepath.Join(cwd, ".claude", ".Arena", "handoff.md")
+	info, err := os.Stat(handoffPath)
+	if err != nil {
+		return ""
+	}
+	if time.Since(info.ModTime()) >= handoffMaxAge {
+		return ""
+	}
+
+	// Once-per-session guard. A missing session_id can't be keyed, so degrade to
+	// "always inject" rather than silently dropping the handoff every time.
+	if input.SessionID != "" && handoffMarkerExists(input.SessionID) {
+		return ""
+	}
+
+	content, err := os.ReadFile(handoffPath)
+	if err != nil {
+		return ""
+	}
+
+	capped := capUTF8Bytes(string(content), handoffMaxBytes)
+
+	if input.SessionID != "" {
+		markHandoffInjected(input.SessionID)
+	}
+
+	return fmt.Sprintf(
+		"[KRATOS SESSION HANDOFF]\n\nResume phrase detected — injecting the handoff from last session (%s). Use /kratos:recall for the full picture.\n\n%s",
+		formatHandoffAge(info.ModTime()), capped,
+	)
+}
+
+// capUTF8Bytes truncates s to at most maxBytes bytes without splitting a multi-byte
+// UTF-8 rune. Walks back from the byte cut point to the last full rune boundary, then
+// strings.ToValidUTF8 as a second safety net for any remaining partial rune.
+func capUTF8Bytes(s string, maxBytes int) string {
+	if len(s) <= maxBytes {
+		return s
+	}
+	b := s[:maxBytes]
+	for len(b) > 0 && !utf8.RuneStart(b[len(b)-1]) {
+		b = b[:len(b)-1]
+	}
+	b = strings.ToValidUTF8(b, "")
+	return b + "\n... (truncated)"
+}
+
+// formatHandoffAge renders a human-readable "N units ago" string for the handoff
+// injection notice.
+func formatHandoffAge(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%d minutes ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%d hours ago", int(d.Hours()))
+	case d < 7*24*time.Hour:
+		return fmt.Sprintf("%d days ago", int(d.Hours()/24))
+	default:
+		return fmt.Sprintf("%d weeks ago", int(d.Hours()/24/7))
+	}
+}
+
+// handoffMarkerDir returns ~/.kratos/handoff-injections, or "" if the home directory
+// can't be resolved (fails open — caller treats "" as "no guard, always inject").
+func handoffMarkerDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".kratos", "handoff-injections")
+}
+
+func handoffMarkerExists(sessionID string) bool {
+	dir := handoffMarkerDir()
+	if dir == "" {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(dir, sessionID))
+	return err == nil
+}
+
+// markHandoffInjected writes the once-per-session marker and prunes markers older
+// than 7 days (mirrors memory-sweep.cjs's pruneOldMarkers). Best-effort: any failure
+// is logged and swallowed — a marker write failure must still let this run's
+// injection through, never block the prompt.
+func markHandoffInjected(sessionID string) {
+	dir := handoffMarkerDir()
+	if dir == "" {
+		return
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		debugLog("handoff marker: mkdir failed: %v", err)
+		return
+	}
+	path := filepath.Join(dir, sessionID)
+	if err := os.WriteFile(path, []byte(fmt.Sprintf("%d", time.Now().Unix())), 0644); err != nil {
+		debugLog("handoff marker: write failed: %v", err)
+	}
+	pruneHandoffMarkers(dir)
+}
+
+// pruneHandoffMarkers removes marker files older than 7 days so the directory doesn't
+// grow forever. Best-effort — errors are ignored.
+func pruneHandoffMarkers(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	cutoff := time.Now().Add(-handoffMarkerMaxAge)
+	for _, e := range entries {
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if info.ModTime().Before(cutoff) {
+			_ = os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
 }
 
 func sanitizePrompt(prompt string) string {
@@ -343,11 +539,14 @@ func buildInjectionContext(matched []string) string {
 	return sb.String()
 }
 
+// passthroughOutput is the hookOutput signaling "no injection, let the prompt through
+// unchanged."
+func passthroughOutput() hookOutput {
+	return hookOutput{Continue: true}
+}
+
 func outputPassthrough() error {
-	output := hookOutput{
-		Continue: true,
-	}
-	return outputJSON(output)
+	return outputJSON(passthroughOutput())
 }
 
 func outputJSON(output hookOutput) error {
