@@ -35,13 +35,13 @@ kratos-dev/publish.sh
 
 ## Architecture Overview
 
-Kratos is a **Claude Code plugin** (`.claude-plugin/plugin.json`) that orchestrates specialist subagents through an 11-stage feature pipeline. It has two runtime layers:
+Kratos is a **Claude Code plugin** (`.claude-plugin/plugin.json`) that orchestrates specialist subagents through a 9-stage feature pipeline (stages 1–9, plus optional Stage 0 research). It has two runtime layers:
 
 ### 1. Markdown Layer (the plugin brain)
 - **`agents/`** — Agent definitions (one `.md` per god-agent). Each file is a subagent prompt loaded by Claude Code's Agent tool via `subagent_type: "kratos:<name>"`.
 - **`skills/`** — Skill definitions invoked via `/kratos:<command>`. The `auto/SKILL.md` is the main router that classifies user intent and dispatches to the correct command.
 - **`commands/`** — Slash command implementations (`main.md`, `quick.md`, `review.md`, etc. are hand-written). The 19 god launchers (`commands/<god>.md`, e.g. `ares.md`, `athena.md`) are **generated** from `agents/*.md` frontmatter by `kratos-dev/go/cmd/gencommands` — see `kratos-dev/codegen/README.md`. Never hand-edit a launcher carrying `generated: true`; run `make gen` instead.
-- **`pipeline/`** — Stage orchestration logic. `stages.md` has exact Agent tool invocations for each stage (0-11). `next.md` handles stage progression. `classify.md` routes requests to quick-path vs full pipeline.
+- **`pipeline/`** — Stage orchestration logic. `stages.md` has exact Agent tool invocations for each stage (0–9). `next.md` handles stage progression. `classify.md` routes requests to quick-path vs full pipeline.
 - **`templates/`** — Document templates agents fill in (PRD, tech spec, test plan, code review, etc.).
 - **`rules/`** — Code review standards (tiered). `default.md` is the baseline; language-specific files (e.g., `react.md`) auto-load based on file types.
 - **`references/`** — Protocol docs agents read: `agent-protocol.md` (shared procedures), `arena-protocol.md` (knowledge base read/write rules), `status-json-schema.md`.

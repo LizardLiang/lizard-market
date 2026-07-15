@@ -2,7 +2,7 @@
 
 > *「我就是眾神所造之物。」* — 現在，眾神為**你**服務。
 
-![version](https://img.shields.io/badge/version-2.87.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-11%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-2.97.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **別再交付 AI 垃圾。** Kratos 讓你的功能走一條真正的流水線：PM 撰寫 PRD、魔鬼代言人（**Nemesis**）逐條挑戰、架構師寫出技術規格、對齊門（**Hera**）驗證實作確實對得上你**真正**要的東西。具名代理人、由 Hooks 強制執行的評審門、跨 session 的持久記憶 — 不是又一堆 subagent。
 

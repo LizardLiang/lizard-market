@@ -1,6 +1,6 @@
 ---
 name: stages
-description: Exact Task invocations for each pipeline stage (0–11)
+description: Exact Task invocations for each pipeline stage (0–9)
 ---
 
 # Pipeline Stage Invocations

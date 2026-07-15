@@ -55,7 +55,7 @@ Quick mode has **no requirements-elicitation phase** — whatever you route is b
 
 **Information requests**: if the request is information-seeking (what/who/when/where questions, best practices, documentation lookup) rather than work-doing, redirect to `/kratos:inquiry`. See `<KRATOS_ROOT>/commands/inquiry.md` for its classification table.
 
-> The authoritative intent classification table is in `<KRATOS_ROOT>/commands/main.md` Step 0. Quick mode handles only the SIMPLE task subset. When in doubt, refer to `main.md`.
+> The authoritative intent classification table is in `<KRATOS_ROOT>/pipeline/classify.md`. Quick mode handles only the SIMPLE task subset. When in doubt, refer to `classify.md`.
 
 ---
 

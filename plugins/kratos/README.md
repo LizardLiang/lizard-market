@@ -2,7 +2,7 @@
 
 > *"I am what the gods have made me."* — now the gods serve **you**.
 
-![version](https://img.shields.io/badge/version-2.87.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-11%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-2.97.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **Stop shipping AI slop.** Kratos runs your feature through a real pipeline: a PM drafts the PRD, a devil's advocate (**Nemesis**) tears it apart, an architect specs it, and an alignment gate (**Hera**) proves the implementation matches what you *actually* asked for. Named agents, review gates enforced by hooks, persistent memory across sessions — not another pile of subagents.
 
@@ -21,7 +21,7 @@ Kratos works at two levels. **The markdown layer runs standalone — no build, n
 
 |                                       | Markdown layer *(default)* | + Go binary *(optional)* |
 | ------------------------------------- | :------------------------: | :----------------------: |
-| All 19 agents + 11-stage pipeline     |             ✅              |            ✅            |
+| All 19 agents + 9-stage pipeline      |             ✅              |            ✅            |
 | Commands (`/kratos:quick`, `review`…) |             ✅              |            ✅            |
 | Enforced quality-gate hooks           |             ✅              |            ✅            |
 | Pipeline timestamps & stage history   |       file fallback        |       ✅ precise         |
@@ -29,7 +29,7 @@ Kratos works at two levels. **The markdown layer runs standalone — no build, n
 
 > Install the plugin and go. Add the binary later if you want precise pipeline tracking.
 
-Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom — from quick bug fixes to full 11-stage feature pipelines, with persistent memory, external research, and git history expertise.
+Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom — from quick bug fixes to full 9-stage feature pipelines (stages 1–9, plus optional Stage 0 research), with persistent memory, external research, and git history expertise.
 
 ## Recommended: Use Commands, Not the Pipeline
 
@@ -242,7 +242,7 @@ Commands are the primary interface. Each routes directly to the right agent — 
 | `/kratos:spec-backfill` | **Spec Backfill** — Migrate pre-existing shipped features into living specs | One-time sweep after adopting living specs on an established project |
 | `/kratos:spec-export` | **Spec Export** — Pretty-print living specs to a self-contained HTML or Markdown document | Sharing specs offline, printing to PDF, pasting into a wiki/PR |
 | `/kratos:retro` | **Agent Retro** — Review per-agent lessons from your corrections, fold stable ones into the agent's definition | Periodically, when a god has accumulated lessons |
-| `/kratos:main` | **Full Pipeline** — 11-stage PRD → spec → implement → review | Only for substantial new features |
+| `/kratos:main` | **Full Pipeline** — 9-stage PRD → spec → implement → review | Only for substantial new features |
 
 Every agent also has an inline command (`/kratos:athena`, `/kratos:ares`, `/kratos:hephaestus`, …) that runs it directly in the main session instead of spawning a subagent.
 

@@ -5,7 +5,7 @@ Node.js SDK test harness for comprehensive Kratos plugin testing and performance
 ## Features
 
 - **Agent Performance Testing**: Validate individual agent behavior and response quality
-- **Pipeline Integration Testing**: Test full 11-stage Kratos pipeline workflows  
+- **Pipeline Integration Testing**: Test full 9-stage Kratos pipeline workflows  
 - **Timestamp Compliance Validation**: Ensure proper `status.json` timestamp handling
 - **Comprehensive Reporting**: Detailed test results, token usage, and error analysis
 
@@ -42,7 +42,7 @@ Full workflow validation:
 
 | Test | Type | Description |
 |------|------|-------------|
-| `implementation` | Full Pipeline | Complete 11-stage feature development |
+| `implementation` | Full Pipeline | Complete 9-stage feature development |
 
 ### 3. Timestamp Validation
 Validates that agents use authentic timestamps instead of fabricated ones:

@@ -1,6 +1,6 @@
 ---
 name: main
-description: Full 11-stage feature pipeline with PRD, spec, implementation, and review
+description: Full 9-stage feature pipeline with PRD, spec, implementation, and review
 ---
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
@@ -23,19 +23,19 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 
 ## Your Agents
 
-| Agent | Model | Domain | Stages |
-|-------|-------|--------|--------|
-| **metis** | sonnet | Project research, codebase analysis | 0 (Pre-flight) |
-| **athena** | opus | PRD creation, PM reviews | 1, 2 (parallel) |
-| **nemesis** | opus | Adversarial PRD review (devil's advocate + user advocate) | 2 (parallel) |
+| Agent | Model | Domain | Stage |
+|-------|-------|--------|-------|
+| **metis** | sonnet | Project research, codebase analysis | 0 (optional pre-flight) |
+| **athena** | opus | PRD creation | 1 |
+| **nemesis** | opus | Adversarial PRD review (devil's advocate + user advocate) | 2 |
 | **daedalus** | sonnet | Feature decomposition | 3 (optional) |
-| **hephaestus** | opus | Technical specifications | 5 |
-| **apollo** | opus | Architecture review | 6 |
-| **artemis** | sonnet | Test planning | 7 |
-| **ares** | sonnet | Implementation | 8 |
-| **hera** | sonnet | PRD alignment verification | 9 |
-| **hermes** | opus | Code review | 10 |
-| **cassandra** | sonnet | Risk analysis | 10 (parallel with hermes) |
+| **hephaestus** | opus | Technical specifications | 4 |
+| **apollo** | opus | Architecture review | 5 |
+| **artemis** | sonnet | Test planning | 6 |
+| **ares** | sonnet | Implementation | 7 |
+| **hera** | sonnet | PRD alignment verification | 8 |
+| **hermes** | opus | Code review | 9 |
+| **cassandra** | sonnet | Risk analysis | 9 (parallel with hermes) |
 
 ---
 
@@ -200,7 +200,7 @@ Summoning: [AGENT] (model: [opus/sonnet])
 Document: [path]
 Verdict: [if applicable]
 
-Pipeline: [1]✅ → [2]✅ → [3]🔄 → [4]⏳ → [4]⏳ → [5]🔒 → [6]🔒 → [7]🔒 → [8]🔒 → [9]🔒
+Pipeline: [1]✅ → [2]✅ → [3]🔄 → [4]⏳ → [5]🔒 → [6]🔒 → [7]🔒 → [8]🔒 → [9]🔒
 
 Next: [stage] — [agent]
 Continue?

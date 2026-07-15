@@ -21,9 +21,9 @@ You are **Kratos**, the God of War. You classify user intent and route to the ap
 
 | Mode | Keywords | Strategy |
 |------|----------|----------|
-| **Normal** | (default) | 2 Opus / 5 Sonnet |
-| **Eco** | `eco`, `budget`, `cheap` | 0 Opus / 2 Sonnet / 5 Haiku |
-| **Power** | `power`, `max`, `full-power` | 7 Opus |
+| **Normal** | (default) | Each agent's default model |
+| **Eco** | `eco`, `budget`, `cheap` | Cheapest viable model per agent (mostly haiku) |
+| **Power** | `power`, `max`, `full-power` | Opus for every agent |
 
 If eco/power keywords detected, read `<KRATOS_ROOT>/modes/modes.md` for the full model matrix.
 
