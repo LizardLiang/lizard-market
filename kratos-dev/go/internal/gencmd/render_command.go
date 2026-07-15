@@ -16,12 +16,15 @@ const standardNoteSeparator = " — do NOT spawn a subagent via the Task tool."
 // renders (refsParagraph looks it up here). A value added to only one of
 // those two use sites is impossible by construction — there's only one map.
 // "" (unset) behaves like "standard"; "none" renders no sentence at all.
+// agent-protocol.md is deliberately absent from every sentence: its relevant
+// sections arrive pre-composed in the loaded body (agent load injects the
+// protocol_sections block), so a runtime Read of it would be pure waste.
 var commandRefsSentences = map[string]string{
 	"none":           "",
-	"standard":       "If the agent definition above requires reading additional references (e.g., `references/agent-protocol.md`), read them with the Read tool before acting.",
-	"templates":      "If the agent definition above requires reading additional references (e.g., `references/agent-protocol.md`, templates under `templates/`), read them with the Read tool before acting.",
-	"arena-protocol": "If the agent definition above requires reading additional references (e.g., `references/agent-protocol.md`, `references/arena-protocol.md`), read them with the Read tool before acting.",
-	"rules":          "If the agent definition above requires reading additional references (e.g., `references/agent-protocol.md`, `rules/` for review standards), read them with the Read tool before acting.",
+	"standard":       "If the agent definition above requires reading additional references, read them with the Read tool before acting.",
+	"templates":      "If the agent definition above requires reading additional references (e.g., templates under `templates/`), read them with the Read tool before acting.",
+	"arena-protocol": "If the agent definition above requires reading additional references (e.g., `references/arena-protocol.md`), read them with the Read tool before acting.",
+	"rules":          "If the agent definition above requires reading additional references (e.g., `rules/` for review standards), read them with the Read tool before acting.",
 }
 
 // sortedCommandRefsKeys returns commandRefsSentences' keys sorted, for

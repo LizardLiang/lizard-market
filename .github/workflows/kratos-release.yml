@@ -33,11 +33,11 @@ jobs:
       shell: bash
       working-directory: kratos-dev/go
       run: |
-        mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/agent-protocol-slices
+        mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/references
         cp ../../plugins/kratos/agents/*.md internal/cli/agents/
         cp ../../plugins/kratos/templates/*.md internal/cli/templates/
         cp ../../plugins/kratos/command-mode-suffix/*.md internal/cli/command-mode-suffix/
-        cp ../../plugins/kratos/references/agent-protocol-slices/*.md internal/cli/agent-protocol-slices/
+        cp ../../plugins/kratos/references/agent-protocol.md internal/cli/references/
 
     - name: Run tests
       working-directory: kratos-dev/go
@@ -80,11 +80,11 @@ jobs:
       shell: bash
       working-directory: kratos-dev/go
       run: |
-        mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/agent-protocol-slices
+        mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/references
         cp ../../plugins/kratos/agents/*.md internal/cli/agents/
         cp ../../plugins/kratos/templates/*.md internal/cli/templates/
         cp ../../plugins/kratos/command-mode-suffix/*.md internal/cli/command-mode-suffix/
-        cp ../../plugins/kratos/references/agent-protocol-slices/*.md internal/cli/agent-protocol-slices/
+        cp ../../plugins/kratos/references/agent-protocol.md internal/cli/references/
 
     - name: Build binaries
       working-directory: kratos-dev/go

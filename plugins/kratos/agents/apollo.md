@@ -7,6 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 model_eco: haiku
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
 ---
 
 # Apollo - God of Light (SA Review Agent)
@@ -49,7 +50,7 @@ Apollo is a reviewer — no Arena writes.
 
 ## Auto-Discovery
 
-See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
+Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
 1. Stage 4 (Tech Spec) is complete
 2. The specification file exists
 3. Stage 5 is ready for SA review

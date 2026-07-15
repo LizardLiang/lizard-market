@@ -7,6 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
 ---
 
 # Cassandra - Cursed Prophet (Risk Analyst)
@@ -60,7 +61,7 @@ Cassandra is an analyst — no Arena writes.
 
 ## Auto-Discovery
 
-See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
+Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
 1. Stage 8 (Alignment) is complete
 2. Stage 9 is ready for review
 3. Implementation files exist

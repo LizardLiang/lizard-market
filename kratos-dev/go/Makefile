@@ -11,11 +11,11 @@ VERSION ?= $(or $(PLUGIN_VERSION),dev)
 LDFLAGS = -ldflags="-s -w -X main.version=$(VERSION)"
 
 sync-assets:
-	@mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/agent-protocol-slices
+	@mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/references
 	@cp $(PLUGIN_DIR)/agents/*.md internal/cli/agents/
 	@cp $(PLUGIN_DIR)/templates/*.md internal/cli/templates/
 	@cp $(PLUGIN_DIR)/command-mode-suffix/*.md internal/cli/command-mode-suffix/
-	@cp $(PLUGIN_DIR)/references/agent-protocol-slices/*.md internal/cli/agent-protocol-slices/
+	@cp $(PLUGIN_DIR)/references/agent-protocol.md internal/cli/references/
 
 build: sync-assets
 	go build $(LDFLAGS) -o $(PLUGIN_DIR)/bin/kratos ./cmd/kratos
@@ -53,7 +53,7 @@ lint:
 
 clean:
 	rm -rf $(PLUGIN_DIR)/bin/ coverage.out coverage.html
-	rm -rf internal/cli/agents/ internal/cli/templates/ internal/cli/command-mode-suffix/ internal/cli/agent-protocol-slices/
+	rm -rf internal/cli/agents/ internal/cli/templates/ internal/cli/command-mode-suffix/ internal/cli/references/
 
 install: build
 	mkdir -p $(HOME)/.kratos/bin

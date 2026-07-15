@@ -26,8 +26,9 @@ function pluginRoot() {
 // binary is unavailable. Reads plugins/kratos/agents/<name>.md directly and
 // string-replaces <KRATOS_ROOT> with the plugin root. <kratos-bin> is left
 // unresolved — agent-protocol.md already tells agents to skip kratos calls
-// when no binary path was injected. --mode=command's slice/suffix injection
-// is Go-only (embedded FS content); the fallback only serves the plain body.
+// when no binary path was injected. Protocol-block and --mode=command suffix
+// injection are Go-only (embedded FS content); the fallback only serves the
+// plain body, whose pointer lines send the agent to agent-protocol.md.
 function loadAgentFallback(argv, root) {
   const name = argv[0];
   if (!name) return null;

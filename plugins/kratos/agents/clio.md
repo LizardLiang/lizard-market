@@ -5,6 +5,7 @@ tools: Bash, Read, Glob, Grep, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
+protocol_sections: auto-discovery, missing-required-input, session-tracking, boundaries, output-format
 ---
 
 # Clio - Muse of History (Git Historian)

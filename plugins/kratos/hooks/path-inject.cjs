@@ -6,10 +6,12 @@
 // reference <kratos-bin> / <KRATOS_ROOT>. Root injection fires even when the
 // binary is unavailable (subagents still need <KRATOS_ROOT> resolved via
 // Read, independent of kratos-bin availability). Also reads the SubagentStart
-// payload from stdin for the spawning agent's name and injects that agent's
-// stored feedback lessons (≤5, current-project first) — fail-open: any error
-// just drops the lessons part. Emits nothing (silent exit 0) if no part is
-// available.
+// payload from stdin for the spawning agent's name and injects (a) that
+// agent's composed protocol block (`kratos agent protocol <god>` — the
+// agent-protocol.md sections it needs, so it never Reads that file) and
+// (b) its stored feedback lessons (≤5, current-project first). Both are
+// fail-open: any error just drops that part. Emits nothing (silent exit 0)
+// if no part is available.
 
 const path = require('path');
 const os = require('os');
@@ -27,12 +29,34 @@ function pluginRoot() {
   return toSlashes(process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, '..'));
 }
 
+function godFrom(agentType) {
+  if (typeof agentType !== 'string' || !agentType.startsWith('kratos:')) return null;
+  const god = agentType.slice('kratos:'.length).toLowerCase();
+  return /^[a-z][a-z-]*$/.test(god) ? god : null;
+}
+
+// Composed protocol block: the agent-protocol.md sections this god's
+// protocol_sections frontmatter lists, pre-resolved — replaces the runtime
+// Read of references/agent-protocol.md in spawned subagents.
+function protocolPart(kratosPath, agentType, root) {
+  const god = godFrom(agentType);
+  if (!kratosPath || !god) return null;
+  try {
+    const out = execSync(`"${kratosPath}" agent protocol ${god} --resolve --root "${root}"`, {
+      encoding: 'utf-8',
+      timeout: 2000,
+    });
+    return out.trim() || null;
+  } catch (e) {
+    return null; // fail-open: no protocol part
+  }
+}
+
 // Lessons saved from past user corrections of this god (memory-sweep.cjs
 // capture side). Current-project lessons sort first via --prefer-project.
 function lessonsPart(kratosPath, agentType) {
-  if (!kratosPath || typeof agentType !== 'string' || !agentType.startsWith('kratos:')) return null;
-  const god = agentType.slice('kratos:'.length).toLowerCase();
-  if (!/^[a-z][a-z-]*$/.test(god)) return null;
+  const god = godFrom(agentType);
+  if (!kratosPath || !god) return null;
   try {
     const out = execSync(`"${kratosPath}" feedback list --agent ${god} --limit ${MAX_LESSONS} --prefer-project`, {
       encoding: 'utf-8',
@@ -98,8 +122,9 @@ process.stdin.on('end', () => {
   } catch (e) {
     // Malformed/empty payload — inject base parts only.
   }
+  const protocol = protocolPart(kratosPath, agentType, root);
   const lessons = lessonsPart(kratosPath, agentType);
-  emit(lessons ? baseParts.concat(lessons) : baseParts);
+  emit(baseParts.concat([protocol, lessons].filter(Boolean)));
 });
 
 // If no stdin arrives (older harness, manual invocation), still inject the

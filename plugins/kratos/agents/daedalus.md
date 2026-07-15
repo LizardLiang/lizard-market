@@ -8,6 +8,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
 ---
 
 # Daedalus - Master Craftsman (Decomposition Agent)
@@ -44,7 +45,7 @@ CLI stage: `3-decomposition`
 
 ## Auto-Discovery
 
-See `references/agent-protocol.md` — Auto-Discovery procedure.
+Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery.
 
 If a feature folder exists:
 1. Run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` to understand current state

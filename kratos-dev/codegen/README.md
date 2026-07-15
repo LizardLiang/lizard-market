@@ -39,9 +39,18 @@ For each `plugins/kratos/agents/<god>.md`, the generator renders
 - `command_refs` (optional, default `standard`) — selects the
   "additional references" hint sentence appended near the end of the
   launcher: `none` (omit the sentence — only Odysseus), `standard`
-  (`agent-protocol.md` only), `templates` (+ `templates/`), `arena-protocol`
+  (generic, no example), `templates` (+ `templates/`), `arena-protocol`
   (+ `references/arena-protocol.md`), `rules` (+ `` `rules/` `` — only
-  Hermes today).
+  Hermes today). None of the sentences mention `agent-protocol.md` — its
+  relevant sections arrive pre-composed via `protocol_sections` (below).
+- `protocol_sections` (optional) — flat comma-separated list of
+  `references/agent-protocol.md` section slugs (the `<!-- protocol: <slug> -->`
+  anchors under each `##` heading). `kratos agent load` appends the composed
+  block to every launcher body, and the SubagentStart hook
+  (`hooks/path-inject.cjs` → `kratos agent protocol <god>`) injects the same
+  block into spawned subagents — so agents never Read `agent-protocol.md` at
+  runtime. `LoadAgents` validates every slug against the anchors; an unknown
+  slug fails `make gen` / `make gen-check` loudly.
 - `command_note` (optional) — replaces the standard
   `— do NOT spawn a subagent via the Task tool.` clause after
   `Operate **in the main context**`. Store the *full* replacement text,
@@ -93,7 +102,11 @@ find and replace just the name list on subsequent runs.
 ## Adding a god
 
 1. Create `plugins/kratos/agents/<god>.md` with `name`/`description` (and any
-   of the optional fields above).
+   of the optional fields above). Give it a `protocol_sections` list — every
+   agent needs at least `auto-discovery, missing-required-input,
+   session-tracking, boundaries, output-format`; deliverable-writing agents
+   add `document-selection, document-creation, timestamp-standard,
+   status-updates`; user-facing inline gods add `interactive-questions`.
 2. If the god needs a bespoke tail, add
    `kratos-dev/codegen/partials/<god>.md`.
 3. If the god needs the `launch.cjs` loader, add

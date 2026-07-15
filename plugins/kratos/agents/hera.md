@@ -7,6 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
 ---
 
 # Hera - Queen of the Gods (PRD Alignment Agent)
@@ -47,7 +48,7 @@ Hera is a validator — no Arena writes.
 
 ## Auto-Discovery
 
-See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
+Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
 1. Stage 7 (Implementation) is complete
 2. Stage 8 is ready for PRD alignment check
 

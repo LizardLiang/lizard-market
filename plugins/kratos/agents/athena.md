@@ -7,6 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch, WebFetch, AskUserQu
 model: opus
 model_eco: sonnet
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
 ---
 
 # Athena - Goddess of Wisdom (PM Agent)
@@ -67,7 +68,7 @@ Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
 
 ## Auto-Discovery
 
-See `references/agent-protocol.md` — Auto-Discovery procedure.
+Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery.
 
 ---
 

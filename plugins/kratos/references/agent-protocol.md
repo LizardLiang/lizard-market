@@ -1,10 +1,11 @@
 # Agent Protocol — Shared Procedures
 
-Procedures shared across all Kratos agents. Read sections relevant to your mission.
+Procedures shared across all Kratos agents. Spawned and inline agents receive their relevant sections injected automatically (SubagentStart hook / `kratos agent load`) — read this file only as a fallback when no injected **Agent Protocol** block is present in your context. Orchestrators read § Spawn Prompt Fields and § Spawning Athena here directly.
 
 ---
 
 ## Path Resolution
+<!-- protocol: path-resolution -->
 
 Plugin-internal paths are written as `<KRATOS_ROOT>/...` (e.g., `<KRATOS_ROOT>/references/...`). Resolution is deterministic, not LLM text-substitution:
 
@@ -21,6 +22,7 @@ Templates are retrieved via the CLI: `'<kratos-path>' template get <template-nam
 ---
 
 ## Document Selection
+<!-- protocol: document-selection -->
 
 Choose documents based on the decision you are making; don't mechanically read every input.
 
@@ -37,6 +39,7 @@ Avoid rereading the same document unless you need a section not already captured
 ---
 
 ## Auto-Discovery
+<!-- protocol: auto-discovery -->
 
 Find the active feature and read pipeline state before starting any mission:
 
@@ -54,6 +57,7 @@ Your agent definition lists the stage-specific prerequisites to verify. In comma
 ---
 
 ## Missing Required Input
+<!-- protocol: missing-required-input -->
 
 If you need a file and it is missing, don't improvise, recreate it, or continue with assumptions unless you are the agent responsible for producing that file.
 
@@ -68,6 +72,7 @@ Optional files (`context.md`, `decomposition.md`, Arena shards, language-specifi
 ---
 
 ## Interactive Questions (AskUserQuestion)
+<!-- protocol: interactive-questions -->
 
 Canonical rule for every `AskUserQuestion` call across kratos agents, commands, and pipeline prompts:
 
@@ -81,6 +86,7 @@ Canonical rule for every `AskUserQuestion` call across kratos agents, commands, 
 ---
 
 ## Spawn Prompt Fields (recommended)
+<!-- protocol: spawn-prompt-fields -->
 
 Alongside the usual `MISSION:` / `FEATURE:` / `FOLDER:` fields, orchestrators SHOULD include two scope-control fields when spawning agents that write files:
 
@@ -92,6 +98,7 @@ Both fields are advisory for read-only spawns (Explore-style searches) but manda
 ---
 
 ## Document Creation
+<!-- protocol: document-creation -->
 
 Your primary deliverable is a document file. Kratos verifies this file exists after you complete — if missing, Kratos will re-spawn you, wasting time and tokens.
 
@@ -103,6 +110,7 @@ Your primary deliverable is a document file. Kratos verifies this file exists af
 ---
 
 ## Timestamp Standard
+<!-- protocol: timestamp-standard -->
 
 **Never write `<ISO-timestamp>` placeholders.** Always use a real timestamp.
 
@@ -126,6 +134,7 @@ Then use `$TS` wherever the schema expects `<ISO8601>`:
 ---
 
 ## Status Updates via Kratos CLI
+<!-- protocol: status-updates -->
 
 Update pipeline status using the exact command format below. Do NOT improvise flags or invent new ones.
 
@@ -156,7 +165,7 @@ Update pipeline status using the exact command format below. Do NOT improvise fl
 # Review (two steps):
 <kratos-bin> pipeline update --feature auth-system --stage 2 --status in-progress
 # ... do the actual review work ...
-<kratos-bin> pipeline update --feature auth-system --stage 2 --status complete --verdict approved --document prd-review.md
+<kratos-bin> pipeline update --feature auth-system --stage 2 --status complete --verdict approved --document prd-challenge.md
 ```
 
 **Why Two Steps**: Ensures `started` and `completed` have different timestamps, preventing zero-duration work periods that appear fabricated.
@@ -164,25 +173,27 @@ Update pipeline status using the exact command format below. Do NOT improvise fl
 - If the command outputs JSON → done. Do NOT also write status.json manually.
 - If the command is not found or errors → fall back to editing status.json directly using `kratos now` for timestamps.
 
-### Spawning Athena (stages 1, 2, 6)
+---
 
-Athena runs at three different stages. Before spawning Athena, set `pending_stage` so the
-`kratos check --init` hook injects the correct deliverable expectations at SubagentStart:
+## Spawning Athena (orchestrator-only)
+<!-- protocol: spawning-athena -->
+
+Athena runs at Stage 1 only (`prd.md`); revision loops (Nemesis verdict `revisions`) re-spawn her at Stage 1. The `kratos check --init` hook reads `pending_stage` at SubagentStart to inject the correct deliverable expectations — it is set to `1-prd` at feature init, so a normal first spawn needs no extra step.
 
 ```bash
-# Before spawning Athena for stage 2 or 6 (stage 1 is already set at feature init):
-<kratos-bin> pipeline set-pending --feature FEATURE_NAME --stage STAGE_NUMBER
+# Only if re-spawning Athena after other stages have run (keeps --init pointed at stage 1):
+<kratos-bin> pipeline set-pending --feature FEATURE_NAME --stage 1
 
 # After Athena completes (clears the field):
 <kratos-bin> pipeline set-pending --feature FEATURE_NAME --stage ""
 ```
 
-Omitting this step causes `--init` to read the previous completed stage and tell Athena
-to produce the wrong deliverable.
+If `pending_stage` is stale or empty on a re-spawn, `--init` falls back to reading the previous completed stage and may tell Athena to produce the wrong deliverable.
 
 ---
 
 ## Session Tracking
+<!-- protocol: session-tracking -->
 
 Record your work in the active Kratos session so Kratos can reconstruct what happened.
 
@@ -202,11 +213,13 @@ If the binary is unavailable, skip session tracking silently — useful but not 
 ---
 
 ## Boundaries (all agents)
+<!-- protocol: boundaries -->
 
 Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.md`. Complete mission and return.
 
 ---
 
 ## Output Format
+<!-- protocol: output-format -->
 
 **Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.

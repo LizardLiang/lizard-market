@@ -9,6 +9,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/gencmd"
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/protocol"
 )
 
 // Agents are embedded at build time from go/internal/cli/agents/.
@@ -23,22 +26,54 @@ var agentsFS embed.FS
 //go:embed command-mode-suffix/*.md
 var commandSuffixFS embed.FS
 
-// Per-agent protocol slices are embedded from go/internal/cli/agent-protocol-slices/.
-// Source lives in plugins/kratos/references/agent-protocol-slices/ — keep in sync.
-// Each slice contains only the agent-protocol.md sections relevant to that agent in
-// command mode, pre-embedded so agents don't need to read agent-protocol.md at runtime.
+// The shared agent protocol is embedded from go/internal/cli/references/.
+// This is a maintained copy of plugins/kratos/references/agent-protocol.md
+// (synced by make sync-assets). Per-agent sections are composed from it at
+// runtime so agents never need to read agent-protocol.md themselves.
 //
-//go:embed agent-protocol-slices/*.md
-var protocolSlicesFS embed.FS
+//go:embed references/agent-protocol.md
+var protocolFS embed.FS
 
-// AgentCmd returns the 'agent' command with a load subcommand.
+// AgentCmd returns the 'agent' command with load and protocol subcommands.
 func AgentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agent",
 		Short: "Load Kratos agent definitions",
 	}
 	cmd.AddCommand(agentLoadCmd())
+	cmd.AddCommand(agentProtocolCmd())
 	return cmd
+}
+
+// composeProtocolFor returns the composed protocol block for an agent (its
+// protocol_sections frontmatter list applied to the embedded
+// agent-protocol.md), "" if the agent lists no sections, or an error for an
+// unknown agent or invalid slug list (a build bug — content is embedded).
+func composeProtocolFor(name string) (string, error) {
+	if !strings.HasSuffix(name, ".md") {
+		name += ".md"
+	}
+	body, err := agentsFS.ReadFile("agents/" + name)
+	if err != nil {
+		return "", fmt.Errorf("agent %q not found", strings.TrimSuffix(name, ".md"))
+	}
+	fm, err := gencmd.ParseFrontmatter(name, string(body))
+	if err != nil {
+		return "", err
+	}
+	slugs := protocol.ParseList(fm.Fields["protocol_sections"])
+	if len(slugs) == 0 {
+		return "", nil
+	}
+	raw, err := protocolFS.ReadFile("references/agent-protocol.md")
+	if err != nil {
+		return "", fmt.Errorf("embedded agent-protocol.md missing: %w", err)
+	}
+	doc, err := protocol.Parse(string(raw))
+	if err != nil {
+		return "", err
+	}
+	return protocol.Compose(doc, slugs)
 }
 
 func agentLoadCmd() *cobra.Command {
@@ -64,14 +99,17 @@ func agentLoadCmd() *cobra.Command {
 
 			out := string(body)
 
-			if mode == "command" {
-				// Inject per-agent protocol slice between body and suffix.
-				// Agents opt in by adding a file to agent-protocol-slices/.
-				slice, err := protocolSlicesFS.ReadFile("agent-protocol-slices/" + name)
-				if err == nil {
-					out += "\n---\n\n" + string(slice)
-				}
+			// Inject the composed protocol block for every load (command
+			// mode or not) — agents opt in via protocol_sections frontmatter.
+			block, err := composeProtocolFor(name)
+			if err != nil {
+				return err
+			}
+			if block != "" {
+				out += "\n---\n\n" + block + "\n"
+			}
 
+			if mode == "command" {
 				suffix, err := commandSuffixFS.ReadFile("command-mode-suffix/" + name)
 				if err == nil {
 					out += "\n---\n\n" + string(suffix)
@@ -88,6 +126,39 @@ func agentLoadCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&mode, "mode", "", "Execution mode: 'command' appends command-mode suffix if one exists")
+	cmd.Flags().BoolVar(&resolve, "resolve", false, "Substitute <KRATOS_ROOT> and <kratos-bin> tokens with discovered absolute paths")
+	cmd.Flags().StringVar(&rootFlag, "root", "", "Explicit plugin root for <KRATOS_ROOT> substitution (overrides discovery); only used with --resolve")
+	return cmd
+}
+
+// agentProtocolCmd prints just the composed protocol block for an agent —
+// consumed by hooks/path-inject.cjs to inject it into spawned subagents at
+// SubagentStart. Empty protocol_sections prints nothing (exit 0).
+func agentProtocolCmd() *cobra.Command {
+	var resolve bool
+	var rootFlag string
+
+	cmd := &cobra.Command{
+		Use:          "protocol <name>",
+		Short:        "Print an agent's composed protocol sections to stdout",
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			block, err := composeProtocolFor(args[0])
+			if err != nil {
+				return err
+			}
+			if block == "" {
+				return nil
+			}
+			if resolve {
+				block = resolveTokens(block, rootFlag)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), block)
+			return nil
+		},
+	}
+
 	cmd.Flags().BoolVar(&resolve, "resolve", false, "Substitute <KRATOS_ROOT> and <kratos-bin> tokens with discovered absolute paths")
 	cmd.Flags().StringVar(&rootFlag, "root", "", "Explicit plugin root for <KRATOS_ROOT> substitution (overrides discovery); only used with --resolve")
 	return cmd

@@ -6,6 +6,7 @@ tools: Read, Write, Glob, Grep, Bash, Task, AskUserQuestion
 model: opus
 model_eco: sonnet
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, session-tracking, boundaries, output-format
 ---
 
 # Prometheus - Titan of Forethought (Strategic Planner)
@@ -89,7 +90,7 @@ Run this loop only when PLAN_READY is false after Step 2.
 Questioning rules:
 - **One question per `AskUserQuestion` call** — never batch; never pack multiple entries into one call's `questions` array
 - Target the lowest-scoring dimension first
-- Every question must include 2–3 concrete options + the escape option and your recommended answer with brief reasoning. See `references/agent-protocol.md` § Interactive Questions for the escape-option/fallback rules.
+- Every question must include 2–3 concrete options + the escape option and your recommended answer with brief reasoning. See the injected **Agent Protocol** § Interactive Questions for the escape-option/fallback rules (fallback: `references/agent-protocol.md`).
 - Questions must be specific to their project context (not generic)
 - Avoid asking what you already know from Arena or in-flight features
 

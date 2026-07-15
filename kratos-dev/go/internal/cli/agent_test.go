@@ -101,26 +101,119 @@ func TestAgentLoadResolveUnresolvableRootLeavesTokens(t *testing.T) {
 	}
 }
 
-// TestAgentLoadResolveCommandModeCoversSliceAndSuffix verifies --resolve
-// substitutes tokens inside the injected protocol slice and command-mode
-// suffix, not just the agent body. hermes carries both a slice and a suffix
-// with <KRATOS_ROOT>/<kratos-bin> tokens.
-func TestAgentLoadResolveCommandModeCoversSliceAndSuffix(t *testing.T) {
+// TestAgentLoadResolveCommandModeCoversProtocolAndSuffix verifies --resolve
+// substitutes tokens inside the injected protocol block and command-mode
+// suffix, not just the agent body. hermes carries protocol_sections and a
+// suffix with <KRATOS_ROOT>/<kratos-bin> tokens.
+func TestAgentLoadResolveCommandModeCoversProtocolAndSuffix(t *testing.T) {
 	unresolved := runAgentLoad(t, "hermes", "--mode=command")
 	if !strings.Contains(unresolved, "<KRATOS_ROOT>") && !strings.Contains(unresolved, "<kratos-bin>") {
-		t.Fatalf("fixture assumption broken: expected hermes --mode=command body (incl. slice+suffix) to contain KRATOS_ROOT/kratos-bin tokens before resolving, got:\n%s", truncate(unresolved))
+		t.Fatalf("fixture assumption broken: expected hermes --mode=command body (incl. protocol+suffix) to contain KRATOS_ROOT/kratos-bin tokens before resolving, got:\n%s", truncate(unresolved))
+	}
+	if !strings.Contains(unresolved, "# Agent Protocol (injected)") {
+		t.Fatalf("expected hermes --mode=command output to carry the composed protocol block, got:\n%s", truncate(unresolved))
 	}
 
 	out := runAgentLoad(t, "hermes", "--mode=command", "--resolve", "--root", "/resolved/root")
 
 	if strings.Contains(out, "<KRATOS_ROOT>") {
-		t.Errorf("expected <KRATOS_ROOT> resolved across body+slice+suffix, got:\n%s", truncate(out))
+		t.Errorf("expected <KRATOS_ROOT> resolved across body+protocol+suffix, got:\n%s", truncate(out))
 	}
 	if strings.Contains(out, "<kratos-bin>") {
-		t.Errorf("expected <kratos-bin> resolved across body+slice+suffix, got:\n%s", truncate(out))
+		t.Errorf("expected <kratos-bin> resolved across body+protocol+suffix, got:\n%s", truncate(out))
 	}
 	if !strings.Contains(out, "/resolved/root") {
 		t.Errorf("expected resolved root to appear in combined output, got:\n%s", truncate(out))
+	}
+}
+
+// runAgentProtocol executes `agent protocol` with the given args and returns
+// stdout plus any execution error.
+func runAgentProtocol(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	cmd := AgentCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs(append([]string{"protocol"}, args...))
+	err := cmd.Execute()
+	return out.String(), err
+}
+
+// TestAgentProtocolComposes verifies the composed block carries exactly the
+// sections athena's protocol_sections lists — with the do-not-read header,
+// without orchestrator-only sections or anchor comments.
+func TestAgentProtocolComposes(t *testing.T) {
+	out, err := runAgentProtocol(t, "athena")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"# Agent Protocol (injected)",
+		"Do NOT read that file",
+		"## Auto-Discovery",
+		"## Status Updates via Kratos CLI",
+		"## Interactive Questions (AskUserQuestion)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q in athena protocol block, got:\n%s", want, truncate(out))
+		}
+	}
+	for _, reject := range []string{
+		"## Spawn Prompt Fields",
+		"## Spawning Athena",
+		"## Path Resolution",
+		"<!-- protocol:",
+	} {
+		if strings.Contains(out, reject) {
+			t.Errorf("expected %q excluded from athena protocol block, got:\n%s", reject, truncate(out))
+		}
+	}
+}
+
+// TestAgentProtocolUnknownGod verifies an unknown agent name errors.
+func TestAgentProtocolUnknownGod(t *testing.T) {
+	if _, err := runAgentProtocol(t, "notagod"); err == nil {
+		t.Fatal("expected error for unknown agent")
+	}
+}
+
+// TestAgentProtocolResolve verifies --resolve leaves no tokens in the block.
+func TestAgentProtocolResolve(t *testing.T) {
+	out, err := runAgentProtocol(t, "athena", "--resolve", "--root", "/r")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "<KRATOS_ROOT>") || strings.Contains(out, "<kratos-bin>") {
+		t.Errorf("expected tokens resolved in protocol block, got:\n%s", truncate(out))
+	}
+}
+
+// TestAgentLoadInjectsProtocol verifies the block is appended on every load,
+// not just --mode=command — clio has no command-mode suffix.
+func TestAgentLoadInjectsProtocol(t *testing.T) {
+	out := runAgentLoad(t, "clio")
+	if !strings.Contains(out, "# Agent Protocol (injected)") {
+		t.Errorf("expected protocol block in plain `agent load clio`, got:\n%s", truncate(out))
+	}
+	if !strings.Contains(out, "## Boundaries") {
+		t.Errorf("expected § Boundaries in clio protocol block, got:\n%s", truncate(out))
+	}
+}
+
+// TestAllAgentsProtocolSectionsCompose is an in-test drift gate (alongside
+// gencmd's gen-check validation): every embedded agent's protocol_sections
+// must compose without error against the embedded agent-protocol.md.
+func TestAllAgentsProtocolSectionsCompose(t *testing.T) {
+	entries, err := agentsFS.ReadDir("agents")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		name := strings.TrimSuffix(e.Name(), ".md")
+		if _, err := composeProtocolFor(name); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
 	}
 }
 

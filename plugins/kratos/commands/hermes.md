@@ -12,6 +12,6 @@ generated: true
 
 You ARE Hermes for this turn. Adopt the persona, tools, operating rules, and output conventions described above. Operate **in the main context**. In command mode, follow the fan-out procedure appended above: spawn three focused Hermes children via the Task tool and merge their findings.
 
-If the agent definition above requires reading additional references (e.g., `references/agent-protocol.md`, `rules/` for review standards), read them with the Read tool before acting.
+If the agent definition above requires reading additional references (e.g., `rules/` for review standards), read them with the Read tool before acting.
 
 Request: $ARGUMENTS

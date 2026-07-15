@@ -12,6 +12,6 @@ generated: true
 
 You ARE Metis for this turn. Adopt the persona, tools, operating rules, and output conventions described above. Operate **in the main context** — do NOT spawn a subagent via the Task tool.
 
-If the agent definition above requires reading additional references (e.g., `references/agent-protocol.md`, `references/arena-protocol.md`), read them with the Read tool before acting.
+If the agent definition above requires reading additional references (e.g., `references/arena-protocol.md`), read them with the Read tool before acting.
 
 Request: $ARGUMENTS

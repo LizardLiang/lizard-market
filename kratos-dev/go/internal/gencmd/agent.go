@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/protocol"
 )
 
 // Agent captures the generator-relevant frontmatter fields of a
@@ -22,6 +24,11 @@ type Agent struct {
 	Model       string // normal-mode alias: haiku|sonnet|opus
 	ModelEco    string // eco-mode alias: haiku|sonnet|opus
 	ModelPower  string // power-mode alias: haiku|sonnet|opus
+
+	// ProtocolSections lists the agent-protocol.md section slugs injected
+	// into this agent at spawn/load time; validated against the anchors in
+	// references/agent-protocol.md so slug drift fails make gen / gen-check.
+	ProtocolSections []string
 }
 
 // validModelAliases is the single source of truth for the model routing
@@ -39,6 +46,26 @@ func LoadAgents(repoRoot string) (map[string]*Agent, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("reading agents dir %s: %w", dir, err)
+	}
+
+	// Protocol doc for slug validation — loaded lazily on the first agent
+	// that declares protocol_sections, so fixture trees without the
+	// references file stay loadable as long as no agent needs it.
+	var protoDoc *protocol.Doc
+	loadProtoDoc := func() (*protocol.Doc, error) {
+		if protoDoc != nil {
+			return protoDoc, nil
+		}
+		p := filepath.Join(repoRoot, "plugins", "kratos", "references", "agent-protocol.md")
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", p, err)
+		}
+		protoDoc, err = protocol.Parse(string(raw))
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", p, err)
+		}
+		return protoDoc, nil
 	}
 
 	agents := map[string]*Agent{}
@@ -90,6 +117,17 @@ func LoadAgents(repoRoot string) (map[string]*Agent, error) {
 			return nil, err
 		}
 
+		sections := protocol.ParseList(fm.Fields["protocol_sections"])
+		if len(sections) > 0 {
+			doc, err := loadProtoDoc()
+			if err != nil {
+				return nil, err
+			}
+			if _, err := protocol.Compose(doc, sections); err != nil {
+				return nil, fmt.Errorf("%s: protocol_sections: %w", path, err)
+			}
+		}
+
 		agents[name] = &Agent{
 			Name:        name,
 			Description: fm.Fields["description"],
@@ -100,6 +138,8 @@ func LoadAgents(repoRoot string) (map[string]*Agent, error) {
 			Model:       model,
 			ModelEco:    modelEco,
 			ModelPower:  modelPower,
+
+			ProtocolSections: sections,
 		}
 	}
 	return agents, nil

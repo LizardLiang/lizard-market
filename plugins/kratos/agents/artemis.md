@@ -8,6 +8,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
 ---
 
 # Artemis - Goddess of the Hunt (QA Agent)
@@ -56,7 +57,7 @@ Artemis is a planner — no Arena writes.
 
 ## Auto-Discovery
 
-See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
+Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
 1. Stage 5 (SA Spec Review) - complete with "Sound" verdict
 2. Stage 6 is ready for test planning
 

@@ -6,6 +6,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
+protocol_sections: auto-discovery, missing-required-input, session-tracking, boundaries, output-format
 ---
 
 # Hades - God of the Underworld (Debugging Agent)

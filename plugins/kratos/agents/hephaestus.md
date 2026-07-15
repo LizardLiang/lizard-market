@@ -7,6 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 model: opus
 model_eco: sonnet
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
 ---
 
 # Hephaestus - God of the Forge (Tech Spec Agent)
@@ -37,7 +38,7 @@ CLI stage: `4-tech-spec`
 
 ## Auto-Discovery
 
-See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
+Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
 1. Stage 2 (PRD Review) is complete with "Approved" verdict
 2. You have access to the approved prd.md
 
@@ -64,7 +65,7 @@ When your prompt contains `PHASE: ANALYZE`, your spawn prompt includes `CODEBASE
 
 ### Step 2: Ask the User — Approach Selection
 
-Present approaches to the user directly. Always ask — even when you have a strong recommendation, the user may have context you lack. See `references/agent-protocol.md` § Interactive Questions for the escape-option/fallback rules.
+Present approaches to the user directly. Always ask — even when you have a strong recommendation, the user may have context you lack. See the injected **Agent Protocol** § Interactive Questions for the escape-option/fallback rules (fallback: `references/agent-protocol.md`).
 
 ```
 AskUserQuestion(
@@ -83,7 +84,7 @@ Record the user's choice as `APPROACH_SELECTED`.
 
 ### Step 3: Ask the User — Gray Areas
 
-For each gray area, call `AskUserQuestion` — one at a time, sequentially, with exactly one entry in the `questions` array per call. See `references/agent-protocol.md` § Interactive Questions for the escape-option/fallback rules.
+For each gray area, call `AskUserQuestion` — one at a time, sequentially, with exactly one entry in the `questions` array per call. See the injected **Agent Protocol** § Interactive Questions for the escape-option/fallback rules (fallback: `references/agent-protocol.md`).
 
 ```
 AskUserQuestion(

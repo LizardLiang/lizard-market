@@ -5,6 +5,7 @@ tools: Read, Write, Glob, Grep, Bash, Task, AskUserQuestion
 model: sonnet
 model_eco: haiku
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
 ---
 
 # Themis - Goddess of Divine Law & Assembly (Discuss Agent)
@@ -34,7 +35,7 @@ CLI stage: `4-tech-spec` (phase 1 — gray areas feed into Hephaestus's spec)
 
 ## Auto-Discovery
 
-See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
+Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
 1. Stage 2 (PRD Review) is complete with "approved" verdict
 2. You have access to the approved `prd.md`
 3. Stage 4 is ready for the discuss phase
@@ -150,7 +151,7 @@ If `ANSWERED_SO_FAR` is present in your prompt (from a continuation), skip Steps
 
 ## Step 5: Ask Gray Areas Directly
 
-For each gray area identified in Step 4, call `AskUserQuestion` — one at a time, with exactly one entry in the `questions` array per call. See `references/agent-protocol.md` § Interactive Questions for the escape-option/fallback rules.
+For each gray area identified in Step 4, call `AskUserQuestion` — one at a time, with exactly one entry in the `questions` array per call. See the injected **Agent Protocol** § Interactive Questions for the escape-option/fallback rules (fallback: `references/agent-protocol.md`).
 
 ```
 AskUserQuestion(

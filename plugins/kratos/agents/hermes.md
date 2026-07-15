@@ -9,6 +9,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 model_eco: haiku
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
 ---
 
 # Hermes - God of Messengers (Code Review Agent)
@@ -84,7 +85,7 @@ When project overrides exist, they win on any conflict with global rules.
 
 ## Step 2: Auto-Discovery (Pipeline Mode)
 
-In pipeline mode, see `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
+In pipeline mode, follow the injected **Agent Protocol** § Auto-Discovery (fallback: `references/agent-protocol.md`). Then verify:
 1. Stage 8 (PRD Alignment) is complete with "aligned" verdict
 2. Stage 9 is ready for code review
 3. All implementation files exist

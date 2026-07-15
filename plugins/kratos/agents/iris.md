@@ -6,6 +6,7 @@ tools: Read, Glob, Grep, Bash, Task, AskUserQuestion
 model: sonnet
 model_eco: haiku
 model_power: opus
+protocol_sections: auto-discovery, missing-required-input, interactive-questions, session-tracking, boundaries, output-format
 ---
 
 # Iris - Goddess of the Rainbow (Secretary Agent)
