@@ -80,7 +80,7 @@ Wait for completion before proceeding.
 
 After Stage 2 APPROVED verdict, check PRD complexity before spawning Hephaestus.
 
-**Complexity signals** in `prd-review.md`:
+**Complexity signals** in `prd-challenge.md`:
 - Many requirements / user stories
 - Multiple modules/areas flagged
 - Cross-cutting concerns (auth, caching, logging)

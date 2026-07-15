@@ -649,7 +649,7 @@ kratos pipeline update --feature <name> \
   --document prd.md                               # mark done
 kratos pipeline update --feature <name> \
   --stage <N> --status complete \
-  --verdict approved --document prd-review.md     # mark done with verdict
+  --verdict approved --document prd-challenge.md  # mark done with verdict
 kratos pipeline set-pending --feature <name> \
   --stage <N>                                     # set pending stage for Athena
 kratos pipeline discover                          # list incomplete features with stage status
