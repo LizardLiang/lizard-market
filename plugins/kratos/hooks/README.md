@@ -94,20 +94,26 @@ cat ~/.kratos/active-session.json
 
 Registered as a second `Stop` hook (alongside `session-end.cjs`). Where Iris's inline memory
 capture only catches facts flagged during an Iris mission, this hook is a session-wide safety
-net: on the final `Stop` of a qualifying session, it blocks once with a two-target instruction
-for Claude: (1) review the whole conversation for durable user facts (preferences, habits, weak
-spots, corrections, working style — never project/task facts, never secrets), dedupe against
-`kratos memory list`, and save at most 3 via `kratos memory add`; (2) identify corrections the
-user made to a specific god-agent's finished work and save at most 2 as per-agent lessons via
-`kratos feedback add --agent <god>`. Lessons are re-injected at that agent's next spawn by
-`path-inject.cjs` (≤5, current-project first via `feedback list --prefer-project`; fail-open —
-any error just drops the lessons block).
+net: on the final `Stop` of a qualifying session, it quietly injects a two-target instruction
+for Claude via `hookSpecificOutput.additionalContext` (no `decision` field, so no Stop-hook-error
+styling — see below): (1) review the whole conversation for durable user facts (preferences,
+habits, weak spots, corrections, working style — never project/task facts, never secrets),
+dedupe against `kratos memory list`, and save at most 3 via `kratos memory add`; (2) identify
+corrections the user made to a specific god-agent's finished work and save at most 2 as per-agent
+lessons via `kratos feedback add --agent <god>`. Lessons are re-injected at that agent's next
+spawn by `path-inject.cjs` (≤5, current-project first via `feedback list --prefer-project`;
+fail-open — any error just drops the lessons block).
 
-**Guards** — the hook allows the stop silently (no output, no block) whenever any of these trip:
+This hook used to emit `{"decision":"block","reason":<instruction>}`. Every Stop-hook block —
+regardless of wording — renders as a red "Stop hook error: <reason>" in the transcript, so the
+sweep now uses the quiet-continuation channel instead. That makes it advisory: Claude is expected
+to follow the injected instruction, but nothing forces another turn the way `block` did.
+
+**Guards** — the hook allows the stop silently (no output, no injection) whenever any of these trip:
 
 | Guard | Behavior |
 |-------|----------|
-| `stop_hook_active === true` | Already re-invoked because of this hook — never block twice |
+| `stop_hook_active === true` | Already re-invoked because of this hook — never re-emit on a hook-blocked continuation |
 | `KRATOS_MEMORY_SWEEP=off` | Opt-out (see below) |
 | Marker `~/.kratos/sweeps/<session_id>` exists | Already swept this session |
 | Transcript has fewer than 6 user messages | Session too short to be worth a sweep |
@@ -117,8 +123,8 @@ any error just drops the lessons block).
 | `kratos` binary unresolvable | No CLI, no sweep |
 
 On a qualifying session the hook writes the marker file first (so a hung or interrupted sweep
-never causes a repeat block), prunes markers older than 7 days, then emits
-`{"decision":"block","reason":"<sweep instruction>"}`.
+never causes a repeat emission), prunes markers older than 7 days, then emits
+`{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":"<sweep instruction>"}}`.
 
 **Opt-out**: set `KRATOS_MEMORY_SWEEP=off` in your environment to disable the sweep entirely.
 `session-end.cjs` and the rest of the `Stop` hooks are unaffected.

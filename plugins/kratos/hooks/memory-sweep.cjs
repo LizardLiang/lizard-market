@@ -4,13 +4,23 @@
 /**
  * Kratos Memory - Transcript Sweep Hook (Stop)
  *
- * Once per qualifying session, blocks the final Stop with an instruction that
+ * Once per qualifying session, quietly injects an instruction into the final
+ * Stop via `hookSpecificOutput.additionalContext` (no `decision` field) that
  * asks Claude to review the whole conversation for (1) durable user facts
  * (preferences, habits, weak spots, corrections, working style), saved via
  * `kratos memory` — the same CLI, dedupe, and 📝 notice Iris uses inline —
  * and (2) corrections the user made to a specific god-agent's finished work,
  * saved per agent via `kratos feedback` and re-injected at that agent's next
  * spawn by path-inject.cjs.
+ *
+ * Previously this hook used `{decision:'block', reason:<instruction>}`. Every
+ * Stop-hook block — regardless of wording or suppressOutput/systemMessage —
+ * renders as a red "Stop hook error: <reason>" in the transcript (see
+ * code.claude.com/docs/en/hooks); there is no quiet block. `additionalContext`
+ * is the documented channel that reaches the model without that error styling
+ * (issue #4). This makes the sweep advisory rather than guaranteed: the model
+ * is expected to follow the injected instruction, not hard-forced into another
+ * turn the way `block` would force one.
  *
  * This is a session-wide safety net: Iris only sweeps during its own missions,
  * so facts revealed during ordinary (non-Iris) Kratos work would otherwise be
@@ -68,7 +78,7 @@ function readTranscript(transcriptPath) {
   }
 }
 
-function buildReason(kratosBin) {
+function buildInstruction(kratosBin) {
   return 'Two memory sweeps, then stop. '
     + '(1) USER FACTS: Review this conversation for durable user facts (preferences, habits, weak spots, '
     + 'corrections, working style — not project/task facts, never secrets). '
@@ -84,8 +94,13 @@ function buildReason(kratosBin) {
     + 'If nothing durable in either sweep, save nothing. Then finish with a one-line 📝 note (or nothing) and stop.';
 }
 
-function block(reason) {
-  process.stdout.write(JSON.stringify({ decision: 'block', reason }));
+function quietSweep(instruction) {
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'Stop',
+      additionalContext: instruction,
+    },
+  }));
 }
 
 let raw = '';
@@ -101,7 +116,8 @@ process.stdin.on('end', () => {
     return;
   }
 
-  // Loop guard: never re-block a Stop that already fired because of us.
+  // Loop guard: never re-emit on a Stop that already fired because of us
+  // (e.g. another plugin's hook blocked and re-invoked).
   if (data.stop_hook_active === true) return;
 
   // Opt-out.
@@ -110,7 +126,7 @@ process.stdin.on('end', () => {
   const sessionId = data.session_id;
   if (!sessionId) return;
 
-  // Per-session marker: at most one sweep block per session.
+  // Per-session marker: at most one sweep emission per session.
   if (fs.existsSync(markerPath(sessionId))) return;
 
   // Threshold: skip short sessions. Fail open if the transcript is missing
@@ -142,12 +158,12 @@ process.stdin.on('end', () => {
     fs.mkdirSync(SWEEP_DIR, { recursive: true });
     fs.writeFileSync(markerPath(sessionId), String(Date.now()));
   } catch (e) {
-    // If we can't write the marker, don't risk an unguarded repeat block.
+    // If we can't write the marker, don't risk an unguarded repeat emission.
     return;
   }
   pruneOldMarkers();
 
-  block(buildReason(kratosBin));
+  quietSweep(buildInstruction(kratosBin));
 });
 
 setTimeout(() => {
