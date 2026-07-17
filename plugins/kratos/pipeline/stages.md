@@ -87,15 +87,14 @@ After Stage 2 APPROVED verdict, check PRD complexity before spawning Hephaestus.
 - External integrations
 - Complex data relationships
 
-If signals suggest a complex feature, offer decomposition. Capped at 3 substantive options + the escape option (tool max 4) — see `references/agent-protocol.md` § Interactive Questions:
+If signals suggest a complex feature, offer decomposition. See `references/agent-protocol.md` § Interactive Questions:
 
 ```
 AskUserQuestion(
   question: "This feature touches [N] areas with [description]. Decompose into phases before tech spec?",
   options: [
     { label: "Yes, decompose", description: "Choose the output target (local/Notion/Linear) next" },
-    { label: "No, proceed", description: "Skip decomposition, go straight to discuss/tech spec" },
-    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
+    { label: "No, proceed", description: "Skip decomposition, go straight to discuss/tech spec" }
   ]
 )
 ```
@@ -127,7 +126,7 @@ This decomposition enriches the feature — downstream agents (Hephaestus, Artem
 
 If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status.json. See `<KRATOS_ROOT>/references/status-json-schema.md`.
 
-If user picks "Let me type it": read the free-text reply before re-asking anything. If it already implies a yes/no plus a target (e.g. "local + Notion", "skip it", "yes, Linear"), treat that as the equivalent structured choice and proceed directly — spawn Daedalus with the stated target, or skip per the No branch above. Only ask a follow-up if the reply is genuinely ambiguous about yes/no or target.
+If the user answers via the built-in "Other" (free text): read the reply before re-asking anything. If it already implies a yes/no plus a target (e.g. "local + Notion", "skip it", "yes, Linear"), treat that as the equivalent structured choice and proceed directly — spawn Daedalus with the stated target, or skip per the No branch above. Only ask a follow-up if the reply is genuinely ambiguous about yes/no or target.
 
 ---
 

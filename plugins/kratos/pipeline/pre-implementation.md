@@ -51,8 +51,7 @@ AskUserQuestion(
   question: "How should implementation be handled?",
   options: [
     "Ares Mode (AI implements the code directly)",
-    "User Mode (create detailed task files for manual implementation)",
-    "Let me type it"
+    "User Mode (create detailed task files for manual implementation)"
   ]
 )
 ```

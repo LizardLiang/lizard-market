@@ -78,7 +78,6 @@ Use `AskUserQuestion` with these options (see `references/agent-protocol.md` § 
 - "Information request (inquiry mode)"
 - "Quick task (direct agent)"
 - "Full feature pipeline (PRD → Tech Spec → Implementation)"
-- "Let me type it"
 
 ---
 

@@ -158,7 +158,7 @@ If this quick task **implemented an Odysseus tactical plan** (the plan carried a
 ```
 AskUserQuestion(
   question: "Implementation is done. Archive the spec delta into the living spec now?",
-  options: ["Yes — /kratos:spec-archive <slug>", "No, leave it pending", "Let me type it"]
+  options: ["Yes — /kratos:spec-archive <slug>", "No, leave it pending"]
 )
 ```
 
@@ -176,7 +176,7 @@ If the user declines the review, the task is complete.
 ```
 AskUserQuestion(
   question: "This task may require more than quick mode because: [reasons]. How would you like to proceed?",
-  options: ["Proceed with quick mode anyway", "Use Plan Mode (/kratos:plan)", "Use full pipeline (/kratos:main)", "Let me type it"]
+  options: ["Proceed with quick mode anyway", "Use Plan Mode (/kratos:plan)", "Use full pipeline (/kratos:main)"]
 )
 ```
 

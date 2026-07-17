@@ -54,7 +54,7 @@ Determine the source of requirements:
 
 ### Step 2: Ask Output Target
 
-Use AskUserQuestion to determine where the decomposition should be output. Capped at 3 substantive options + the escape option (tool max 4) — a combo target (e.g. "local + notion") is reachable via "Let me type it" instead of a dedicated button. See `references/agent-protocol.md` § Interactive Questions.
+Use AskUserQuestion to determine where the decomposition should be output. A combo target (e.g. "local + notion") is reachable via the client's built-in "Other" free-text choice instead of a dedicated button. See `references/agent-protocol.md` § Interactive Questions.
 
 ```
 AskUserQuestion(
@@ -72,10 +72,6 @@ AskUserQuestion(
     {
       label: "Linear",
       description: "Creates a Linear project with phase issues and sub-issues"
-    },
-    {
-      label: "Let me type it",
-      description: "None of these fit — I'll type my answer in chat"
     }
   ]
 )

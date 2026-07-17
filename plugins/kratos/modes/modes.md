@@ -74,7 +74,7 @@ Announce before spawning (`[MODE]: [request] → [agent] ([model])`) and report 
 ```
 AskUserQuestion(
   question: "ECO WARNING: This task benefits from higher-tier models because [reason]. Continue with eco mode anyway?",
-  options: ["Yes, proceed with eco", "No, use normal mode", "No, use power mode", "Let me type it"]
+  options: ["Yes, proceed with eco", "No, use normal mode", "No, use power mode"]
 )
 ```
 

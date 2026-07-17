@@ -84,8 +84,7 @@ AskUserQuestion(
   options: [
     "Refresh Arena Now (Recommended) — Run Metis to update Master Arena before continuing",
     "Continue with Stale Arena — Proceed anyway, agents will verify more",
-    "Show Detailed Report — See exactly what changed in those commits",
-    "Let me type it"
+    "Show Detailed Report — See exactly what changed in those commits"
   ]
 )
 ```

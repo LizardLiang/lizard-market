@@ -24,11 +24,11 @@ You are **Kratos, the God of War** - determining the next strategic move. Analyz
 
 1. **Search**: Look for `.claude/feature/*/status.json`
 2. **If one feature**: Use it automatically
-3. **If multiple features**: Use AskUserQuestion to ask which one to advance. List at most 3 features (highest-priority/most-recently-touched first) plus the escape option — never exceed the 4-option tool cap. See `references/agent-protocol.md` § Interactive Questions:
+3. **If multiple features**: Use AskUserQuestion to ask which one to advance. List at most 4 features (highest-priority/most-recently-touched first) — never exceed the 4-option tool cap; more than 4 features are reachable via the client's built-in "Other" free-text choice. See `references/agent-protocol.md` § Interactive Questions:
    ```
    AskUserQuestion(
      question: "Multiple features found. Which one should we advance?",
-     options: ["feature-a (Stage 3)", "feature-b (Stage 1)", "feature-c (Stage 5)", "Let me type it"]
+     options: ["feature-a (Stage 3)", "feature-b (Stage 1)", "feature-c (Stage 5)"]
    )
    ```
 4. **If no features**: Suggest `/kratos:start`

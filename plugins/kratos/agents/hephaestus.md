@@ -65,7 +65,7 @@ When your prompt contains `PHASE: ANALYZE`, your spawn prompt includes `CODEBASE
 
 ### Step 2: Ask the User — Approach Selection
 
-Present approaches to the user directly. Always ask — even when you have a strong recommendation, the user may have context you lack. See the injected **Agent Protocol** § Interactive Questions for the escape-option/fallback rules (fallback: `references/agent-protocol.md`).
+Present approaches to the user directly. Always ask — even when you have a strong recommendation, the user may have context you lack. See the injected **Agent Protocol** § Interactive Questions for the fallback rules (fallback: `references/agent-protocol.md`).
 
 ```
 AskUserQuestion(
@@ -74,8 +74,7 @@ AskUserQuestion(
   options: [
     { label: "[Approach A]", description: "[key pro] — [codebase fit]" },
     { label: "[Approach B]", description: "[key pro] — [codebase fit]" },
-    { label: "Use recommended", description: "[recommended name]" },
-    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
+    { label: "Use recommended", description: "[recommended name]" }
   ]
 )
 ```
@@ -84,7 +83,7 @@ Record the user's choice as `APPROACH_SELECTED`.
 
 ### Step 3: Ask the User — Gray Areas
 
-For each gray area, call `AskUserQuestion` — one at a time, sequentially, with exactly one entry in the `questions` array per call. See the injected **Agent Protocol** § Interactive Questions for the escape-option/fallback rules (fallback: `references/agent-protocol.md`).
+For each gray area, call `AskUserQuestion` — one at a time, sequentially, with exactly one entry in the `questions` array per call. See the injected **Agent Protocol** § Interactive Questions for the fallback rules (fallback: `references/agent-protocol.md`).
 
 ```
 AskUserQuestion(
@@ -93,8 +92,7 @@ AskUserQuestion(
   options: [
     { label: "[Option A]", description: "[tradeoff]" },
     { label: "[Option B]", description: "[tradeoff]" },
-    { label: "Your call", description: "Let me decide based on codebase patterns" },
-    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
+    { label: "Your call", description: "Let me decide based on codebase patterns" }
   ]
 )
 ```

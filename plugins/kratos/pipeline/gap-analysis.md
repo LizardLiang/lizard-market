@@ -64,7 +64,7 @@ ambiguity = 1 - (goal_clarity × 0.40 + constraint_clarity × 0.30 + criteria_cl
 Questioning rules:
 - **One question per turn** — never batch
 - Prioritize: Security > Data integrity > Core functionality > Edge cases > Nice-to-haves
-- Every question must include 2–3 concrete options + the escape option and your recommended answer with brief reasoning. See `references/agent-protocol.md` § Interactive Questions for the escape-option/fallback rules.
+- Every question must include 2–4 concrete options and your recommended answer with brief reasoning. See `references/agent-protocol.md` § Interactive Questions for the fallback rules.
 
 **Depth-first traversal** (critical — do not skip):
 Follow one gap all the way to a leaf before moving to a different topic. A leaf is a decision with no further sub-questions given what you now know. For example: if you ask "which database?" and the user says "Postgres", the next question must be about a Postgres-specific concern (schema, connection pooling, migrations) — not a different top-level gap. Only switch topics once the current branch is fully resolved.
@@ -77,7 +77,6 @@ AskUserQuestion(
   options: [
     { label: "[option]", description: "[description]" },
     ...
-    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
   ],
   multiSelect: false
 )

@@ -151,7 +151,7 @@ If `ANSWERED_SO_FAR` is present in your prompt (from a continuation), skip Steps
 
 ## Step 5: Ask Gray Areas Directly
 
-For each gray area identified in Step 4, call `AskUserQuestion` — one at a time, with exactly one entry in the `questions` array per call. See the injected **Agent Protocol** § Interactive Questions for the escape-option/fallback rules (fallback: `references/agent-protocol.md`).
+For each gray area identified in Step 4, call `AskUserQuestion` — one at a time, with exactly one entry in the `questions` array per call. See the injected **Agent Protocol** § Interactive Questions for the fallback rules (fallback: `references/agent-protocol.md`).
 
 ```
 AskUserQuestion(
@@ -160,14 +160,13 @@ AskUserQuestion(
   options: [
     { label: "[Label A]", description: "[one-line description and tradeoff]" },
     { label: "[Label B]", description: "[one-line description and tradeoff]" },
-    { label: "Defer to Hephaestus", description: "Let the tech spec author decide" },
-    { label: "Let me type it", description: "None of these fit — I'll type my answer in chat" }
+    { label: "Defer to Hephaestus", description: "Let the tech spec author decide" }
   ]
 )
 ```
 
 Shape the options by your debate mode:
-- **`debate`**: 2 options + "Defer to Hephaestus" (3 substantive total, leaving the 4th slot for the escape option). State your recommendation in the question text.
+- **`debate`**: 2 options + "Defer to Hephaestus". State your recommendation in the question text.
 - **`challenge`**: Surface the hidden risk or tension as one of the options.
 - **`validate`**: Frame as "Confirm [their preference], or adjust?" with a concrete alternative.
 
