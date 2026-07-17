@@ -6,12 +6,10 @@
  *
  * Once per qualifying session, quietly injects an instruction into the final
  * Stop via `hookSpecificOutput.additionalContext` (no `decision` field) that
- * asks Claude to review the whole conversation for (1) durable user facts
- * (preferences, habits, weak spots, corrections, working style), saved via
- * `kratos memory` — the same CLI, dedupe, and 📝 notice Iris uses inline —
- * and (2) corrections the user made to a specific god-agent's finished work,
- * saved per agent via `kratos feedback` and re-injected at that agent's next
- * spawn by path-inject.cjs.
+ * points Claude at references/memory-sweep.md: (1) durable user facts saved
+ * via `kratos memory`, (2) corrections to a specific god-agent's finished
+ * work saved per agent via `kratos feedback` and re-injected at that agent's
+ * next spawn by path-inject.cjs.
  *
  * Previously this hook used `{decision:'block', reason:<instruction>}`. Every
  * Stop-hook block — regardless of wording or suppressOutput/systemMessage —
@@ -21,6 +19,12 @@
  * (issue #4). This makes the sweep advisory rather than guaranteed: the model
  * is expected to follow the injected instruction, not hard-forced into another
  * turn the way `block` would force one.
+ *
+ * `additionalContext` still renders as a visible "Stop hook feedback" line —
+ * there is no fully invisible Stop channel. To keep that line as small as
+ * possible, the injected instruction is a single sentence; the full protocol
+ * lives in references/memory-sweep.md, which also tells the model to run the
+ * sweep with zero user-visible output (no 📝 note).
  *
  * This is a session-wide safety net: Iris only sweeps during its own missions,
  * so facts revealed during ordinary (non-Iris) Kratos work would otherwise be
@@ -78,20 +82,16 @@ function readTranscript(transcriptPath) {
   }
 }
 
+// Returns the one-line sweep instruction, or null when the protocol file is
+// missing (partial install) — callers must treat null as "no sweep".
+// One sentence on purpose: additionalContext renders as a visible
+// "Stop hook feedback" line, so everything else lives in the protocol file.
 function buildInstruction(kratosBin) {
-  return 'Two memory sweeps, then stop. '
-    + '(1) USER FACTS: Review this conversation for durable user facts (preferences, habits, weak spots, '
-    + 'corrections, working style — not project/task facts, never secrets). '
-    + 'Project/task/repo facts belong in the project\'s Arena, not memory — when in doubt, save nothing. '
-    + `Run \`${kratosBin} memory list\` to dedupe. `
-    + `Save at most 3 via \`${kratosBin} memory add "<fact>" --category <preference|habit|weak-spot|context>\`. `
-    + 'Use only those four categories. Each fact must be ≤200 characters — write it short the first time. '
-    + '(2) AGENT LESSONS: If the user corrected or redirected work a specific Kratos god-agent had just delivered, '
-    + `run \`${kratosBin} feedback list --agent <god>\` to dedupe, then save at most 2 via `
-    + `\`${kratosBin} feedback add --agent <god> "<lesson>"\`. `
-    + 'A lesson is what that agent should do differently next time, ≤200 characters. '
-    + 'Only corrections clearly attributable to one agent\'s finished output — general preferences belong in memory, not feedback. '
-    + 'If nothing durable in either sweep, save nothing. Then finish with a one-line 📝 note (or nothing) and stop.';
+  const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, '..');
+  const protocol = path.join(pluginRoot, 'references', 'memory-sweep.md');
+  if (!fs.existsSync(protocol)) return null;
+  return `Silently run the memory sweep in "${protocol.replace(/\\/g, '/')}" `
+    + `with <kratos-bin> = ${kratosBin} — no user-visible output.`;
 }
 
 function quietSweep(instruction) {
@@ -154,6 +154,10 @@ process.stdin.on('end', () => {
   const kratosBin = resolveBinary();
   if (!kratosBin) return;
 
+  // No protocol file (partial install), no sweep.
+  const instruction = buildInstruction(kratosBin);
+  if (!instruction) return;
+
   try {
     fs.mkdirSync(SWEEP_DIR, { recursive: true });
     fs.writeFileSync(markerPath(sessionId), String(Date.now()));
@@ -163,7 +167,7 @@ process.stdin.on('end', () => {
   }
   pruneOldMarkers();
 
-  quietSweep(buildInstruction(kratosBin));
+  quietSweep(instruction);
 });
 
 setTimeout(() => {

@@ -94,20 +94,26 @@ cat ~/.kratos/active-session.json
 
 Registered as a second `Stop` hook (alongside `session-end.cjs`). Where Iris's inline memory
 capture only catches facts flagged during an Iris mission, this hook is a session-wide safety
-net: on the final `Stop` of a qualifying session, it quietly injects a two-target instruction
+net: on the final `Stop` of a qualifying session, it quietly injects a one-sentence instruction
 for Claude via `hookSpecificOutput.additionalContext` (no `decision` field, so no Stop-hook-error
-styling — see below): (1) review the whole conversation for durable user facts (preferences,
-habits, weak spots, corrections, working style — never project/task facts, never secrets),
-dedupe against `kratos memory list`, and save at most 3 via `kratos memory add`; (2) identify
-corrections the user made to a specific god-agent's finished work and save at most 2 as per-agent
-lessons via `kratos feedback add --agent <god>`. Lessons are re-injected at that agent's next
-spawn by `path-inject.cjs` (≤5, current-project first via `feedback list --prefer-project`;
-fail-open — any error just drops the lessons block).
+styling — see below) pointing at `references/memory-sweep.md`, the full two-target protocol:
+(1) review the whole conversation for durable user facts (preferences, habits, weak spots,
+corrections, working style — never project/task facts, never secrets), dedupe against
+`kratos memory list`, and save at most 3 via `kratos memory add`; (2) identify corrections the
+user made to a specific god-agent's finished work and save at most 2 as per-agent lessons via
+`kratos feedback add --agent <god>`. Lessons are re-injected at that agent's next spawn by
+`path-inject.cjs` (≤5, current-project first via `feedback list --prefer-project`; fail-open —
+any error just drops the lessons block).
 
 This hook used to emit `{"decision":"block","reason":<instruction>}`. Every Stop-hook block —
 regardless of wording — renders as a red "Stop hook error: <reason>" in the transcript, so the
 sweep now uses the quiet-continuation channel instead. That makes it advisory: Claude is expected
 to follow the injected instruction, but nothing forces another turn the way `block` did.
+
+`additionalContext` still renders as a visible "Stop hook feedback" line — there is no fully
+invisible Stop channel. That's why the injected instruction is a single sentence (the wall of
+protocol text lives in `references/memory-sweep.md`) and why the protocol tells Claude to run
+the sweep with zero user-visible output: no narration, no closing 📝 note.
 
 **Guards** — the hook allows the stop silently (no output, no injection) whenever any of these trip:
 
@@ -121,6 +127,7 @@ to follow the injected instruction, but nothing forces another turn the way `blo
 | Transcript contains `KRATOS WRAP COMPLETE` | `/kratos:wrap` already swept inline before printing its marker — don't double-sweep |
 | Transcript file missing or unreadable | Fail open — never block blind |
 | `kratos` binary unresolvable | No CLI, no sweep |
+| `references/memory-sweep.md` missing | Partial install — no protocol, no sweep |
 
 On a qualifying session the hook writes the marker file first (so a hung or interrupted sweep
 never causes a repeat emission), prunes markers older than 7 days, then emits
