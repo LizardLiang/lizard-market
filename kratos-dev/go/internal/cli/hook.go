@@ -247,7 +247,7 @@ func specDeltaCheckIn(root string, raw []byte, stdout io.Writer) error {
 	}
 
 	reason := fmt.Sprintf(
-		"Spec delta validation failed for feature %q: %s — fix the delta now (the file must start directly with ## ADDED/MODIFIED/REMOVED/RENAMED Requirements; every ADDED/MODIFIED requirement needs a SHALL statement and ≥1 #### Scenario:).",
+		"Spec delta validation failed for feature %q: %s — fix the delta now (the file must start directly with ## ADDED/MODIFIED/REMOVED/RENAMED Requirements; every ADDED/MODIFIED requirement needs a SHALL statement and ≥1 #### Scenario:; ADDED vs MODIFIED is relative to the living spec at .claude/.Arena/specs/<capability>/spec.md, not the code: if the capability has no living spec or the requirement isn't recorded there yet, it is ADDED — even for a bug fix to existing behavior).",
 		feature, strings.Join(messages, "; "),
 	)
 	return json.NewEncoder(stdout).Encode(map[string]string{
@@ -1134,7 +1134,7 @@ func handleAthenaStop(input subagentStopInput) error {
 	}
 	if !ok {
 		return outputSubagentBlock(fmt.Sprintf(
-			"Athena quality gate failed: kratos spec validate found errors in the spec delta:\n%s\nFix the delta before completing.",
+			"Athena quality gate failed: kratos spec validate found errors in the spec delta:\n%s\nFix the delta before completing. Reminder: ADDED vs MODIFIED is relative to the living spec at .claude/.Arena/specs/<capability>/spec.md, not the code: if the capability has no living spec or the requirement isn't recorded there yet, it is ADDED — even for a bug fix to existing behavior.",
 			strings.Join(messages, "\n"),
 		))
 	}

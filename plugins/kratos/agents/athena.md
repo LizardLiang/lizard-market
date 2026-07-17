@@ -166,6 +166,8 @@ Feature: File Upload
       - A requirement is being retired → `## REMOVED Requirements`
       - A requirement is being renamed only → `## RENAMED Requirements` (FROM/TO)
 
+   ADDED vs MODIFIED is relative to the living spec (`.claude/.Arena/specs/<capability>/spec.md`), not the code: if the capability has no living spec or the requirement isn't recorded there yet, it is ADDED — even for a bug fix to existing behavior.
+
    Keep the PRD's `FR-###` IDs as-is in `prd.md` — they're feature-scoped. The delta's `### Requirement: <Name>` header is the separate, durable cross-feature ID; name it for the behavior, not the feature (e.g. `Password Reset Rate Limiting`, not `FR-014`).
 
    Not every PRD requirement needs a delta entry — only the ones that describe durable system behavior worth remembering across features (skip pure UI copy, one-off migrations, etc.). A quality gate checks that `spec-delta/<capability>.md` exists and passes `kratos spec validate` before you can complete — if truly nothing in this PRD constitutes a durable behavioral contract, still write the delta file with at least one section (e.g. a minimal `ADDED` entry) rather than leaving it empty.

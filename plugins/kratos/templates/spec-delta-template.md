@@ -49,7 +49,7 @@ The system SHALL {updated behavior statement — this replaces the requirement's
 2. **At least one operation section with at least one entry** — an empty delta fails validation.
 3. **No duplicate `### Requirement:` headers** across ADDED/MODIFIED/REMOVED in the same delta file — a requirement can only be the target of one operation per delta.
 4. **MODIFIED / REMOVED targets must already exist** in the current living spec (`.claude/.Arena/specs/<capability>/spec.md`) — trimmed, case-sensitive match on the `### Requirement:` header. Targeting a requirement that doesn't exist is a validation error.
-5. **ADDED targets must NOT already exist** in the living spec — if it already exists, use MODIFIED instead.
+5. **ADDED targets must NOT already exist** in the living spec — if it already exists, use MODIFIED instead. This check is against the living spec, not the code: if the capability has no living spec yet or the requirement was never recorded in it, it is ADDED — even for a bug fix to existing behavior.
 6. **RENAMED entries** are FROM/TO bullet pairs. FROM must exist in the living spec; TO must not collide with any other requirement name after the rename is applied.
 7. **Every ADDED/MODIFIED requirement needs a SHALL statement and ≥1 scenario** — same rules as the spec shard template. `kratos spec validate --strict` promotes missing-scenario/missing-SHALL findings from warnings to errors.
 8. **Merge order on archive is fixed**: RENAMED → REMOVED → MODIFIED → ADDED. Conflicts block the entire archive — no partial merge.

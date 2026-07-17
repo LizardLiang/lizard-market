@@ -143,7 +143,7 @@ Create the slug from the task title (lowercase; non-alphanumeric runs → `-`; t
 
 1. **Pick the capability** emergently: read `.claude/.Arena/specs/` if it exists and choose an existing `<capability>` that fits, or name a new one. No Metis prerequisite — the same rule Athena uses.
 2. **Fetch the template:** `<kratos-bin> template get spec-delta-template` (fallback `~/.kratos/bin/kratos`). If the binary is unavailable, use the embedded skeleton below — **never write a prose delta**; a delta that doesn't start with an operation header will hard-fail `spec archive` later.
-3. **Write** `.claude/feature/<slug>/spec-delta/<capability>.md` with `## ADDED / ## MODIFIED / ## REMOVED Requirements` — one `### Requirement:` per facet from your Decision Tree, each with at least one `#### Scenario:`. Read any existing `.claude/.Arena/specs/<capability>/spec.md` first to choose ADDED vs MODIFIED and to match requirement-header names exactly. The file must start **directly** with an operation section header — no title, no preamble:
+3. **Write** `.claude/feature/<slug>/spec-delta/<capability>.md` with `## ADDED / ## MODIFIED / ## REMOVED Requirements` — one `### Requirement:` per facet from your Decision Tree, each with at least one `#### Scenario:`. Read any existing `.claude/.Arena/specs/<capability>/spec.md` first to choose ADDED vs MODIFIED and to match requirement-header names exactly. This classification is relative to the living spec, not the code: if the capability has no living spec or the requirement isn't recorded there yet, it is ADDED — even for a bug fix to existing behavior. The file must start **directly** with an operation section header — no title, no preamble:
 
    ```markdown
    ## ADDED Requirements
