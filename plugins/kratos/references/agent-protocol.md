@@ -77,11 +77,12 @@ Optional files (`context.md`, `decomposition.md`, Arena shards, language-specifi
 Canonical rule for every `AskUserQuestion` call across kratos agents, commands, and pipeline prompts:
 
 1. **No escape option.** The client renders a built-in "Other" free-text choice on every question — never add a "Let me type it" / "Other"-style option of your own; it duplicates the native input.
-2. **Free-text reply → treat as the answer.** If the user answers via the built-in "Other", the typed text IS the answer. Parse intent from it before re-asking anything; only follow up if it is genuinely ambiguous.
-3. **Decline/interrupt/error → prose fallback, once.** If the tool call is declined, interrupted, or errors, ask the same question one time in plain prose and end the turn. Never immediately re-fire the tool for that question.
-4. **Option cap: 4 (tool max).** All 4 slots are substantive — the tool schema caps options at 4 total.
-5. **Never call with an empty `options` array.** An empty options list means the intent is free text — ask in plain prose instead of calling the tool with no options.
-6. **Subagent caveat.** `AskUserQuestion` only reaches the user from the top-level session. If you find yourself running as a spawned subagent (questions won't surface), don't fake a conversation — flag the gap as an assumption and note that clarification was unavailable instead of calling the tool.
+2. **Never set `preview` fields on options.** When any option has a `preview`, the client switches to a side-by-side layout that drops the built-in "Other" free-text inputbox — the user loses the ability to type a custom answer. Fold anything essential from a would-be preview into the option's `description` instead (keep it short).
+3. **Free-text reply → treat as the answer.** If the user answers via the built-in "Other", the typed text IS the answer. Parse intent from it before re-asking anything; only follow up if it is genuinely ambiguous.
+4. **Decline/interrupt/error → prose fallback, once.** If the tool call is declined, interrupted, or errors, ask the same question one time in plain prose and end the turn. Never immediately re-fire the tool for that question.
+5. **Option cap: 4 (tool max).** All 4 slots are substantive — the tool schema caps options at 4 total.
+6. **Never call with an empty `options` array.** An empty options list means the intent is free text — ask in plain prose instead of calling the tool with no options.
+7. **Subagent caveat.** `AskUserQuestion` only reaches the user from the top-level session. If you find yourself running as a spawned subagent (questions won't surface), don't fake a conversation — flag the gap as an assumption and note that clarification was unavailable instead of calling the tool.
 
 ---
 

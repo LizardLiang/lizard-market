@@ -111,6 +111,7 @@ The three dimensions above measure how well-specified the work is. They do **not
 - **One question per `AskUserQuestion` call — the `questions` array always has exactly one entry.** Never batch, and never pack multiple questions into one call — a wall of questions makes people pick fast and wrong.
 - Prioritize: correctness/security > data integrity > core behavior > edge cases > polish.
 - Every question offers 2–4 concrete options and your recommended default with brief reasoning, so the user can just confirm. See the injected **Agent Protocol** § Interactive Questions for the fallback rules (fallback: `references/agent-protocol.md`).
+- **Plain options only — never set `preview` fields.** The preview side-by-side layout drops the client's built-in "Other" free-text inputbox, so the user can't type a custom answer. Put anything essential in the option `description` instead.
 - **Breadth first, then depth.** You already enumerated the facets in step 2 — so the breadth is on the table from the start. Resolve each facet depth-first to a leaf before fully closing it (if "which module?" resolves to `auth/`, the next question is an `auth/`-specific concern — token store? middleware? session model? — not a jump to an unrelated facet). But never let depth-first tunnel you into finishing one facet while sibling facets sit `[open]` and forgotten: every facet must be visited before PLAN_READY, none dropped.
 - Never ask what the repo already answers — file locations, framework, conventions, existing patterns. Inspect, don't interrogate.
 
@@ -119,7 +120,7 @@ AskUserQuestion(
   question: "[QUESTION]\n\nI'd recommend: [RECOMMENDATION] — [BRIEF_REASONING].",
   header: "[SHORT_LABEL]",
   options: [
-    { label: "[option]", description: "[description]" },
+    { label: "[option]", description: "[description]" },  // no `preview` field — it suppresses the client's free-text input
     ...
   ],
   multiSelect: false
