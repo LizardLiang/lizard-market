@@ -660,6 +660,7 @@ kratos pipeline status [feature]                   # dashboard: progress, health
 kratos pipeline tasks list --feature <name>        # list stage-7 tasks with progress (User Mode)
 kratos pipeline tasks complete <id>... | --all     # mark stage-7 tasks complete (User Mode)
 kratos slug <text>...                              # generate a URL/dir-safe feature slug
+kratos slug --dated <text>...                      # same, prefixed with today's local date (YYYY-MM-DD-) for chronological artifact names
 
 # Living specs
 kratos spec list                                  # living capability shards + requirement counts

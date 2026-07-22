@@ -93,7 +93,7 @@ Route on `action`:
 
 The CLI never picks among multiple features, never opts into optional stages, and reports default models only — those judgments (plus eco/power model overrides per `<KRATOS_ROOT>/modes/modes.md`) are yours.
 
-**Fallback (binary unavailable):** search `.claude/feature/*/status.json` yourself — no feature → ask; one → use it; multiple → AskUserQuestion — then read `status.json` for current stage/status and route with the Stage Transition Logic table below.
+**Fallback (binary unavailable):** search `.claude/feature/*/status.json` yourself — no feature → ask; one → use it; multiple → AskUserQuestion — then read `status.json` for current stage/status and route with the Stage Transition Logic table below. When the user names a feature by its undated title (e.g. "continue add-auth"), match dated folders by slug suffix (`*-<typed-name>`); if multiple match, ask which.
 
 ### Step 3: Understand Intent
 

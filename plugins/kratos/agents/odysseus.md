@@ -140,7 +140,7 @@ Keep asking until PLAN_READY is true. Do not stop early because the answers were
 
 The full pipeline captures behavior in living specs via Athena's deltas — but you often run on the quick/tactical path where Athena never runs. So *you* author the delta, or the quick path stays invisible to `.claude/.Arena/specs/`. Because step 2 forced you to enumerate every facet, the delta you write here is complete — one requirement per facet, not just the gate.
 
-Create the slug from the task title (lowercase; non-alphanumeric runs → `-`; trim leading/trailing `-`). Then:
+Mint the slug from the task title via `<kratos-bin> slug --dated "<task title>"` — prepends today's local date (`YYYY-MM-DD-`) to the kebab slug, so tactical plans and their spec-delta folders sort chronologically. Fallback if the binary is unavailable: lowercase, non-alphanumeric runs → `-`, trim leading/trailing `-`, then prepend today's date as `YYYY-MM-DD-`. This slug is shared by the plan file (step 5) and the spec-delta folder below. Then:
 
 1. **Pick the capability** emergently: read `.claude/.Arena/specs/` if it exists and choose an existing `<capability>` that fits, or name a new one. No Metis prerequisite — the same rule Athena uses.
 2. **Fetch the template:** `<kratos-bin> template get spec-delta-template` (fallback `~/.kratos/bin/kratos`). If the binary is unavailable, use the embedded skeleton below — **never write a prose delta**; a delta that doesn't start with an operation header will hard-fail `spec archive` later.

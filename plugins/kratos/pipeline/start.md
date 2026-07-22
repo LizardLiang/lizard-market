@@ -43,7 +43,9 @@ Write only the bare level into status.json — **exactly one of `P0`/`P1`/`P2`/`
 
 ### Step 2: Create the Battlefield
 
-1. **Initialize status.json** by creating the file directly with the base schema. See `<KRATOS_ROOT>/references/status-json-schema.md` for the complete schema. Create `.claude/feature/<feature-name>/status.json` with the full pipeline template, setting `feature`, `description`, `priority`, and real timestamps.
+0. **Derive the folder name** from the typed feature name: `FEATURE=$(<kratos-bin> slug --dated "<typed name>")` — prepends today's local date (`YYYY-MM-DD-`) to the kebab slug. Fallback if the binary is unavailable: prepend today's date as `YYYY-MM-DD-` to the kebab slug by hand. This dated slug is `<feature-name>` for every path below.
+
+1. **Initialize status.json** by creating the file directly with the base schema. See `<KRATOS_ROOT>/references/status-json-schema.md` for the complete schema. Create `.claude/feature/<feature-name>/status.json` with the full pipeline template, setting `feature`, `description`, `priority`, and real timestamps. `feature` = the dated folder name from Step 0 above.
 
 2. **Create arena-deltas.md** for feature-specific discoveries
 
