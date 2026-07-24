@@ -100,6 +100,47 @@ Each test captures:
 - **Error Analysis**: Failures and warning classification
 - **Status Compliance**: Timestamp and status validation
 
+## Constraint Injection Audit
+
+Measures how many times the terse "Output constraint" sentence
+(`**Output constraint:** Terse. Drop articles...`) gets injected into a
+Kratos session across its four known channels (SessionStart, UserPromptSubmit,
+SubagentStart, `kratos agent load --resolve`), and flags waste — the same
+~43-token sentence repeated more times than the session actually needs.
+
+```bash
+npm run test:constraint-injection          # Mode A (default) — zero API spend
+npm run test:constraint-injection:live     # Mode B — real API calls, do not run casually
+```
+
+### Mode A — static accounting (default)
+
+Invokes each channel's real emitting process directly
+(`node hooks/session-start.cjs`, `kratos hook prompt-submit`,
+`node hooks/path-inject.cjs`, `kratos agent load <god> --resolve`) for a
+representative set of gods (default: ares, athena, hermes, iris), counts the
+constraint substring in each one's actual output, then models a session — `1
+SessionStart + P keyword prompts + G god spawns + I inline loads` (defaults
+P=5, G=3, I=1, override with `--p --g --i`, or `--gods a,b,c` for a custom god
+set). Reports TOTAL copies, EXPECTED MINIMUM (1 main session + G subagents + I
+inline loads), WASTED copies, and an approximate wasted-token cost (chars/4
+heuristic). Exits non-zero when wasted copies exceed the `WASTE_BUDGET`
+constant at the top of `src/test-constraint-injection.mjs` (currently 0).
+Only shells out to `node` and the resolved `kratos` binary — no network calls.
+
+### Mode B — live verification (`--live`)
+
+Runs one real SDK session (multiple turns via `resume`) mixing plain
+kratos-keyword prompts with a `/kratos:main` spec prompt that spawns a god
+subagent, then parses the on-disk JSONL transcript(s) under
+`~/.claude/projects/<slug>/` for **attributed** constraint copies — only
+copies that arrived as hook-injected context (`type: "attachment"` records
+for SessionStart/UserPromptSubmit/SubagentStart), never occurrences that show
+up because the assistant echoed the sentence or read a file containing it.
+Reports both the attributed count and a naive whole-file count side by side
+for contrast. Makes real API calls — run deliberately, not as part of routine
+testing.
+
 ## Timestamp Validation
 
 The harness includes comprehensive timestamp validation to ensure agents properly update `status.json`:

@@ -12,6 +12,14 @@
 // (b) its stored feedback lessons (≤5, current-project first). Both are
 // fail-open: any error just drops that part. Emits nothing (silent exit 0)
 // if no part is available.
+//
+// Output constraint sourcing is single-source: the composed protocol block
+// already carries the "Output constraint:" sentence (every god's
+// protocol_sections includes output-format), so that block is the one copy
+// in the normal case. The OUTPUT_CONSTRAINT literal below is a fail-open
+// fallback only — emitted when the protocol block is absent/doesn't already
+// contain the sentence (binary unresolvable, protocol call fails, or no
+// stdin payload at all), so a spawned god always gets exactly one copy.
 
 const path = require('path');
 const os = require('os');
@@ -20,6 +28,15 @@ const { resolveBinary } = require('./kratos-bin.cjs');
 
 const DB_PATH = path.join(os.homedir(), '.kratos', 'memory.db');
 const MAX_LESSONS = 5;
+
+// Output constraint injected into every spawned subagent, binary-independent
+// (mirrors references/agent-protocol.md's output-format section — same
+// precedent as hooks/session-start.cjs:28-29). protocolPart() below composes
+// this same section when the kratos binary IS resolvable, so duplication is
+// expected in that case; this const is the fail-open fallback for when it
+// isn't.
+const OUTPUT_CONSTRAINT =
+  '**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.';
 
 function toSlashes(p) {
   return p.replace(/\\/g, '/');
@@ -124,9 +141,15 @@ process.stdin.on('end', () => {
   }
   const protocol = protocolPart(kratosPath, agentType, root);
   const lessons = lessonsPart(kratosPath, agentType);
-  emit(baseParts.concat([protocol, lessons].filter(Boolean)));
+  // Protocol block already contains the output constraint sentence in the
+  // normal case; only fall back to the literal when it's missing or doesn't
+  // already carry that sentence, so the god never gets two copies.
+  const needLiteral = !protocol || !protocol.includes('Output constraint:');
+  const extra = [needLiteral ? OUTPUT_CONSTRAINT : null, protocol, lessons].filter(Boolean);
+  emit(extra.concat(baseParts));
 });
 
-// If no stdin arrives (older harness, manual invocation), still inject the
-// base parts before the 3s hook timeout.
-setTimeout(() => emit(baseParts), 1500).unref();
+// If no stdin arrives (older harness, manual invocation), no agent_type was
+// ever available so no protocol block was computed — the literal is the
+// only possible source on this path.
+setTimeout(() => emit([OUTPUT_CONSTRAINT, ...baseParts]), 1500).unref();

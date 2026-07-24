@@ -30,7 +30,9 @@
     "test:orchestrator-qa:gap": "node src/test-orchestrator-qa.mjs --test gap",
     "test:orchestrator-qa:heph": "node src/test-orchestrator-qa.mjs --test heph",
     "test:inline-commands": "node src/test-inline-commands.mjs",
-    "test:inline-commands:quick": "node src/test-inline-commands.mjs --agent athena,hermes,hades,ares"
+    "test:inline-commands:quick": "node src/test-inline-commands.mjs --agent athena,hermes,hades,ares",
+    "test:constraint-injection": "node src/test-constraint-injection.mjs",
+    "test:constraint-injection:live": "node src/test-constraint-injection.mjs --live"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0"
