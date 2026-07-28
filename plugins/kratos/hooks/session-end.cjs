@@ -173,12 +173,70 @@ function reportPendingSpecDeltas() {
   console.log('  Promote with: /kratos:spec-archive <feature>  or  kratos spec archive <feature>');
 }
 
+// Find tactical plans still marked `status: draft` — plan sessions that ended
+// before their clarification loop reached PLAN_READY. Their Locked Decisions are
+// real user answers, so the session must not end silently on top of them.
+// Pure fs, no binary dependency (unlike the spec-delta reporter above).
+function getDraftPlans() {
+  const planDir = path.join(cwd, '.claude', '.Arena', 'tactical-plans');
+  if (!fs.existsSync(planDir)) return [];
+
+  const drafts = [];
+  try {
+    for (const name of fs.readdirSync(planDir)) {
+      if (!name.endsWith('.md')) continue;
+      const full = path.join(planDir, name);
+      try {
+        // Frontmatter lives in the first few lines; read the head only.
+        const head = fs.readFileSync(full, 'utf-8').slice(0, 512);
+        if (!/^---\r?\n(?:.*\r?\n)*?status:\s*draft\b/m.test(head)) continue;
+        const decisions = countLockedDecisions(full);
+        drafts.push({ name, decisions });
+      } catch (e) {
+        // Unreadable file — skip it rather than failing the whole hook.
+      }
+    }
+  } catch (e) {
+    return [];
+  }
+  return drafts;
+}
+
+// Count entries under the plan's `## Locked Decisions` heading, so the reminder
+// can say how much answered-question work is sitting in the draft.
+function countLockedDecisions(filePath) {
+  try {
+    const body = fs.readFileSync(filePath, 'utf-8');
+    const section = body.split(/^##\s+Locked Decisions\s*$/m)[1];
+    if (!section) return 0;
+    const untilNextHeading = section.split(/^##\s+/m)[0];
+    return (untilNextHeading.match(/^\s*-\s+\*\*/gm) || []).length;
+  } catch (e) {
+    return 0;
+  }
+}
+
+// Report unfinished plan drafts, on the same "never lost" principle as pending
+// spec deltas — these hold decisions the user cannot regenerate.
+function reportDraftPlans() {
+  const drafts = getDraftPlans();
+  if (drafts.length === 0) return;
+
+  console.log(`Kratos: ${drafts.length} unfinished plan draft(s) in .claude/.Arena/tactical-plans/`);
+  for (const d of drafts) {
+    const count = d.decisions === 1 ? '1 locked decision' : `${d.decisions} locked decisions`;
+    console.log(`  ${d.name} (${count})`);
+  }
+  console.log('  Resume with: /kratos:plan <task>  — it picks the draft back up instead of re-asking');
+}
+
 // Main
 function main() {
   const session = getSession();
   if (!session) {
     console.log('Kratos: No active session to end');
     reportPendingSpecDeltas();
+    reportDraftPlans();
     return;
   }
 
@@ -215,6 +273,7 @@ function main() {
   }
 
   reportPendingSpecDeltas();
+  reportDraftPlans();
 }
 
 main();

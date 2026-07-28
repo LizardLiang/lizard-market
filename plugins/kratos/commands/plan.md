@@ -5,7 +5,7 @@ description: Tactical implementation plan mode — Odysseus prepares Ares-ready 
 
 !echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
 
-!cat "${CLAUDE_PLUGIN_ROOT}/agents/odysseus.md"
+!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load odysseus --resolve
 
 ---
 
@@ -33,11 +33,11 @@ If the user is asking for roadmap, sprint planning, priorities, or build-order s
 
 ## How You Operate
 
-1. Ground in the repo (read mentioned files, search entry points and patterns).
-2. Decompose the request into facets (breadth) so no sub-behavior is silently dropped — see the agent definition's step 2.
-3. Run the clarity loop from the agent definition: score the three dimensions AND cover every facet, ask one question per turn via `AskUserQuestion`, re-score after every answer, and **keep asking until PLAN_READY** — the bar is ambiguity ≤ 0.10 **and** zero `[open]` facets. Do not stop early because answers were short or it feels "probably fine".
+1. Ground in the repo (read mentioned files, search entry points and patterns) — and check `.claude/.Arena/tactical-plans/` for a `status: draft` plan to resume instead of re-asking answered questions.
+2. Decompose the request into facets (breadth) so no sub-behavior is silently dropped — see the agent definition's step 2. Then mint the slug and **open the draft plan file before asking anything**.
+3. Run the clarity loop from the agent definition: score the three dimensions AND cover every facet, ask one question per turn via `AskUserQuestion`, **append each answer to the draft file before asking the next question**, re-score, and **keep asking until PLAN_READY** — the bar is ambiguity ≤ 0.10 **and** zero `[open]` facets. Do not stop early because answers were short or it feels "probably fine".
 4. Author the pending spec delta at `.claude/feature/<slug>/spec-delta/<capability>.md` and self-validate it (agent step 4).
-5. Write the tactical plan (with Decision Tree and clarity score) to `.claude/.Arena/tactical-plans/<slug>.md`.
+5. Finalize the tactical plan in place — same file, `status: draft` → `status: ready`, banner removed, Locked Decisions retained.
 6. Present the handoff:
 
 ```
@@ -61,7 +61,7 @@ Do not spawn Ares automatically from `/kratos:plan`. Do not modify source files 
 2. **STAY INLINE** — never spawn a subagent; the questions must reach the user
 3. **NO STRATEGY ROUTING** — roadmaps/priorities belong to `/kratos:strategy`
 4. **NO IMPLEMENTATION** — stop after the saved plan and handoff instruction
-5. **SAVE THE PLAN** — tactical plans go under `.claude/.Arena/tactical-plans/`
+5. **SAVE THE PLAN** — tactical plans go under `.claude/.Arena/tactical-plans/`; open the file as a `status: draft` **before the first question** and journal every answer to it as it arrives, so an interrupted session never loses the user's decisions
 6. **SUGGEST ARES HANDOFF** — point to `/kratos:quick implement the approved plan ...`
 
 ---

@@ -144,9 +144,25 @@ Check whether `.claude/.Arena/handoff.md` exists and is less than 7 days old (sa
 - If fresh, Read the file and present its content alongside the recall summary (see Response Format below) — this is the explicit manual path to the same content the resume-phrase hook injects on demand.
 - If missing or stale, skip silently — no mention of it in the output.
 
+### Step 3b: Check for unfinished plan drafts
+
+A `/kratos:plan` session that ended mid-clarification leaves a tactical plan marked `status: draft`. It holds real answers the user already gave, and it is invisible to every other recall surface — Odysseus creates no session, no feature dir, and no `status.json`, so a plan-only session is exactly the case Steps 1–3 cannot see. This is a plain file check, binary or not:
+
+- Glob `.claude/.Arena/tactical-plans/*.md` and Read the frontmatter of each.
+- Collect any whose frontmatter says `status: draft`, along with the entries under their `## Locked Decisions` heading.
+- Apply the same 7-day freshness gate as the handoff.
+- If none, skip silently.
+
 ### Step 4: Parse and Present
 
-Parse the JSON response and format it according to the templates above. If Step 3 found a fresh handoff, include it under a `## Session Handoff` heading after the pipeline summary.
+Parse the JSON response and format it according to the templates above. If Step 3 found a fresh handoff, include it under a `## Session Handoff` heading after the pipeline summary. If Step 3b found drafts, list them under a `## Unfinished Plans` heading with their locked-decision count and the resume command:
+
+```
+## Unfinished Plans
+
+- `.claude/.Arena/tactical-plans/<slug>.md` — <N> locked decisions, last touched <date>
+  Resume: /kratos:plan <task title>   (picks up the existing answers instead of re-asking)
+```
 
 ### Step 5: Offer Continuation
 
@@ -274,7 +290,9 @@ If the binary is unavailable, use Glob to find `.claude/feature/*/status.json` a
 
 3. **Check for a session handoff** — Glob/Read `.claude/.Arena/handoff.md`; if it exists and is <7 days old, Read its content for Step 4. Works with or without the binary.
 
-4. **Format and display** according to the templates above, including the handoff content (if found in Step 3) under a `## Session Handoff` heading
+3b. **Check for unfinished plan drafts** — Glob `.claude/.Arena/tactical-plans/*.md`, Read frontmatter, collect any with `status: draft` (<7 days old) and their `## Locked Decisions` count. Works with or without the binary, and is the only recall surface that sees plan-only sessions.
+
+4. **Format and display** according to the templates above, including the handoff content (if found in Step 3) under a `## Session Handoff` heading and any drafts (Step 3b) under `## Unfinished Plans`
 
 5. **Offer continuation** if there's an incomplete feature
 

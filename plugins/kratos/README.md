@@ -179,8 +179,8 @@ For **Odysseus**, the plan guard enforces tactical Plan Mode when Claude include
 
 | Tool | Odysseus Rule |
 |------|---------------|
-| `Write` / `Edit` / `MultiEdit` | Only `.claude/.Arena/tactical-plans/*.md` |
-| `Bash` | Read-only inspection commands only |
+| `Write` / `Edit` / `MultiEdit` | Only `.claude/.Arena/tactical-plans/*.md` and `.claude/feature/<slug>/spec-delta/*.md` |
+| `Bash` | Read-only inspection commands, plus read-only `kratos` subcommands (`slug`, `template get`, `spec validate`, `spec list`) |
 
 If the hook payload does not identify the active agent, the guard fails open so it does not interfere with normal Ares or pipeline work.
 

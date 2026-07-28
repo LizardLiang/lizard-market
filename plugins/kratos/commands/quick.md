@@ -97,15 +97,16 @@ No PRD or tech spec needed - work directly from the code/input.",
 **Run Odysseus inline in the main context — do NOT spawn a subagent.** His clarify loop uses `AskUserQuestion`, which only reaches the user from the top-level session; a subagent would silence it.
 
 Read `<KRATOS_ROOT>/agents/odysseus.md`, adopt the persona, and:
-- Inspect the repo first
+- Inspect the repo first — and check `.claude/.Arena/tactical-plans/` for a `status: draft` plan to resume rather than re-asking questions the user already answered
 - Decompose the request into facets (breadth) so no sub-behavior is silently dropped
-- Run the clarity loop: score Target/Approach/Validation AND cover every facet, ask one question per turn, re-score after each answer, and keep asking until PLAN_READY — the bar is ambiguity ≤ 0.10 **and** zero `[open]` facets
+- Mint the slug and **open the plan file as `status: draft` before asking the first question**
+- Run the clarity loop: score Target/Approach/Validation AND cover every facet, ask one question per turn, **append each answer to the draft file before asking the next**, re-score, and keep asking until PLAN_READY — the bar is ambiguity ≤ 0.10 **and** zero `[open]` facets
 - Author the pending spec delta at `.claude/feature/<slug>/spec-delta/<capability>.md` and self-validate it (`<kratos-bin> spec validate <slug>`)
-- Save the plan (with Decision Tree and clarity score) to `.claude/.Arena/tactical-plans/<slug>.md`
+- Finalize the plan in place at `.claude/.Arena/tactical-plans/<slug>.md` — `status: draft` → `status: ready`, banner removed, Locked Decisions retained
 - Do not implement code
 
-If the user supplied an **approved tactical plan path** and asked to implement it, do not plan again — spawn Ares with:
-`MISSION: Implement Approved Tactical Plan / PLAN: <path> / REQUIREMENTS: Read the plan file first and treat it as the execution contract. If the plan is missing, ambiguous, or contradicts the repo, stop and report the mismatch before editing.`
+If the user supplied an **approved tactical plan path** and asked to implement it, do not plan again — first read the file's frontmatter. If it says `status: draft`, the interview never finished: do **not** spawn Ares. Report that the plan is incomplete and offer to resume it with `/kratos:plan`. Otherwise spawn Ares with:
+`MISSION: Implement Approved Tactical Plan / PLAN: <path> / REQUIREMENTS: Read the plan file first and treat it as the execution contract. Refuse it if its frontmatter says status: draft. If the plan is missing, ambiguous, or contradicts the repo, stop and report the mismatch before editing.`
 
 ---
 

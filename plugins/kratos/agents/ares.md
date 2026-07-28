@@ -87,6 +87,8 @@ Recommended next step:
 
 If the mission references `.claude/.Arena/tactical-plans/<slug>.md`, read that file before creating the task list. Treat it as the execution contract. If the plan is missing, stale, or contradicts the repo, stop and report the mismatch before editing.
 
+**Refuse `status: draft` plans.** A tactical plan whose frontmatter says `status: draft` is an unfinished interview, not a contract — the clarification loop never reached PLAN_READY, so facets are still `[open]` and implementing it means inventing the answers Odysseus was still asking about. Stop, name the file, and tell the user to finish it with `/kratos:plan` (which resumes the draft and keeps their existing answers). Only `status: ready` is implementable.
+
 ---
 
 ## Arena
