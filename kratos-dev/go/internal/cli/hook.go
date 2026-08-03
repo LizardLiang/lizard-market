@@ -576,21 +576,26 @@ const todoQualityGate = `
 Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.
 `
 
-// aresTaskGate is injected for Ares specifically. Ares has the Task* tools, so its
-// planning step is the TaskCreate tool rather than a text TODO list. The closing
-// "Task list:" recap is what the SubagentStop gate matches on (it can only see the
-// final message text, not tool calls), so the recap keeps the gate meaningful.
+// aresTaskGate is injected for Ares specifically — and only in subagent mode,
+// where the harness does NOT expose TaskCreate/TaskUpdate/TaskList to subagents
+// (agent-teams only). The gate therefore mandates a markdown task list, and warns
+// against calling the Task* tools Ares's own instructions mention for inline mode.
+// The closing "Task list:" recap is what the SubagentStop gate matches on (it can
+// only see the final message text, not tool calls), so the recap keeps the gate
+// meaningful.
 const aresTaskGate = `
 ╔══════════════════════════════════════════════════════════════╗
 ║  KRATOS QUALITY GATE — CREATE YOUR TASK LIST FIRST          ║
 ╠══════════════════════════════════════════════════════════════╣
-║  1. Call TaskCreate once per job BEFORE any other tool       ║
-║     — one task per file/module, not one vague "implement"    ║
-║     (small missions ≤2 files: one umbrella task is enough)   ║
-║  2. TaskUpdate a task in_progress when you start it          ║
-║  3. TaskUpdate completed ONLY when truly done (tests green)  ║
-║  4. TaskCreate any new work that surfaces mid-mission        ║
-║  5. End with a "Task list:" recap of every task + status     ║
+║  You are a SUBAGENT: TaskCreate/TaskUpdate/TaskList are NOT  ║
+║  available here — do not call them, do not retry on denial.  ║
+║  1. Write a markdown task checklist BEFORE any other work    ║
+║     — one item per file/module, not one vague "implement"    ║
+║     (small missions ≤2 files: one umbrella item is enough)   ║
+║  2. Mark an item in-progress when you start it               ║
+║  3. Mark [x] ONLY when truly done (tests green)              ║
+║  4. Add any new work that surfaces mid-mission to the list   ║
+║  5. End with a "Task list:" recap of every item + status     ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.
@@ -625,7 +630,7 @@ func subagentStartCmd() *cobra.Command {
 			// to reuse the Arena knowledge base instead (empty when no Arena exists).
 			reminder := arenaScanReminder(input.Cwd)
 
-			// Ares plans via the TaskCreate tool, not a text TODO list.
+			// Ares gets the subagent-specific gate: markdown checklist, no Task* tools.
 			if strings.Contains(agentType, "ares") {
 				return outputSubagentStartContext(aresTaskGate + reminder)
 			}
@@ -997,14 +1002,15 @@ func subagentStopCmd() *cobra.Command {
 			if strings.Contains(agentType, "ares") {
 				var failures []string
 
-				// Ares plans via TaskCreate; the SubagentStop hook can only see the
-				// final message, not tool calls, so it matches the "Task list:" recap
-				// Ares is instructed to print at the end (text TODO still accepted).
+				// Subagent Ares plans via a markdown checklist (Task* tools are not
+				// available to subagents); the SubagentStop hook can only see the
+				// final message, so it matches the "Task list:" recap Ares is
+				// instructed to print at the end (text TODO still accepted).
 				hasTaskList := strings.Contains(msgLower, "task list:") ||
 					strings.Contains(msgLower, "todo:") ||
 					regexp.MustCompile(`(?i)##\s*(tasks|todo|plan)`).MatchString(msg)
 				if !hasTaskList {
-					failures = append(failures, "no task list (TaskCreate recap) was written before starting work")
+					failures = append(failures, "no task list recap was written before starting work")
 				}
 
 				mentionsFiles := regexp.MustCompile(`(?i)(created|wrote|implemented|modified|updated).*\.(ts|js|py|go|rs|java|cs|rb|md)`).MatchString(msg)
@@ -1026,7 +1032,7 @@ func subagentStopCmd() *cobra.Command {
 
 				if len(failures) > 0 {
 					return outputSubagentBlock(fmt.Sprintf(
-						"Ares quality gate failed: %s. Create tasks via TaskCreate, implement all items, and end with a 'Task list:' recap naming the files you created or modified.",
+						"Ares quality gate failed: %s. Write a markdown task checklist (Task* tools are unavailable to subagents), implement all items, and end with a 'Task list:' recap naming the files you created or modified.",
 						strings.Join(failures, "; "),
 					))
 				}

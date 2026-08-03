@@ -213,7 +213,7 @@ func TestSubagentStopGate(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name: "ares passes with TaskCreate recap",
+			name: "ares passes with task list recap",
 			input: subagentStopInput{
 				AgentType:            "kratos:ares",
 				LastAssistantMessage: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.",
@@ -287,7 +287,7 @@ func TestSubagentStopGate(t *testing.T) {
 				var failures []string
 				hasTaskList := strings.Contains(msgLower, "task list:") || strings.Contains(msgLower, "todo:")
 				if !hasTaskList {
-					failures = append(failures, "no task list (TaskCreate recap) was written before starting work")
+					failures = append(failures, "no task list recap was written before starting work")
 				}
 				mentionsFiles := npmWordBoundary.String() != "" && strings.Contains(msg, ".ts") || strings.Contains(msg, ".js") || strings.Contains(msg, ".go") || strings.Contains(msg, ".py")
 				_ = mentionsFiles
