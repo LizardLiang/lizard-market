@@ -50,7 +50,7 @@ Kratos is a **Claude Code plugin** (`.claude-plugin/plugin.json`) that orchestra
 
 ### 2. Go Binary Layer (optional, enhances pipeline tracking)
 
-Source lives at repo-root `kratos-dev/go/` — outside `plugins/kratos/` so plugin installs copy only runtime files. `make build` outputs committed binaries into `plugins/kratos/bin/`.
+Source lives at repo-root `kratos-dev/go/` — outside `plugins/kratos/` so plugin installs copy only runtime files. `make build` outputs to `plugins/kratos/bin/`, which is **gitignored** (`plugins/kratos/.gitignore`) — binaries are never committed. The Release workflow builds them per-platform off the tag and attaches them as release assets, so a local rebuild produces no git diff.
 
 - **`go/cmd/kratos/main.go`** — CLI entry point using Cobra.
 - **`go/internal/cli/`** — Command implementations: `hook.go` (all hook subcommands), `pipeline.go` (stage updates), `session.go`/`recall.go` (session tracking), `todo.go`, `status.go`.
