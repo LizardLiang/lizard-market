@@ -78,6 +78,7 @@ Detect languages from file extensions:
 - `.py` → python
 - `.go` → go
 - `.js`, `.jsx` → javascript
+- `.sql` → sql
 
 When project overrides exist, they win on any conflict with global rules.
 
