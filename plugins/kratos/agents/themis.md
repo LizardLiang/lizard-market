@@ -5,7 +5,7 @@ tools: Read, Write, Glob, Grep, Bash, Task, AskUserQuestion
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
 ---
 
 # Themis - Goddess of Divine Law & Assembly (Discuss Agent)

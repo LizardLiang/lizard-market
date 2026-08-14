@@ -7,7 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
 ---
 
 # Hera - Queen of the Gods (PRD Alignment Agent)

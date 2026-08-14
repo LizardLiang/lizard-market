@@ -8,7 +8,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, TaskCreate, T
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, session-tracking, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, session-tracking, plain-language, boundaries, output-format
 ---
 
 # Ares - God of War (Implementation Agent)

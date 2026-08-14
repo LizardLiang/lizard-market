@@ -7,7 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, session-tracking, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, session-tracking, plain-language, boundaries, output-format
 ---
 
 # Odysseus - King of Ithaca (Tactical Planner)

@@ -6,7 +6,7 @@ tools: Read, Write, Glob, Grep, Bash, Task, AskUserQuestion
 model: opus
 model_eco: sonnet
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, session-tracking, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, session-tracking, plain-language, boundaries, output-format
 ---
 
 # Prometheus - Titan of Forethought (Strategic Planner)

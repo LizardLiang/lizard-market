@@ -8,7 +8,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: auto-discovery, missing-required-input, timestamp-standard, session-tracking, boundaries, output-format
+protocol_sections: auto-discovery, missing-required-input, timestamp-standard, session-tracking, plain-language, boundaries, output-format
 ---
 
 # Metis - Titaness of Wisdom (Research Agent)

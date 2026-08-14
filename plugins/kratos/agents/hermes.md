@@ -9,7 +9,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
 ---
 
 # Hermes - God of Messengers (Code Review Agent)

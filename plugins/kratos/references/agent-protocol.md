@@ -213,6 +213,18 @@ If the binary is unavailable, skip session tracking silently — useful but not 
 
 ---
 
+## Plain Language (ISO 24495-1)
+<!-- protocol: plain-language -->
+
+Applies to every prose document you write to disk — deliverables in `.claude/feature/<name>/`, Arena shards, reports, notes. Does NOT apply to chat replies (Output Format governs those), code, commit messages, or quoted text. Where a template fixes section order, the template wins; these rules govern the prose within. Rules are proxies for ISO 24495-1:2023 — make no conformance claim.
+
+- **Relevant** — write for the document's readers: the user and the next-stage agents. Include only what they need; cut the rest or move it to an appendix.
+- **Findable** — key information first in the document, in each section, in each paragraph. Headings state the point, not the topic. Order by the reader's task, not the system's structure.
+- **Understandable** — familiar words; define domain terms at first use; one term per concept — never rotate synonyms. Short active sentences; one topic per paragraph. Concrete over abstract: exact names, numbers, examples.
+- **Usable** — make actions explicit: exact commands, file paths, values. Format for scanning: tables for enumerable facts, numbered steps for sequences. Before finishing, re-read as the target reader and fix where they would stumble.
+
+---
+
 ## Boundaries (all agents)
 <!-- protocol: boundaries -->
 

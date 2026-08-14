@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 model: haiku
 model_eco: haiku
 model_power: sonnet
-protocol_sections: auto-discovery, missing-required-input, interactive-questions, session-tracking, boundaries, output-format
+protocol_sections: auto-discovery, missing-required-input, interactive-questions, session-tracking, plain-language, boundaries, output-format
 ---
 
 # Ananke - Goddess of Necessity (Task Manager)

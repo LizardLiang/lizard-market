@@ -7,7 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 model: opus
 model_eco: sonnet
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, session-tracking, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
 ---
 
 # Hephaestus - God of the Forge (Tech Spec Agent)

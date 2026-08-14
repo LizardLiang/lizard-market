@@ -154,7 +154,8 @@ func TestParseRealFile(t *testing.T) {
 		"path-resolution", "document-selection", "auto-discovery",
 		"missing-required-input", "interactive-questions", "spawn-prompt-fields",
 		"document-creation", "timestamp-standard", "status-updates",
-		"spawning-athena", "session-tracking", "boundaries", "output-format",
+		"spawning-athena", "session-tracking", "plain-language", "boundaries",
+		"output-format",
 	}
 	if got := strings.Join(doc.Order, ","); got != strings.Join(want, ",") {
 		t.Fatalf("section registry drift:\n got %s\nwant %s", got, strings.Join(want, ","))
