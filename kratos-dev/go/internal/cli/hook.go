@@ -573,7 +573,7 @@ const todoQualityGate = `
 ║  4. Do NOT call any tool before your TODO list is written    ║
 ╚══════════════════════════════════════════════════════════════╝
 
-Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.
+Output: status lines terse [status][what][result][next], never a bare [what]:; answers/decisions conclusion-first full sentences, keep hedges. Technical terms exact.
 `
 
 // aresTaskGate is injected for Ares specifically — and only in subagent mode,
@@ -598,7 +598,7 @@ const aresTaskGate = `
 ║  5. End with a "Task list:" recap of every item + status     ║
 ╚══════════════════════════════════════════════════════════════╝
 
-Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.
+Output: status lines terse [status][what][result][next], never a bare [what]:; answers/decisions conclusion-first full sentences, keep hedges. Technical terms exact.
 `
 
 // subagentStartCmd injects a mandatory TODO-first instruction into Ares and Hephaestus agents.
@@ -700,7 +700,7 @@ func handleHermesStart(input subagentStartInput) error {
 			"  '%s' hermes-list check T1   # after T1, T2 for T2, … T8 for T8\n"+
 			"Run immediately after each tier — not in a batch at the end.\n"+
 			"A hook verifies all 8 tiers on stop — incomplete tiers block completion.\n\n"+
-			"Output terse: drop articles/filler/pleasantries. Pattern: [status][what][result][next]. Fragments OK. Technical terms exact.",
+			"Output: status lines terse [status][what][result][next], never a bare [what]:; answers/decisions conclusion-first full sentences, keep hedges. Technical terms exact.",
 		checklistPath, kratosBinPath(),
 	)
 

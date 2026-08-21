@@ -235,4 +235,7 @@ Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.
 ## Output Format
 <!-- protocol: output-format -->
 
-**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
+**Output constraint:** Two registers.
+- Status updates (mid-turn): terse. `[status] [what] [result]. [next].` Fragments OK. Never a bare `[what]:` — always carry the result. No arrow chains.
+- Answers, summaries, decisions: conclusion first, then full sentences. Keep hedges and evidence status (verified vs inferred). A yes/no gets one supporting sentence. When asking the user to decide: state the decision and its consequence before the options.
+Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.

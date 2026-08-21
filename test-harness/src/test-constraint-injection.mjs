@@ -69,11 +69,15 @@ const WASTE_BUDGET = 0;
 // plugins/kratos/hooks/session-start.cjs:28-29, the same text embedded in
 // references/agent-protocol.md's "Output Format" section).
 const CONSTRAINT_TEXT =
-  "**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.";
+  "**Output constraint:** Two registers.\n" +
+  "- Status updates (mid-turn): terse. `[status] [what] [result]. [next].` Fragments OK. Never a bare `[what]:` — always carry the result. No arrow chains.\n" +
+  "- Answers, summaries, decisions: conclusion first, then full sentences. Keep hedges and evidence status (verified vs inferred). A yes/no gets one supporting sentence. When asking the user to decide: state the decision and its consequence before the options.\n" +
+  "Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.";
 
 // Distinctive, stable fragment used to count occurrences — matches the exact
-// sentence even if surrounding whitespace/newlines differ between channels.
-const CONSTRAINT_MARKER_REGEX = /\*\*Output constraint:\*\*\s*Terse\./g;
+// block's first line even if surrounding whitespace/newlines differ between
+// channels (the two-register body always travels with its header line).
+const CONSTRAINT_MARKER_REGEX = /\*\*Output constraint:\*\*\s*Two registers\./g;
 
 // Rough token-length estimate for the sentence. Method: chars / 4 (a common
 // English-text heuristic; not a real tokenizer call — avoids pulling in a

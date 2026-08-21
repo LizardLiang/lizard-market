@@ -36,7 +36,10 @@ const MAX_LESSONS = 5;
 // expected in that case; this const is the fail-open fallback for when it
 // isn't.
 const OUTPUT_CONSTRAINT =
-  '**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.';
+  '**Output constraint:** Two registers.\n' +
+  '- Status updates (mid-turn): terse. `[status] [what] [result]. [next].` Fragments OK. Never a bare `[what]:` — always carry the result. No arrow chains.\n' +
+  '- Answers, summaries, decisions: conclusion first, then full sentences. Keep hedges and evidence status (verified vs inferred). A yes/no gets one supporting sentence. When asking the user to decide: state the decision and its consequence before the options.\n' +
+  'Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.';
 
 function toSlashes(p) {
   return p.replace(/\\/g, '/');

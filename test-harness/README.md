@@ -102,11 +102,11 @@ Each test captures:
 
 ## Constraint Injection Audit
 
-Measures how many times the terse "Output constraint" sentence
-(`**Output constraint:** Terse. Drop articles...`) gets injected into a
+Measures how many times the "Output constraint" block
+(`**Output constraint:** Two registers...`) gets injected into a
 Kratos session across its four known channels (SessionStart, UserPromptSubmit,
 SubagentStart, `kratos agent load --resolve`), and flags waste — the same
-~43-token sentence repeated more times than the session actually needs.
+~140-token block repeated more times than the session actually needs.
 
 ```bash
 npm run test:constraint-injection          # Mode A (default) — zero API spend

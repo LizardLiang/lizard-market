@@ -26,7 +26,10 @@ const projectName = path.basename(cwd);
 
 // Output constraint injected into every session (verbatim from references/agent-protocol.md).
 const OUTPUT_CONSTRAINT =
-  "\n**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.\n";
+  "\n**Output constraint:** Two registers.\n" +
+  "- Status updates (mid-turn): terse. `[status] [what] [result]. [next].` Fragments OK. Never a bare `[what]:` — always carry the result. No arrow chains.\n" +
+  "- Answers, summaries, decisions: conclusion first, then full sentences. Keep hedges and evidence status (verified vs inferred). A yes/no gets one supporting sentence. When asking the user to decide: state the decision and its consequence before the options.\n" +
+  "Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n";
 
 // Ensure .kratos directory exists
 function ensureDir() {
