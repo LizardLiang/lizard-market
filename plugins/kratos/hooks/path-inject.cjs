@@ -137,8 +137,22 @@ process.stdin.setEncoding('utf-8');
 process.stdin.on('data', (chunk) => raw += chunk);
 process.stdin.on('end', () => {
   let agentType = null;
+  let sessionPart = null;
   try {
-    agentType = JSON.parse(raw).agent_type;
+    const payload = JSON.parse(raw);
+    agentType = payload.agent_type;
+    // The Claude Code session id keys the ledger (one row per session; the
+    // CLI creates it on demand). Injecting it saves every god the
+    // `session active` lookup that used to return nothing and break
+    // `step record-agent` with a FOREIGN KEY error.
+    if (payload.session_id) {
+      const proj = payload.cwd ? toSlashes(String(payload.cwd)) : '';
+      sessionPart = `**Kratos session:** \`${payload.session_id}\``
+        + (proj ? ` (project root \`${proj}\`)` : '')
+        + ` — pass this id to \`step record-agent\` / \`step record-file\``
+        + (proj ? ` with \`--project "${proj}"\`` : '')
+        + '; do not look it up with `session active`.';
+    }
   } catch (e) {
     // Malformed/empty payload — inject base parts only.
   }
@@ -148,7 +162,7 @@ process.stdin.on('end', () => {
   // normal case; only fall back to the literal when it's missing or doesn't
   // already carry that sentence, so the god never gets two copies.
   const needLiteral = !protocol || !protocol.includes('Output constraint:');
-  const extra = [needLiteral ? OUTPUT_CONSTRAINT : null, protocol, lessons].filter(Boolean);
+  const extra = [needLiteral ? OUTPUT_CONSTRAINT : null, protocol, lessons, sessionPart].filter(Boolean);
   emit(extra.concat(baseParts));
 });
 

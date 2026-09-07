@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -27,13 +28,20 @@ func normalizeProjectPath(path string) string {
 
 // SessionStartCmd returns the 'session start' command
 func SessionStartCmd() *cobra.Command {
-	return &cobra.Command{
+	var sessionID string
+
+	cmd := &cobra.Command{
 		Use:   "start <project> [feature]",
 		Short: "Start a new Kratos session",
 		Long: `Start a new Kratos development session for a project.
 
 Optionally specify a feature name to track feature-specific work.
-Only one active session per project is allowed.`,
+
+With --session-id (the Claude Code session id every hook receives) the command
+is idempotent: an existing row is returned, re-activated if it had ended, so one
+Claude Code session maps to exactly one Kratos session and concurrent sessions
+in different windows never share or clobber state. Without the flag only one
+active session per project is allowed (legacy behaviour).`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			project := normalizeProjectPath(args[0])
@@ -48,7 +56,11 @@ Only one active session per project is allowed.`,
 			}
 			defer conn.Close()
 
-			// Check for existing active session
+			if sessionID != "" {
+				return startKeyedSession(cmd, conn, sessionID, project, featureName)
+			}
+
+			// Legacy path: one active session per project.
 			existing, err := db.GetActiveSession(conn, project)
 			if err != nil {
 				return fmt.Errorf("failed to check active session: %w", err)
@@ -57,7 +69,6 @@ Only one active session per project is allowed.`,
 				return fmt.Errorf("active session already exists: %s", existing.SessionID)
 			}
 
-			// Create new session
 			session := &models.Session{
 				SessionID:          uuid.New().String(),
 				Project:            project,
@@ -75,6 +86,56 @@ Only one active session per project is allowed.`,
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(session)
 		},
 	}
+
+	cmd.Flags().StringVar(&sessionID, "session-id", "", "Use this id (the Claude Code session id) instead of minting one; idempotent")
+	return cmd
+}
+
+// startKeyedSession implements `session start --session-id`: create the row if
+// missing, otherwise return the existing one, re-activating it when it had
+// ended (a resumed Claude Code session keeps its id). The JSON output is the
+// session plus "created" and "resumed" flags so hooks can tell the cases apart.
+func startKeyedSession(cmd *cobra.Command, conn *sql.DB, sessionID, project string, featureName *string) error {
+	if existing, err := db.GetSession(conn, sessionID); err == nil {
+		resumed := false
+		if existing.Status != "active" || existing.EndedAt != nil {
+			if err := db.ReactivateSession(conn, sessionID); err != nil {
+				return err
+			}
+			existing.Status = "active"
+			existing.EndedAt = nil
+			resumed = true
+		}
+		return encodeSessionWith(cmd, existing, map[string]interface{}{"created": false, "resumed": resumed})
+	}
+
+	session := &models.Session{
+		SessionID:   sessionID,
+		Project:     project,
+		FeatureName: featureName,
+		StartedAt:   time.Now().UnixMilli(),
+		Status:      "active",
+	}
+	if err := db.CreateSession(conn, session); err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+	return encodeSessionWith(cmd, session, map[string]interface{}{"created": true, "resumed": false})
+}
+
+// encodeSessionWith writes the session as JSON with extra top-level fields.
+func encodeSessionWith(cmd *cobra.Command, session *models.Session, extra map[string]interface{}) error {
+	raw, err := json.Marshal(session)
+	if err != nil {
+		return err
+	}
+	out := map[string]interface{}{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return err
+	}
+	for k, v := range extra {
+		out[k] = v
+	}
+	return json.NewEncoder(cmd.OutOrStdout()).Encode(out)
 }
 
 // SessionActiveCmd returns the 'session active' command

@@ -2,15 +2,18 @@
 name: hera
 description: Run as Hera (PRD alignment verifier — confirms the implementation covers all acceptance criteria) inline in the main session — pipeline Stage 8
 generated: true
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
-!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load hera --resolve
+!`node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load hera --resolve`
 
 ---
 
 You ARE Hera for this turn. Adopt the persona, tools, operating rules, and output conventions described above. Operate **in the main context** — do NOT spawn a subagent via the Task tool.
+
+If no `# Hera -` agent definition appears above, the loader did not run: execute `node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load hera --resolve` once with the Bash tool, adopt its output as your definition, and only then act on the request.
 
 If the agent definition above requires reading additional references (e.g., templates under `templates/`), read them with the Read tool before acting.
 

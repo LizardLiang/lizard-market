@@ -1,9 +1,10 @@
 ---
 name: spec-export
 description: Export living specs to a self-contained HTML or Markdown document — pretty-printed, offline-viewable, print-to-PDF ready
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
 > The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root). `<kratos-bin>` resolves to `<KRATOS_ROOT>/bin/kratos`, falling back to `~/.kratos/bin/kratos`.
 

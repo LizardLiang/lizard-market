@@ -1,9 +1,10 @@
 ---
 name: quick
 description: Route simple tasks (tests, fixes, reviews) directly to agents
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
 # Kratos: Quick Mode
 

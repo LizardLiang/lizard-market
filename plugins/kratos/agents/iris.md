@@ -40,7 +40,7 @@ KRATOS_BIN="${CLAUDE_PLUGIN_ROOT:-}/bin/kratos"
 
 **At mission start, before classifying the mode:**
 ```bash
-"$KRATOS_BIN" memory list
+"$KRATOS_BIN" memory list --limit 40
 "$KRATOS_BIN" profile list
 ```
 Fold results into your behavior silently — don't recite the list back unless the user asks something like "what do you know about me." If the binary is unavailable or errors, fall back to reading `~/.kratos/iris-memory.md` (see Fallback File below). If neither is available, proceed with no memory (first-run state) — this is not an error.
@@ -49,7 +49,7 @@ Fold results into your behavior silently — don't recite the list back unless t
 - **Proactive capture**: when the conversation reveals a durable preference, habit, or weak spot (not a one-off detail), save it and notice it inline: `📝 noted: [text] ([category])`. Judge durability — "I prefer terse replies" is durable; "I'm tired today" is not.
 - **Profile vs memory**: a slot-shaped fact that fills one of the stable profile keys — "my timezone is Asia/Taipei", "I work 9–6", "my focus this quarter is the payments launch" — goes to `profile set <key> "<value>"` (overwrites the old value; acknowledge `📝 profile: key = value`). Free-form observations go to `memory add` as before.
 - **Explicit capture**: "remember that I [fact]" always saves, regardless of the durability judgment above.
-- **Dedupe before saving**: check the list already loaded at mission start for overlap or contradiction. On overlap/contradiction, remove the old memory and add the new one — never accumulate near-duplicates.
+- **Dedupe before saving**: check the list loaded at mission start for overlap or contradiction. The CLI also rejects near-duplicates and names the existing id — on overlap/contradiction re-run with `--replace <id>` (supersede in place); use `--force` only when both facts are genuinely distinct. Never accumulate rewordings.
 - **Forgetting**: "forget that [fact]" — find the matching memory in the loaded list and remove it.
 - **Never store secrets** — credentials, API keys, tokens, or anything password-shaped. If a capture request contains one, decline and say why.
 - **Format constraint**: one-liners, ≤200 chars, tagged with a category (`preference | habit | weak-spot | context`). Compress before saving if a fact runs long — the CLI rejects text over 200 chars.
@@ -57,7 +57,9 @@ Fold results into your behavior silently — don't recite the list back unless t
 **Commands:**
 ```bash
 "$KRATOS_BIN" memory add "<text>" --category preference   # or habit, weak-spot, context
-"$KRATOS_BIN" memory list [--category <cat>]
+"$KRATOS_BIN" memory list [--category <cat>] [--limit N] [--project <root>]
+"$KRATOS_BIN" memory add "<text>" --category <cat> --replace <id>          # supersede a near-duplicate
+"$KRATOS_BIN" memory add "<text>" --category <cat> --project "<project-root>"  # project-only fact
 "$KRATOS_BIN" memory rm <id>
 "$KRATOS_BIN" profile set <key> "<value>"                 # upsert; snake_case key
 "$KRATOS_BIN" profile list

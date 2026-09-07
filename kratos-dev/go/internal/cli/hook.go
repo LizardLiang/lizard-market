@@ -273,6 +273,10 @@ func handlePromptSubmit() error {
 		return outputPassthrough()
 	}
 
+	// Ledger side effect (fail-open): make sure this Claude Code session has a
+	// row and remember its first real prompt. Never changes the hook output.
+	recordPromptLedger(raw)
+
 	return outputJSON(promptSubmitIn(raw))
 }
 

@@ -1,11 +1,12 @@
 ---
 name: plan
 description: Tactical implementation plan mode — Odysseus prepares Ares-ready plans
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
-!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load odysseus --resolve
+!`node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load odysseus --resolve`
 
 ---
 

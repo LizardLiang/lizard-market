@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS user_memories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     text TEXT NOT NULL,
     category TEXT NOT NULL DEFAULT 'context',  -- preference, habit, weak-spot, context
+    project TEXT,                              -- project root the fact belongs to; NULL = global
     created_at INTEGER NOT NULL                -- Unix epoch ms
 );
 

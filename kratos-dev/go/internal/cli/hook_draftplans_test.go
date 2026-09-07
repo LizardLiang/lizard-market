@@ -8,22 +8,22 @@ import (
 	"testing"
 )
 
-// TestSessionEndReportsDraftPlans covers the durability reminder for abandoned
+// TestSessionStartReportsDraftPlans covers the durability reminder for abandoned
 // /kratos:plan sessions.
 //
 // Odysseus creates no session, no feature dir and no status.json, so a plan-only
 // session that dies mid-clarification is invisible to every other recall surface.
 // The draft plan file is the only trace, and this reporter is what surfaces it.
 //
-// HOME/USERPROFILE are redirected at a temp dir so `~/.kratos/active-session.json`
-// is guaranteed absent — the hook then takes its "no active session" branch and
+// HOME/USERPROFILE are redirected at a temp dir so `~/.kratos/`
+// is guaranteed absent — the hook then has no memory DB or session state and
 // never touches the real memory DB.
-func TestSessionEndReportsDraftPlans(t *testing.T) {
+func TestSessionStartReportsDraftPlans(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {
-		t.Skip("node not on PATH; session-end is a .cjs hook")
+		t.Skip("node not on PATH; session-start is a .cjs hook")
 	}
-	hook, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "plugins", "kratos", "hooks", "session-end.cjs"))
+	hook, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "plugins", "kratos", "hooks", "session-start.cjs"))
 	if err != nil {
 		t.Fatalf("resolve hook path: %v", err)
 	}
@@ -104,14 +104,14 @@ completed: 2026-07-27T09:40:00Z
 	}
 }
 
-// TestSessionEndSilentWithoutDrafts keeps the reminder from becoming noise on
-// every single session stop.
-func TestSessionEndSilentWithoutDrafts(t *testing.T) {
+// TestSessionStartSilentWithoutDrafts keeps the reminder from becoming noise on
+// every single session start.
+func TestSessionStartSilentWithoutDrafts(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {
-		t.Skip("node not on PATH; session-end is a .cjs hook")
+		t.Skip("node not on PATH; session-start is a .cjs hook")
 	}
-	hook, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "plugins", "kratos", "hooks", "session-end.cjs"))
+	hook, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "plugins", "kratos", "hooks", "session-start.cjs"))
 	if err != nil {
 		t.Fatalf("resolve hook path: %v", err)
 	}

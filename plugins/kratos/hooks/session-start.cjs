@@ -2,10 +2,17 @@
 /**
  * Kratos Memory - Session Start Hook
  *
- * Automatically starts a memory session when Claude Code session begins.
- * Uses global database at ~/.kratos/memory.db
+ * Registers this Claude Code session in the memory ledger, keyed by the
+ * harness session_id from the hook payload, and injects the small amount of
+ * context every session needs: the output constraint, the resolved binary
+ * path, stored user preferences, and one-line pointers to a fresh handoff,
+ * pending spec deltas, or unfinished plan drafts.
  *
- * NEW: Injects detailed context if there's an incomplete feature from last session.
+ * Session state lives in ~/.kratos/sessions/<session_id>.json — one file per
+ * Claude Code session. The previous single ~/.kratos/active-session.json was
+ * shared by every concurrent window: sessions in other projects ended each
+ * other, resume pointers named the wrong project, and `step record-agent`
+ * failed with FOREIGN KEY errors (2026-09 transcript review).
  */
 
 const { execSync, spawn } = require("child_process");
@@ -17,12 +24,11 @@ const { resolveBinary, platformBinaryName } = require("./kratos-bin.cjs");
 // Global paths
 const KRATOS_HOME = path.join(os.homedir(), ".kratos");
 const DB_PATH = path.join(KRATOS_HOME, "memory.db");
-const SESSION_FILE = path.join(KRATOS_HOME, "active-session.json");
-const SCHEMA_PATH = path.join(__dirname, "..", "memory", "schema.sql");
-
-// Get project name from current working directory
-const cwd = process.cwd();
-const projectName = path.basename(cwd);
+const SESSIONS_DIR = path.join(KRATOS_HOME, "sessions");
+const LEGACY_SESSION_FILE = path.join(KRATOS_HOME, "active-session.json");
+const SESSION_FILE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const REMINDER_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+const MAX_MEMORIES = 15;
 
 // Output constraint injected into every session (verbatim from references/agent-protocol.md).
 const OUTPUT_CONSTRAINT =
@@ -31,102 +37,53 @@ const OUTPUT_CONSTRAINT =
   "- Answers, summaries, decisions: conclusion first, then full sentences. Keep hedges and evidence status (verified vs inferred). A yes/no gets one supporting sentence. When asking the user to decide: state the decision and its consequence before the options.\n" +
   "Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n";
 
-// Ensure .kratos directory exists
 function ensureDir() {
-  if (!fs.existsSync(KRATOS_HOME)) {
-    fs.mkdirSync(KRATOS_HOME, { recursive: true });
-  }
+  fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 }
 
 const findKratosBinary = resolveBinary;
 
+function runKratos(args) {
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return null;
+  try {
+    return execSync(`"${kratosCmd}" ${args}`, {
+      encoding: "utf-8",
+      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
 // Initialize database if needed
 function initDb() {
   if (fs.existsSync(DB_PATH)) return true;
-
   const kratosCmd = findKratosBinary();
   if (!kratosCmd) {
     console.error(
       "Kratos binary not found yet. Downloading in the background to ~/.kratos/bin/ - " +
-        "retry shortly, or build from source: cd go && go build -o ../bin/kratos ./cmd/kratos",
+        "retry shortly, or build from source: cd kratos-dev/go && make build",
     );
     return false;
   }
-
-  try {
-    execSync(`"${kratosCmd}" init`, {
-      stdio: "ignore",
-      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
-    });
-    return true;
-  } catch (e) {
-    console.error("Failed to init DB:", e.message);
-    return false;
-  }
-}
-
-// Generate UUID v4
-function uuid() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-  });
-}
-
-// Start session using Go CLI
-function startSession() {
-  const kratosCmd = findKratosBinary();
-  if (!kratosCmd) return null;
-
-  try {
-    const result = execSync(`"${kratosCmd}" session start "${cwd}"`, {
-      encoding: "utf-8",
-      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
-    });
-    return JSON.parse(result).session_id;
-  } catch (e) {
-    console.error("Failed to start session:", e.message);
-    return null;
-  }
-}
-
-// Get last session info for context injection
-function getLastSessionInfo() {
-  const kratosCmd = findKratosBinary();
-  if (!kratosCmd) return null;
-
-  try {
-    const result = execSync(`"${kratosCmd}" recall --project "${cwd}"`, {
-      encoding: "utf-8",
-      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
-    });
-    const data = JSON.parse(result);
-    return data.last_session || null;
-  } catch (e) {
-    return null;
-  }
+  return runKratos("init") !== null;
 }
 
 // Stored user memories (preferences/habits) — read-side of the memory sweep.
-// Injected every session so the main session and inline command-mode gods
-// actually consume what the Stop-hook sweep saved. Silent on any failure.
+// Newest first, capped, fetched with --limit so the store's growth never bloats
+// the hook (the unbounded list is 60+ KB today).
 function formatMemories() {
-  const kratosCmd = findKratosBinary();
-  if (!kratosCmd) return null;
-
+  const raw = runKratos(`memory list --limit ${MAX_MEMORIES}`);
+  if (!raw) return null;
   try {
-    const result = execSync(`"${kratosCmd}" memory list`, {
-      encoding: "utf-8",
-      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
-    });
-    const data = JSON.parse(result);
+    const data = JSON.parse(raw);
     if (!data.memories || data.memories.length === 0) return null;
 
-    // CLI returns newest-first (ORDER BY created_at DESC); cap the injection
-    // so a growing store doesn't bloat every session's context.
-    const MAX_MEMORIES = 15;
+    const total = typeof data.total === "number" ? data.total : data.memories.length;
     const shown = data.memories.slice(0, MAX_MEMORIES);
-    const older = data.memories.length - shown.length;
+    const older = total - shown.length;
 
     const lines = ["", "## Stored user preferences"];
     for (const m of shown) {
@@ -134,7 +91,7 @@ function formatMemories() {
       lines.push(`- ${m.text}${cat}`);
     }
     if (older > 0) {
-      lines.push(`(+${older} older — run \`kratos memory list\` for all)`);
+      lines.push(`(+${older} older — run \`kratos memory list --limit 50\` for more)`);
     }
     lines.push("");
     return lines.join("\n");
@@ -143,98 +100,111 @@ function formatMemories() {
   }
 }
 
-// Session handoff written by /kratos:wrap — .claude/.Arena/handoff.md.
-// Read-side of the wrap flow. Content injection now happens on demand in the Go
-// UserPromptSubmit hook (resume-phrase detection, once per session — see
-// hook.go handoffInjectionContext) — this only stats the file and prints a
-// one-line notice pointing at "continue" / /kratos:recall. Silent on any
-// failure (missing file, unreadable, stale) — never blocks session start.
-const HANDOFF_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-function formatHandoffNotice() {
+// Session handoff written by /kratos:wrap — .claude/.Arena/handoff.md. Content
+// is injected on demand by the Go UserPromptSubmit hook when a resume phrase
+// appears; this only prints a one-line pointer for a fresh file.
+function formatHandoffNotice(cwd) {
   try {
     const handoffPath = path.join(cwd, ".claude", ".Arena", "handoff.md");
     const stats = fs.statSync(handoffPath);
     const age = Date.now() - stats.mtimeMs;
-    if (age >= HANDOFF_MAX_AGE_MS) return null;
-
-    const timeAgo = formatTimeAgo(stats.mtimeMs);
-    return `Kratos: handoff from last session (${timeAgo}) — say "continue" or /kratos:recall to load it`;
+    if (age >= SESSION_FILE_MAX_AGE_MS) return null;
+    return `Kratos: handoff from last session (${formatTimeAgo(stats.mtimeMs)}) — say "continue" or /kratos:recall to load it`;
   } catch (e) {
     return null;
   }
 }
 
+// Pending spec deltas: .claude/feature/*/spec-delta/*.md that are not under
+// archived/. One line, once per session, only while the newest delta is fresh
+// — stale deltas from abandoned features stop nagging on their own.
+function formatPendingSpecDeltas(cwd) {
+  const featureRoot = path.join(cwd, ".claude", "feature");
+  let features;
+  try {
+    features = fs.readdirSync(featureRoot);
+  } catch (e) {
+    return null;
+  }
+  const pending = [];
+  let newest = 0;
+  for (const name of features) {
+    const deltaDir = path.join(featureRoot, name, "spec-delta");
+    let entries;
+    try {
+      entries = fs.readdirSync(deltaDir);
+    } catch (e) {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.endsWith(".md")) continue;
+      try {
+        const stats = fs.statSync(path.join(deltaDir, entry));
+        if (!stats.isFile()) continue;
+        pending.push(name);
+        if (stats.mtimeMs > newest) newest = stats.mtimeMs;
+      } catch (e) {
+        // unreadable entry — skip
+      }
+    }
+  }
+  if (pending.length === 0) return null;
+  if (Date.now() - newest >= REMINDER_MAX_AGE_MS) return null;
+  const unique = [...new Set(pending)];
+  const shown = unique.slice(0, 3).join(", ") + (unique.length > 3 ? ", …" : "");
+  return `Kratos: ${pending.length} un-archived spec delta(s) (${shown}) — /kratos:spec-archive <feature> when the work has landed`;
+}
+
+// Count entries under a plan's `## Locked Decisions` heading, so the reminder
+// can say how much answered-question work is sitting in the draft.
+function countLockedDecisions(body) {
+  const section = body.split(/^##\s+Locked Decisions\s*$/m)[1];
+  if (!section) return 0;
+  const untilNextHeading = section.split(/^##\s+/m)[0];
+  return (untilNextHeading.match(/^\s*-\s+\*\*/gm) || []).length;
+}
+
+// Unfinished tactical plans (status: draft) hold answers the user already
+// gave. One line, same freshness gate as the deltas.
+function formatDraftPlans(cwd) {
+  const planDir = path.join(cwd, ".claude", ".Arena", "tactical-plans");
+  let names;
+  try {
+    names = fs.readdirSync(planDir);
+  } catch (e) {
+    return null;
+  }
+  const drafts = [];
+  for (const name of names) {
+    if (!name.endsWith(".md")) continue;
+    const full = path.join(planDir, name);
+    try {
+      const stats = fs.statSync(full);
+      if (Date.now() - stats.mtimeMs >= REMINDER_MAX_AGE_MS) continue;
+      const body = fs.readFileSync(full, "utf-8");
+      if (!/^---\r?\n(?:.*\r?\n)*?status:\s*draft\b/m.test(body.slice(0, 512))) continue;
+      const n = countLockedDecisions(body);
+      drafts.push(`${name} (${n === 1 ? "1 locked decision" : `${n} locked decisions`})`);
+    } catch (e) {
+      // skip unreadable plan
+    }
+  }
+  if (drafts.length === 0) return null;
+  return `Kratos: ${drafts.length} unfinished plan draft(s): ${drafts.join(", ")} — /kratos:plan <task> resumes it`;
+}
+
 // Format time ago
 function formatTimeAgo(timestampMs) {
   if (!timestampMs) return "unknown";
-
   const diffMs = Date.now() - timestampMs;
   const diffMin = diffMs / 60000;
   const diffHour = diffMin / 60;
   const diffDay = diffHour / 24;
-
   if (diffMin < 1) return "just now";
   if (diffMin < 60) return `${Math.floor(diffMin)} minutes ago`;
   if (diffHour < 24) return `${Math.floor(diffHour)} hours ago`;
   if (diffDay < 7) return `${Math.floor(diffDay)} days ago`;
   return `${Math.floor(diffDay / 7)} weeks ago`;
-}
-
-// Format detailed context message for injection
-function formatContextMessage(info) {
-  if (!info || !info.feature_name) return null;
-  if (info.feature_status === "completed") return null;
-
-  const timeAgo = formatTimeAgo(info.started_at);
-  const stage = info.current_stage || 0;
-  const stageName = info.stage_name || "Unknown";
-  const nextAgent = info.next_agent || "Unknown";
-  const nextStageName = info.next_stage_name || "Unknown";
-
-  // Build the context box
-  const lines = [
-    "",
-    "+----------------------------------------------------------------------+",
-    "|  KRATOS MEMORY: Last session detected                                |",
-    "+----------------------------------------------------------------------+",
-    `|  Feature: ${(info.feature_name || "").padEnd(56)}|`,
-    `|  Stage: ${stage}/8 (${stageName})`.padEnd(71) + "|",
-    `|  Last active: ${timeAgo}`.padEnd(71) + "|",
-    "|                                                                      |",
-  ];
-
-  // Add last actions
-  if (info.last_actions && info.last_actions.length > 0) {
-    lines.push(
-      "|  Last actions:                                                       |",
-    );
-    for (const action of info.last_actions.slice(-3)) {
-      const truncated =
-        action.length > 60 ? action.substring(0, 57) + "..." : action;
-      lines.push(`|  - ${truncated}`.padEnd(71) + "|");
-    }
-    lines.push(
-      "|                                                                      |",
-    );
-  }
-
-  // Add recommendation
-  if (info.next_stage !== null && info.next_stage !== undefined) {
-    const rec = `Continue with Stage ${info.next_stage} (${nextAgent} - ${nextStageName})?`;
-    lines.push(`|  Recommendation: ${rec}`.padEnd(71) + "|");
-    lines.push(
-      '|  Say "continue" or "/kratos" to resume                               |',
-      '|  Tip: /kratos:recall <path> to view past sessions                    |',
-    );
-  }
-
-  lines.push(
-    "+----------------------------------------------------------------------+",
-  );
-  lines.push("");
-
-  return lines.join("\n");
 }
 
 // Copy kratos binary to ~/.kratos/bin/ so agents use a single fixed path
@@ -244,62 +214,105 @@ function ensureBinary() {
   const targetName = isWin ? "kratos.exe" : "kratos";
   const targetPath = path.join(targetDir, targetName);
 
-  // Determine source binary from plugin bin/ directory
-  const pluginRoot =
-    process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, "..");
-  const srcDir = path.join(pluginRoot, "bin");
-
-  const srcName = platformBinaryName();
-
-  const srcPath = path.join(srcDir, srcName);
+  const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, "..");
+  const srcPath = path.join(pluginRoot, "bin", platformBinaryName());
   if (!fs.existsSync(srcPath)) {
-    // No plugin-local binary (release install, not a dev checkout) - fall
-    // back to a background download. SessionStart hooks have a 5s timeout
-    // and a ~10MB download cannot fit inline, so spawn detached and return
-    // immediately; ensure-binary.cjs degrades silently on any failure.
+    // No plugin-local binary (release install) — background download; the
+    // SessionStart budget cannot fit a ~10MB fetch inline.
     try {
-      const ensureBinaryScript = path.join(__dirname, "ensure-binary.cjs");
-      const child = spawn(process.execPath, [ensureBinaryScript], {
+      const child = spawn(process.execPath, [path.join(__dirname, "ensure-binary.cjs")], {
         detached: true,
         stdio: "ignore",
       });
       child.unref();
     } catch (e) {
-      // best-effort - never block session start on the downloader
+      // best-effort
     }
     return;
   }
 
-  // Copy if target missing or source is newer
   let needsCopy = !fs.existsSync(targetPath);
   if (!needsCopy) {
-    const srcMtime = fs.statSync(srcPath).mtimeMs;
-    const tgtMtime = fs.statSync(targetPath).mtimeMs;
-    needsCopy = srcMtime > tgtMtime;
+    needsCopy = fs.statSync(srcPath).mtimeMs > fs.statSync(targetPath).mtimeMs;
   }
-
   if (needsCopy) {
     fs.mkdirSync(targetDir, { recursive: true });
     fs.copyFileSync(srcPath, targetPath);
-    if (!isWin) {
-      fs.chmodSync(targetPath, 0o755);
+    if (!isWin) fs.chmodSync(targetPath, 0o755);
+  }
+}
+
+// Remove per-session state files older than 7 days, plus the legacy shared
+// file, so the directory never grows without bound.
+function pruneSessionFiles() {
+  try {
+    if (fs.existsSync(LEGACY_SESSION_FILE)) fs.unlinkSync(LEGACY_SESSION_FILE);
+  } catch (e) {
+    // ignore
+  }
+  let entries;
+  try {
+    entries = fs.readdirSync(SESSIONS_DIR);
+  } catch (e) {
+    return;
+  }
+  const now = Date.now();
+  for (const entry of entries) {
+    const full = path.join(SESSIONS_DIR, entry);
+    try {
+      if (now - fs.statSync(full).mtimeMs > SESSION_FILE_MAX_AGE_MS) fs.unlinkSync(full);
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
+// Register the session in the ledger (idempotent on session_id) and write the
+// per-session state file other hooks read.
+function registerSession(sessionId, cwd, source) {
+  if (!sessionId) return;
+  if (!initDb()) return;
+
+  const raw = runKratos(`session start "${cwd}" --session-id "${sessionId}"`);
+  let created = false;
+  if (raw) {
+    try {
+      created = JSON.parse(raw).created === true;
+    } catch (e) {
+      // keep going — the state file is still useful
     }
   }
 
+  const stateFile = path.join(SESSIONS_DIR, `${sessionId}.json`);
+  let startedAt = Date.now();
+  try {
+    const prev = JSON.parse(fs.readFileSync(stateFile, "utf-8"));
+    if (prev && prev.started_at) startedAt = prev.started_at;
+  } catch (e) {
+    // fresh file
+  }
+  fs.writeFileSync(
+    stateFile,
+    JSON.stringify({ session_id: sessionId, project: path.basename(cwd), cwd, started_at: startedAt, source: source || "startup" }, null, 2),
+  );
 
+  if (created && (source === "startup" || source === "clear" || !source)) {
+    console.log(`Kratos: session ${sessionId.slice(0, 8)} started`);
+  }
 }
 
-// Main
-function main() {
+function main(payload) {
+  const cwd = (payload && payload.cwd) || process.cwd();
+  const sessionId = payload && payload.session_id ? String(payload.session_id) : "";
+  const source = payload && payload.source ? String(payload.source) : "";
+
   ensureDir();
   ensureBinary();
+  pruneSessionFiles();
 
-  // Always inject the output constraint, regardless of session resume/init path.
+  // Always inject the output constraint, regardless of session source.
   console.log(OUTPUT_CONSTRAINT);
 
-  // Always inject the resolved binary path so inline gods never hunt for it
-  // (template get / spec validate silently got skipped when the binary wasn't
-  // found, producing prose spec deltas), plus stored user preferences.
   const kratosBin = findKratosBinary();
   if (kratosBin) {
     console.log(`KRATOS_BIN: ${kratosBin}`);
@@ -309,58 +322,32 @@ function main() {
     console.log(memoriesMsg);
   }
 
-  // Print a one-line notice if a fresh session handoff (written by /kratos:wrap)
-  // exists — no content here, just a pointer. Placed here — BEFORE the
-  // session-reuse early return below — because a wrap -> /clear cycle reuses
-  // the same active-session.json (same project, <1hr old), which would
-  // otherwise return before this ran.
-  const handoffNotice = formatHandoffNotice();
-  if (handoffNotice) {
-    console.log(handoffNotice);
+  for (const line of [formatHandoffNotice(cwd), formatPendingSpecDeltas(cwd), formatDraftPlans(cwd)]) {
+    if (line) console.log(line);
   }
 
-  // Check for existing active session
-  if (fs.existsSync(SESSION_FILE)) {
-    try {
-      const existing = JSON.parse(fs.readFileSync(SESSION_FILE, "utf-8"));
-      // Session from same project and less than 1 hour old? Reuse it
-      const age = Date.now() - existing.started_at;
-      if (existing.project === projectName && age < 3600000) {
-        console.log(`Kratos: Resuming session ${existing.session_id}`);
-        return;
-      }
-    } catch (e) {
-      // Invalid session file, continue to create new
-    }
-  }
-
-  if (!initDb()) return;
-
-  // Get last session info BEFORE starting new session
-  const lastSessionInfo = getLastSessionInfo();
-
-  const sessionId = startSession();
-  if (!sessionId) return;
-
-  // Save session info
-  const sessionData = {
-    session_id: sessionId,
-    project: projectName,
-    cwd: cwd,
-    started_at: Date.now(),
-  };
-
-  fs.writeFileSync(SESSION_FILE, JSON.stringify(sessionData, null, 2));
-
-  console.log(`Kratos: Memory session started - ${sessionId}`);
-
-  // Inject context if there's an incomplete feature
-  if (lastSessionInfo && lastSessionInfo.feature_name) {
-    const contextMsg = formatContextMessage(lastSessionInfo);
-    if (contextMsg) {
-      console.log(contextMsg);
-    }
-  }
+  registerSession(sessionId, cwd, source);
 }
 
-main();
+// Read the hook payload from stdin (session_id, cwd, source). Older harnesses
+// send nothing — fall back to process.cwd() and skip session registration.
+let raw = "";
+let done = false;
+function finish() {
+  if (done) return;
+  done = true;
+  let payload = null;
+  if (raw.trim()) {
+    try {
+      payload = JSON.parse(raw);
+    } catch (e) {
+      payload = null;
+    }
+  }
+  main(payload);
+}
+process.stdin.setEncoding("utf-8");
+process.stdin.on("data", (chunk) => (raw += chunk));
+process.stdin.on("end", finish);
+process.stdin.on("error", finish);
+setTimeout(finish, 300).unref();

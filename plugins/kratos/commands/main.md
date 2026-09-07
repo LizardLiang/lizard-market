@@ -1,9 +1,10 @@
 ---
 name: main
 description: Full 9-stage feature pipeline with PRD, spec, implementation, and review
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
 > The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
 

@@ -1,9 +1,10 @@
 ---
 name: task-complete
 description: Mark implementation tasks complete in User Mode
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
 # Kratos: Task Complete
 

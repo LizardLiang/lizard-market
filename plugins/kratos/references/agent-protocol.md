@@ -196,20 +196,23 @@ If `pending_stage` is stale or empty on a re-spawn, `--init` falls back to readi
 ## Session Tracking
 <!-- protocol: session-tracking -->
 
-Record your work in the active Kratos session so Kratos can reconstruct what happened.
+Record your work in the Kratos session ledger so Kratos can reconstruct what happened.
+
+Your injected context carries **Kratos session:** `<id>` (and the project root). That id IS the
+session — use it directly; the CLI creates the row on demand, so recording never fails on a
+missing session.
 
 ```bash
-PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$(<kratos-bin> session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
-
 # Record your spawn at start (replace AGENT_NAME, MODEL, DESCRIPTION)
-<kratos-bin> step record-agent "$SESSION_ID" AGENT_NAME MODEL "DESCRIPTION"
+<kratos-bin> step record-agent "<session-id>" AGENT_NAME MODEL "DESCRIPTION" --project "<project-root>"
 
-# Record each document you create or modify
-<kratos-bin> step record-file "$SESSION_ID" "path/to/file" "created"
+# Record each document you create or modify (action: created | modified)
+<kratos-bin> step record-file "<session-id>" created "path/to/file" --project "<project-root>"
 ```
 
-If the binary is unavailable, skip session tracking silently — useful but not critical.
+If no session id was injected (older harness, inline command mode), skip session tracking
+silently — the PostToolUse hook already records file edits and agent spawns for the main session.
+Never call `session active` to hunt for an id.
 
 ---
 
