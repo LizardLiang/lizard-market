@@ -153,6 +153,8 @@ After Ares completes:
 
 After Artemis completes, only step 3 applies.
 
+**"Show me" / "demo it".** When the user asks to see the result, the deliverable is a live view, not a picture in chat: open a headed browser (agent-browser skill) on the changed page, logged in and navigated, and hand over a numbered what-to-test list. Screenshots pasted into the conversation do not render for the user ("you did not show me anything, brother"); a table of before/after is not a demo either.
+
 ## Todo backend (which store is the system of record)
 
 Detect by capability, never by name: if the session exposes MCP tools whose names contain `todo` (for example `mcp__lizmeter-todo__todo_add`, `todo_list`, `todo_complete`, `todo_update`), that tracker is the user's system of record. Call those tools directly in the main session (load them with ToolSearch if they are deferred) for add / list / complete / note. Do **not** spawn Ananke for these — Ananke cannot see MCP tools and files the task in Kratos's own store, which the user never reads. Spawn Ananke only when no todo MCP exists. When the user asks "is #N done?", answer from the ticket **and** `git log --oneline --grep "#N"`; the ticket note may be stale.

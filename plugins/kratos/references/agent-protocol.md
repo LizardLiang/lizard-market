@@ -228,10 +228,24 @@ Applies to every prose document you write to disk — deliverables in `.claude/f
 
 ---
 
+## Artifact Edits (documents, diagrams, decks)
+<!-- protocol: artifact-edit -->
+
+When the mission changes a design document, diagram, image export, or slide deck:
+
+1. **Resolve the target first.** File, page/slide (name AND 1-based index; draw.io CLI `-p` is 1-based), section. If the reference could match more than one thing (sibling `.drawio` files, a repeated heading), echo your resolution in one line and stop for confirmation. Otherwise still echo it once before the first edit.
+2. **Look before you report.** Render the changed artifact (drawio CLI → PNG, PowerPoint COM `Slides.Export` → PNG, Read the markdown section) and check the change is present and legible. Bash timeout ≥ 5 minutes for exports; precheck that a required desktop app is running before the first call. "Done" without a look is not done.
+3. **Keep linked artifacts in sync in the same turn** — `.drawio → .png → .md → .pptx` when the project links them; say which links you updated.
+4. **Write only the requested delta.** No added cross-references, rationale asides, status markers, or self-talk; match the document's register; a reviewer reads it cold.
+
+Detail: `<KRATOS_ROOT>/references/artifact-edit-protocol.md`.
+
+---
+
 ## Boundaries (all agents)
 <!-- protocol: boundaries -->
 
-Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.md`. Complete mission and return.
+Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.md`. Complete mission and return. End every turn with visible text — a turn that only launched background work still states what was launched and what comes next; never poll with `sleep` loops, rely on task notifications.
 
 ---
 

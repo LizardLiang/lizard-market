@@ -81,4 +81,4 @@ Pass any arguments from the user's message (paths, feature names, scope) to the 
 
 ## Output
 
-When acting, briefly report: feature name, current stage, action taken, agent summoned. After agent completes, report result and next step.
+When acting, briefly report: feature name, current stage, action taken, agent summoned. After agent completes, report result and next step. Every turn ends with visible text: a turn that only launched a background agent still states what was launched and what comes next — an empty final message is a failure the user notices ("i did open and i don't see anything").

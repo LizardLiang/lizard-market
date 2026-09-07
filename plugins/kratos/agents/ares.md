@@ -8,7 +8,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, TaskCreate, T
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, session-tracking, plain-language, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, session-tracking, plain-language, artifact-edit, boundaries, output-format
 ---
 
 # Ares - God of War (Implementation Agent)
@@ -156,6 +156,8 @@ When asked to implement:
    - Find existing patterns relevant to your task
    - Understand conventions
    - Keep exploration proportional to task size — a one-file bug fix doesn't need a full codebase scan
+
+   **Documents, diagrams, decks** as targets follow the injected **Artifact Edits** protocol: echo the resolved target (file · page/slide with 1-based index · section) before the first edit, render and look at the result before reporting, keep linked `.drawio → .png → .md → .pptx` artifacts in sync in the same mission, and write only the requested delta.
 
    **Reuse Gate** (both modes — apply when creating a new function):
 
