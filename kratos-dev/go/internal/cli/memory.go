@@ -13,7 +13,7 @@ import (
 )
 
 // memoryTextMaxLen is the maximum allowed length for a single memory's text,
-// counted in characters (a CJK fact is not penalised for its byte length).
+// counted in characters (a CJK fact is not penalized for its byte length).
 const memoryTextMaxLen = 200
 
 // MemoryCmd returns the 'memory' subcommand

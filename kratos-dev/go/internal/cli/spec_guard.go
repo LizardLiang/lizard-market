@@ -9,7 +9,7 @@ import (
 // specArchiveGuard refuses to promote a feature's spec delta into the living
 // spec while its stage-9 review is still running: the archived spec inherits
 // the reviewers' verdicts, and a delta archived seven seconds after Hermes was
-// spawned promoted behaviour nobody had approved yet (2026-08-31). Plan-only
+// spawned promoted behavior nobody had approved yet (2026-08-31). Plan-only
 // folders (no status.json) and finished features pass; --force overrides.
 func specArchiveGuard(root, feature string, force bool) error {
 	if force {

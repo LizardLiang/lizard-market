@@ -41,7 +41,7 @@ With --session-id (the Claude Code session id every hook receives) the command
 is idempotent: an existing row is returned, re-activated if it had ended, so one
 Claude Code session maps to exactly one Kratos session and concurrent sessions
 in different windows never share or clobber state. Without the flag only one
-active session per project is allowed (legacy behaviour).`,
+active session per project is allowed (legacy behavior).`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			project := normalizeProjectPath(args[0])

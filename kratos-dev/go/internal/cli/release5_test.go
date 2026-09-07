@@ -48,7 +48,9 @@ func TestAgentLoad_InjectsLessons(t *testing.T) {
 	}
 	out = runAgentLoadOut(t, "odysseus")
 	assert.Contains(t, out, "/kratos:retro odysseus")
-	block := out[strings.Index(out, "Lessons from past user corrections"):]
+	idx := strings.Index(out, "Lessons from past user corrections")
+	require.GreaterOrEqual(t, idx, 0)
+	block := out[idx:]
 	if nudge := strings.Index(block, "lessons pending"); nudge > 0 {
 		block = block[:nudge]
 	}

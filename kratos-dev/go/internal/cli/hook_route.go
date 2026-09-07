@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// launcherBodyRE recognises an expanded /kratos:<command> body: the generated
+// launcherBodyRE recognizes an expanded /kratos:<command> body: the generated
 // launchers echo KRATOS_ROOT and load the agent via hooks/launch.cjs.
 var launcherBodyRE = regexp.MustCompile(`(?i)KRATOS_ROOT=|hooks/launch\.cjs|\bagent load [a-z-]+ --resolve\b`)
 

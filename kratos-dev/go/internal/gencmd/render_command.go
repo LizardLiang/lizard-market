@@ -148,7 +148,7 @@ func RenderCommand(a *Agent, partial *Partial, hasSuffixLoader bool) string {
 	fm.WriteString("---")
 
 	// Dynamic injection uses the documented inline form: !`command`. A bare
-	// "!command" line is NOT recognised by Claude Code — it reaches the model as
+	// "!command" line is NOT recognized by Claude Code — it reaches the model as
 	// literal text and the persona never loads (observed 26/26 times in the
 	// 2026-09 transcript review). Keep both lines in the backtick form.
 	echoLine := "!`echo \"KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}\"`"
