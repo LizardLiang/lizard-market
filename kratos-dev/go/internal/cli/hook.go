@@ -62,6 +62,12 @@ func init() {
 		"hades",
 		"cassandra",
 		"ananke",
+		"odysseus",
+		"prometheus",
+		"themis",
+		"nemesis",
+		"hera",
+		"iris",
 	}
 	kratosKeywordPatterns = make([]keywordPattern, len(keywords))
 	for i, kw := range keywords {
@@ -301,6 +307,15 @@ func promptSubmitIn(raw []byte) hookOutput {
 		return passthroughOutput()
 	}
 
+	// Expanded slash-command bodies reach this hook without the "/kratos:"
+	// prefix: the launcher's KRATOS_ROOT echo and `agent load <god> --resolve`
+	// lines plus the user's arguments. They are not user prose — a god name in
+	// the arguments ("have ares on it") must not trigger a second routing
+	// (observed on a /kratos:iris turn, 2026-08-31).
+	if isExpandedLauncherBody(prompt) {
+		return passthroughOutput()
+	}
+
 	// Sanitize: strip code blocks, URLs, paths, system reminders
 	cleaned := sanitizePrompt(prompt)
 
@@ -310,7 +325,7 @@ func promptSubmitIn(raw []byte) hookOutput {
 	var keywordContext string
 	if len(matched) > 0 {
 		debugLog("matched keywords: %v", matched)
-		keywordContext = buildInjectionContext(matched)
+		keywordContext = buildKeywordContext(matched, cleaned)
 	}
 
 	// Independent of keyword matching — a bare "continue" must inject the handoff
