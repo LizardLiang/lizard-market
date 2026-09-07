@@ -59,11 +59,14 @@ Memory is stored globally at `~/.kratos/`:
 
 ```
 ~/.kratos/
-├── memory.db           # SQLite database
-└── active-session.json # Current session info
+├── memory.db            # SQLite database
+├── sessions/<id>.json   # One state file per Claude Code session (keyed by its session_id)
+└── sweeps/<id>.json     # Memory-sweep cadence marker per session
 ```
 
-This allows memory to persist across all projects.
+This allows memory to persist across all projects. Session state is per Claude Code session
+(`session_id` from the hook payload), so concurrent windows never share or end each other's
+session — the previous single `active-session.json` did exactly that.
 
 ## No Manual Setup Required
 
@@ -87,14 +90,17 @@ kratos status
 kratos recall
 
 # View active session
-cat ~/.kratos/active-session.json
+ls ~/.kratos/sessions/
 ```
 
 ## Transcript Memory Sweep (`memory-sweep.cjs`)
 
-Registered as a second `Stop` hook (alongside `session-end.cjs`). Where Iris's inline memory
-capture only catches facts flagged during an Iris mission, this hook is a session-wide safety
-net: on the final `Stop` of a qualifying session, it quietly injects a one-sentence instruction
+Registered on `Stop` (`session-end.cjs` moved to `SessionEnd`, which fires once when the session
+actually ends). Where Iris's inline memory capture only catches facts flagged during an Iris
+mission, this hook is a session-wide safety net: once enough new human messages and assistant
+turns have accumulated since the previous sweep (10 and 25; re-armed after each sweep, at most 8
+per session, tracked in `~/.kratos/sweeps/<session_id>.json` with the transcript offset already
+scanned), it quietly injects a one-sentence instruction
 for Claude via `hookSpecificOutput.additionalContext` (no `decision` field, so no Stop-hook-error
 styling — see below) pointing at `references/memory-sweep.md`, the full two-target protocol:
 (1) review the whole conversation for durable user facts (preferences, habits, weak spots,

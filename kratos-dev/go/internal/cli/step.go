@@ -23,9 +23,14 @@ func StepCmd() *cobra.Command {
 	return cmd
 }
 
-// StepRecordAgentCmd records an agent spawn
+// StepRecordAgentCmd records an agent spawn. The session row is created on
+// demand (see db.EnsureSession): hooks pass the Claude Code session id, which
+// may not have a row yet, and recording used to fail with
+// "FOREIGN KEY constraint failed" and drop the step.
 func StepRecordAgentCmd() *cobra.Command {
-	return &cobra.Command{
+	var project string
+
+	cmd := &cobra.Command{
 		Use:   "record-agent <session_id> <agent_name> <agent_model> <action>",
 		Short: "Record an agent spawn step",
 		Args:  cobra.ExactArgs(4),
@@ -40,6 +45,10 @@ func StepRecordAgentCmd() *cobra.Command {
 				return err
 			}
 			defer conn.Close()
+
+			if _, _, err := db.EnsureSession(conn, sessionID, projectOrEmpty(project)); err != nil {
+				return fmt.Errorf("failed to ensure session: %w", err)
+			}
 
 			if err := db.RecordAgentSpawn(conn, sessionID, agentName, agentModel, action); err != nil {
 				return fmt.Errorf("failed to record agent spawn: %w", err)
@@ -59,11 +68,16 @@ func StepRecordAgentCmd() *cobra.Command {
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(result)
 		},
 	}
+
+	cmd.Flags().StringVar(&project, "project", "", "Project root used when the session row has to be created")
+	return cmd
 }
 
 // StepRecordFileCmd records a file change
 func StepRecordFileCmd() *cobra.Command {
-	return &cobra.Command{
+	var project string
+
+	cmd := &cobra.Command{
 		Use:   "record-file <session_id> <action> <file_path>",
 		Short: "Record a file modification step",
 		Args:  cobra.ExactArgs(3),
@@ -78,6 +92,10 @@ func StepRecordFileCmd() *cobra.Command {
 			}
 			defer conn.Close()
 
+			if _, _, err := db.EnsureSession(conn, sessionID, projectOrEmpty(project)); err != nil {
+				return fmt.Errorf("failed to ensure session: %w", err)
+			}
+
 			if err := db.RecordFileChange(conn, sessionID, action, filePath); err != nil {
 				return fmt.Errorf("failed to record file change: %w", err)
 			}
@@ -89,6 +107,18 @@ func StepRecordFileCmd() *cobra.Command {
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(result)
 		},
 	}
+
+	cmd.Flags().StringVar(&project, "project", "", "Project root used when the session row has to be created")
+	return cmd
+}
+
+// projectOrEmpty normalizes a --project flag value; "" stays "" so
+// db.EnsureSession applies its own default.
+func projectOrEmpty(project string) string {
+	if project == "" {
+		return ""
+	}
+	return normalizeProjectPath(project)
 }
 
 // StepListCmd lists all steps for a session

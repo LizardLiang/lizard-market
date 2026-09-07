@@ -1,9 +1,10 @@
 ---
 name: main
 description: Full 9-stage feature pipeline with PRD, spec, implementation, and review
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
 > The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
 
@@ -226,6 +227,8 @@ Current status: [what's missing]
 The gate checks that every stage produced its deliverable AND every reviewer declared a *passing* verdict (read from the deliverable files, since the status.json `verdict` field is unreliable at stage 9). Only on exit 0 (output begins `VERIFIED:`) may you print VICTORY. On any non-zero exit (output begins `BLOCKED:`), print the ⚔️ BLOCKED ⚔️ format instead, listing the reported failures, and route back to the failing stage — do not declare victory.
 
 If the `kratos` binary is unavailable, fall back to confirming each deliverable exists and its verdict section reads as passing (approved / sound / aligned / clear|caution) before declaring victory.
+
+**Never edit a reviewer's deliverable to satisfy the gate.** The gate reads the structured verdict in status.json first (`code_review_verdict`, `risk_verdict`, `alignment_verdict`, …) and only then the file's Verdict section. If it still blocks, re-spawn that reviewer (Hermes / Cassandra / Hera) to restate its verdict, or report BLOCKED. Appending "APPROVED" to `code-review.md` yourself is a forgery, not a fix — it happened once, and the feature still never shipped.
 
 **After the gate passes, record the feature digest (durable cross-feature memory).** The per-feature `decisions.md` and `context.md` are stranded in the feature folder; distill their essence into `.claude/.Arena/features/FEATURE_NAME.md` so the *reasoning* survives alongside the behavioral contract that `spec archive` already promotes. Create `.claude/.Arena/features/` if absent. Write a dated one-paragraph digest:
 

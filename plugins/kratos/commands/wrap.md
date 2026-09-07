@@ -1,9 +1,10 @@
 ---
 name: wrap
 description: Write a session handoff for the next session, run the memory sweep inline, and prepare to /clear
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
 > The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root). `<kratos-bin>` resolves to `<KRATOS_ROOT>/bin/kratos`, falling back to `~/.kratos/bin/kratos`.
 
@@ -70,13 +71,13 @@ Mirror the same sweep the Stop-hook (`memory-sweep.cjs`) would otherwise run, so
 
 1. **User facts** — review the conversation for durable user facts (preferences, habits, weak spots, corrections, working style — not project/task facts, never secrets). Project/task/repo facts belong in the project's Arena, not memory — when in doubt, save nothing.
    ```bash
-   <kratos-bin> memory list
+   <kratos-bin> memory list --limit 40
    ```
    Dedupe against that list, then save at most 3:
    ```bash
    <kratos-bin> memory add "<fact>" --category <preference|habit|weak-spot|context>
    ```
-   Use only those four categories. Each fact ≤200 characters.
+   Use only those four categories. Each fact ≤200 characters. If the CLI reports a near-duplicate, re-run with `--replace <id>` or drop the fact.
 
 2. **Agent lessons** — if the user corrected or redirected work a specific Kratos god-agent had just delivered this session:
    ```bash

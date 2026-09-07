@@ -14,7 +14,7 @@ func TestRenderCommandUniversalResolveLoader(t *testing.T) {
 	plain := &Agent{Name: "ares", Description: "Implementation specialist for writing code"}
 	out := RenderCommand(plain, nil, false)
 
-	wantLoader := `!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load ares --resolve`
+	wantLoader := "!`node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" agent load ares --resolve`"
 	if !strings.Contains(out, wantLoader) {
 		t.Errorf("expected loader line %q in output, got:\n%s", wantLoader, out)
 	}
@@ -25,7 +25,7 @@ func TestRenderCommandUniversalResolveLoader(t *testing.T) {
 		t.Errorf("expected no --mode=command for a god with no suffix loader, got:\n%s", out)
 	}
 	// The echo line stays — launcher-static partial text still carries tokens.
-	if !strings.Contains(out, `!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`) {
+	if !strings.Contains(out, "!`echo \"KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}\"`") {
 		t.Errorf("expected !echo KRATOS_ROOT line to be retained, got:\n%s", out)
 	}
 }
@@ -37,7 +37,7 @@ func TestRenderCommandSuffixLoaderAppendsModeCommand(t *testing.T) {
 	suffixed := &Agent{Name: "hermes", Description: "Code reviewer for quality and correctness"}
 	out := RenderCommand(suffixed, nil, true)
 
-	wantLoader := `!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load hermes --resolve --mode=command`
+	wantLoader := "!`node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" agent load hermes --resolve --mode=command`"
 	if !strings.Contains(out, wantLoader) {
 		t.Errorf("expected loader line %q in output, got:\n%s", wantLoader, out)
 	}

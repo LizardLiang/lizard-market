@@ -94,6 +94,7 @@ func PipelineCmd() *cobra.Command {
 	cmd.AddCommand(pipelineTasksCmd())
 	cmd.AddCommand(pipelineStatusCmd())
 	cmd.AddCommand(pipelineNextCmd())
+	cmd.AddCommand(pipelineGCCmd())
 
 	return cmd
 }

@@ -109,6 +109,12 @@ func agentLoadCmd() *cobra.Command {
 				out += "\n---\n\n" + block + "\n"
 			}
 
+			// Stored lessons from past user corrections — inline gods have no
+			// SubagentStart hook to inject them, so they ride along here.
+			if lessons := lessonsBlockFor(strings.TrimSuffix(name, ".md")); lessons != "" {
+				out += "\n---\n\n" + lessons + "\n"
+			}
+
 			if mode == "command" {
 				suffix, err := commandSuffixFS.ReadFile("command-mode-suffix/" + name)
 				if err == nil {

@@ -95,6 +95,40 @@ func refsParagraph(kind string) string {
 	return commandRefsSentences[kind]
 }
 
+// launcherBashTools are the Bash commands every launcher's dynamic-injection
+// lines need pre-approved. A failed permission check on a !`cmd` line aborts
+// the whole command invocation, so these must always be in allowed-tools.
+var launcherBashTools = []string{"Bash(echo:*)", "Bash(node:*)"}
+
+// LauncherAllowedTools merges a partial's allowed-tools list (may be "") with
+// the launcher's own Bash pre-approvals. A bare "Bash" entry already covers
+// every Bash command, so the scoped entries are omitted in that case; the
+// partial's own entries always come first and are never reordered.
+func LauncherAllowedTools(partialTools string) string {
+	var out []string
+	seen := map[string]bool{}
+	bareBash := false
+	for _, t := range strings.Split(partialTools, ",") {
+		t = strings.TrimSpace(t)
+		if t == "" || seen[t] {
+			continue
+		}
+		if t == "Bash" {
+			bareBash = true
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	if !bareBash {
+		for _, t := range launcherBashTools {
+			if !seen[t] {
+				out = append(out, t)
+			}
+		}
+	}
+	return strings.Join(out, ", ")
+}
+
 // RenderCommand renders the full commands/<name>.md launcher content for the
 // given agent. Every god uses the launch.cjs loader with --resolve (so the
 // emitted body carries no <KRATOS_ROOT>/<kratos-bin> tokens); hasSuffixLoader
@@ -106,17 +140,24 @@ func RenderCommand(a *Agent, partial *Partial, hasSuffixLoader bool) string {
 	fmt.Fprintf(&fm, "name: %s\n", a.Name)
 	fmt.Fprintf(&fm, "description: %s\n", deriveDescription(a))
 	fm.WriteString("generated: true\n")
-	if partial != nil && partial.AllowedTools != "" {
-		fmt.Fprintf(&fm, "allowed-tools: %s\n", partial.AllowedTools)
+	partialTools := ""
+	if partial != nil {
+		partialTools = partial.AllowedTools
 	}
+	fmt.Fprintf(&fm, "allowed-tools: %s\n", LauncherAllowedTools(partialTools))
 	fm.WriteString("---")
 
-	echoLine := `!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
+	// Dynamic injection uses the documented inline form: !`command`. A bare
+	// "!command" line is NOT recognised by Claude Code — it reaches the model as
+	// literal text and the persona never loads (observed 26/26 times in the
+	// 2026-09 transcript review). Keep both lines in the backtick form.
+	echoLine := "!`echo \"KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}\"`"
 
-	loaderLine := fmt.Sprintf(`!node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load %s --resolve`, a.Name)
+	loaderCmd := fmt.Sprintf(`node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load %s --resolve`, a.Name)
 	if hasSuffixLoader {
-		loaderLine += " --mode=command"
+		loaderCmd += " --mode=command"
 	}
+	loaderLine := "!`" + loaderCmd + "`"
 
 	note := standardNoteSeparator
 	if a.CommandNote != "" {
@@ -127,7 +168,12 @@ func RenderCommand(a *Agent, partial *Partial, hasSuffixLoader bool) string {
 		capitalize(a.Name), note,
 	)
 
-	blocks := []string{fm.String(), echoLine, loaderLine, "---", persona}
+	fallback := fmt.Sprintf(
+		"If no `# %s -` agent definition appears above, the loader did not run: execute `%s` once with the Bash tool, adopt its output as your definition, and only then act on the request.",
+		capitalize(a.Name), loaderCmd,
+	)
+
+	blocks := []string{fm.String(), echoLine, loaderLine, "---", persona, fallback}
 
 	if refs := refsParagraph(a.CommandRefs); refs != "" {
 		blocks = append(blocks, refs)

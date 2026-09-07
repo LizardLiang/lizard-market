@@ -4,35 +4,27 @@
 /**
  * Kratos Memory - Transcript Sweep Hook (Stop)
  *
- * Once per qualifying session, quietly injects an instruction into the final
- * Stop via `hookSpecificOutput.additionalContext` (no `decision` field) that
- * points Claude at references/memory-sweep.md: (1) durable user facts saved
- * via `kratos memory`, (2) corrections to a specific god-agent's finished
- * work saved per agent via `kratos feedback` and re-injected at that agent's
- * next spawn by path-inject.cjs.
+ * Periodically injects a one-sentence instruction via
+ * `hookSpecificOutput.additionalContext` (no `decision` field, so no red
+ * "Stop hook error" styling — see issue #4) pointing Claude at
+ * references/memory-sweep.md: (1) durable user facts saved via
+ * `kratos memory`, (2) corrections to a god-agent's finished work saved via
+ * `kratos feedback` and re-injected at that agent's next spawn.
  *
- * Previously this hook used `{decision:'block', reason:<instruction>}`. Every
- * Stop-hook block — regardless of wording or suppressOutput/systemMessage —
- * renders as a red "Stop hook error: <reason>" in the transcript (see
- * code.claude.com/docs/en/hooks); there is no quiet block. `additionalContext`
- * is the documented channel that reaches the model without that error styling
- * (issue #4). This makes the sweep advisory rather than guaranteed: the model
- * is expected to follow the injected instruction, not hard-forced into another
- * turn the way `block` would force one.
+ * Cadence. Stop fires after every assistant turn, so the hook keeps a small
+ * per-session marker (~/.kratos/sweeps/<session_id>.json) with the transcript
+ * byte offset it has already scanned plus message counters. Each run reads
+ * only the new tail, and a sweep is emitted once enough human messages AND
+ * assistant turns have accumulated since the previous sweep — then the
+ * counters reset and the next sweep arms again. The previous design swept
+ * once, on the first Stop after six "user" lines (tool results included), so
+ * every long session was swept ~5% in and never again; every later correction
+ * was lost (2026-09 transcript review).
  *
- * `additionalContext` still renders as a visible "Stop hook feedback" line —
- * there is no fully invisible Stop channel. To keep that line as small as
- * possible, the injected instruction is a single sentence; the full protocol
- * lives in references/memory-sweep.md, which also tells the model to run the
- * sweep with zero user-visible output (no 📝 note).
- *
- * This is a session-wide safety net: Iris only sweeps during its own missions,
- * so facts revealed during ordinary (non-Iris) Kratos work would otherwise be
- * lost. Guarded to run at most once per session, to skip sessions where the
- * sweep already ran inline (transcript contains `IRIS COMPLETE` or
- * `KRATOS WRAP COMPLETE` — /kratos:wrap runs this same sweep before printing
- * its marker), and to fail open whenever the hook contract, transcript, or
- * binary is unavailable — see hooks/README.md.
+ * Skips: a Stop that is itself a re-invocation (stop_hook_active), the opt-out
+ * env var, an inline sweep already run in the new tail (Iris prints
+ * `IRIS COMPLETE`, /kratos:wrap prints `KRATOS WRAP COMPLETE` — both reset the
+ * counters), missing binary or protocol file. Every failure fails open.
  */
 
 const fs = require('fs');
@@ -41,14 +33,22 @@ const os = require('os');
 const { resolveBinary } = require('./kratos-bin.cjs');
 
 const SWEEP_DIR = path.join(os.homedir(), '.kratos', 'sweeps');
-const MIN_USER_MESSAGES = 6;
 const MARKER_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// A sweep arms when BOTH thresholds are met since the last sweep (or session start).
+const MIN_HUMAN_MESSAGES = 10;
+const MIN_ASSISTANT_TURNS = 25;
+const MAX_SWEEPS_PER_SESSION = 8;
+
 function markerPath(sessionId) {
+  return path.join(SWEEP_DIR, `${sessionId}.json`);
+}
+
+function legacyMarkerPath(sessionId) {
   return path.join(SWEEP_DIR, sessionId);
 }
 
-// Remove sweep markers older than 7 days so the directory doesn't grow forever.
+// Remove markers older than 7 days so the directory doesn't grow forever.
 function pruneOldMarkers() {
   let entries;
   try {
@@ -56,42 +56,86 @@ function pruneOldMarkers() {
   } catch (e) {
     return;
   }
-
   const now = Date.now();
   for (const entry of entries) {
     const entryPath = path.join(SWEEP_DIR, entry);
     try {
-      const stats = fs.statSync(entryPath);
-      if (now - stats.mtimeMs > MARKER_MAX_AGE_MS) {
-        fs.unlinkSync(entryPath);
-      }
+      if (now - fs.statSync(entryPath).mtimeMs > MARKER_MAX_AGE_MS) fs.unlinkSync(entryPath);
     } catch (e) {
-      // Ignore — best-effort cleanup only.
+      // best-effort cleanup only
     }
   }
 }
 
-// Read the raw transcript once for both the user-message count and the Iris
-// skip check below. Returns null when the transcript can't be read — callers
-// must treat null as "fail open, allow stop".
-function readTranscript(transcriptPath) {
+function readMarker(sessionId, transcriptSize) {
   try {
-    return fs.readFileSync(transcriptPath, 'utf-8');
+    const m = JSON.parse(fs.readFileSync(markerPath(sessionId), 'utf-8'));
+    if (m && typeof m.offset === 'number') return m;
+  } catch (e) {
+    // no marker yet
+  }
+  // A legacy 13-byte epoch marker means one sweep already ran at an unknown
+  // point: start fresh from the current end so nothing is re-swept.
+  if (fs.existsSync(legacyMarkerPath(sessionId))) {
+    try { fs.unlinkSync(legacyMarkerPath(sessionId)); } catch (e) { /* ignore */ }
+    return { offset: transcriptSize, human: 0, assistant: 0, sweeps: 1 };
+  }
+  return { offset: 0, human: 0, assistant: 0, sweeps: 0 };
+}
+
+function writeMarker(sessionId, marker) {
+  fs.mkdirSync(SWEEP_DIR, { recursive: true });
+  fs.writeFileSync(markerPath(sessionId), JSON.stringify(marker));
+}
+
+// Read the transcript from offset to the end. Returns null when unreadable.
+function readTail(transcriptPath, offset) {
+  let fd;
+  try {
+    const size = fs.statSync(transcriptPath).size;
+    if (size < offset) offset = 0; // rotated/rewritten transcript
+    const length = size - offset;
+    if (length <= 0) return { text: '', size };
+    fd = fs.openSync(transcriptPath, 'r');
+    const buf = Buffer.alloc(length);
+    fs.readSync(fd, buf, 0, length, offset);
+    return { text: buf.toString('utf-8'), size };
   } catch (e) {
     return null;
+  } finally {
+    if (fd !== undefined) {
+      try { fs.closeSync(fd); } catch (e) { /* ignore */ }
+    }
   }
 }
 
+// Count human prompts and assistant turns in a transcript chunk. A "user" line
+// that carries a tool_result, a slash-command echo, or hook metadata is not a
+// human message.
+function countMessages(text) {
+  let human = 0;
+  let assistant = 0;
+  for (const line of text.split('\n')) {
+    if (line.includes('"type":"assistant"')) {
+      assistant++;
+      continue;
+    }
+    if (!line.includes('"type":"user"')) continue;
+    if (line.includes('"tool_result"') || line.includes('"isMeta":true') || line.includes('<command-name>')) continue;
+    human++;
+  }
+  return { human, assistant };
+}
+
 // Returns the one-line sweep instruction, or null when the protocol file is
-// missing (partial install) — callers must treat null as "no sweep".
-// One sentence on purpose: additionalContext renders as a visible
-// "Stop hook feedback" line, so everything else lives in the protocol file.
+// missing (partial install).
 function buildInstruction(kratosBin) {
   const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, '..');
   const protocol = path.join(pluginRoot, 'references', 'memory-sweep.md');
   if (!fs.existsSync(protocol)) return null;
   return `Silently run the memory sweep in "${protocol.replace(/\\/g, '/')}" `
-    + `with <kratos-bin> = ${kratosBin} — no user-visible output.`;
+    + `with <kratos-bin> = ${kratosBin} — no narration; finish with exactly one line: `
+    + '`Kratos: swept <n>` or `Kratos: nothing to sweep`.';
 }
 
 function quietSweep(instruction) {
@@ -116,53 +160,62 @@ process.stdin.on('end', () => {
     return;
   }
 
-  // Loop guard: never re-emit on a Stop that already fired because of us
-  // (e.g. another plugin's hook blocked and re-invoked).
+  // Loop guard: never re-emit on a Stop that already fired because of us.
   if (data.stop_hook_active === true) return;
 
   // Opt-out.
   if (process.env.KRATOS_MEMORY_SWEEP === 'off') return;
 
   const sessionId = data.session_id;
-  if (!sessionId) return;
-
-  // Per-session marker: at most one sweep emission per session.
-  if (fs.existsSync(markerPath(sessionId))) return;
-
-  // Threshold: skip short sessions. Fail open if the transcript is missing
-  // or unreadable — never block blind.
   const transcriptPath = data.transcript_path;
-  if (!transcriptPath) return;
+  if (!sessionId || !transcriptPath) return;
 
-  const transcript = readTranscript(transcriptPath);
-  if (transcript === null) return;
-
-  let userMessageCount = 0;
-  for (const line of transcript.split('\n')) {
-    if (line.includes('"type":"user"')) userMessageCount++;
-  }
-  if (userMessageCount < MIN_USER_MESSAGES) return;
-
-  // Iris sweeps her own missions before IRIS COMPLETE — don't double-sweep.
-  if (transcript.includes('IRIS COMPLETE')) return;
-
-  // /kratos:wrap runs this same sweep inline before printing its marker —
-  // don't double-sweep.
-  if (transcript.includes('KRATOS WRAP COMPLETE')) return;
-
-  // No CLI, no sweep.
-  const kratosBin = resolveBinary();
-  if (!kratosBin) return;
-
-  // No protocol file (partial install), no sweep.
-  const instruction = buildInstruction(kratosBin);
-  if (!instruction) return;
-
+  let size;
   try {
-    fs.mkdirSync(SWEEP_DIR, { recursive: true });
-    fs.writeFileSync(markerPath(sessionId), String(Date.now()));
+    size = fs.statSync(transcriptPath).size;
   } catch (e) {
-    // If we can't write the marker, don't risk an unguarded repeat emission.
+    return; // fail open
+  }
+
+  const marker = readMarker(sessionId, size);
+  const tail = readTail(transcriptPath, marker.offset);
+  if (tail === null) return;
+
+  const counts = countMessages(tail.text);
+  marker.offset = tail.size;
+  marker.human += counts.human;
+  marker.assistant += counts.assistant;
+
+  // An inline sweep ran in this stretch (Iris mission, /kratos:wrap): the
+  // counters restart from here.
+  if (tail.text.includes('IRIS COMPLETE') || tail.text.includes('KRATOS WRAP COMPLETE')) {
+    marker.human = 0;
+    marker.assistant = 0;
+  }
+
+  const armed = marker.human >= MIN_HUMAN_MESSAGES
+    && marker.assistant >= MIN_ASSISTANT_TURNS
+    && marker.sweeps < MAX_SWEEPS_PER_SESSION;
+
+  if (!armed) {
+    try { writeMarker(sessionId, marker); } catch (e) { /* fail open */ }
+    return;
+  }
+
+  const kratosBin = resolveBinary();
+  const instruction = kratosBin ? buildInstruction(kratosBin) : null;
+  if (!instruction) {
+    try { writeMarker(sessionId, marker); } catch (e) { /* fail open */ }
+    return;
+  }
+
+  marker.human = 0;
+  marker.assistant = 0;
+  marker.sweeps += 1;
+  try {
+    writeMarker(sessionId, marker);
+  } catch (e) {
+    // If we can't persist the marker, don't risk an unguarded repeat emission.
     return;
   }
   pruneOldMarkers();

@@ -1,9 +1,10 @@
 ---
 name: status
 description: Show all features and their current pipeline stage
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
 > The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root). `<kratos-bin>` resolves to `<KRATOS_ROOT>/bin/kratos`, falling back to `~/.kratos/bin/kratos`.
 
@@ -31,6 +32,10 @@ Run the CLI — it does all discovery, parsing, and computation (stage N of 9, c
 ```
 
 The JSON gives you, per feature: `stage_number`/`total_stages`, `progress_pct`, `completed`/`total`, `health` (`blocked` | `conflict` | `stale` | `healthy`), `conflicts[]`, per-stage rows with statuses and verdicts, `verified`, and `next` (the computed next action/stage/agents from the transition table). Folders without `status.json` appear in `plan_only[]` — list those separately as "plan-only (pending spec delta)", never as features.
+
+### Step 1b: Plans ready but not implemented
+
+Odysseus plans live outside the pipeline, so `pipeline status` cannot see them. List every `.claude/.Arena/tactical-plans/*.md` whose frontmatter says `status: ready` and check whether its slug (or the ticket `#N` in its Request section) appears in `git log --oneline -100`. Plans with no matching commit go in a short **Planned, not implemented** list with the resume command `/kratos:quick implement the approved plan at <path>`. This is where approved plans go to die: a 0.047-ambiguity plan for NETZERO became LizMeter #62 on 2026-09-01 and was never built.
 
 ### Step 2: Render the Dashboard
 

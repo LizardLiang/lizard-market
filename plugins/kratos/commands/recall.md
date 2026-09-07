@@ -58,7 +58,7 @@ When the user runs `/kratos:recall`:
 KRATOS RECALL
 
 Feature: [feature-name]
-Stage: [X]/11 ([stage-name])
+Stage: [X]/9 ([stage-name])
 Status: [in_progress | completed | abandoned]
 Last active: [time ago]
 
@@ -68,7 +68,7 @@ Last Actions:
 - [Action 3]
 
 Pipeline:
-[1]OK -> [2]OK -> [3]OK -> [4]>> -> [4].. -> [5].. -> [6].. -> [7]..
+[1]OK -> [2]OK -> [3]OK -> [4]>> -> [5].. -> [6].. -> [7].. -> [8].. -> [9]..
 
 Pipeline symbols: `✅` = complete, `>>` = current/in-progress, `..` = pending/not started, `⏭️` = skipped, `❌` = blocked
 
@@ -84,8 +84,8 @@ KRATOS RECALL (Global)
 
 Recent sessions across all projects:
 
-1. [project]/[feature] - Stage [X]/11 - [time ago]
-2. [project]/[feature] - Stage [X]/11 - [time ago]
+1. [project]/[feature] - Stage [X]/9 - [time ago]
+2. [project]/[feature] - Stage [X]/9 - [time ago]
 3. [project]/[feature] - Completed - [time ago]
 
 Use /kratos:recall in the project directory for details.
@@ -97,17 +97,16 @@ Use /kratos:recall in the project directory for details.
 
 | Stage | Name | Agent |
 |-------|------|-------|
-| 0 | Research | Metis |
-| 1 | PRD Creation | Athena |
-| 2 | PRD Review | Athena |
-| 3 | Decomposition | Daedalus |
-| 4 | Discuss | Themis |
-| 5 | Tech Spec | Hephaestus |
-| 7 | SA Spec Review | Apollo |
-| 8 | Test Plan | Artemis |
-| 9 | Implementation | Ares |
-| 10 | PRD Alignment | Hera |
-| 11 | Review | Hermes + Cassandra |
+| 0 | Research (optional) | Metis |
+| 1 | PRD | Kratos gap analysis inline, then Athena |
+| 2 | PRD Review | Nemesis |
+| 3 | Decomposition (optional) | Daedalus |
+| 4 | Tech Spec | Themis discuss inline, then Hephaestus |
+| 5 | SA Spec Review | Apollo |
+| 6 | Test Plan | Artemis |
+| 7 | Implementation | Ares |
+| 8 | PRD Alignment | Hera |
+| 9 | Review | Hermes + Cassandra |
 
 ---
 
@@ -239,19 +238,19 @@ Showing current project only.
 KRATOS RECALL
 
 Feature: user-authentication
-Stage: 6/11 (PM Spec Review)
+Stage: 5/9 (SA Spec Review)
 Status: in_progress
 Last active: 2 hours ago
 
 Last Actions:
 - Hephaestus: Created tech-spec.md
-- Athena: Started PM review
+- Nemesis: Approved the PRD
 - Updated status.json
 
 Pipeline:
-[1]OK -> [2]OK -> [4]OK -> [5]>> -> [6].. -> [7].. -> [8].. -> [9].. -> [11]..
+[1]OK -> [2]OK -> [3]skip -> [4]OK -> [5]>> -> [6].. -> [7].. -> [8].. -> [9]..
 
-Recommendation: Continue with Stage 6 (Apollo - SA Spec Review)?
+Recommendation: Continue with Stage 5 (Apollo - SA Spec Review)?
 
 Ready to continue? Say "continue" or "/kratos" to resume.
 ```
@@ -266,10 +265,10 @@ KRATOS RECALL (Global)
 
 Recent sessions across all projects:
 
-1. kratos/memory-recall-system - Stage 5/11 - 2 hours ago
-2. lizard-market/payment-integration - Stage 8/11 - 1 day ago
+1. kratos/memory-recall-system - Stage 5/9 - 2 hours ago
+2. lizard-market/payment-integration - Stage 8/9 - 1 day ago
 3. my-app/user-dashboard - Completed - 3 days ago
-4. api-server/rate-limiting - Stage 2/11 - 5 days ago
+4. api-server/rate-limiting - Stage 2/9 - 5 days ago
 
 Use /kratos:recall in the project directory for details.
 ```

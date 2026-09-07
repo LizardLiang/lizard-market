@@ -1,9 +1,10 @@
 ---
 name: retro
 description: Review a god-agent's accumulated feedback lessons, fold stable ones into the agent's instructions, and clear them
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
 > The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root). `<kratos-bin>` resolves to `<KRATOS_ROOT>/bin/kratos`, falling back to `~/.kratos/bin/kratos`.
 
@@ -49,6 +50,7 @@ Group the lessons by `agent` and render the Overview format below (agent, lesson
    - **Keep** — still testing whether it holds: stays in the buffer, keeps injecting at spawn
    - **Discard** — stale, wrong, or superseded: remove without folding
    - **Promote** — the lesson is review-standards-shaped (a checkable rule about code, not agent behavior): becomes an active rule in the current project's `.claude/.Arena/review-rules/`
+   - **Fix the plugin** — the lesson describes a Kratos defect (a missing tool in an agent's toolset, a wrong backend, a broken command), not agent behaviour: it is a bug report. Fix it in the dev tree or file an issue, then discard the lesson. ("Ananke lacks the LizMeter MCP tools" sat as a memory for a week instead of becoming a one-line fix.)
 
 3. **Fold** the stable ones into `<KRATOS_ROOT>/agents/<god>.md`:
    - Edit the **body only** — append or extend a `## Learned Lessons` section near the end of the file

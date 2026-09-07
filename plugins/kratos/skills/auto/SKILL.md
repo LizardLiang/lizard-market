@@ -45,7 +45,7 @@ This skill handles only the clearly non-pipeline utilities directly. Everything 
 | "where did we stop", "last session", "resume" | Recall mode | `Skill(skill: "kratos:recall")` |
 | "wrap", "wrap up the session", "write a handoff", "end session" | Wrap mode | `Skill(skill: "kratos:wrap")` |
 | "greet", "motivate", "inspire me" | Greet mode | `Skill(skill: "kratos:greet")` |
-| "add task", "my todos", "mark done" | Spawn Ananke | `Task(subagent_type: "kratos:ananke")` |
+| "add task", "my todos", "mark done", "is #N done" | Project todo MCP first: tools whose names contain `todo` (e.g. `mcp__lizmeter-todo__*`) are the user's system of record — call them inline; spawn Ananke only when no such MCP exists | inline MCP call, else `Task(subagent_type: "kratos:ananke")` |
 | "what does X do", question about project/code/git | Inquiry mode | `Skill(skill: "kratos:inquiry")` |
 | "explain", "walk me through", "context restore" | Explain mode | `Skill(skill: "kratos:explain")` |
 | "learn", "teach me", "give me a lesson" (external topic) | Iris — learn | `Skill(skill: "kratos:iris")` |
@@ -60,6 +60,7 @@ This skill handles only the clearly non-pipeline utilities directly. Everything 
 | "backfill spec", "backfill living specs" | Spec backfill | `Skill(skill: "kratos:spec-backfill")` |
 | "export specs", "export spec to html", "print specs", "spec to pdf" | Spec export | `Skill(skill: "kratos:spec-export")` |
 | "retro", "consolidate lessons", "agent feedback", "fold lessons" | Retro mode | `Skill(skill: "kratos:retro")` |
+| A failure reported twice in a row ("still the same", "step two failed", "didn't work either") | Debug with proof — Hades, not another runbook guess | `Task(subagent_type: "kratos:hades")` via the quick.md Debug template |
 | Everything else (simple tasks, complex features, "continue", "build X", "fix Y", stage artifacts) | Full pipeline — `classify.md` decides quick vs pipeline | `Skill(skill: "kratos:main")` |
 
 Disambiguation: "help me understand [thing in this repo]" stays with inquiry/explain, not Iris. "Discuss [feature]" during an active pipeline is Themis's decision-lock phase, never Iris.
@@ -81,4 +82,4 @@ Pass any arguments from the user's message (paths, feature names, scope) to the 
 
 ## Output
 
-When acting, briefly report: feature name, current stage, action taken, agent summoned. After agent completes, report result and next step.
+When acting, briefly report: feature name, current stage, action taken, agent summoned. After agent completes, report result and next step. Every turn ends with visible text: a turn that only launched a background agent still states what was launched and what comes next — an empty final message is a failure the user notices ("i did open and i don't see anything").

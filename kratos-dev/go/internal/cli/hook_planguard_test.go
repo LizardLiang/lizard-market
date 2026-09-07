@@ -29,6 +29,63 @@ func TestPlanModeGuardDecisions(t *testing.T) {
 		want    string // "allow", "deny", or "" for no decision (fail open)
 	}{
 		{
+			// The protocol's own timestamp fallback shape must pass: the wrapper,
+			// the stderr redirect and the `|| date` fallback are inert.
+			name: "protocol timestamp fallback allowed",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": `TS=$(kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)`},
+			},
+			want: "allow",
+		},
+		{
+			name: "session active allowed",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": `"C:/Users/x/.kratos/bin/kratos.exe" session active "C:/repo"`},
+			},
+			want: "allow",
+		},
+		{
+			name: "pipeline get and memory list allowed",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "kratos pipeline get --compact --feature x"},
+			},
+			want: "allow",
+		},
+		{
+			name: "memory list allowed",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "~/.kratos/bin/kratos memory list --limit 40"},
+			},
+			want: "allow",
+		},
+		{
+			// A fallback that is not `date` keeps its metacharacter and stays denied.
+			name: "non-date fallback denied",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": `TS=$(kratos now || rm -rf build)`},
+			},
+			want: "deny",
+		},
+		{
+			name: "stripped redirect still catches a chained mutation",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "kratos now 2>/dev/null; rm -rf build"},
+			},
+			want: "deny",
+		},
+		{
 			name: "draft plan write allowed",
 			payload: map[string]any{
 				"agent_type": "kratos:odysseus",

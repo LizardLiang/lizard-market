@@ -196,20 +196,23 @@ If `pending_stage` is stale or empty on a re-spawn, `--init` falls back to readi
 ## Session Tracking
 <!-- protocol: session-tracking -->
 
-Record your work in the active Kratos session so Kratos can reconstruct what happened.
+Record your work in the Kratos session ledger so Kratos can reconstruct what happened.
+
+Your injected context carries **Kratos session:** `<id>` (and the project root). That id IS the
+session — use it directly; the CLI creates the row on demand, so recording never fails on a
+missing session.
 
 ```bash
-PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$(<kratos-bin> session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
-
 # Record your spawn at start (replace AGENT_NAME, MODEL, DESCRIPTION)
-<kratos-bin> step record-agent "$SESSION_ID" AGENT_NAME MODEL "DESCRIPTION"
+<kratos-bin> step record-agent "<session-id>" AGENT_NAME MODEL "DESCRIPTION" --project "<project-root>"
 
-# Record each document you create or modify
-<kratos-bin> step record-file "$SESSION_ID" "path/to/file" "created"
+# Record each document you create or modify (action: created | modified)
+<kratos-bin> step record-file "<session-id>" created "path/to/file" --project "<project-root>"
 ```
 
-If the binary is unavailable, skip session tracking silently — useful but not critical.
+If no session id was injected (older harness, inline command mode), skip session tracking
+silently — the PostToolUse hook already records file edits and agent spawns for the main session.
+Never call `session active` to hunt for an id.
 
 ---
 
@@ -225,10 +228,24 @@ Applies to every prose document you write to disk — deliverables in `.claude/f
 
 ---
 
+## Artifact Edits (documents, diagrams, decks)
+<!-- protocol: artifact-edit -->
+
+When the mission changes a design document, diagram, image export, or slide deck:
+
+1. **Resolve the target first.** File, page/slide (name AND 1-based index; draw.io CLI `-p` is 1-based), section. If the reference could match more than one thing (sibling `.drawio` files, a repeated heading), echo your resolution in one line and stop for confirmation. Otherwise still echo it once before the first edit.
+2. **Look before you report.** Render the changed artifact (drawio CLI → PNG, PowerPoint COM `Slides.Export` → PNG, Read the markdown section) and check the change is present and legible. Bash timeout ≥ 5 minutes for exports; precheck that a required desktop app is running before the first call. "Done" without a look is not done.
+3. **Keep linked artifacts in sync in the same turn** — `.drawio → .png → .md → .pptx` when the project links them; say which links you updated.
+4. **Write only the requested delta.** No added cross-references, rationale asides, status markers, or self-talk; match the document's register; a reviewer reads it cold.
+
+Detail: `<KRATOS_ROOT>/references/artifact-edit-protocol.md`.
+
+---
+
 ## Boundaries (all agents)
 <!-- protocol: boundaries -->
 
-Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.md`. Complete mission and return.
+Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.md`. Complete mission and return. End every turn with visible text — a turn that only launched background work still states what was launched and what comes next; never poll with `sleep` loops, rely on task notifications.
 
 ---
 

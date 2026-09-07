@@ -200,8 +200,10 @@ Task(
   prompt: "MISSION: Implement Feature
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
+ORIGINAL_USER_REQUEST: [the user's request verbatim — the scope contract; any narrowing goes under NON-GOALS, never silently]
+TICKET: [#N when the feature came from a tracker ticket, else none]
 NON-GOALS: [out-of-scope items from prd.md Non-Goals / tech-spec scope section]
-STOP-CONDITIONS: missing prerequisite → report the owning upstream agent; genuine ambiguity → ARES NEEDS CLARIFICATION; wave boundary → ARES WAVE CHECKPOINT
+STOP-CONDITIONS: missing prerequisite → report the owning upstream agent; genuine ambiguity → ARES NEEDS CLARIFICATION; wave boundary → ARES WAVE CHECKPOINT (wave committed, Landed: reported); work not committed → not done
 
 Read <KRATOS_ROOT>/agents/ares.md for the full instruction set before starting.
 
@@ -214,7 +216,7 @@ Use Ares's document-selection policy. If a needed prerequisite file is missing, 
 
 **Why `mode: "acceptEdits"`**: Ares edits are auto-approved inside the subagent; Hermes review is the quality gate. Without it, a foreground spawn can silently hang on a per-edit permission prompt (observed: 71 minutes of a "running" Ares waiting for one Edit approval). Harnesses without the `mode` param ignore it — harmless.
 
-**Wave checkpoints** (when `decomposition.md` exists): Ares returns `ARES WAVE CHECKPOINT` after each completed wave instead of finishing the mission — a spawned subagent cannot ask the user directly. When you receive it: ask the user via your own `AskUserQuestion` whether to commit a checkpoint, run the commit if accepted, then **continue the same agent** — `SendMessage(to: "ares-[feature-name]", message: "CONTINUE_FROM_WAVE: [N+1] — [commit decision]")`. Resuming keeps Ares's context (plan, spec, code already read); re-spawning throws it away and re-reads everything each wave. Repeat until Ares returns `ARES COMPLETE`. Fallback: on a harness without `SendMessage`, re-spawn with the same prompt plus `CONTINUE_FROM_WAVE: [N+1]`.
+**Wave checkpoints** (when `decomposition.md` exists): Ares returns `ARES WAVE CHECKPOINT` after each completed wave instead of finishing the mission — a spawned subagent cannot ask the user directly. Ares has already committed the wave (its `Landed:` line names the hash) — report that line to the user, then **continue the same agent** — `SendMessage(to: "ares-[feature-name]", message: "CONTINUE_FROM_WAVE: [N+1]")`. Resuming keeps Ares's context (plan, spec, code already read); re-spawning throws it away and re-reads everything each wave. Repeat until Ares returns `ARES COMPLETE`, then run `<kratos-bin> verify --landed --hash <hash>` before Stage 8; on BLOCKED, continue Ares with `Commit your files and report Landed:` — never accept "pending your manual check". Fallback: on a harness without `SendMessage`, re-spawn with the same prompt plus `CONTINUE_FROM_WAVE: [N+1]`.
 
 **Clarification requests**: if Ares returns `ARES NEEDS CLARIFICATION` with a specific question, ask the user via `AskUserQuestion` and continue the same agent — `SendMessage(to: "ares-[feature-name]", message: "CLARIFICATION: [Q] → [A]")` (fallback: re-spawn with the answer appended to the prompt).
 

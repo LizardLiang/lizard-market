@@ -21,7 +21,7 @@ func CreateSession(db *sql.DB, session *models.Session) error {
 		session.SessionID,
 		session.Project,
 		session.FeatureName,
-		nil, // initial_request (future)
+		nil, // initial_request — filled by SetInitialRequestIfEmpty on the first prompt
 		session.StartedAt,
 		session.EndedAt,
 		session.Status,
@@ -146,4 +146,63 @@ func ListRecentSessions(db *sql.DB, project string, limit int) ([]*models.Sessio
 	defer rows.Close()
 
 	return scanSessions(rows)
+}
+
+// EnsureSession returns the session row for sessionID, creating an active one
+// (with the given project) when none exists. Hooks record steps against the
+// Claude Code session id; before this existed a missing row surfaced as
+// "FOREIGN KEY constraint failed" and the step was lost. The bool reports
+// whether a row was created.
+func EnsureSession(db *sql.DB, sessionID, project string) (*models.Session, bool, error) {
+	if sessionID == "" {
+		return nil, false, fmt.Errorf("session id is required")
+	}
+	if existing, err := GetSession(db, sessionID); err == nil {
+		return existing, false, nil
+	}
+	if project == "" {
+		project = "unknown"
+	}
+	session := &models.Session{
+		SessionID: sessionID,
+		Project:   project,
+		StartedAt: time.Now().UnixMilli(),
+		Status:    "active",
+	}
+	if err := CreateSession(db, session); err != nil {
+		// Lost a race with a concurrent creator: the row exists now.
+		if existing, gerr := GetSession(db, sessionID); gerr == nil {
+			return existing, false, nil
+		}
+		return nil, false, err
+	}
+	return session, true, nil
+}
+
+// ReactivateSession re-opens a session that was ended. A resumed Claude Code
+// session keeps its id across the gap, so the same row continues. No-op when
+// the row is already active.
+func ReactivateSession(db *sql.DB, sessionID string) error {
+	_, err := db.Exec(`UPDATE sessions SET status = 'active', ended_at = NULL WHERE session_id = ?`, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to reactivate session: %w", err)
+	}
+	return nil
+}
+
+// SetInitialRequestIfEmpty records the first user prompt of a session. Later
+// prompts never overwrite it, so the column always answers "what did this
+// session start out doing". Text is capped so a pasted document never lands
+// in the ledger.
+func SetInitialRequestIfEmpty(db *sql.DB, sessionID, text string) error {
+	const maxLen = 500
+	if len(text) > maxLen {
+		text = text[:maxLen]
+	}
+	_, err := db.Exec(`UPDATE sessions SET initial_request = ? WHERE session_id = ? AND (initial_request IS NULL OR initial_request = '')`,
+		text, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to set initial request: %w", err)
+	}
+	return nil
 }

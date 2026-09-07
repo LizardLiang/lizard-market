@@ -31,7 +31,7 @@ const READ_ONLY_COMMANDS = [
 // timestamp (step 2), template fetch and delta self-validation (step 4), draft
 // discovery (step 1). Mutating subcommands — spec archive, pipeline update,
 // session start, init, install — are deliberately absent and stay denied.
-const KRATOS_READ_ONLY_SUBCOMMAND = /^(?:slug|now|template\s+get|spec\s+(?:validate|list)|agent\s+(?:load|protocol))\b/i;
+const KRATOS_READ_ONLY_SUBCOMMAND = /^(?:slug|now|version|--version|template\s+get|spec\s+(?:validate|list)|agent\s+(?:load|protocol)|session\s+active|pipeline\s+(?:get|status|next|discover)|feedback\s+list|memory\s+list|profile\s+list|todo\s+list)\b/i;
 
 // Any shell metacharacter disqualifies the command. This is what makes it safe
 // to check the kratos allowlist *before* the generic deny heuristics: without it,
@@ -85,8 +85,24 @@ function isSpecDeltaPath(filePath) {
 // Checked before the generic heuristics below, because those scan the whole
 // command string and would false-deny `kratos slug --dated "move the sidebar"`
 // on their `\bmove\b` pattern.
+// The agent protocol itself recommends the timestamp fallback
+// `TS=$(<kratos-bin> now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)`. Those
+// decorations are inert, so they are stripped before the allowlist check: a
+// VAR=$( ... ) wrapper, `2>/dev/null`, and a trailing `|| date ...`. Anything
+// else that leaves a shell metacharacter behind is still rejected. Before this,
+// the guard denied the plugin's own `kratos now` / `slug --dated` /
+// `session active` calls 12 times in one week.
+function stripSafeFallbacks(command) {
+  let c = String(command || '').trim();
+  const wrap = c.match(/^[A-Za-z_][A-Za-z0-9_]*=\$\(([\s\S]*)\)$/);
+  if (wrap) c = wrap[1].trim();
+  c = c.replace(/\s*2>\s*\/dev\/null/g, '');
+  c = c.replace(/\s*\|\|\s*date\b[^;&|$`]*$/, '');
+  return c.trim();
+}
+
 function isReadOnlyKratosCommand(command) {
-  const trimmed = String(command || '').trim();
+  const trimmed = stripSafeFallbacks(command);
   if (!trimmed || SHELL_META_RE.test(trimmed)) return false;
 
   const m = trimmed.match(/^(?:"([^"]+)"|'([^']+)'|(\S+))\s+([\s\S]+)$/);

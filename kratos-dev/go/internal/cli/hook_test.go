@@ -208,7 +208,7 @@ func TestSubagentStopGate(t *testing.T) {
 			name: "ares passes with all checks",
 			input: subagentStopInput{
 				AgentType:            "kratos:ares",
-				LastAssistantMessage: "TODO:\n1. [ ] Implement auth\nTODO:\ncreated auth.ts\nImplementation complete.",
+				LastAssistantMessage: "TODO:\n1. [ ] Implement auth\nTODO:\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234",
 			},
 			wantOK: true,
 		},
@@ -216,7 +216,7 @@ func TestSubagentStopGate(t *testing.T) {
 			name: "ares passes with task list recap",
 			input: subagentStopInput{
 				AgentType:            "kratos:ares",
-				LastAssistantMessage: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.",
+				LastAssistantMessage: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234",
 			},
 			wantOK: true,
 		},
