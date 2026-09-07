@@ -79,18 +79,18 @@ func TestSessionStart_SessionIDIdempotent(t *testing.T) {
 func TestStepRecordAgent_CreatesMissingSession(t *testing.T) {
 	useTempDB(t)
 
-	res, err := runCLI(t, "step", "record-agent", "cc-new", "odysseus", "sonnet", "plan ticket #52", "--project", "C:\\Proj\\Whiteboard")
+	res, err := runCLI(t, "step", "record-agent", "cc-new", "odysseus", "sonnet", "plan ticket #52", "--project", "/proj/whiteboard/")
 	require.NoError(t, err)
 	assert.Equal(t, "success", res["status"])
 
-	_, err = runCLI(t, "step", "record-file", "cc-new", "modified", "src/app.ts", "--project", "C:\\Proj\\Whiteboard")
+	_, err = runCLI(t, "step", "record-file", "cc-new", "modified", "src/app.ts", "--project", "/proj/whiteboard/")
 	require.NoError(t, err)
 
 	list, err := runCLI(t, "step", "list", "cc-new")
 	require.NoError(t, err)
 	assert.Equal(t, float64(2), list["count"])
 
-	active, err := runCLI(t, "session", "active", "C:/Proj/Whiteboard")
+	active, err := runCLI(t, "session", "active", "/proj/whiteboard")
 	require.NoError(t, err)
 	sess, _ := active["session"].(map[string]interface{})
 	require.NotNil(t, sess, "row was created with the normalized project path")

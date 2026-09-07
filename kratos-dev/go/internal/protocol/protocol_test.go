@@ -154,7 +154,7 @@ func TestParseRealFile(t *testing.T) {
 		"path-resolution", "document-selection", "auto-discovery",
 		"missing-required-input", "interactive-questions", "spawn-prompt-fields",
 		"document-creation", "timestamp-standard", "status-updates",
-		"spawning-athena", "session-tracking", "plain-language", "boundaries",
+		"spawning-athena", "session-tracking", "plain-language", "artifact-edit", "boundaries",
 		"output-format",
 	}
 	if got := strings.Join(doc.Order, ","); got != strings.Join(want, ",") {
