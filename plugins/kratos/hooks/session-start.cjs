@@ -28,7 +28,7 @@ const SESSIONS_DIR = path.join(KRATOS_HOME, "sessions");
 const LEGACY_SESSION_FILE = path.join(KRATOS_HOME, "active-session.json");
 const SESSION_FILE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const REMINDER_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
-const MAX_MEMORIES = 15;
+const MAX_MEMORIES = 8;
 
 // Output constraint injected into every session (verbatim from references/agent-protocol.md).
 const OUTPUT_CONSTRAINT =
@@ -71,30 +71,72 @@ function initDb() {
   return runKratos("init") !== null;
 }
 
-// Stored user memories (preferences/habits) — read-side of the memory sweep.
-// Newest first, capped, fetched with --limit so the store's growth never bloats
-// the hook (the unbounded list is 60+ KB today).
-function formatMemories() {
-  const raw = runKratos(`memory list --limit ${MAX_MEMORIES}`);
+function toSlashes(p) {
+  return String(p || "").replace(/\\/g, "/");
+}
+
+// Same canonical form the CLI stores in user_memories.project.
+function normalizeProject(p) {
+  let out = toSlashes(p).replace(/\/+$/, "");
+  if (process.platform === "win32") out = out.toLowerCase();
+  return out;
+}
+
+// Stored user memories — read-side of the memory sweep, ranked for THIS
+// project: facts scoped to the current project first, then global
+// preferences / habits / weak spots, then global context; other projects'
+// scoped facts are never shown. The old newest-15-of-everything injection put
+// the same list in every project and 0-2 of 15 items were relevant (2026-09).
+function formatMemories(cwd) {
+  const raw = runKratos("memory list --limit 80");
   if (!raw) return null;
   try {
     const data = JSON.parse(raw);
     if (!data.memories || data.memories.length === 0) return null;
-
     const total = typeof data.total === "number" ? data.total : data.memories.length;
-    const shown = data.memories.slice(0, MAX_MEMORIES);
-    const older = total - shown.length;
+    const here = normalizeProject(cwd);
+
+    const scoped = [];
+    const globalPrefs = [];
+    const globalContext = [];
+    for (const m of data.memories) {
+      if (m.project) {
+        if (normalizeProject(m.project) === here) scoped.push(m);
+        continue;
+      }
+      if (m.category === "context") globalContext.push(m);
+      else globalPrefs.push(m);
+    }
+    const shown = [...scoped, ...globalPrefs, ...globalContext].slice(0, MAX_MEMORIES);
+    if (shown.length === 0) return null;
 
     const lines = ["", "## Stored user preferences"];
     for (const m of shown) {
-      const cat = m.category ? ` [${m.category}]` : "";
-      lines.push(`- ${m.text}${cat}`);
+      const tag = m.project ? ` [${m.category || "context"} · this project]` : m.category ? ` [${m.category}]` : "";
+      lines.push(`- ${m.text}${tag}`);
     }
-    if (older > 0) {
-      lines.push(`(+${older} older — run \`kratos memory list --limit 50\` for more)`);
+    const more = total - shown.length;
+    if (more > 0) {
+      lines.push(`(+${more} more — \`kratos memory list --limit 50\` or \`--project "${toSlashes(cwd)}"\`)`);
     }
     lines.push("");
     return lines.join("\n");
+  } catch (e) {
+    return null;
+  }
+}
+
+// After a compaction the model has lost its working targets; print the head of
+// a fresh handoff.md (the memory sweep keeps it current) so files, pages and
+// next steps survive the boundary.
+function formatHandoffHead(cwd) {
+  try {
+    const handoffPath = path.join(cwd, ".claude", ".Arena", "handoff.md");
+    const stats = fs.statSync(handoffPath);
+    if (Date.now() - stats.mtimeMs >= SESSION_FILE_MAX_AGE_MS) return null;
+    const lines = fs.readFileSync(handoffPath, "utf-8").split(/\r?\n/).filter((l) => l.trim()).slice(0, 12);
+    if (lines.length === 0) return null;
+    return ["Kratos: current targets after compaction (.claude/.Arena/handoff.md):", ...lines.map((l) => "  " + l)].join("\n");
   } catch (e) {
     return null;
   }
@@ -317,12 +359,13 @@ function main(payload) {
   if (kratosBin) {
     console.log(`KRATOS_BIN: ${kratosBin}`);
   }
-  const memoriesMsg = formatMemories();
+  const memoriesMsg = formatMemories(cwd);
   if (memoriesMsg) {
     console.log(memoriesMsg);
   }
 
-  for (const line of [formatHandoffNotice(cwd), formatPendingSpecDeltas(cwd), formatDraftPlans(cwd)]) {
+  const handoffLine = source === "compact" ? formatHandoffHead(cwd) || formatHandoffNotice(cwd) : formatHandoffNotice(cwd);
+  for (const line of [handoffLine, formatPendingSpecDeltas(cwd), formatDraftPlans(cwd)]) {
     if (line) console.log(line);
   }
 

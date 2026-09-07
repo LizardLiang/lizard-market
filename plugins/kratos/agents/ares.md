@@ -204,6 +204,7 @@ When asked to implement:
    If your prompt contains `CONTINUE_FROM_WAVE: [N]`, earlier waves are already done (check implementation-notes.md) — resume at wave N.
 
    For each wave (Wave 1 first, then Wave 2, etc.):
+   - **Before touching code for the wave**, append `Wave [N] — started <kratos now>` to implementation-notes.md. A crash mid-wave then leaves a marker `CONTINUE_FROM_WAVE` can read; the 2026-09-01 SSL crash left none and the wave had to be re-briefed by hand.
    - For each task in the wave:
      a. Read the task definition (description, target files, verify criterion)
      b. **Run the task's `verify` command (or the verifying test) FIRST** — record the failing result in one line. This is your RED evidence: proof the check actually exercises the behavior you are about to build. If the task has no testable behavior (docs, config rename, refactor fully covered by the existing suite), record `EVIDENCE-SKIPPED: [reason]` instead and move on.

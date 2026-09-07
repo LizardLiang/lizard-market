@@ -1073,13 +1073,18 @@ func specValidateCmd() *cobra.Command {
 }
 
 func specArchiveCmd() *cobra.Command {
-	return &cobra.Command{
+	var force bool
+	cmd := &cobra.Command{
 		Use:          "archive <feature>",
 		Short:        "Merge a feature's spec delta(s) into their living spec(s)",
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			summary, err := specArchiveIn(gitRoot(), args[0])
+			root := gitRoot()
+			if err := specArchiveGuard(root, args[0], force); err != nil {
+				return err
+			}
+			summary, err := specArchiveIn(root, args[0])
 			if err != nil {
 				return err
 			}
@@ -1087,6 +1092,8 @@ func specArchiveCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&force, "force", false, "Archive even while the stage-9 review is still in progress")
+	return cmd
 }
 
 func specBackfillCmd() *cobra.Command {

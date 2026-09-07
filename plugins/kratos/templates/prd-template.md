@@ -140,7 +140,7 @@ Durable, cross-feature behavioral contract for this feature: `.claude/feature/[n
 ---
 
 ## 10. Alignment
-> *This section is filled in by Hera at Stage 10. Athena leaves it empty.*
+> *This section is filled in by Hera at Stage 8. Athena leaves it empty.*
 
 **Status:** pending  
 **Coverage:** —  

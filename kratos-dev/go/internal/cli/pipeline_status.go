@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strings"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -87,7 +88,8 @@ func pipelineStatusRun(root, feature string, staleDays int, asJSON bool, nowT ti
 		featureRoot := filepath.Join(root, ".claude", "feature")
 		entries, _ := os.ReadDir(featureRoot)
 		for _, entry := range entries {
-			if !entry.IsDir() {
+			// _archive/ (pipeline gc) and dotfiles are not features.
+			if !entry.IsDir() || strings.HasPrefix(entry.Name(), "_") || strings.HasPrefix(entry.Name(), ".") {
 				continue
 			}
 			dir := filepath.Join(featureRoot, entry.Name())

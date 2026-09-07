@@ -50,6 +50,7 @@ Group the lessons by `agent` and render the Overview format below (agent, lesson
    - **Keep** — still testing whether it holds: stays in the buffer, keeps injecting at spawn
    - **Discard** — stale, wrong, or superseded: remove without folding
    - **Promote** — the lesson is review-standards-shaped (a checkable rule about code, not agent behavior): becomes an active rule in the current project's `.claude/.Arena/review-rules/`
+   - **Fix the plugin** — the lesson describes a Kratos defect (a missing tool in an agent's toolset, a wrong backend, a broken command), not agent behaviour: it is a bug report. Fix it in the dev tree or file an issue, then discard the lesson. ("Ananke lacks the LizMeter MCP tools" sat as a memory for a week instead of becoming a one-line fix.)
 
 3. **Fold** the stable ones into `<KRATOS_ROOT>/agents/<god>.md`:
    - Edit the **body only** — append or extend a `## Learned Lessons` section near the end of the file

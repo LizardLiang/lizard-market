@@ -52,4 +52,13 @@ Only if the user corrected or redirected work a specific Kratos god-agent had ju
    - Only corrections clearly attributable to one agent's finished output — general
      preferences belong in memory, not feedback.
 
-If nothing durable surfaces in either sweep, save nothing and print `Kratos: nothing to sweep`.
+## Sweep 3 — handoff (only when this session changed project files)
+
+Rewrite `.claude/.Arena/handoff.md` (create `.claude/.Arena/` if absent) in at most 12 lines: the
+date, the files/pages/slides touched this session, in-flight items with their state, and the next
+step. Overwrite — the latest handoff always wins. SessionStart prints its head after a compaction
+and offers it on "continue", so a `/clear` never loses the working targets and nobody has to type
+`@file#L12-40` anchors again. Skip this sweep when nothing changed on disk.
+
+If nothing durable surfaces in any sweep, save nothing and print `Kratos: nothing to sweep`.
+(A handoff rewrite alone counts as swept: `Kratos: swept 0, handoff updated`.)

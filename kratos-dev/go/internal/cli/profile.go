@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"time"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -121,7 +122,7 @@ func ProfileListCmd() *cobra.Command {
 			}
 
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]interface{}{
-				"profile": entries,
+				"profile": withStaleFlags(entries, time.Now()),
 				"count":   len(entries),
 			})
 		},
