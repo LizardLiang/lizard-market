@@ -228,6 +228,8 @@ The gate checks that every stage produced its deliverable AND every reviewer dec
 
 If the `kratos` binary is unavailable, fall back to confirming each deliverable exists and its verdict section reads as passing (approved / sound / aligned / clear|caution) before declaring victory.
 
+**Never edit a reviewer's deliverable to satisfy the gate.** The gate reads the structured verdict in status.json first (`code_review_verdict`, `risk_verdict`, `alignment_verdict`, …) and only then the file's Verdict section. If it still blocks, re-spawn that reviewer (Hermes / Cassandra / Hera) to restate its verdict, or report BLOCKED. Appending "APPROVED" to `code-review.md` yourself is a forgery, not a fix — it happened once, and the feature still never shipped.
+
 **After the gate passes, record the feature digest (durable cross-feature memory).** The per-feature `decisions.md` and `context.md` are stranded in the feature folder; distill their essence into `.claude/.Arena/features/FEATURE_NAME.md` so the *reasoning* survives alongside the behavioral contract that `spec archive` already promotes. Create `.claude/.Arena/features/` if absent. Write a dated one-paragraph digest:
 
 ```markdown

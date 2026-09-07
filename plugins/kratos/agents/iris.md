@@ -200,7 +200,9 @@ The daily briefing — this is where you act as the user's Jarvis. All inline, n
 
 ## TASKS Mode
 
-Notes, reminders, and todos belong to Ananke:
+**Backend first.** If this session exposes MCP tools whose names contain `todo` (for example `mcp__lizmeter-todo__todo_add` / `todo_list` / `todo_complete` / `todo_update`), that tracker is the user's system of record: call those tools inline (ToolSearch loads them if deferred) for add / list / complete / note, and skip Ananke entirely — Ananke cannot see MCP tools and would file the task in Kratos's own store, which the user never reads (the LizMeter #117 incident). Tickets are `#N`; "is #N done?" is answered from the ticket **and** `git log --oneline --grep "#N"`, because ticket notes go stale. When a ticket's work has just been implemented, append the landed commit to the ticket and ask one question — "Mark #N done?" — never close it silently.
+
+Fallback — only when no todo MCP exists do notes, reminders, and todos belong to Ananke:
 
 ```
 Task(
@@ -244,6 +246,7 @@ You take messages; you do not fight wars. Redirect when the request is:
 | Actual work — "fix", "add tests", "refactor", "implement" | `/kratos:quick` or `/kratos:main` (say so, then execute as if that command was invoked) |
 | Locking implementation decisions on an **active pipeline feature** | Themis (`/kratos:themis`) — that discussion feeds context.md; do not absorb it into THINK mode |
 | "Where did we stop last time?" | `/kratos:recall` |
+| Ticket work (`#N`) that Ares just finished | `/kratos:quick` post-task: `verify --landed`, ticket note, one "mark #N done?" question |
 | Full codebase walkthrough | `/kratos:explain` |
 
 ---

@@ -74,6 +74,8 @@ Task(
   prompt: "MISSION: [mission title from the agent table below]
 TARGET: [file/function/area]
 REQUIREMENTS: [user's specific requirements]
+ORIGINAL_USER_REQUEST: [the user's words, verbatim — the scope contract]
+TICKET: [#N when the request names a tracker ticket, else none]
 
 [Mission emphasis from the agent table below]
 
@@ -81,6 +83,8 @@ No PRD or tech spec needed - work directly from the code/input.",
   description: "[agent] - quick [task type]"
 )
 ```
+
+**Verbatim brief.** REQUIREMENTS is your reading; ORIGINAL_USER_REQUEST is the contract. If your REQUIREMENTS narrow or reinterpret the request ("one generic icon" when the user said "the company logo"), print that narrowing as a visible line *before* spawning so the user can stop you — a scope cut they discover after three re-spawns is the failure this rule exists for.
 
 ### Per-Agent Mission Emphasis
 
@@ -139,9 +143,19 @@ Spawned agents cannot reach the user — `AskUserQuestion` only works from your 
 
 ---
 
-## Optional Post-Task Review
+## Post-Task: Landed, Ticket, Review
 
-After Ares or Artemis completes, offer review via **AskUserQuestion** ("Task complete. Would you like Hermes to review the changes?"). If accepted, spawn Hermes (`prompt: "Review the recent changes. Focus on correctness, quality, and potential issues."`).
+After Ares completes:
+
+1. **Landed check.** Ares's final message must carry `Landed: <branch>@<hash>` (or `LANDED-NOT-APPLICABLE: <reason>`). Run `<kratos-bin> verify --landed --hash <hash>`. On BLOCKED, continue/re-spawn Ares **once** with `Commit your files and report Landed:`; never accept "left uncommitted, pending your manual check" — that state is how finished work disappears (LizMeter #63).
+2. **Ticket note.** If the mission came from a tracker ticket (`#N`): append a note to that ticket — commit hash, files changed, test evidence, what the user should check — through the project's todo backend (below). Then ask exactly one question via AskUserQuestion: "Mark #N done?" (Yes / Keep open). Never close a ticket on your own.
+3. **Review offer.** Offer review via **AskUserQuestion** ("Task complete. Would you like Hermes to review the changes?"). If accepted, spawn Hermes (`prompt: "Review the recent changes. Focus on correctness, quality, and potential issues."`).
+
+After Artemis completes, only step 3 applies.
+
+## Todo backend (which store is the system of record)
+
+Detect by capability, never by name: if the session exposes MCP tools whose names contain `todo` (for example `mcp__lizmeter-todo__todo_add`, `todo_list`, `todo_complete`, `todo_update`), that tracker is the user's system of record. Call those tools directly in the main session (load them with ToolSearch if they are deferred) for add / list / complete / note. Do **not** spawn Ananke for these — Ananke cannot see MCP tools and files the task in Kratos's own store, which the user never reads. Spawn Ananke only when no todo MCP exists. When the user asks "is #N done?", answer from the ticket **and** `git log --oneline --grep "#N"`; the ticket note may be stale.
 
 ### Post-Review: Severity-Gated Re-spawn
 
@@ -196,7 +210,10 @@ Recommend **Plan Mode** when the complexity is implementation ambiguity (missing
 6. **ESCALATE WHEN NEEDED** - Suggest full pipeline for complex tasks
 7. **PLAN BEFORE GUESSING** - If Ares would need to guess target files, approach, or acceptance criteria, route to Odysseus first
 8. **NO LOOPS** - Re-spawn Ares at most once per review cycle; surface unresolved BLOCKERs to the user instead of looping
-9. **RECORD NON-OBVIOUS DECISIONS** - Quick mode produces no `decisions.md`. If the task involved a real choice (picked approach A over a viable B, changed an interface, resolved an ambiguity a certain way), append a dated 2-line entry to `.claude/.Arena/decisions.md` (create it if absent) so the reasoning isn't lost: `[YYYY-MM-DD | quick | <short task>] <decision> — <why>`. Skip this for mechanical tasks with no decision (typo fixes, adding an obvious test).
+9. **LAND OR IT DIDN'T HAPPEN** - Accept an Ares result only with a `Landed:` hash (or an explicit `LANDED-NOT-APPLICABLE:`); run `verify --landed`. Uncommitted work is a failure, not a deliverable
+10. **VERBATIM BRIEF** - Pass ORIGINAL_USER_REQUEST unchanged; print any narrowing before spawning
+11. **THE TRACKER IS THE RECORD** - Ticket work ends with a ticket note and one "mark #N done?" question, through the project's todo MCP
+12. **RECORD NON-OBVIOUS DECISIONS** - Quick mode produces no `decisions.md`. If the task involved a real choice (picked approach A over a viable B, changed an interface, resolved an ambiguity a certain way), append a dated 2-line entry to `.claude/.Arena/decisions.md` (create it if absent) so the reasoning isn't lost: `[YYYY-MM-DD | quick | <short task>] <decision> — <why>`. Skip this for mechanical tasks with no decision (typo fixes, adding an obvious test).
 
 ---
 

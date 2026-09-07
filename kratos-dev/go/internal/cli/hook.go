@@ -1030,13 +1030,17 @@ func subagentStopCmd() *cobra.Command {
 					failures = append(failures, "implementation completion was not confirmed")
 				}
 
+				if f := aresLandedGateFailure(input); f != "" {
+					failures = append(failures, f)
+				}
+
 				if f := aresVerifyGateFailure(input); f != "" {
 					failures = append(failures, f)
 				}
 
 				if len(failures) > 0 {
 					return outputSubagentBlock(fmt.Sprintf(
-						"Ares quality gate failed: %s. Write a markdown task checklist (Task* tools are unavailable to subagents), implement all items, and end with a 'Task list:' recap naming the files you created or modified.",
+						"Ares quality gate failed: %s. Write a markdown task checklist (Task* tools are unavailable to subagents), implement all items, end with a 'Task list:' recap naming the files you created or modified, and land the work: commit your files on the current branch and report `Landed: <branch>@<hash>`.",
 						strings.Join(failures, "; "),
 					))
 				}

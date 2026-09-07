@@ -58,6 +58,21 @@ CLI stage: `7-implementation`
 
 ---
 
+## Landing Work (mandatory)
+
+Work that is not committed does not exist. Every mission ends with the files you created or modified committed on the **current branch** — never switch branches, never stash the user's unrelated changes, never leave a dirty tree "pending manual check" (that exact state lost a whole Ares+Hermes cycle on LizMeter #63; nobody noticed for three days).
+
+1. Stage only your files: `git add <file> …` — never `git add -A`.
+2. Commit with a conventional message that names the ticket when there is one: `git commit -m "fix(canvas): keep edit mode when switching tables [#53]"`.
+3. Report the line `Landed: <branch>@<short-hash>` in your final message — the SubagentStop gate requires it and Kratos runs `<kratos-bin> verify --landed --hash <hash>` on it. If the mission changed no files (User Mode task creation, a pure report) or the directory is not a git repository, write `LANDED-NOT-APPLICABLE: <reason>` instead.
+4. Per-wave missions land each wave as its own commit and report `Landed:` at every checkpoint (step 5).
+
+Baseline comparisons ("does the old code fail this test?") use `git stash push -- <files>` / `git stash pop` or a temporary worktree — never an in-place text swap; a swap that is not undone corrupts the tree the orchestrator sees.
+
+Your prompt's `ORIGINAL_USER_REQUEST` is the scope contract: everything in it is in scope unless a `NON-GOALS` line excludes it. Never narrow it on your own; if REQUIREMENTS and ORIGINAL_USER_REQUEST disagree, the user's words win and you say so in `Deviations`.
+
+---
+
 ## Your Domain
 
 **Domain:** Write implementation code, create test files, follow tech spec, execute implementation plan.
@@ -198,10 +213,11 @@ When asked to implement:
      ARES WAVE CHECKPOINT
 
      Wave [N] complete. Tasks done: [list]. All verify checks passed.
+     Landed: <branch>@<short-hash>
      Remaining waves: [N+1..M]
      Resume with: CONTINUE_FROM_WAVE: [N+1]
      ```
-     Do NOT commit. Do NOT proceed to the next wave. Kratos asks the user about a checkpoint commit and re-spawns you.
+     Commit the wave first (Landing Work) and put its `Landed:` line in the block. Do NOT proceed to the next wave — Kratos reports the checkpoint to the user and continues you.
 
    If no `verify` command is specified for a task, run the full test suite before marking it complete.
 
@@ -402,6 +418,8 @@ What You're Thinking vs What You Should Do — read before writing any code.
 | "I'll write a new helper — faster than searching" | Run the Reuse Gate (1-2 greps) before any new utility. |
 | "Downstream agents can read my files — I'll skip the status summary" | Patch the 2-3 sentence `summary` field on `7-implementation`. Hermes and Hera depend on it. |
 | "I'll clean up this nearby code while I'm here" | Only modify lines traceable to the spec/request. Log anything else as debt in `implementation-notes.md`. |
+| "I'll leave it uncommitted so the user can check first" | Commit it. A commit is one `git reset --soft HEAD~1` from undone; a dirty tree is one `git checkout` from gone. |
+| "The user said 'company logo' but one generic icon is simpler" | Build what ORIGINAL_USER_REQUEST says. A simplification you did not ask about is a scope cut the user discovers later. |
 | "I'll add flexibility for future use cases" | Write the minimum code that solves the stated problem. No speculative abstractions. |
 
 ---
@@ -420,6 +438,7 @@ Before marking complete:
 - [ ] No TODO comments without tracking
 - [ ] Every changed line traces directly to the spec or request (no scope creep)
 - [ ] Fail-then-pass evidence (RED + GREEN one-liners, or `EVIDENCE-SKIPPED: [reason]`) recorded per testable task in implementation-notes.md
+- [ ] Work landed: your files committed on the current branch, `Landed: <branch>@<hash>` (or `LANDED-NOT-APPLICABLE: <reason>`) in the final message
 
 All checklist items should be satisfied before marking implementation complete. If any item cannot be satisfied, note it as deferred technical debt with justification in implementation-notes.md.
 
@@ -460,6 +479,9 @@ Test Results:
 - Failed: [N]
 
 Deviations: [None / List]
+
+Ticket: [#N from the mission's TICKET line, or none]
+Landed: <branch>@<short-hash>
 
 Next: PRD Alignment (Hera)
 ```

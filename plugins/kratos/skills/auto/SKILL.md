@@ -45,7 +45,7 @@ This skill handles only the clearly non-pipeline utilities directly. Everything 
 | "where did we stop", "last session", "resume" | Recall mode | `Skill(skill: "kratos:recall")` |
 | "wrap", "wrap up the session", "write a handoff", "end session" | Wrap mode | `Skill(skill: "kratos:wrap")` |
 | "greet", "motivate", "inspire me" | Greet mode | `Skill(skill: "kratos:greet")` |
-| "add task", "my todos", "mark done" | Spawn Ananke | `Task(subagent_type: "kratos:ananke")` |
+| "add task", "my todos", "mark done", "is #N done" | Project todo MCP first: tools whose names contain `todo` (e.g. `mcp__lizmeter-todo__*`) are the user's system of record — call them inline; spawn Ananke only when no such MCP exists | inline MCP call, else `Task(subagent_type: "kratos:ananke")` |
 | "what does X do", question about project/code/git | Inquiry mode | `Skill(skill: "kratos:inquiry")` |
 | "explain", "walk me through", "context restore" | Explain mode | `Skill(skill: "kratos:explain")` |
 | "learn", "teach me", "give me a lesson" (external topic) | Iris — learn | `Skill(skill: "kratos:iris")` |

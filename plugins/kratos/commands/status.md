@@ -33,6 +33,10 @@ Run the CLI — it does all discovery, parsing, and computation (stage N of 9, c
 
 The JSON gives you, per feature: `stage_number`/`total_stages`, `progress_pct`, `completed`/`total`, `health` (`blocked` | `conflict` | `stale` | `healthy`), `conflicts[]`, per-stage rows with statuses and verdicts, `verified`, and `next` (the computed next action/stage/agents from the transition table). Folders without `status.json` appear in `plan_only[]` — list those separately as "plan-only (pending spec delta)", never as features.
 
+### Step 1b: Plans ready but not implemented
+
+Odysseus plans live outside the pipeline, so `pipeline status` cannot see them. List every `.claude/.Arena/tactical-plans/*.md` whose frontmatter says `status: ready` and check whether its slug (or the ticket `#N` in its Request section) appears in `git log --oneline -100`. Plans with no matching commit go in a short **Planned, not implemented** list with the resume command `/kratos:quick implement the approved plan at <path>`. This is where approved plans go to die: a 0.047-ambiguity plan for NETZERO became LizMeter #62 on 2026-09-01 and was never built.
+
 ### Step 2: Render the Dashboard
 
 Render the Output Format below from the JSON fields. Do not recompute any number the CLI already provided — theming (emoji, boxes, recommendations) is your job; arithmetic is not. Health mapping: `blocked` → 🔴, `conflict` → 🟡, `stale` → 🔵, `healthy` → 🟢/⚪.
