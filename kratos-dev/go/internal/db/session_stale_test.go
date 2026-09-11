@@ -18,10 +18,10 @@ func TestAbandonStaleSessions(t *testing.T) {
 		s := &models.Session{SessionID: id, Project: "/p", StartedAt: now - int64(ageHours)*3600*1000, Status: "active", TotalSteps: steps}
 		require.NoError(t, CreateSession(conn, s))
 	}
-	mk("fresh-empty", 1, 0)   // just started, no steps yet — keep
-	mk("ghost-empty", 30, 0)  // throwaway startup id — abandon (idle rule)
-	mk("busy-2d", 48, 12)     // window still open, or closed without SessionEnd — keep under idle rule
-	mk("busy-10d", 240, 72)   // ten days old — abandon only under the stale rule
+	mk("fresh-empty", 1, 0)  // just started, no steps yet — keep
+	mk("ghost-empty", 30, 0) // throwaway startup id — abandon (idle rule)
+	mk("busy-2d", 48, 12)    // window still open, or closed without SessionEnd — keep under idle rule
+	mk("busy-10d", 240, 72)  // ten days old — abandon only under the stale rule
 	ended := &models.Session{SessionID: "done", Project: "/p", StartedAt: now - 240*3600*1000, Status: "active"}
 	require.NoError(t, CreateSession(conn, ended))
 	require.NoError(t, EndSession(conn, "done", "finished"))

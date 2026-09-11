@@ -313,6 +313,7 @@ const MemoryOverlapThreshold = 0.40
 // MemoryMetric names which check flagged a near-duplicate.
 type MemoryMetric string
 
+// The two checks FindSimilarMemory runs, as printed in the rejection message.
 const (
 	MetricJaccard MemoryMetric = "jaccard"      // token-set Jaccard ≥ MemoryDuplicateThreshold
 	MetricOverlap MemoryMetric = "word overlap" // content-token overlap ≥ MemoryOverlapThreshold

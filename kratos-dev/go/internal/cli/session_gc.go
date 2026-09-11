@@ -65,12 +65,12 @@ a later step or SessionEnd against them still works. Ledger files under
 			}
 
 			return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]interface{}{
-				"dry_run":           dryRun,
-				"days":              days,
+				"dry_run":            dryRun,
+				"days":               days,
 				"session_candidates": candidates,
 				"sessions_abandoned": abandoned,
-				"ledger_candidates": ledgerCandidates,
-				"ledger_removed":    ledgerRemoved,
+				"ledger_candidates":  ledgerCandidates,
+				"ledger_removed":     ledgerRemoved,
 			})
 		},
 	}
