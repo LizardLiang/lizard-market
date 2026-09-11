@@ -57,11 +57,16 @@ For each `plugins/kratos/agents/<god>.md`, the generator renders
   including whatever leading punctuation/spacing is needed (see
   `agents/iris.md` and `agents/hermes.md` for the two current examples).
 
-The loader line (`!cat ".../agents/<god>.md"` vs.
-`!node ".../hooks/launch.cjs" agent load <god> --mode=command"`) is derived
-automatically: if `plugins/kratos/command-mode-suffix/<god>.md` exists, the
-launcher uses the `launch.cjs` loader (today: athena, hermes). No field
-needed — just add or remove the suffix file.
+Every launcher loads its god through two `launch.cjs` lines —
+`` !`node ".../hooks/launch.cjs" agent load <god> --resolve --part body` `` and
+`` ... --part extras` `` — because Claude Code inlines at most 30,000
+characters per `` !`cmd` `` line and a whole god (body + protocol + lessons) is
+31–34 KB; a single line reached the model as a 2 KB `<persisted-output>`
+preview (2026-09 review). `--mode=command` is appended to the extras line
+automatically when `plugins/kratos/command-mode-suffix/<god>.md` exists
+(today: athena, hermes). No field needed — just add or remove the suffix
+file. `TestAgentLoadPartsFitInlineBudget` fails the build if either part of
+any god would exceed 29,000 bytes.
 
 ## Bespoke tails (partials)
 

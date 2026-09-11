@@ -23,8 +23,7 @@ corrections, working style.
   repo) may be saved with `--project "<project-root>"` so it is injected only there.
 - Never secrets.
 
-1. Skim the recent list for overlap: `<kratos-bin> memory list --limit 40`
-2. Save at most 3:
+1. Save at most 3 (no prior `memory list` — `add` checks the whole store itself):
 
    ```bash
    <kratos-bin> memory add "<fact>" --category <preference|habit|weak-spot|context> [--project "<project-root>"]
@@ -33,9 +32,10 @@ corrections, working style.
    - Only those four categories.
    - Each fact ≤200 characters — write it short the first time; the CLI rejects longer text and
      never truncates.
-   - The CLI rejects a near-duplicate and names the existing memory id. If the new fact
-     supersedes it, re-run with `--replace <id>`; if both are genuinely distinct, `--force`.
-     Never save a third rewording of the same lesson.
+   - The CLI rejects a near-duplicate — same words (Jaccard) or the same content words in
+     fewer/more words (overlap) — and names the existing memory id, its text, and which check
+     fired. If the new fact supersedes it, re-run with `--replace <id>`; if both are genuinely
+     distinct, `--force`. Never save a third rewording of the same lesson.
 
 ## Sweep 2 — agent lessons
 

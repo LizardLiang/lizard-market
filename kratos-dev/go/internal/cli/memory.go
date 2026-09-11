@@ -43,9 +43,12 @@ func MemoryAddCmd() *cobra.Command {
 		Long: `Add a durable user fact.
 
 Near-duplicates are rejected: when an existing memory shares most of its words
-with the new text the command exits non-zero and names that memory. Re-run with
---replace <id> to supersede it in place, or --force to keep both. Use --project
-to scope a project-specific fact (it is then only injected in that project).`,
+(Jaccard ≥ 0.6) or most of the shorter text's content words (overlap ≥ 0.40)
+with the new text, the command exits non-zero and names that memory, its text,
+and which check fired. The whole store is checked, so no prior "memory list" is
+needed. Re-run with --replace <id> to supersede it in place, or --force to keep
+both. Use --project to scope a project-specific fact (it is then only injected
+in that project).`,
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -81,13 +84,13 @@ to scope a project-specific fact (it is then only injected in that project).`,
 			}
 
 			if !force {
-				dup, score, err := db.FindSimilarMemory(conn, text)
+				match, err := db.FindSimilarMemory(conn, text)
 				if err != nil {
 					return err
 				}
-				if dup != nil {
-					return fmt.Errorf("near-duplicate of memory %d (similarity %.2f): %q — re-run with --replace %d to supersede it, or --force to keep both",
-						dup.ID, score, dup.Text, dup.ID)
+				if match != nil {
+					return fmt.Errorf("near-duplicate of memory %d (%s %.2f): %q — re-run with --replace %d to supersede it, or --force to keep both if they are genuinely distinct",
+						match.Memory.ID, match.Metric, match.Score, match.Memory.Text, match.Memory.ID)
 				}
 			}
 

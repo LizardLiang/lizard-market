@@ -19,6 +19,7 @@ agent spawns, decisions, and file changes.`,
 	cmd.AddCommand(SessionStartCmd())
 	cmd.AddCommand(SessionActiveCmd())
 	cmd.AddCommand(SessionEndCmd())
+	cmd.AddCommand(SessionGcCmd())
 
 	return cmd
 }

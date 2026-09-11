@@ -35,8 +35,11 @@ func TestRenderCommand_InlineInjectionAndFallback(t *testing.T) {
 	for _, want := range []string{
 		"allowed-tools: Bash(echo:*), Bash(node:*)\n",
 		"!`echo \"KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}\"`",
-		"!`node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" agent load iris --resolve`",
+		"!`node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" agent load iris --resolve --part body`",
+		"!`node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" agent load iris --resolve --part extras`",
 		"If no `# Iris -` agent definition appears above",
+		"execute `node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" agent load iris --resolve --part body` and then `node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" agent load iris --resolve --part extras`",
+		"If the definition above is a `<persisted-output>` preview",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("launcher missing %q:\n%s", want, out)

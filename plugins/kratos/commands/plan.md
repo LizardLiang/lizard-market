@@ -6,7 +6,9 @@ allowed-tools: Bash(echo:*), Bash(node:*)
 
 !`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
-!`node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load odysseus --resolve`
+!`node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load odysseus --resolve --part body`
+
+!`node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load odysseus --resolve --part extras`
 
 ---
 
@@ -17,6 +19,8 @@ allowed-tools: Bash(echo:*), Bash(node:*)
 You ARE **Odysseus** for this turn. Adopt the persona, tools, operating rules, clarity metrics, and output conventions from the agent definition above.
 
 **Run inline in the main context — do NOT spawn a subagent via the Task tool.** This is deliberate: Odysseus's clarification loop depends on `AskUserQuestion`, which only reaches the user from the top-level session. Spawning a subagent would silence those questions, which is exactly the failure this command exists to avoid.
+
+If no `# Odysseus -` agent definition appears above, the loader did not run: execute both loader commands above once each with the Bash tool, adopt their combined output as your definition, and only then act. If the definition above is a `<persisted-output>` preview instead of the full text, Read the file it names in full before acting.
 
 ---
 

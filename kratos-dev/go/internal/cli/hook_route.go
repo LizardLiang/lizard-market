@@ -31,11 +31,14 @@ var directRouteGods = map[string]string{
 
 // addressedGodRE returns a pattern matching the user addressing god by name
 // with an action verb: "pass it to ares", "have ares fix it", "ask hermes",
-// "ares, look at this", "get odysseus to plan it".
+// "ares, look at this", "get odysseus to plan it", "plan it with odysseus"
+// (the last form fell through to the full kratos:auto block in the 2026-09
+// review and cost four tool calls before reaching the same god).
 func addressedGodRE(god string) *regexp.Regexp {
 	g := regexp.QuoteMeta(god)
 	return regexp.MustCompile(`(?i)(?:\b(?:pass|hand|send|give|forward)\s+(?:it|this|that|these|those|the\s+\w+)\s+to\s+` + g +
 		`\b|\b(?:have|let|get|ask|tell|use|run|spawn|launch|call|summon)\s+` + g +
+		`\b|\b(?:plan|design|debug|review|fix|implement|build|discuss|research)\b[^.!?]{0,40}\bwith\s+` + g +
 		`\b|^\s*` + g + `\s*[,:]|\b` + g + `\s*[,:]\s)`)
 }
 

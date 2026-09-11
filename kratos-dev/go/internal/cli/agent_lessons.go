@@ -44,18 +44,31 @@ func lessonsBlockFor(god string) string {
 	if err != nil || len(all) == 0 {
 		return ""
 	}
+	lessons := make([]string, 0, len(all))
+	for _, f := range all {
+		lessons = append(lessons, f.Lesson)
+	}
+	return renderLessonsBlock(god, lessons)
+}
 
-	shown := all
+// renderLessonsBlock formats the first lessonsInjectMax of lessons for god and
+// appends the retro nudge once the pending total reaches retroNudgeAt. Pure —
+// no store — so the inline-budget lint can render a worst-case block.
+func renderLessonsBlock(god string, lessons []string) string {
+	if len(lessons) == 0 {
+		return ""
+	}
+	shown := lessons
 	if len(shown) > lessonsInjectMax {
 		shown = shown[:lessonsInjectMax]
 	}
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "**Lessons from past user corrections of %s** — apply them to this task:\n", god)
-	for _, f := range shown {
-		fmt.Fprintf(&sb, "- %s\n", f.Lesson)
+	for _, l := range shown {
+		fmt.Fprintf(&sb, "- %s\n", l)
 	}
-	if len(all) >= retroNudgeAt {
-		fmt.Fprintf(&sb, "\n(%d lessons pending — `/kratos:retro %s` folds the stable ones into this definition.)\n", len(all), god)
+	if len(lessons) >= retroNudgeAt {
+		fmt.Fprintf(&sb, "\n(%d lessons pending — `/kratos:retro %s` folds the stable ones into this definition.)\n", len(lessons), god)
 	}
 	return strings.TrimRight(sb.String(), "\n")
 }

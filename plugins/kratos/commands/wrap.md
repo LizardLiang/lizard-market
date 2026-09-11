@@ -69,15 +69,11 @@ Create `.claude/.Arena/` if it doesn't exist, then write (overwrite) `.claude/.A
 
 Mirror the same sweep the Stop-hook (`memory-sweep.cjs`) would otherwise run, so wrapping now means the hook has nothing left to do (see Step 4).
 
-1. **User facts** — review the conversation for durable user facts (preferences, habits, weak spots, corrections, working style — not project/task facts, never secrets). Project/task/repo facts belong in the project's Arena, not memory — when in doubt, save nothing.
-   ```bash
-   <kratos-bin> memory list --limit 40
-   ```
-   Dedupe against that list, then save at most 3:
+1. **User facts** — review the conversation for durable user facts (preferences, habits, weak spots, corrections, working style — not project/task facts, never secrets). Project/task/repo facts belong in the project's Arena, not memory — when in doubt, save nothing. Save at most 3 (no prior `memory list` — `add` checks the whole store itself):
    ```bash
    <kratos-bin> memory add "<fact>" --category <preference|habit|weak-spot|context>
    ```
-   Use only those four categories. Each fact ≤200 characters. If the CLI reports a near-duplicate, re-run with `--replace <id>` or drop the fact.
+   Use only those four categories. Each fact ≤200 characters. If the CLI reports a near-duplicate (it names the existing id, its text, and whether the words or the content overlapped), re-run with `--replace <id>`, or `--force` only when both facts are genuinely distinct.
 
 2. **Agent lessons** — if the user corrected or redirected work a specific Kratos god-agent had just delivered this session:
    ```bash

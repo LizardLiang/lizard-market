@@ -2,7 +2,7 @@
 
 > *"I am what the gods have made me."* — now the gods serve **you**.
 
-![version](https://img.shields.io/badge/version-2.107.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-2.108.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **Stop shipping AI slop.** Kratos runs your feature through a real pipeline: a PM drafts the PRD, a devil's advocate (**Nemesis**) tears it apart, an architect specs it, and an alignment gate (**Hera**) proves the implementation matches what you *actually* asked for. Named agents, review gates enforced by hooks, persistent memory across sessions — not another pile of subagents.
 
@@ -673,8 +673,14 @@ kratos spec backfill                              # generate living specs from p
 
 # Session tracking
 kratos session active <project>                   # get session ID
+kratos session gc [--days 7] [--dry-run]          # mark ghost 'active' sessions abandoned, prune old ~/.kratos/sessions ledgers
 kratos step record-agent <sid> <agent> <model> "desc"
 kratos step record-file <sid> <path> created|modified
+
+# Agent definitions (what the /kratos:<god> launchers run)
+kratos agent load <god> --resolve --part body     # agents/<god>.md, tokens resolved — under the 30K inline limit
+kratos agent load <god> --resolve --part extras   # lessons + protocol block (+ --mode=command suffix), same limit
+kratos agent protocol <god>                       # composed protocol block only (SubagentStart injection)
 
 # Hermes tier tracking
 kratos hermes-list check --tier <N>               # mark tier N complete in hermes-checklist.json

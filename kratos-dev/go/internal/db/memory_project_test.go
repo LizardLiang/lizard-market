@@ -78,6 +78,47 @@ func TestMemorySimilarity(t *testing.T) {
 	assert.Equal(t, 0.0, MemorySimilarity("", c))
 }
 
+// The four paraphrase duplicates the sweep saved in the 2026-09-08 week: each
+// slipped under the Jaccard threshold and would be caught by content-word
+// overlap. Texts are the real stored memories.
+var paraphrasePairs = []struct{ name, stored, incoming string }{
+	{"sed -i CRLF",
+		"sed -i in Git Bash rewrites CRLF files as LF on Windows: git warns 'LF will be replaced by CRLF' and the whole file shows as changed. Use the Edit tool or convert back to CRLF.",
+		"sed -i in Git Bash rewrites a CRLF file to LF, flooding the diff with whole-file churn. On this Windows repo edit .cs via the Edit tool, or convert back to CRLF and verify."},
+	{"here-strings",
+		"In the Bash tool, never commit with PowerShell here-string (-m @'...'@) — bash leaves a literal '@ ' on the commit subject (recurring bug he hates). Use git commit -F - with a heredoc.",
+		"Bash tool is Git Bash: PowerShell here-strings (@'...'@) are NOT supported and leak a literal @ into the argument (polluted a commit subject). Use bash heredoc <<'EOF'."},
+	{"LizMeter todos",
+		"All todos go to LizMeter via the lizmeter-todo MCP inline - never the kratos todo store. Ananke has no MCP tools, so do not route todo work to her.",
+		"Todo MCP tools (mcp__*todo*, e.g. LizMeter) are the system of record; Kratos v2.104+ calls them inline and treats Ananke as fallback only. Never file tickets in the Kratos todo store."},
+	{"heredoc backslashes",
+		"Bash tool heredocs collapse one backslash level: a JS regex written /\\\\n/ lands on disk as /\\n/ (silent no-op, parser returns 0 rows). Use the Write tool for scripts containing backslash escapes.",
+		"Bash heredocs in this environment collapse backslashes: a JS file written with '\\\\n' lands as a real newline and fails to parse. Use the Write tool for any file containing escape sequences."},
+}
+
+func TestMemoryOverlap_CatchesParaphrases(t *testing.T) {
+	for _, p := range paraphrasePairs {
+		assert.Less(t, MemorySimilarity(p.stored, p.incoming), MemoryDuplicateThreshold, "%s: Jaccard alone missed this pair in production", p.name)
+		assert.GreaterOrEqual(t, MemoryOverlap(p.stored, p.incoming), MemoryOverlapThreshold, "%s: overlap must flag the paraphrase", p.name)
+	}
+}
+
+func TestMemoryOverlap_UnrelatedStaysBelow(t *testing.T) {
+	terse := "Prefers terse replies with the conclusion first"
+	assert.Less(t, MemoryOverlap(terse, "NETZERO decks use the BGTO master"), MemoryOverlapThreshold)
+	assert.Less(t, MemoryOverlap(terse, paraphrasePairs[0].stored), MemoryOverlapThreshold)
+	assert.Less(t, MemoryOverlap("Windows console is cp950; run python CLIs with PYTHONIOENCODING=utf-8", "Uses LizMeter tickets as the system of record"), MemoryOverlapThreshold)
+	assert.Equal(t, 0.0, MemoryOverlap("the and of", "a an or"), "stopwords only → empty sets → 0")
+	assert.Equal(t, 0.0, MemoryOverlap("", terse))
+}
+
+func TestMemoryContentTokens_DropsStopwordsAndSingles(t *testing.T) {
+	got := memoryContentTokens("a CRLF file to LF in Git, x 1")
+	assert.Equal(t, map[string]bool{"crlf": true, "file": true, "lf": true, "git": true}, got)
+	cjk := memoryContentTokens("改用系統名詞")
+	assert.True(t, cjk["改用"] && cjk["系統"] && cjk["名詞"], "CJK bigrams survive: %v", cjk)
+}
+
 func TestFindSimilarMemory_AndReplace(t *testing.T) {
 	db := NewTestDBWithSchema(t)
 	orig, err := AddMemory(db, "Prefers terse replies with the conclusion first", "preference")
@@ -85,13 +126,14 @@ func TestFindSimilarMemory_AndReplace(t *testing.T) {
 	_, err = AddMemory(db, "Windows console is cp950; run python CLIs with PYTHONIOENCODING=utf-8", "context")
 	require.NoError(t, err)
 
-	dup, score, err := FindSimilarMemory(db, "Prefers terse replies, conclusion first")
+	dup, err := FindSimilarMemory(db, "Prefers terse replies, conclusion first")
 	require.NoError(t, err)
 	require.NotNil(t, dup)
-	assert.Equal(t, orig.ID, dup.ID)
-	assert.GreaterOrEqual(t, score, MemoryDuplicateThreshold)
+	assert.Equal(t, orig.ID, dup.Memory.ID)
+	assert.GreaterOrEqual(t, dup.Score, MemoryDuplicateThreshold)
+	assert.Equal(t, MetricJaccard, dup.Metric)
 
-	none, _, err := FindSimilarMemory(db, "Uses LizMeter tickets as the system of record")
+	none, err := FindSimilarMemory(db, "Uses LizMeter tickets as the system of record")
 	require.NoError(t, err)
 	assert.Nil(t, none)
 
@@ -102,4 +144,25 @@ func TestFindSimilarMemory_AndReplace(t *testing.T) {
 
 	_, err = ReplaceMemory(db, 9999, "x", "context", "")
 	assert.Error(t, err)
+}
+
+// A paraphrase that Jaccard lets through is caught by the overlap metric and
+// reported as such; an unrelated fact still passes.
+func TestFindSimilarMemory_OverlapMetric(t *testing.T) {
+	db := NewTestDBWithSchema(t)
+	stored, err := AddMemory(db, paraphrasePairs[0].stored, "context")
+	require.NoError(t, err)
+	_, err = AddMemory(db, "Windows console is cp950; run python CLIs with PYTHONIOENCODING=utf-8", "context")
+	require.NoError(t, err)
+
+	match, err := FindSimilarMemory(db, paraphrasePairs[0].incoming)
+	require.NoError(t, err)
+	require.NotNil(t, match)
+	assert.Equal(t, stored.ID, match.Memory.ID)
+	assert.Equal(t, MetricOverlap, match.Metric)
+	assert.GreaterOrEqual(t, match.Score, MemoryOverlapThreshold)
+
+	none, err := FindSimilarMemory(db, "Uses LizMeter tickets as the system of record")
+	require.NoError(t, err)
+	assert.Nil(t, none)
 }

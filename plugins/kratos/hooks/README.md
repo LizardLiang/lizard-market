@@ -34,7 +34,7 @@ The plugin registers hooks via `hooks.json`. Claude Code automatically loads the
 | File | Purpose |
 |------|---------|
 | `hooks.json` | Hook registration (loaded by Claude Code) |
-| `launch.cjs` | Dispatches `UserPromptSubmit`/`PostToolUse`/etc. to the Go binary's `hook` subcommands (e.g. `hook prompt-submit`) |
+| `launch.cjs` | Shim that finds the kratos binary (plugin `bin/`, then `~/.kratos/bin/`) and forwards any subcommand — hooks call it for `hook prompt-submit` etc., launchers for `agent load <god> --resolve --part body\|extras`. With no binary it serves `agent load` from `agents/<god>.md` on disk; with a pre-2.108 binary that rejects `--part` it retries the body line without the flag |
 | `session-start.cjs` | Starts memory session; prints a one-line handoff notice (no content) |
 | `tool-use.cjs` | Records tool usage |
 | `session-end.cjs` | Ends session with summary |

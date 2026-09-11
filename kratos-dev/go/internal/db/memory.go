@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Memory represents a durable fact about the user (preference, habit, weak spot)
@@ -254,23 +255,102 @@ func MemorySimilarity(a, b string) float64 {
 // memory counts as a rewording of an existing one.
 const MemoryDuplicateThreshold = 0.6
 
-// FindSimilarMemory returns the stored memory most similar to text and its
-// score, or (nil, 0, nil) when nothing reaches MemoryDuplicateThreshold. The
-// store holds hundreds of rows, so a full scan is fine.
-func FindSimilarMemory(db *sql.DB, text string) (*Memory, float64, error) {
-	all, err := ListMemoriesOpts(db, MemoryListOpts{})
-	if err != nil {
-		return nil, 0, err
+// memoryStopwords are English function words dropped before the overlap
+// check — they inflate |A∩B| between unrelated facts without carrying meaning.
+var memoryStopwords = func() map[string]bool {
+	set := map[string]bool{}
+	for _, w := range strings.Fields("the a an and or of to in on for is it his he him with not no from by as at that this be are was were do does did has have when then than so if but into over under before after never always any every each one two") {
+		set[w] = true
 	}
-	var best *Memory
-	bestScore := 0.0
-	for _, m := range all {
-		if s := MemorySimilarity(text, m.Text); s > bestScore {
-			best, bestScore = m, s
+	return set
+}()
+
+// memoryContentTokens is memoryTokens minus stopwords and single-character
+// tokens (CJK bigrams are two runes and survive).
+func memoryContentTokens(text string) map[string]bool {
+	set := memoryTokens(text)
+	for tok := range set {
+		if memoryStopwords[tok] || utf8.RuneCountInString(tok) < 2 {
+			delete(set, tok)
 		}
 	}
-	if best == nil || bestScore < MemoryDuplicateThreshold {
-		return nil, 0, nil
+	return set
+}
+
+// overlapOf is the overlap coefficient |A∩B| / min(|A|,|B|) of two token
+// sets, in [0, 1]; 0 when either set is empty.
+func overlapOf(ta, tb map[string]bool) float64 {
+	if len(ta) == 0 || len(tb) == 0 {
+		return 0
 	}
-	return best, bestScore, nil
+	inter := 0
+	for t := range ta {
+		if tb[t] {
+			inter++
+		}
+	}
+	smaller := len(ta)
+	if len(tb) < smaller {
+		smaller = len(tb)
+	}
+	return float64(inter) / float64(smaller)
+}
+
+// MemoryOverlap is the overlap coefficient of the two texts' content-token
+// sets. Unlike Jaccard it is not diluted by the longer text's extra words,
+// which is how four paraphrase duplicates saved in 2026-09 scored Jaccard
+// 0.17–0.30 (accepted) but overlap 0.30–0.53.
+func MemoryOverlap(a, b string) float64 {
+	return overlapOf(memoryContentTokens(a), memoryContentTokens(b))
+}
+
+// MemoryOverlapThreshold is the content-word overlap at or above which a new
+// memory counts as a paraphrase of an existing one. Calibrated on the real
+// store (309 rows, 47,586 pairs): only 10 pairs reach 0.40, each a duplicate
+// or a tight sibling.
+const MemoryOverlapThreshold = 0.40
+
+// MemoryMetric names which check flagged a near-duplicate.
+type MemoryMetric string
+
+const (
+	MetricJaccard MemoryMetric = "jaccard"      // token-set Jaccard ≥ MemoryDuplicateThreshold
+	MetricOverlap MemoryMetric = "word overlap" // content-token overlap ≥ MemoryOverlapThreshold
+)
+
+// MemoryMatch is FindSimilarMemory's verdict: the closest stored memory, its
+// score, and the metric that reached its threshold.
+type MemoryMatch struct {
+	Memory *Memory
+	Score  float64
+	Metric MemoryMetric
+}
+
+// FindSimilarMemory scans the whole store once and returns the stored memory
+// that duplicates text — Jaccard ≥ MemoryDuplicateThreshold wins, otherwise
+// content-word overlap ≥ MemoryOverlapThreshold — or (nil, nil) when neither
+// check fires. The store holds hundreds of rows, so a full scan is fine.
+func FindSimilarMemory(db *sql.DB, text string) (*MemoryMatch, error) {
+	all, err := ListMemoriesOpts(db, MemoryListOpts{})
+	if err != nil {
+		return nil, err
+	}
+	content := memoryContentTokens(text)
+	var bestJ, bestO *Memory
+	jScore, oScore := 0.0, 0.0
+	for _, m := range all {
+		if s := MemorySimilarity(text, m.Text); s > jScore {
+			bestJ, jScore = m, s
+		}
+		if s := overlapOf(content, memoryContentTokens(m.Text)); s > oScore {
+			bestO, oScore = m, s
+		}
+	}
+	if bestJ != nil && jScore >= MemoryDuplicateThreshold {
+		return &MemoryMatch{Memory: bestJ, Score: jScore, Metric: MetricJaccard}, nil
+	}
+	if bestO != nil && oScore >= MemoryOverlapThreshold {
+		return &MemoryMatch{Memory: bestO, Score: oScore, Metric: MetricOverlap}, nil
+	}
+	return nil, nil
 }

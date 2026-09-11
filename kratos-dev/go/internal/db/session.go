@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/models"
@@ -188,6 +189,63 @@ func ReactivateSession(db *sql.DB, sessionID string) error {
 		return fmt.Errorf("failed to reactivate session: %w", err)
 	}
 	return nil
+}
+
+// staleSessionPredicate selects 'active' rows that will never be ended by a
+// SessionEnd hook: no steps after idle (SessionStart fires with a throwaway id
+// before a resume/fork, and that row is never used again), or any age past
+// stale (a window closed without SessionEnd). A zero duration disables that
+// rule; both zero → ("", nil).
+func staleSessionPredicate(idle, stale time.Duration) (string, []interface{}) {
+	now := time.Now().UnixMilli()
+	var clauses []string
+	var args []interface{}
+	if idle > 0 {
+		clauses = append(clauses, "(total_steps = 0 AND started_at < ?)")
+		args = append(args, now-idle.Milliseconds())
+	}
+	if stale > 0 {
+		clauses = append(clauses, "(started_at < ?)")
+		args = append(args, now-stale.Milliseconds())
+	}
+	if len(clauses) == 0 {
+		return "", nil
+	}
+	return "status = 'active' AND ended_at IS NULL AND (" + strings.Join(clauses, " OR ") + ")", args
+}
+
+// CountStaleSessions reports how many rows AbandonStaleSessions would change.
+func CountStaleSessions(db *sql.DB, idle, stale time.Duration) (int64, error) {
+	where, args := staleSessionPredicate(idle, stale)
+	if where == "" {
+		return 0, nil
+	}
+	var n int64
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sessions WHERE `+where, args...).Scan(&n); err != nil {
+		return 0, fmt.Errorf("failed to count stale sessions: %w", err)
+	}
+	return n, nil
+}
+
+// AbandonStaleSessions marks ghost rows 'abandoned' (see staleSessionPredicate).
+// 834 of 1,887 rows sat 'active' in the 2026-09 review, 794 of them with zero
+// steps; the legacy `session start <project>` refuses to start while any of
+// them exists, and `session active` may answer with one. Returns the number
+// of rows changed. A later step or SessionEnd against an abandoned id still
+// works — steps key on session_id, and `session start --session-id`
+// re-activates the row.
+func AbandonStaleSessions(db *sql.DB, idle, stale time.Duration) (int64, error) {
+	where, args := staleSessionPredicate(idle, stale)
+	if where == "" {
+		return 0, nil
+	}
+	args = append([]interface{}{time.Now().UnixMilli()}, args...)
+	res, err := db.Exec(`UPDATE sessions SET status = 'abandoned', ended_at = ?, summary = COALESCE(summary, 'auto-closed: no session end received') WHERE `+where, args...)
+	if err != nil {
+		return 0, fmt.Errorf("failed to abandon stale sessions: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
 }
 
 // SetInitialRequestIfEmpty records the first user prompt of a session. Later

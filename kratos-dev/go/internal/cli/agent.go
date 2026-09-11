@@ -76,8 +76,82 @@ func composeProtocolFor(name string) (string, error) {
 	return protocol.Compose(doc, slugs)
 }
 
+// Slices of an agent definition that `agent load --part` prints. Claude Code
+// inlines at most 30,000 characters of a !`cmd` line in a slash command (the
+// Bash tool's limit); a whole god — body + protocol + lessons — is 31–34 KB,
+// so one loader line reached the model as a 2 KB <persisted-output> preview
+// in 10 of 11 Iris launches (2026-09 review). Launchers now run two lines,
+// one per part; agent_inline_budget_test.go keeps each under the limit.
+const (
+	loadPartAll    = ""       // legacy: body + extras in one stream
+	loadPartBody   = "body"   // agents/<god>.md verbatim
+	loadPartExtras = "extras" // lessons, protocol block, command-mode suffix
+)
+
+// partSeparator joins the pieces inside Extras. Body and Extras are joined
+// by "\n---\n\n" in the legacy full output (bodies end with a newline).
+const partSeparator = "\n\n---\n\n"
+
+// agentLoadParts is an agent definition split for inline injection.
+type agentLoadParts struct {
+	Body   string // agents/<god>.md, unmodified
+	Extras string // lessons FIRST, then protocol, then suffix; "" when all empty
+}
+
+// composeAgentLoad builds both parts for name ("iris" or "iris.md"). lessons
+// is the already-rendered lessons block ("" for none) so callers without a
+// store — tests and the inline-budget lint — can pass a synthetic one. Extras
+// puts the lessons first so a partial read still sees the user's corrections
+// (they sat unread at the tail of a persisted file all of 2026-09).
+func composeAgentLoad(name, mode, lessons string) (agentLoadParts, error) {
+	file := name
+	if !strings.HasSuffix(file, ".md") {
+		file += ".md"
+	}
+	body, err := agentsFS.ReadFile("agents/" + file)
+	if err != nil {
+		return agentLoadParts{}, fmt.Errorf("agent %q not found", strings.TrimSuffix(name, ".md"))
+	}
+
+	// Inject the composed protocol block for every load (command mode or
+	// not) — agents opt in via protocol_sections frontmatter.
+	block, err := composeProtocolFor(file)
+	if err != nil {
+		return agentLoadParts{}, err
+	}
+
+	var pieces []string
+	for _, p := range []string{lessons, block} {
+		if p = strings.TrimRight(p, "\n"); p != "" {
+			pieces = append(pieces, p)
+		}
+	}
+	if mode == "command" {
+		if suffix, err := commandSuffixFS.ReadFile("command-mode-suffix/" + file); err == nil {
+			if s := strings.TrimRight(string(suffix), "\n"); s != "" {
+				pieces = append(pieces, s)
+			}
+		}
+	}
+
+	parts := agentLoadParts{Body: string(body)}
+	if len(pieces) > 0 {
+		parts.Extras = strings.Join(pieces, partSeparator) + "\n"
+	}
+	return parts, nil
+}
+
+// joinAgentLoad renders the legacy single-stream output (no --part).
+func joinAgentLoad(p agentLoadParts) string {
+	if p.Extras == "" {
+		return p.Body
+	}
+	return p.Body + "\n---\n\n" + p.Extras
+}
+
 func agentLoadCmd() *cobra.Command {
 	var mode string
+	var part string
 	var resolve bool
 	var rootFlag string
 
@@ -87,39 +161,34 @@ func agentLoadCmd() *cobra.Command {
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
-			if !strings.HasSuffix(name, ".md") {
-				name += ".md"
+			switch part {
+			case loadPartAll, loadPartBody, loadPartExtras:
+			default:
+				return fmt.Errorf("invalid --part %q (want body or extras)", part)
+			}
+			god := strings.TrimSuffix(args[0], ".md")
+
+			// Stored lessons from past user corrections — inline gods have no
+			// SubagentStart hook to inject them, so they ride along here. The
+			// body part never opens the store.
+			lessons := ""
+			if part != loadPartBody {
+				lessons = lessonsBlockFor(god)
 			}
 
-			body, err := agentsFS.ReadFile("agents/" + name)
-			if err != nil {
-				return fmt.Errorf("agent %q not found", args[0])
-			}
-
-			out := string(body)
-
-			// Inject the composed protocol block for every load (command
-			// mode or not) — agents opt in via protocol_sections frontmatter.
-			block, err := composeProtocolFor(name)
+			parts, err := composeAgentLoad(god, mode, lessons)
 			if err != nil {
 				return err
 			}
-			if block != "" {
-				out += "\n---\n\n" + block + "\n"
-			}
 
-			// Stored lessons from past user corrections — inline gods have no
-			// SubagentStart hook to inject them, so they ride along here.
-			if lessons := lessonsBlockFor(strings.TrimSuffix(name, ".md")); lessons != "" {
-				out += "\n---\n\n" + lessons + "\n"
-			}
-
-			if mode == "command" {
-				suffix, err := commandSuffixFS.ReadFile("command-mode-suffix/" + name)
-				if err == nil {
-					out += "\n---\n\n" + string(suffix)
-				}
+			var out string
+			switch part {
+			case loadPartBody:
+				out = parts.Body
+			case loadPartExtras:
+				out = parts.Extras
+			default:
+				out = joinAgentLoad(parts)
 			}
 
 			if resolve {
@@ -132,6 +201,7 @@ func agentLoadCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&mode, "mode", "", "Execution mode: 'command' appends command-mode suffix if one exists")
+	cmd.Flags().StringVar(&part, "part", "", "Print one slice only: 'body' (agents/<god>.md) or 'extras' (lessons, protocol, command-mode suffix). Default prints both. Each slice stays under Claude Code's 30,000-char inline limit for !`cmd` lines")
 	cmd.Flags().BoolVar(&resolve, "resolve", false, "Substitute <KRATOS_ROOT> and <kratos-bin> tokens with discovered absolute paths")
 	cmd.Flags().StringVar(&rootFlag, "root", "", "Explicit plugin root for <KRATOS_ROOT> substitution (overrides discovery); only used with --resolve")
 	return cmd

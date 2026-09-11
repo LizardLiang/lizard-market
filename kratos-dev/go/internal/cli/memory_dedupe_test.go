@@ -39,6 +39,54 @@ func TestMemoryAdd_RejectsNearDuplicate(t *testing.T) {
 	assert.Equal(t, float64(2), list["count"])
 }
 
+// A paraphrase of a stored fact — different words, same content words — is
+// rejected by the overlap check, naming the id and the metric; --force and
+// --replace still work. This is the class the 2026-09 sweep let through four
+// times in a week.
+func TestMemoryAdd_RejectsParaphrase(t *testing.T) {
+	useTempDB(t)
+
+	stored := "sed -i in Git Bash rewrites CRLF files as LF on Windows: git warns 'LF will be replaced by CRLF' and the whole file shows as changed. Use the Edit tool or convert back to CRLF."
+	incoming := "sed -i in Git Bash rewrites a CRLF file to LF, flooding the diff with whole-file churn. On this Windows repo edit .cs via the Edit tool, or convert back to CRLF and verify."
+
+	first, err := runCLI(t, "memory", "add", stored, "--category", "context")
+	require.NoError(t, err)
+	id := first["memory"].(map[string]interface{})["id"].(float64)
+
+	_, err = runCLI(t, "memory", "add", incoming, "--category", "context")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "near-duplicate of memory 1")
+	assert.Contains(t, err.Error(), "word overlap")
+	assert.Contains(t, err.Error(), "--replace 1")
+
+	replaced, err := runCLI(t, "memory", "add", incoming, "--category", "context", "--replace", "1")
+	require.NoError(t, err)
+	assert.Equal(t, "replaced", replaced["status"])
+	assert.Equal(t, id, replaced["memory"].(map[string]interface{})["id"])
+
+	forced, err := runCLI(t, "memory", "add", stored, "--category", "context", "--force")
+	require.NoError(t, err)
+	assert.Equal(t, "added", forced["status"])
+}
+
+// Distinct facts are still accepted without --force.
+func TestMemoryAdd_UnrelatedStillAccepted(t *testing.T) {
+	useTempDB(t)
+	for _, text := range []string{
+		"Prefers terse replies with the conclusion first",
+		"NETZERO decks use the BGTO master",
+		"Windows console is cp950; run python CLIs with PYTHONIOENCODING=utf-8",
+		"Uses LizMeter tickets as the system of record",
+	} {
+		res, err := runCLI(t, "memory", "add", text, "--category", "context")
+		require.NoError(t, err, text)
+		assert.Equal(t, "added", res["status"])
+	}
+	list, err := runCLI(t, "memory", "list")
+	require.NoError(t, err)
+	assert.Equal(t, float64(4), list["count"])
+}
+
 func TestMemoryAdd_ProjectScopeAndCJKLength(t *testing.T) {
 	useTempDB(t)
 

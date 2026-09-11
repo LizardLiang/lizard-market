@@ -31,4 +31,19 @@ func TestPlanCommandUsesAgentLoader(t *testing.T) {
 	if strings.Contains(body, "!cat ") {
 		t.Error("commands/plan.md uses a raw `!cat` loader; that skips protocol injection and token resolution")
 	}
+	// Two-part load: a single `agent load odysseus --resolve` line emits 32 KB,
+	// over Claude Code's 30,000-char inline limit, and reaches the model as a
+	// 2 KB <persisted-output> preview (2026-09 review).
+	for _, want := range []string{
+		"agent load odysseus --resolve --part body`",
+		"agent load odysseus --resolve --part extras`",
+		"<persisted-output>",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("commands/plan.md missing %q — the loader must be split into --part body / --part extras lines", want)
+		}
+	}
+	if strings.Contains(body, "agent load odysseus --resolve`") {
+		t.Error("commands/plan.md still has the single-line loader; its 32 KB output is persisted, not inlined")
+	}
 }

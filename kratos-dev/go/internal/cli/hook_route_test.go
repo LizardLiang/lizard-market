@@ -46,6 +46,9 @@ func TestPromptSubmit_DirectRouteHintForAddressedGod(t *testing.T) {
 		"have hermes review the diff",
 		"get odysseus to make a fix plan for #53",
 		"Ares, fix the null pointer in auth.js",
+		"plan it with odysseus",
+		"debug this with hades",
+		"review the dropdown change with hermes",
 	} {
 		got := promptOut(t, prompt)
 		if !strings.Contains(got, "[KRATOS ROUTE]") {

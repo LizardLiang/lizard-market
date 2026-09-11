@@ -56,6 +56,11 @@ active session per project is allowed (legacy behavior).`,
 			}
 			defer conn.Close()
 
+			// Close ghost rows first: zero-step 'active' sessions older than a
+			// day are throwaway SessionStart ids (see session_gc.go). Failing
+			// open — a cleanup error never blocks a start.
+			_, _ = db.AbandonStaleSessions(conn, sessionIdleAbandonAfter, 0)
+
 			if sessionID != "" {
 				return startKeyedSession(cmd, conn, sessionID, project, featureName)
 			}

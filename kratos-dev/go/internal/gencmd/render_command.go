@@ -131,9 +131,12 @@ func LauncherAllowedTools(partialTools string) string {
 
 // RenderCommand renders the full commands/<name>.md launcher content for the
 // given agent. Every god uses the launch.cjs loader with --resolve (so the
-// emitted body carries no <KRATOS_ROOT>/<kratos-bin> tokens); hasSuffixLoader
-// appends --mode=command when a command-mode-suffix/<name>.md file exists.
-// partial may be nil.
+// emitted body carries no <KRATOS_ROOT>/<kratos-bin> tokens), split over two
+// lines — `--part body` and `--part extras` — because Claude Code inlines at
+// most 30,000 characters per !`cmd` line and a whole god is 31–34 KB (one
+// line reached the model as a 2 KB <persisted-output> preview in the 2026-09
+// review). hasSuffixLoader appends --mode=command to the extras line when a
+// command-mode-suffix/<name>.md file exists. partial may be nil.
 func RenderCommand(a *Agent, partial *Partial, hasSuffixLoader bool) string {
 	var fm strings.Builder
 	fm.WriteString("---\n")
@@ -150,14 +153,17 @@ func RenderCommand(a *Agent, partial *Partial, hasSuffixLoader bool) string {
 	// Dynamic injection uses the documented inline form: !`command`. A bare
 	// "!command" line is NOT recognized by Claude Code — it reaches the model as
 	// literal text and the persona never loads (observed 26/26 times in the
-	// 2026-09 transcript review). Keep both lines in the backtick form.
+	// 2026-09 transcript review). Keep all three lines in the backtick form.
 	echoLine := "!`echo \"KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}\"`"
 
-	loaderCmd := fmt.Sprintf(`node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load %s --resolve`, a.Name)
+	baseCmd := fmt.Sprintf(`node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load %s --resolve`, a.Name)
+	bodyCmd := baseCmd + " --part body"
+	extrasCmd := baseCmd + " --part extras"
 	if hasSuffixLoader {
-		loaderCmd += " --mode=command"
+		extrasCmd += " --mode=command"
 	}
-	loaderLine := "!`" + loaderCmd + "`"
+	bodyLine := "!`" + bodyCmd + "`"
+	extrasLine := "!`" + extrasCmd + "`"
 
 	note := standardNoteSeparator
 	if a.CommandNote != "" {
@@ -169,11 +175,11 @@ func RenderCommand(a *Agent, partial *Partial, hasSuffixLoader bool) string {
 	)
 
 	fallback := fmt.Sprintf(
-		"If no `# %s -` agent definition appears above, the loader did not run: execute `%s` once with the Bash tool, adopt its output as your definition, and only then act on the request.",
-		capitalize(a.Name), loaderCmd,
+		"If no `# %s -` agent definition appears above, the loader did not run: execute `%s` and then `%s` once each with the Bash tool, adopt their combined output as your definition, and only then act on the request. If the definition above is a `<persisted-output>` preview instead of the full text, Read the file it names in full before acting.",
+		capitalize(a.Name), bodyCmd, extrasCmd,
 	)
 
-	blocks := []string{fm.String(), echoLine, loaderLine, "---", persona, fallback}
+	blocks := []string{fm.String(), echoLine, bodyLine, extrasLine, "---", persona, fallback}
 
 	if refs := refsParagraph(a.CommandRefs); refs != "" {
 		blocks = append(blocks, refs)
