@@ -103,7 +103,7 @@ If the request spans modes (e.g., "learn X, then note the follow-ups"; a DIG que
 | **Clio** (git history) | sonnet | haiku | opus |
 | **Ananke** (todos, fallback only) | haiku | haiku | sonnet |
 | **Ares** (implementation) | sonnet | haiku | opus |
-| **Odysseus** (tactical plan) | inline — never spawned | inline | inline |
+| **Odysseus** (tactical plan) | sonnet | sonnet | opus |
 
 ---
 
@@ -123,7 +123,7 @@ Run the clarity pre-check from `<KRATOS_ROOT>/pipeline/classify.md`: is the **go
 |------|------|-------------|
 | **Inline** | ≤2 files, a clear one-step change, or **any** document / diagram / deck edit (`.md`, `.drawio`, `.svg`, `.pptx`, `.docx`) | Do it yourself now, following the injected **Artifact Edits** protocol for documents (echo the target, render and look, keep linked artifacts in sync, write only the delta). Run the relevant test/build if code. |
 | **Ares** | 3+ files, code that needs tests, or the user asked for Ares | Spawn Ares with the spawn template from `<KRATOS_ROOT>/commands/quick.md` — `ORIGINAL_USER_REQUEST` verbatim, `TICKET` if any, `mode: "acceptEdits"`. Then run the quick.md post-task: `verify --landed`, ticket note, one "mark #N done?" question, review offer. |
-| **Odysseus** | Target or approach unclear, several viable designs, or 3+ files with real decisions | Run Odysseus **inline** per `<KRATOS_ROOT>/commands/plan.md` — the full clarity loop, as thorough as it needs to be — then hand the ready plan to Ares. |
+| **Odysseus** | Target or approach unclear, several viable designs, or 3+ files with real decisions | Spawn `kratos:odysseus` with the request **verbatim**. He cannot reach the user, so he returns flagged assumptions — relay the plan path, the summary and every open decision, ask **one** `AskUserQuestion` for approval, then spawn `kratos:ares` with `mode: "acceptEdits"` and `MISSION: Implement Approved Tactical Plan` / `PLAN: <path>`. Never implement the plan yourself. |
 | **Pipeline** | A genuinely new, multi-day feature that needs product requirements | Offer `kratos:main` **once** via AskUserQuestion, with "just do it in quick mode" as the other option. Declined → Odysseus or Ares rung. |
 
 If one clarity signal is missing and the rung is Inline or Ares, ask **one** AskUserQuestion to pin it; never let Ares guess.
@@ -135,6 +135,7 @@ If one clarity signal is missing and the rung is Inline or Ares, ask **one** Ask
 - **Land it.** Anything you or Ares changed is committed (see `Landed:` in the Ares protocol and `verify --landed`); "left for your manual check" is not a finished state.
 - **Ticket work ends at the ticket.** For `#N` missions: note (commit hash, files, what to check) on the ticket via the project's todo MCP, then exactly one question — "Mark #N done?".
 - **The user's words are the scope.** Do not narrow a request while writing REQUIREMENTS for Ares; if you must, print the narrowing before spawning.
+- **The edit gate is mechanical.** A PreToolUse gate denies your third distinct source file in a turn. Do not argue with a deny and do not retry it — it is the signal to spawn Ares with the template in the deny message. Documents, `.claude/`, and repeat edits to a file you already touched do not count.
 
 ---
 

@@ -173,16 +173,19 @@ When `stop_hook_active` is true (hook-triggered re-run), the gate passes automat
 
 **Ares verify gate (v2.87):** the same SubagentStop hook scans the session transcript and blocks Ares completion when code files were edited but no test command ran — fail-open on scan errors, and waived by stating `TESTS-NOT-APPLICABLE: <reason>` for changes with no runtime surface. The check is sidechain-scoped, so it only looks at the subagent's own activity. Ares also records fail-then-pass evidence per task in `implementation-notes.md` — a RED (failing) result before the fix and a GREEN (passing) result after — which Hera verifies at Stage 8.
 
-### PreToolUse — Plan Guard + Package Manager Auto-Correction
+### PreToolUse — Inline Edit Gate + Package Manager Auto-Correction
 
-For **Odysseus**, the plan guard enforces tactical Plan Mode when Claude includes agent identity in the hook payload:
+The edit gate (`kratos hook edit-gate`, v2.109) keeps the god running **inline in the main context** inside its lane, so work that belongs to a specialist is dispatched instead of absorbed. It reads the god from the per-session ledger `~/.kratos/sessions/<session_id>.json`, which the `UserPromptSubmit` hook writes when a launcher (`/kratos:iris`, `/kratos:plan`, …) runs.
 
-| Tool | Odysseus Rule |
-|------|---------------|
-| `Write` / `Edit` / `MultiEdit` | Only `.claude/.Arena/tactical-plans/*.md` and `.claude/feature/<slug>/spec-delta/*.md` |
-| `Bash` | Read-only inspection commands, plus read-only `kratos` subcommands (`slug`, `template get`, `spec validate`, `spec list`) |
+| Inline god | Rule |
+|------------|------|
+| **Odysseus** (`/kratos:plan`, `/kratos:odysseus`) | `Write` / `Edit` / `MultiEdit` only to `.claude/.Arena/tactical-plans/*.md` and `.claude/feature/<slug>/spec-delta/<capability>.md`. `Bash` limited to read-only inspection (`git status`, `sed -n`, `head`, `grep`, …) and read-only `kratos` subcommands (`slug`, `now`, `template get`, `spec validate`, `step record-agent`, …). |
+| **Iris** (`/kratos:iris`) | At most **two distinct project source files per user turn**; the third is denied with the `kratos:ares` spawn template. Documents (`.md`, `.drawio`, `.pptx`, …), `.claude/` and `.kratos/` bookkeeping, agent scratchpads, and repeat edits to an already-counted file do not count. `Bash` is never gated. |
+| **Every other case** | No decision — the gate fails open. |
 
-If the hook payload does not identify the active agent, the guard fails open so it does not interfere with normal Ares or pipeline work.
+The budget refills on every new user prompt and whenever the inline god spawns `kratos:ares` or `kratos:hades`. Saying "you do it" or "do it yourself" stands the gate down for that turn.
+
+Fail-open means exactly that: a payload from a spawned subagent other than Odysseus (so **Ares is never gated**), a session with no ledger, an unreadable ledger, no recorded god, a god with no rule, or any error produces no output at all.
 
 Intercepts every `Bash` tool call containing `npm` and rewrites it to the project's actual package manager, detected from lockfiles in the project root:
 

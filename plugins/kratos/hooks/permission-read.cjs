@@ -8,7 +8,8 @@
  * resolves under CLAUDE_PLUGIN_ROOT or ~/.kratos/. Every other path is left
  * unhandled so Claude Code's normal permission prompt applies unchanged.
  * Fails open (exit 0, no output) on empty/garbage stdin, a missing file
- * path, or an unset CLAUDE_PLUGIN_ROOT — same discipline as plan-mode-guard.cjs.
+ * path, or an unset CLAUDE_PLUGIN_ROOT — same discipline as the edit gate
+ * (`kratos hook edit-gate`).
  */
 
 const path = require('path');

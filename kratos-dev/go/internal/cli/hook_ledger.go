@@ -18,6 +18,10 @@ func recordPromptLedger(raw []byte) {
 		return
 	}
 
+	// Session-ledger side effect first: it must not depend on the database
+	// being reachable, because the edit gate reads it on every Write/Edit.
+	recordInlineGod(input.SessionID, input.Prompt)
+
 	conn, err := db.GetConnection()
 	if err != nil {
 		debugLog("ledger: db unavailable: %v", err)
@@ -60,4 +64,98 @@ func initialRequestText(prompt string) string {
 		return ""
 	}
 	return p
+}
+
+// recordInlineGod keeps the session ledger's edit-gate fields current from the
+// UserPromptSubmit payload. It is the only writer of inline_god and
+// gate_bypass. Every failure is swallowed: a session with no readable ledger
+// simply has no gate.
+//
+// Two prompt shapes matter:
+//
+//   - a launcher invocation (`/kratos:iris …`, or an expanded launcher body on
+//     harnesses that send one) names the god now running inline;
+//   - anything else the user typed is a new turn: the per-turn file budget
+//     refills and gate_bypass is re-evaluated from the user's own words.
+//
+// A `<task-notification>` pseudo-prompt (Claude Code posts one when a spawned
+// subagent finishes — verified on a real payload, 2026-09-11) is neither: it is
+// not user text, so it must not grant or clear a bypass.
+func recordInlineGod(sessionID, prompt string) {
+	if sessionID == "" {
+		return
+	}
+	god := inlineGodFromPrompt(prompt)
+	userTurn := isUserTurnPrompt(prompt)
+	if god == "" && !userTurn {
+		return
+	}
+
+	m, err := readInlineLedger(sessionID)
+	if err != nil || m == nil {
+		// session-start.cjs has not written (or could not write) a ledger for
+		// this session — start one so the gate still works.
+		m = map[string]any{"session_id": sessionID}
+	}
+
+	if god != "" && ledgerString(m, ledgerKeyInlineGod) != god {
+		// Relaunching the same god is not a way to refill the budget: only a
+		// change of god resets the timestamp and the file list here.
+		m[ledgerKeyInlineGod] = god
+		m[ledgerKeyInlineSince] = nowRFC3339()
+		m[ledgerKeyEditedFiles] = []string{}
+	}
+	if userTurn {
+		m[ledgerKeyEditedFiles] = []string{}
+		m[ledgerKeyGateBypass] = gateBypassRE.MatchString(prompt)
+	}
+
+	if err := writeInlineLedger(sessionID, m); err != nil {
+		debugLog("ledger: inline god write failed: %v", err)
+	}
+}
+
+// inlineGodFromPrompt names the god a prompt launches inline, or "" when the
+// prompt launches none. A slash command only counts when it resolves to a real
+// agent definition, so /kratos:status or /kratos:main leave the field alone.
+func inlineGodFromPrompt(prompt string) string {
+	if m := inlineGodRE.FindStringSubmatch(prompt); m != nil {
+		return strings.ToLower(m[1])
+	}
+	if m := slashGodRE.FindStringSubmatch(prompt); m != nil {
+		name := strings.ToLower(m[1])
+		if alias, ok := inlineGodAliases[name]; ok {
+			name = alias
+		}
+		if isEmbeddedGod(name) {
+			return name
+		}
+	}
+	return ""
+}
+
+// isEmbeddedGod reports whether name has an agent definition in the embedded FS.
+func isEmbeddedGod(name string) bool {
+	if name == "" {
+		return false
+	}
+	f, err := agentsFS.Open("agents/" + name + ".md")
+	if err != nil {
+		return false
+	}
+	f.Close()
+	return true
+}
+
+// isUserTurnPrompt reports whether the prompt is text the user typed, as
+// opposed to an expanded launcher body or a harness notification.
+func isUserTurnPrompt(prompt string) bool {
+	p := strings.TrimSpace(prompt)
+	if p == "" {
+		return false
+	}
+	if strings.HasPrefix(p, "<") {
+		return false
+	}
+	return !isExpandedLauncherBody(p)
 }

@@ -16,6 +16,26 @@ func isExpandedLauncherBody(prompt string) bool {
 	return launcherBodyRE.MatchString(prompt)
 }
 
+// inlineGodRE pulls the god out of an expanded launcher body. Claude Code
+// 2.1.268 delivers the literal `/kratos:<command>` text to UserPromptSubmit
+// instead of the expansion (verified 2026-09-11 with a payload probe), so
+// slashGodRE below is the path that fires in practice — this one is kept
+// because isExpandedLauncherBody shows other harness versions do send bodies.
+var inlineGodRE = regexp.MustCompile(`(?i)\bagent load ([a-z-]+) --resolve\b`)
+
+// slashGodRE matches the launcher invocation as the user types it.
+var slashGodRE = regexp.MustCompile(`(?i)^\s*/kratos:([a-z-]+)\b`)
+
+// inlineGodAliases maps a slash command that loads a god under another name.
+// /kratos:plan is Odysseus running inline (commands/plan.md loads
+// `agent load odysseus`), so plan mode must reach the Odysseus gate rules.
+var inlineGodAliases = map[string]string{"plan": "odysseus"}
+
+// gateBypassRE matches the user explicitly handing the work back to the model.
+// Deliberately narrower than a bare \binline\b, which matches ordinary prose
+// about the gate itself ("the inline gate is broken") and would switch it off.
+var gateBypassRE = regexp.MustCompile(`(?i)\byou do\b|\bdo it yourself\b|\bdo (?:it|this|that) inline\b|\binline it\b`)
+
 // directRouteGods are the gods a user can address by name and get directly,
 // without the kratos:auto router in between. Odysseus runs inline (plan
 // mode); the others are spawned with the quick.md template.

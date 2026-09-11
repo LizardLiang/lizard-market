@@ -146,14 +146,28 @@ type subagentStopOutput struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// preToolUseInput is the JSON Claude Code sends for PreToolUse
+// preToolUseInput is the JSON Claude Code sends for PreToolUse.
+//
+// agent_type is the discriminator the edit gate is built on: a payload from a
+// spawned subagent carries it (plus agent_id), a payload from the main context
+// carries neither. Verified on real payloads from Claude Code 2.1.268 on
+// 2026-09-11; without it the gate would count a subagent's edits against the
+// inline god's budget.
 type preToolUseInput struct {
-	ToolName  string              `json:"tool_name"`
-	ToolInput preToolUseToolInput `json:"tool_input"`
+	ToolName     string              `json:"tool_name"`
+	ToolInput    preToolUseToolInput `json:"tool_input"`
+	SessionID    string              `json:"session_id"`
+	Cwd          string              `json:"cwd"`
+	AgentType    string              `json:"agent_type"`
+	SubagentType string              `json:"subagent_type"`
 }
 
 type preToolUseToolInput struct {
 	Command string `json:"command"`
+	// Write/Edit/MultiEdit target.
+	FilePath string `json:"file_path"`
+	// Agent/Task spawn target, e.g. "kratos:ares".
+	SubagentType string `json:"subagent_type"`
 }
 
 // preToolUseOutput is the hookSpecificOutput response for PreToolUse
@@ -162,10 +176,11 @@ type preToolUseOutput struct {
 }
 
 type preToolUseHookSpecific struct {
-	HookEventName      string            `json:"hookEventName"`
-	PermissionDecision string            `json:"permissionDecision"`
-	UpdatedInput       map[string]string `json:"updatedInput,omitempty"`
-	AdditionalContext  string            `json:"additionalContext,omitempty"`
+	HookEventName            string            `json:"hookEventName"`
+	PermissionDecision       string            `json:"permissionDecision"`
+	PermissionDecisionReason string            `json:"permissionDecisionReason,omitempty"`
+	UpdatedInput             map[string]string `json:"updatedInput,omitempty"`
+	AdditionalContext        string            `json:"additionalContext,omitempty"`
 }
 
 // npmWordBoundary matches the word "npm" with word boundaries
@@ -182,6 +197,7 @@ func HookCmd() *cobra.Command {
 	cmd.AddCommand(subagentStartCmd())
 	cmd.AddCommand(subagentStopCmd())
 	cmd.AddCommand(fixPMCmd())
+	cmd.AddCommand(editGateCmd())
 	cmd.AddCommand(specDeltaCheckCmd())
 	return cmd
 }

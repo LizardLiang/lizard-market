@@ -25,7 +25,8 @@ The plugin registers hooks via `hooks.json`. Claude Code automatically loads the
 | Hook | Trigger | Action |
 |------|---------|--------|
 | `UserPromptSubmit` | Every prompt | Detects Kratos god keywords (skill activation) and resume phrases (on-demand session-handoff injection, once per session — see below) |
-| `SessionStart` | Claude Code starts | Creates memory session; prints a one-line notice if a fresh handoff exists (content stays on-demand, not injected here) |
+| `SessionStart` | Claude Code starts | Creates memory session; prints a one-line notice if a fresh handoff exists (content stays on-demand, not injected here). Preserves the edit gate's ledger keys across compaction/resume |
+| `PreToolUse` | Write/Edit/MultiEdit/Bash/Agent/Task | Inline edit gate (`hook edit-gate`): denies source edits the inline god should dispatch — Odysseus to plans and spec deltas, Iris to two source files per turn — and auto-corrects `npm` to the project's package manager (`hook fix-pm`) |
 | `PostToolUse` | Task/Write/Edit tools | Records agent spawns & file changes |
 | `Stop` | Claude Code exits | Ends session with summary, then runs the transcript memory sweep |
 
@@ -35,7 +36,8 @@ The plugin registers hooks via `hooks.json`. Claude Code automatically loads the
 |------|---------|
 | `hooks.json` | Hook registration (loaded by Claude Code) |
 | `launch.cjs` | Shim that finds the kratos binary (plugin `bin/`, then `~/.kratos/bin/`) and forwards any subcommand — hooks call it for `hook prompt-submit` etc., launchers for `agent load <god> --resolve --part body\|extras`. With no binary it serves `agent load` from `agents/<god>.md` on disk; with a pre-2.108 binary that rejects `--part` it retries the body line without the flag |
-| `session-start.cjs` | Starts memory session; prints a one-line handoff notice (no content) |
+| `session-start.cjs` | Starts memory session; prints a one-line handoff notice (no content); writes `~/.kratos/sessions/<id>.json` while keeping keys other hooks store there |
+| `launch.cjs hook edit-gate` | Inline edit gate — reads `inline_god` from the session ledger and denies the edits that belong to a dispatched god (Go: `kratos-dev/go/internal/cli/hook_editgate.go`). Replaced `plan-mode-guard.cjs` in v2.109 |
 | `tool-use.cjs` | Records tool usage |
 | `session-end.cjs` | Ends session with summary |
 | `memory-sweep.cjs` | Once-per-session transcript sweep for durable user facts (see below) |

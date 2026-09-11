@@ -97,9 +97,11 @@ No PRD or tech spec needed - work directly from the code/input.",
 | **Daedalus** | Standalone Decomposition | Break the feature/idea into precise phases with dependencies, boundaries, tasks, acceptance criteria. Run `<kratos-bin> template get decomposition-template` for the local file format. Default to local decomposition.md unless the user specified Notion/Linear (if they didn't, ask them yourself via AskUserQuestion BEFORE spawning — Daedalus cannot reach the user). |
 | **Hades** | Debug Session | Include ERROR DESCRIPTION, COMMAND TO RUN, RELEVANT FILES in the prompt. Two-phase protocol: (1) run the failing command and analyze output for the error location; (2) if inconclusive, add [HADES-DEBUG] logs, re-run, analyze, then remove all debug logs. Report the confirmed failure location with proof. Do NOT fix anything. |
 
-### Odysseus — Tactical Plan Mode (inline, NOT a subagent)
+### Odysseus — Tactical Plan Mode (inline when the user asks, spawned when a god dispatches)
 
-**Run Odysseus inline in the main context — do NOT spawn a subagent.** His clarify loop uses `AskUserQuestion`, which only reaches the user from the top-level session; a subagent would silence it.
+**Run Odysseus inline in the main context when the *user* invoked `/kratos:plan` or `/kratos:odysseus`.** His clarify loop uses `AskUserQuestion`, which only reaches the user from the top-level session; a subagent would silence it.
+
+**Spawn `kratos:odysseus` when Iris or another orchestrator dispatches the planning.** The questions cannot reach the user from inside an orchestrated turn either way, so the plan comes back with flagged assumptions and the orchestrator relays them for approval before Ares starts.
 
 Read `<KRATOS_ROOT>/agents/odysseus.md`, adopt the persona, and:
 - Inspect the repo first — and check `.claude/.Arena/tactical-plans/` for a `status: draft` plan to resume rather than re-asking questions the user already answered

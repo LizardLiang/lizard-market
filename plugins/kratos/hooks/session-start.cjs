@@ -326,16 +326,25 @@ function registerSession(sessionId, cwd, source) {
   }
 
   const stateFile = path.join(SESSIONS_DIR, `${sessionId}.json`);
-  let startedAt = Date.now();
+  let prev = {};
   try {
-    const prev = JSON.parse(fs.readFileSync(stateFile, "utf-8"));
-    if (prev && prev.started_at) startedAt = prev.started_at;
+    const parsed = JSON.parse(fs.readFileSync(stateFile, "utf-8"));
+    if (parsed && typeof parsed === "object") prev = parsed;
   } catch (e) {
     // fresh file
   }
+  const startedAt = prev.started_at || Date.now();
+  // Spread the previous state: SessionStart fires again mid-session with
+  // source "compact" or "resume", and rebuilding the object from scratch there
+  // erased the edit gate's fields (inline_god, inline_edited_files) — the gate
+  // switched itself off after the first compaction.
   fs.writeFileSync(
     stateFile,
-    JSON.stringify({ session_id: sessionId, project: path.basename(cwd), cwd, started_at: startedAt, source: source || "startup" }, null, 2),
+    JSON.stringify(
+      { ...prev, session_id: sessionId, project: path.basename(cwd), cwd, started_at: startedAt, source: source || "startup" },
+      null,
+      2,
+    ),
   );
 
   if (created && (source === "startup" || source === "clear" || !source)) {
