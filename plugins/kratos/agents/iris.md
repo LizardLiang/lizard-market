@@ -103,7 +103,7 @@ If the request spans modes (e.g., "learn X, then note the follow-ups"; a DIG que
 | **Clio** (git history) | sonnet | haiku | opus |
 | **Ananke** (todos, fallback only) | haiku | haiku | sonnet |
 | **Ares** (implementation) | sonnet | haiku | opus |
-| **Odysseus** (tactical plan) | sonnet | sonnet | opus |
+| **Odysseus** (tactical plan) | sonnet | haiku | opus |
 
 ---
 
@@ -135,7 +135,7 @@ If one clarity signal is missing and the rung is Inline or Ares, ask **one** Ask
 - **Land it.** Anything you or Ares changed is committed (see `Landed:` in the Ares protocol and `verify --landed`); "left for your manual check" is not a finished state.
 - **Ticket work ends at the ticket.** For `#N` missions: note (commit hash, files, what to check) on the ticket via the project's todo MCP, then exactly one question — "Mark #N done?".
 - **The user's words are the scope.** Do not narrow a request while writing REQUIREMENTS for Ares; if you must, print the narrowing before spawning.
-- **The edit gate is mechanical.** A PreToolUse gate denies your third distinct source file in a turn. Do not argue with a deny and do not retry it — it is the signal to spawn Ares with the template in the deny message. Documents, `.claude/`, and repeat edits to a file you already touched do not count.
+- **The edit gate is mechanical.** A PreToolUse gate denies your third distinct source file in a turn. Do not argue with a deny and do not retry it — it is the signal to spawn Ares with the template in the deny message. Documents, `.claude/`, and repeat edits to a file you already touched do not count. The gate only ever denies; the first two files are not "approved" by it, they are simply not its business.
 
 ---
 

@@ -36,6 +36,70 @@ func TestPromptSubmit_SkipsExpandedLauncherBody(t *testing.T) {
 	}
 }
 
+// TestIsExpandedLauncherBody pins the three examples the function's own comment
+// uses, including the one it used to get wrong: an unanchored "contains" test
+// classified "what does hooks/launch.cjs do?" as a launcher body, and a real
+// user turn misread as a body keeps the previous turn's spent edit budget and
+// its stand-down flag.
+func TestIsExpandedLauncherBody(t *testing.T) {
+	cases := []struct {
+		name   string
+		prompt string
+		want   bool
+	}{
+		{
+			name:   "the KRATOS_ROOT echo opens a real launcher body",
+			prompt: "!`echo \"KRATOS_ROOT=C:/Users/x/.claude/plugins/cache/lizard-plugins/kratos/2.109.0\"`\n\n!`node \"C:/Users/x/.../hooks/launch.cjs\" agent load iris --resolve`\n\n---\n\nYou ARE Iris for this turn.",
+			want:   true,
+		},
+		{
+			name:   "the launch.cjs load line opens a real launcher body",
+			prompt: "!`node \"C:/Users/x/.claude/plugins/cache/lizard-plugins/kratos/2.109.0/hooks/launch.cjs\" agent load odysseus --resolve --part body`",
+			want:   true,
+		},
+		{
+			name:   "a user question about launch.cjs is a real user turn",
+			prompt: "what does hooks/launch.cjs do?",
+			want:   false,
+		},
+		{
+			name:   "a bare KRATOS_ROOT assignment still opens a body",
+			prompt: "KRATOS_ROOT=C:/x\nplease have hermes review",
+			want:   true,
+		},
+		{
+			name:   "a bare agent load line opens a body",
+			prompt: "agent load iris --resolve",
+			want:   true,
+		},
+		{
+			name:   "a user quoting the load line mid-sentence is a real turn",
+			prompt: "why does the launcher run `agent load iris --resolve` twice?",
+			want:   false,
+		},
+		{
+			name:   "a user pasting a review comment about KRATOS_ROOT is a real turn",
+			prompt: "the docs say plugin paths are written as KRATOS_ROOT=... — is that still true?",
+			want:   false,
+		},
+		{
+			name:   "leading blank lines do not hide the marker",
+			prompt: "\n\n   \n!`echo \"KRATOS_ROOT=C:/x\"`",
+			want:   true,
+		},
+		{
+			name:   "empty prompt",
+			prompt: "",
+			want:   false,
+		},
+	}
+	for _, tc := range cases {
+		if got := isExpandedLauncherBody(tc.prompt); got != tc.want {
+			t.Errorf("%s: isExpandedLauncherBody(%q) = %v, want %v", tc.name, tc.prompt, got, tc.want)
+		}
+	}
+}
+
 // "pass this to ares" already names the god: the hook now hands the model a
 // one-line route instead of forcing a kratos:auto load that ends at the same
 // god (4 of 5 fires in the review did exactly that).

@@ -309,6 +309,24 @@ function pruneSessionFiles() {
   }
 }
 
+// Replace the per-session state file atomically: write a uniquely named temp
+// file beside it, then rename over the target. A reader sees the old file or
+// the new one, never a truncated one. Failures are swallowed — the state file
+// is a discipline aid, and SessionStart must not fail on it.
+function writeStateFile(stateFile, state) {
+  const tmp = `${stateFile}.${process.pid}-${Date.now()}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
+    fs.renameSync(tmp, stateFile);
+  } catch (e) {
+    try {
+      fs.unlinkSync(tmp);
+    } catch (_) {
+      // nothing left to clean up
+    }
+  }
+}
+
 // Register the session in the ledger (idempotent on session_id) and write the
 // per-session state file other hooks read.
 function registerSession(sessionId, cwd, source) {
@@ -338,14 +356,26 @@ function registerSession(sessionId, cwd, source) {
   // source "compact" or "resume", and rebuilding the object from scratch there
   // erased the edit gate's fields (inline_god, inline_edited_files) — the gate
   // switched itself off after the first compaction.
-  fs.writeFileSync(
-    stateFile,
-    JSON.stringify(
-      { ...prev, session_id: sessionId, project: path.basename(cwd), cwd, started_at: startedAt, source: source || "startup" },
-      null,
-      2,
-    ),
-  );
+  //
+  // Temp file then rename, the same discipline as the Go writers of this file
+  // (atomicWriteFile in pipeline.go): a plain writeFileSync truncates first, so
+  // an edit-gate process reading the ledger in that window saw invalid JSON and
+  // silently lost the gate for that call. The temp name ends in .tmp so no
+  // *.json reader can pick it up and `session gc` sweeps an orphan.
+  //
+  // Accepted residual: this is still a read-modify-write, and two writers (this
+  // hook and the Go edit gate) can interleave so the later one overwrites the
+  // earlier one's field. No lock file — the failure direction is fail-open and
+  // the worst case is one extra budget slot for the turn, which is cheaper than
+  // a lock that can be left behind by a killed process.
+  writeStateFile(stateFile, {
+    ...prev,
+    session_id: sessionId,
+    project: path.basename(cwd),
+    cwd,
+    started_at: startedAt,
+    source: source || "startup",
+  });
 
   if (created && (source === "startup" || source === "clear" || !source)) {
     console.log(`Kratos: session ${sessionId.slice(0, 8)} started`);

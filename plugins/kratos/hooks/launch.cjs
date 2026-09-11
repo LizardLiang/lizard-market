@@ -126,6 +126,15 @@ function main() {
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
     });
+    if (res.error) {
+      // The binary could not be started at all (deleted mid-session, EACCES, a
+      // broken PATH entry). One diagnostic line to stderr, empty stdout, exit
+      // 0: a hook that cannot run must never block the tool call, and silence
+      // here is what made the previous failure unexplainable.
+      process.stderr.write(`kratos launch: cannot run ${bin}: ${res.error.message}\n`);
+      process.exitCode = 0;
+      return;
+    }
     const out = res.stdout || '';
     const err = res.stderr || '';
     if (looksLikeCobraHelp(out) || looksLikeCobraHelp(err)) {

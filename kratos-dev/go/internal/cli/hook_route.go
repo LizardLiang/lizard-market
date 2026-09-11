@@ -6,16 +6,22 @@ import (
 	"strings"
 )
 
-// launcherBodyRE recognizes an expanded /kratos:<command> body: the generated
-// launchers echo KRATOS_ROOT and load the agent via hooks/launch.cjs.
-var launcherBodyRE = regexp.MustCompile(`(?i)KRATOS_ROOT=|hooks/launch\.cjs|\bagent load [a-z-]+ --resolve\b`)
+// launcherBodyRE recognizes an expanded /kratos:<command> body by what its
+// opening line *starts with*: the KRATOS_ROOT echo, the hooks/launch.cjs load,
+// or a bare `agent load <god> --resolve`, each optionally behind Claude Code's
+// `!` + backtick command prefix.
+//
+// Anchored, not "contains". An unanchored pattern classified the comment's own
+// counter-example — "what does hooks/launch.cjs do?" — as a launcher body, and
+// a real user turn misread as a body keeps the previous turn's spent edit
+// budget and its stand-down flag.
+var launcherBodyRE = regexp.MustCompile("(?i)^[!`]*\\s*(?:echo\\s+\"?KRATOS_ROOT=|KRATOS_ROOT=|node\\s+\"?[^\"]*hooks/launch\\.cjs|agent load [a-z-]+ --resolve\\b)")
 
 // isExpandedLauncherBody reports whether prompt is a slash-command expansion
-// rather than something the user typed. The marker has to be on the opening
-// line: a launcher body starts with the KRATOS_ROOT echo and the launch.cjs
-// load lines, while a user sentence that merely quotes one of those strings
-// ("what does hooks/launch.cjs do?") is a real user turn — and a real turn
-// misread as a body kept the previous turn's spent edit budget.
+// rather than something the user typed. The marker has to open the first
+// non-empty line: a launcher body starts with the KRATOS_ROOT echo and the
+// launch.cjs load lines, while a user sentence that merely mentions one of
+// those strings ("what does hooks/launch.cjs do?") is a real user turn.
 func isExpandedLauncherBody(prompt string) bool {
 	for _, line := range strings.Split(prompt, "\n") {
 		line = strings.TrimSpace(line)
@@ -36,13 +42,21 @@ var slashGodRE = regexp.MustCompile(`(?i)^\s*/kratos:([a-z-]+)\b`)
 var inlineGodAliases = map[string]string{"plan": "odysseus"}
 
 // gateBypassRE matches the user explicitly handing the work back to the model.
-// Every alternative is an instruction, not a topic: a bare \binline\b matches
-// prose about the gate itself ("the inline gate is broken"), and a bare
-// \byou do\b matched ordinary questions ("can you do a quick review?", "why did
-// you do that?") and switched the gate off for the turn. The instruction shape
-// actually observed — "you do the html part" — opens the prompt, so that one is
-// anchored.
-var gateBypassRE = regexp.MustCompile(`(?i)^\s*you do\b|\byou do it\b|\bdo it yourself\b|\bdo (?:it|this|that) inline\b|\binline it\b`)
+// Every alternative is an instruction, not a topic, and every one of them is
+// anchored to the start of a line.
+//
+// Unanchored alternatives made the stand-down quotable: the gate's own deny
+// message and README.md both contain "do it yourself" verbatim, so pasting
+// either one into the prompt switched the gate off for the turn. A bare
+// \binline\b matches prose about the gate itself ("the inline gate is broken")
+// and a bare \byou do\b matched ordinary questions ("can you do a quick
+// review?", "explain how you do it in the docs").
+//
+// Multi-line, because the instruction is often the last line of a longer
+// prompt. The cost of the anchor is that a mid-sentence stand-down no longer
+// counts ("just do it yourself" needs to be its own line) — an explicit
+// instruction the user can repeat, traded against a bypass anyone can quote.
+var gateBypassRE = regexp.MustCompile(`(?im)^\s*(?:you do\b|do it (?:yourself|inline)\b|do (?:this|that) inline\b|inline it\b)`)
 
 // directRouteGods are the gods a user can address by name and get directly,
 // without the kratos:auto router in between. Odysseus runs inline (plan

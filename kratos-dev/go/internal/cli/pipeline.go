@@ -167,6 +167,7 @@ func atomicWriteFile(dest string, data []byte) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("cannot create directory %s: %w", dir, err)
 	}
+	removeStaleTempSiblings(dir, filepath.Base(dest))
 	f, err := os.CreateTemp(dir, "."+filepath.Base(dest)+"-*.tmp")
 	if err != nil {
 		return fmt.Errorf("cannot create temp file: %w", err)
@@ -177,9 +178,11 @@ func atomicWriteFile(dest string, data []byte) error {
 		os.Remove(tmp)
 		return fmt.Errorf("cannot write temp file: %w", err)
 	}
-	// os.CreateTemp makes the file 0600; the files these writers replace are
-	// world-readable state, not secrets. Done through the open handle so the
-	// rename below is the only operation that touches the name.
+	// os.CreateTemp makes the file 0600. 0644 is deliberate here: status.json,
+	// the session ledger and the review list are world-readable state that
+	// other tools and other users on the machine are meant to read, not
+	// secrets. Done through the open handle so the rename below is the only
+	// operation that touches the name.
 	if err := f.Chmod(0o644); err != nil {
 		debugLog("atomic write: chmod %s: %v", tmp, err)
 	}
@@ -187,11 +190,70 @@ func atomicWriteFile(dest string, data []byte) error {
 		os.Remove(tmp)
 		return fmt.Errorf("cannot close temp file: %w", err)
 	}
-	if err := os.Rename(tmp, dest); err != nil {
+	if err := renameWithRetry(tmp, dest); err != nil {
 		os.Remove(tmp)
 		return fmt.Errorf("cannot rename temp file: %w", err)
 	}
 	return nil
+}
+
+// atomicRenameAttempts and atomicRenameBackoff bound the retry below: five
+// attempts spaced 2, 4, 6 and 8 ms apart, so the worst case adds 20 ms to a
+// write that is going to fail anyway.
+const (
+	atomicRenameAttempts = 5
+	atomicRenameBackoff  = 2 * time.Millisecond
+)
+
+// renameWithRetry replaces dest with src, retrying a transient failure.
+//
+// On Windows os.Rename fails with a sharing violation while any process holds
+// the destination open, and Defender's real-time scanner or the search indexer
+// opens a file within milliseconds of its creation. The failure is invisible
+// where it matters most — recordInlineGod swallows the error, so the edit gate
+// silently keeps reading a stale ledger. A genuine error (a directory in the
+// way, a missing parent) still surfaces after the last attempt.
+func renameWithRetry(src, dest string) error {
+	var err error
+	for attempt := 0; attempt < atomicRenameAttempts; attempt++ {
+		if err = os.Rename(src, dest); err == nil {
+			return nil
+		}
+		time.Sleep(time.Duration(attempt+1) * atomicRenameBackoff)
+	}
+	return err
+}
+
+// atomicTempMaxAge is how long a temp sibling may sit before it is an orphan
+// rather than another writer's work in progress. One hour is far longer than
+// any write here takes and far shorter than the lifetime of the directories
+// these files live in.
+const atomicTempMaxAge = time.Hour
+
+// removeStaleTempSiblings deletes leftover ".<base>-*.tmp" files in dir that a
+// killed writer never renamed. Without it every crashed write left a permanent
+// orphan in .claude/feature/<name>/ — the temp name is random, so nothing ever
+// reused or replaced it. Self-cleaning on the next write, so no sweep command
+// has to know about it. Every error is ignored: this is housekeeping, and it
+// must never turn into a failed write.
+func removeStaleTempSiblings(dir, base string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	prefix := "." + base + "-"
+	cutoff := time.Now().Add(-atomicTempMaxAge)
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, ".tmp") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil || !info.ModTime().Before(cutoff) {
+			continue
+		}
+		os.Remove(filepath.Join(dir, name))
+	}
 }
 
 // now returns the current time in RFC3339 format

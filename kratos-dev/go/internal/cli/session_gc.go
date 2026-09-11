@@ -91,9 +91,11 @@ func sessionLedgerDir() string {
 }
 
 // isSessionLedgerFile reports whether a directory entry belongs to the ledger:
-// a session file, or a temp file a killed writer left behind. Leftovers were
-// never swept before, so every interrupted write leaked a file that stayed in
-// ~/.kratos/sessions forever.
+// a session file, or a temp file a killed writer left behind. The .tmp suffix is
+// here so the manual sweep covers what the automatic one already does:
+// hooks/session-start.cjs pruneSessionFiles deletes every entry in the directory
+// older than 7 days with no extension filter. Without it, `session gc` would
+// leave behind exactly the orphans SessionStart removes.
 func isSessionLedgerFile(name string) bool {
 	return strings.HasSuffix(name, ".json") || strings.HasSuffix(name, ".tmp")
 }

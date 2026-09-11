@@ -24,22 +24,32 @@ import (
 // Everything else fails open: a spawned subagent other than Odysseus, a session
 // with no ledger, an unparseable ledger, no recorded god, a god with no rule, a
 // user who stood the gate down, or any error on any path.
+//
+// The gate emits "deny" or nothing at all — never "allow". A permitted command
+// or edit produces no decision and follows Claude Code's normal permission
+// flow. That is the whole safety margin of the shell classifier: it is a
+// pattern matcher over shell text, and the 2026-09-11 review found three
+// separate ways past it (process substitution, backslash-escaped quotes,
+// unspaced redirects). Under an explicit "allow" each of those ran `rm -rf`
+// with the user's permission prompt skipped; with no "allow" the same miss
+// degrades to the prompt the user would have seen anyway.
 
 // irisFileBudget is the number of distinct project source files Iris may edit
 // herself in one user turn before the work belongs to Ares. Three documents
 // state this number in words — TestDocsPinIrisFileBudget keeps them together.
 const irisFileBudget = 2
 
-// gateResetAgents are the spawn targets that refill the inline budget: work
-// handed to them is no longer the inline god's to do.
+// gateResetAgents are the builder spawn targets. Two things key off them: they
+// refill Iris's inline budget (work handed to them is no longer hers to do),
+// and they end an inline Odysseus's turn, because the plan has left his hands.
+//
+// Deliberately only the builders. Clearing the lock on *any* kratos:<god>
+// dispatch handed Odysseus a one-call escape: a Task(kratos:metis) for
+// grounding — which the planning protocol tells him to run — unlocked the
+// session and let him implement his own plan on the next Write. Without that
+// exit a single /kratos:plan locked the session for life, so the exit stays,
+// narrowed to the dispatch that actually transfers the work.
 var gateResetAgents = regexp.MustCompile(`(?i)^kratos:(?:ares|hades)$`)
-
-// gateKratosAgentRE matches any kratos god as an Agent/Task spawn target.
-// Odysseus's authority lasts exactly one dispatch: handing the plan to a god
-// ends it, so the gate clears inline_god there. Without that exit a single
-// /kratos:plan locked the session for life — a plain user turn ("approve")
-// keeps the recorded god, and every later Write stayed denied.
-var gateKratosAgentRE = regexp.MustCompile(`(?i)^kratos:[a-z-]+$`)
 
 // gateDocExtensions never count against the budget. Iris's own Inline rung
 // already exempts documents; notes, plans and diagrams are her job.
@@ -72,7 +82,14 @@ var gateAbsPathRE = regexp.MustCompile(`^(?:/|[A-Za-z]:/)`)
 // session, and a guard that denies the agent's own inspection commands teaches
 // the agent to route around it.
 var gateReadOnlyCommands = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:status|diff|show|log|branch|rev-parse|ls-files)\b`),
+	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:status|diff|show|log|rev-parse|ls-files)\b`),
+	// `git branch` is its own entry because most of its surface mutates:
+	// -d/-D/--delete drop a branch, -m/-M rename one, -f moves a ref, and a
+	// bare `git branch <name>` creates one. Only the listing forms are
+	// accepted, and only with no trailing operand — `git branch --merged main`
+	// is read-only but denied, an accepted false deny in exchange for a rule
+	// with no way through it.
+	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?branch(?:\s+(?:--list|--show-current|--all|--remotes|--verbose|--merged|--no-merged|-a|-r|-v|-vv|-av|-rv))*\s*$`),
 	regexp.MustCompile(`(?i)^(?:ls|dir|pwd)\b`),
 	regexp.MustCompile(`(?i)^(?:cat|type)\b`),
 	regexp.MustCompile(`(?i)^(?:find|grep|rg)\b`),
@@ -113,17 +130,42 @@ var (
 	// name to test against the kratos allowlist.
 	gateBinArgsRE = regexp.MustCompile(`(?s)^(?:"([^"]+)"|'([^']+)'|(\S+))\s+(.+)$`)
 
-	gateRedirectRE = regexp.MustCompile(`(?i)(^|\s)(?:>>?|Set-Content\b|Add-Content\b|Out-File\b|Remove-Item\b|Move-Item\b|Copy-Item\b|New-Item\b)`)
-	// gateCmdSubstRE spots a command substitution surviving inside a segment:
+	// gateRedirectRE matches a write. The `>` alternative is deliberately
+	// unanchored: requiring `(^|\s)` before it missed every unspaced form the
+	// shell accepts — `ls>out.txt`, `cat foo>>bar`, `git status>out.txt`,
+	// `ls 1>out.txt`, `Get-Content x>y` all passed as reads. It is safe to
+	// match anywhere because the test runs on the *masked* segment, where a
+	// quoted `>` is blanked, and because gateInertRedirectRE has already taken
+	// the stderr plumbing (`2>/dev/null`, `2>&1`) out of the string.
+	gateRedirectRE = regexp.MustCompile(`(?i)>|(^|\s)(?:Set-Content\b|Add-Content\b|Out-File\b|Remove-Item\b|Move-Item\b|Copy-Item\b|New-Item\b)`)
+	// gateInertRedirectRE matches stderr plumbing that creates no file: a
+	// redirect to the null device and any `N>&M` descriptor duplication
+	// (`2>&1`, `1>&2`, `>&2`). It is stripped before the segment split, not
+	// after: the `&` in `2>&1` is a segment separator, so `ls 2>&1 | grep x`
+	// would otherwise be cut into `ls 2`, `1 ` and ` grep x` and denied.
+	gateInertRedirectRE = regexp.MustCompile(`(?i)\s*\d?>\s*(?:/dev/null|nul)\b|\s*\d?>&\d`)
+	// gateCmdSubstRE spots a substitution surviving inside a segment:
 	// `cat $(rm -rf build)` has a reader at its head and is still a mutation.
-	gateCmdSubstRE = regexp.MustCompile("\\$\\(|`")
+	// `<(` and `>(` are process substitution, the same hole in bash clothing —
+	// `cat <(rm -rf build)`, `sed -n 1p <(rm -rf build)` and
+	// `git log --format=%h <(rm -rf b)` all ran the inner command while the
+	// pattern matched only `$(` and a backtick.
+	gateCmdSubstRE = regexp.MustCompile("\\$\\(|`|<\\(|>\\(")
 	// gateInPlaceFlagRE matches an in-place flag anywhere in a sed invocation:
 	// `sed -n -i`, `sed --quiet -i` and `sed --in-place` all edit the file. The
 	// leading (^|\s) is what keeps `--quiet` (which contains an "i") out of the
 	// short-flag alternative.
 	gateInPlaceFlagRE = regexp.MustCompile(`(?i)(?:^|\s)(?:-[a-z]*i[a-z]*|--in-place)\b`)
-	// gateFindActionRE matches the find actions that delete or run a program.
-	gateFindActionRE = regexp.MustCompile(`(?i)(?:^|\s)-(?:delete|exec|execdir|ok|okdir)\b`)
+	// gateFindActionRE matches the find actions that delete, run a program, or
+	// write a file. The -fprint family is easy to miss: `find . -fprintf out
+	// "%p"` needs no shell redirect to create a file.
+	//
+	// Accepted residual: `sed 's/a/b/w out.txt'` writes a file from inside the
+	// sed script, and so does `sed -n '1p;w out.txt'`. Catching it needs a sed
+	// script parser, which this gate deliberately does not build — the miss
+	// costs a permission prompt, not an unattended write, because the gate
+	// never returns "allow".
+	gateFindActionRE = regexp.MustCompile(`(?i)(?:^|\s)-(?:delete|exec|execdir|ok|okdir|fprintf|fprint0|fprint|fls)\b`)
 	// gateFollowFlagRE matches `tail -f`/`-F`/`--follow`, which never returns
 	// and would hang the tool call until its timeout.
 	gateFollowFlagRE = regexp.MustCompile(`(?i)(?:^|\s)(?:-[a-z]*f[a-z]*|--follow)\b`)
@@ -135,10 +177,12 @@ const odysseusWriteDenyReason = "Odysseus plans, Ares builds — save the plan, 
 
 const odysseusBashDenyReason = "Odysseus plan mode may only run read-only inspection commands. Write the command into the plan for Ares to run instead of running it now."
 
-// editGateResult is one gate verdict. Decision "" means no output at all: the tool
-// call goes through Claude Code's normal permission flow untouched.
+// editGateResult is one gate verdict. Decision "" means no output at all: the
+// tool call goes through Claude Code's normal permission flow untouched, which
+// is what every non-deny verdict produces. "allow" is not a value this gate
+// ever sets — see the contract note at the top of the file.
 type editGateResult struct {
-	Decision string // "", "allow", "deny"
+	Decision string // "" (no decision) or "deny"
 	Reason   string
 	// Files is the new inline_edited_files value. nil means "do not write";
 	// an empty non-nil slice clears the list.
@@ -174,7 +218,7 @@ func handleEditGate(raw []byte) {
 	}
 
 	var ledger map[string]any
-	if input.SessionID != "" {
+	if gateNeedsLedger(input) {
 		m, err := readInlineLedger(input.SessionID)
 		if err != nil {
 			debugLog("edit-gate: no readable ledger for %s: %v", input.SessionID, err)
@@ -214,6 +258,32 @@ func handleEditGate(raw []byte) {
 	fmt.Println(string(data))
 }
 
+// gateIsSpawned reports whether the payload came from a spawned subagent.
+// agent_type and agent_id are the only subagent-only keys (verified on real
+// payloads, 2026-09-11); a top-level subagent_type is not one of them, and
+// keying on it would hand a free pass to anything that sets it.
+func gateIsSpawned(input preToolUseInput) bool {
+	return input.AgentType != "" || input.AgentID != ""
+}
+
+// gateNeedsLedger reports whether the verdict can depend on the session ledger.
+// A spawned subagent that is not Odysseus is decided by the payload alone, and
+// that is the hot path — every Ares edit and every Ares Bash call passes
+// through this hook — so it must not pay for a file read it cannot use.
+func gateNeedsLedger(input preToolUseInput) bool {
+	if input.SessionID == "" {
+		return false
+	}
+	if gateIsSpawned(input) {
+		return gateIsSpawnedOdysseus(input)
+	}
+	return true
+}
+
+func gateIsSpawnedOdysseus(input preToolUseInput) bool {
+	return strings.Contains(strings.ToLower(input.AgentType), "odysseus")
+}
+
 // editGateDecision is the whole policy, as a pure function of the payload and
 // the ledger, so the table test can exercise every branch in process.
 func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResult {
@@ -223,9 +293,9 @@ func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResu
 	//    is agent_type/agent_id, which only a spawned payload carries; a
 	//    top-level subagent_type is not part of that payload, and keying on it
 	//    hands a free pass to anything that sets one.
-	if input.AgentType != "" || input.AgentID != "" {
-		if strings.Contains(strings.ToLower(input.AgentType), "odysseus") {
-			return odysseusGate(input)
+	if gateIsSpawned(input) {
+		if gateIsSpawnedOdysseus(input) {
+			return odysseusGate(input, ledger)
 		}
 		return editGateResult{}
 	}
@@ -240,16 +310,20 @@ func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResu
 
 	// 3. Dispatch. Read the target from this payload rather than from the
 	//    agent_spawn table: it is synchronous, ordered, and keeps the DB out of
-	//    a per-edit hot path. Two things happen here — a builder refills the
-	//    budget, and handing the work to any god ends Odysseus's turn.
+	//    a per-edit hot path. Only a dispatch to a builder counts — it refills
+	//    Iris's budget, and it ends an inline Odysseus's turn. A research or
+	//    review spawn (kratos:metis for grounding, kratos:hermes for a read)
+	//    changes neither: the work is still the inline god's.
 	if input.ToolName == "Agent" || input.ToolName == "Task" {
 		target := strings.TrimSpace(input.ToolInput.SubagentType)
 		res := editGateResult{}
-		if gateResetAgents.MatchString(target) && len(ledgerStrings(ledger, ledgerKeyEditedFiles)) > 0 {
-			res.Files = []string{}
-		}
-		if god == "odysseus" && gateKratosAgentRE.MatchString(target) {
-			res.ClearGod = true
+		if gateResetAgents.MatchString(target) {
+			if len(ledgerStrings(ledger, ledgerKeyEditedFiles)) > 0 {
+				res.Files = []string{}
+			}
+			if god == "odysseus" {
+				res.ClearGod = true
+			}
 		}
 		return res
 	}
@@ -268,7 +342,7 @@ func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResu
 	// 6. The per-god rules. Any other god has none: fail open.
 	switch god {
 	case "odysseus":
-		return odysseusGate(input)
+		return odysseusGate(input, ledger)
 	case "iris":
 		return irisGate(input, ledger)
 	}
@@ -276,7 +350,21 @@ func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResu
 }
 
 // odysseusGate keeps the planner on planning artifacts and read-only shell.
-func odysseusGate(input preToolUseInput) editGateResult {
+//
+// It denies or says nothing. A tactical-plan write, a spec-delta write and a
+// read-only command all return no decision and fall through to Claude Code's
+// normal permission flow — see the contract note at the top of the file for
+// why an explicit "allow" is not worth its failure mode.
+func odysseusGate(input preToolUseInput, ledger map[string]any) editGateResult {
+	// The payload's cwd is the containment root; the ledger's cwd is the
+	// fallback, exactly as in irisGate. Without it a payload with an empty cwd
+	// turned isUnderGateCwd into a no-op and any absolute path containing
+	// ".claude/.Arena/tactical-plans/" passed the plan test.
+	cwd := input.Cwd
+	if cwd == "" {
+		cwd = ledgerString(ledger, ledgerKeyCwd)
+	}
+
 	switch input.ToolName {
 	case "Write", "Edit", "MultiEdit", "NotebookEdit":
 		p := input.ToolInput.targetPath()
@@ -286,20 +374,14 @@ func odysseusGate(input preToolUseInput) editGateResult {
 			debugLog("edit-gate: %s payload carries no file path", input.ToolName)
 			return editGateResult{}
 		}
-		if isTacticalPlanPath(p, input.Cwd) {
-			return editGateResult{Decision: "allow", Reason: "Odysseus may write tactical plan markdown files."}
-		}
-		if isSpecDeltaGatePath(p, input.Cwd) {
-			return editGateResult{Decision: "allow", Reason: "Odysseus may write the pending spec delta."}
+		if isTacticalPlanPath(p, cwd) || isSpecDeltaGatePath(p, cwd) {
+			return editGateResult{}
 		}
 		return editGateResult{Decision: "deny", Reason: odysseusWriteDenyReason}
 	case "Bash":
 		c := input.ToolInput.Command
-		if isReadOnlyKratosCommand(c) {
-			return editGateResult{Decision: "allow", Reason: "Odysseus may run read-only kratos subcommands."}
-		}
-		if isReadOnlyShellCommand(c) {
-			return editGateResult{Decision: "allow", Reason: "Odysseus may run read-only inspection commands."}
+		if isReadOnlyKratosCommand(c) || isReadOnlyShellCommand(c) {
+			return editGateResult{}
 		}
 		return editGateResult{Decision: "deny", Reason: odysseusBashDenyReason}
 	}
@@ -346,7 +428,13 @@ func irisGate(input preToolUseInput, ledger map[string]any) editGateResult {
 }
 
 // irisDenyReason carries the spawn template verbatim so the model can act on it
-// without reading commands/quick.md first.
+// without reading commands/quick.md first. TestAresSpawnTemplateMatchesQuickMd
+// keeps it in step with commands/quick.md, the copy it duplicates.
+//
+// The closing sentence is line-broken mid-phrase on purpose: gateBypassRE is
+// multi-line anchored, so a stand-down phrase that *opens* a line grants the
+// bypass. With "do it yourself" at the head of its own line, a user pasting
+// this very message back into the prompt would switch the gate off.
 func irisDenyReason(files []string, cwd string) string {
 	shown := make([]string, 0, len(files))
 	root := normalizeLedgerPath(cwd) + "/"
@@ -366,8 +454,8 @@ REQUIREMENTS: <your reading of the request>
 ORIGINAL_USER_REQUEST: <the user's words, verbatim — the scope contract>
 TICKET: <#N or none>
 Before any edit, follow your INTENTION protocol. No PRD or tech spec needed.")
-Already edited this turn: ` + strings.Join(shown, ", ") + `. If the user explicitly tells you to
-do it yourself, they can say so and the gate stands down for that turn.`
+Already edited this turn: ` + strings.Join(shown, ", ") + `. If the user explicitly tells you to do it
+yourself, they can say so and the gate stands down for that turn.`
 }
 
 // gateSlashPath normalizes separators without touching case: the plan-path test
@@ -491,9 +579,20 @@ type shellSegment struct {
 // still expand, so those survive the mask and keep `"$(rm -rf build)"`
 // detectable. An unbalanced quote leaves the remainder unmasked — the stricter
 // reading.
+//
+// A backslash escapes the byte after it, and that byte is never a delimiter.
+// Treating `\"` as an opening quote was a way straight through the gate:
+// `ls \"a ; rm -rf build \"z` has no quoted span at all (the shell sees two
+// literal quote characters), but the mask read `"a ; rm -rf build "` as one
+// quoted argument, blanked the `;` inside it, and classified the whole line as
+// a single `ls` segment.
 func maskQuoted(s string) string {
 	out := []byte(s)
 	for i := 0; i < len(out); {
+		if out[i] == '\\' {
+			i += 2
+			continue
+		}
 		q := out[i]
 		if q != '"' && q != '\'' {
 			i++
@@ -501,23 +600,37 @@ func maskQuoted(s string) string {
 		}
 		j := i + 1
 		for j < len(out) && out[j] != q {
+			// Only double quotes honour a backslash escape; inside single
+			// quotes a backslash is an ordinary character in every shell.
+			if q == '"' && out[j] == '\\' {
+				j += 2
+				continue
+			}
 			j++
 		}
 		if j >= len(out) {
 			break
 		}
 		for k := i + 1; k < j; k++ {
-			if q == '"' {
-				switch out[k] {
-				case '$', '`', '(', ')':
-					continue
-				}
+			if q == '"' && survivesDoubleQuotes(out[k]) {
+				continue
 			}
 			out[k] = 'x'
 		}
 		i = j + 1
 	}
 	return string(out)
+}
+
+// survivesDoubleQuotes reports whether a byte keeps its shell meaning inside a
+// double-quoted span. `$`, a backtick and the parentheses of a substitution
+// still expand there, so the mask must leave them readable.
+func survivesDoubleQuotes(b byte) bool {
+	switch b {
+	case '$', '`', '(', ')':
+		return true
+	}
+	return false
 }
 
 // splitShellSegments cuts a command on the separators a shell honours (`&&`,
@@ -548,8 +661,12 @@ func splitShellSegments(command string) []shellSegment {
 // draft-plan discovery commands/plan.md mandates — because the *path* said
 // "move", while checking only the prefix allowed `git status && go build -o out
 // ./...`.
+//
+// Inert stderr plumbing comes out first, before the split: `2>&1` contains a
+// segment separator, so `git status 2>&1 | head -20` was cut at the `&` and
+// denied on a fragment that was never a command.
 func isReadOnlyShellCommand(command string) bool {
-	trimmed := strings.TrimSpace(command)
+	trimmed := strings.TrimSpace(gateInertRedirectRE.ReplaceAllString(command, " "))
 	if trimmed == "" {
 		return true
 	}

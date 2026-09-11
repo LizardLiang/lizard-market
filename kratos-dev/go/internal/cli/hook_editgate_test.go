@@ -57,12 +57,18 @@ func irisWrite(file string) string {
 // Odysseus), the five false denies that guard produced, Iris's per-turn file
 // budget, and every fail-open path — including the regression that matters
 // most, a spawned Ares under an exhausted Iris budget.
+//
+// Every case named "…allowed" expects want "" — no decision. The gate never
+// emits "allow" (see the contract note in hook_editgate.go), so "permitted"
+// and "fail open" are the same output here; TestGateNeverAllows pins that as a
+// property over the whole table, and TestOdysseusBashClassification keeps the
+// discrimination by asking the classifier directly.
 func TestEditGateDecisions(t *testing.T) {
 	cases := []struct {
 		name           string
 		payload        string
 		ledger         map[string]any
-		want           string   // "allow", "deny", or "" for no decision (fail open)
+		want           string   // "deny", or "" for no decision (permitted or fail open)
 		wantFiles      []string // expected inline_edited_files write, nil for no write
 		wantWrite      bool
 		wantClear      bool // expected inline_god clear
@@ -72,17 +78,17 @@ func TestEditGateDecisions(t *testing.T) {
 		{
 			name:    "draft plan write allowed",
 			payload: odysseusPayload("Write", map[string]any{"file_path": ".claude/.Arena/tactical-plans/2026-07-28-thing.md"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "per-answer edit of the draft allowed",
 			payload: odysseusPayload("Edit", map[string]any{"file_path": "C:/repo/.claude/.Arena/tactical-plans/2026-07-28-thing.md"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "spec delta write allowed",
 			payload: odysseusPayload("Write", map[string]any{"file_path": ".claude/feature/2026-07-28-thing/spec-delta/planning.md"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			// `kratos spec archive` moves promoted deltas into spec-delta/archived/.
@@ -107,22 +113,22 @@ func TestEditGateDecisions(t *testing.T) {
 			// the stderr redirect and the `|| date` fallback are inert.
 			name:    "protocol timestamp fallback allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `TS=$(kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "session active allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `"C:/Users/x/.kratos/bin/kratos.exe" session active "C:/repo"`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "pipeline get allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "kratos pipeline get --compact --feature x"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "memory list allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "~/.kratos/bin/kratos memory list --limit 40"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "non-date fallback denied",
@@ -140,17 +146,17 @@ func TestEditGateDecisions(t *testing.T) {
 			// after it.
 			name:    "slug mint with a mutating word in the title allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `kratos slug --dated "move the sidebar"`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "quoted absolute binary path allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `"C:/Program Files/kratos/kratos.exe" spec validate my-slug`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "template get allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "~/.kratos/bin/kratos template get spec-delta-template"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "chained command after an allowed kratos prefix denied",
@@ -165,7 +171,7 @@ func TestEditGateDecisions(t *testing.T) {
 		{
 			name:    "timestamp subcommand allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "kratos now"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "spec archive denied",
@@ -185,7 +191,7 @@ func TestEditGateDecisions(t *testing.T) {
 		{
 			name:    "read-only git allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "git status"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "non-odysseus agents unaffected",
@@ -196,34 +202,34 @@ func TestEditGateDecisions(t *testing.T) {
 		{
 			name:    "sed range read allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `sed -n '1,20p' main.go`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "head allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "head -50 internal/cli/hook.go"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "tail allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "tail -20 build.log"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "wc allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "wc -l agents/iris.md"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "git -C read-only allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "git -C C:/repo status"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			// The agent protocol mandates these calls for every agent; the JS
 			// guard denied Odysseus his own ledger write.
 			name:    "step record-agent allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `kratos step record-agent "sess-1" odysseus sonnet "plan the gate" --project "C:/repo"`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			// Widening the allowlist must not widen it to writes.
@@ -247,7 +253,7 @@ func TestEditGateDecisions(t *testing.T) {
 			name:    "inline odysseus plan write allowed",
 			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Write", "tool_input": map[string]any{"file_path": "C:/repo/.claude/.Arena/tactical-plans/x.md"}}),
 			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
-			want:    "allow",
+			want:    "",
 		},
 		// ---- Iris budget ----
 		{
@@ -423,11 +429,29 @@ func TestEditGateDecisions(t *testing.T) {
 			wantClear: true,
 		},
 		{
-			name:      "dispatching to any kratos god clears inline odysseus",
-			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Task", "tool_input": map[string]any{"subagent_type": "kratos:hermes"}}),
+			name:      "dispatching to hades clears inline odysseus",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Task", "tool_input": map[string]any{"subagent_type": "kratos:hades"}}),
 			ledger:    map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
 			want:      "",
 			wantClear: true,
+		},
+		{
+			// Only a builder takes the work. Clearing on any kratos:<god> made
+			// the lock a one-call escape: Odysseus's own protocol tells him to
+			// spawn kratos:metis for grounding, and that spawn unlocked the
+			// session for the rest of the turn.
+			name:      "dispatching to metis for grounding does not clear inline odysseus",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Task", "tool_input": map[string]any{"subagent_type": "kratos:metis"}}),
+			ledger:    map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:      "",
+			wantClear: false,
+		},
+		{
+			name:      "dispatching to hermes for a review does not clear inline odysseus",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Task", "tool_input": map[string]any{"subagent_type": "kratos:hermes"}}),
+			ledger:    map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:      "",
+			wantClear: false,
 		},
 		{
 			name:      "a non-kratos spawn does not clear odysseus",
@@ -452,22 +476,22 @@ func TestEditGateDecisions(t *testing.T) {
 			// this way; a whole-string scan for \bmove\b denied it.
 			name:    "reading a plan whose name contains a mutation word allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "cat .claude/.Arena/tactical-plans/2026-09-11-move-sidebar.md"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "grep for a mutation word allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `grep -rn "move" src/`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "reading a file named mv.ts allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "cat src/mv.ts"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "git log of a commit that mentions a rename allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `git log --oneline --grep "rm the old path"`}),
-			want:    "allow",
+			want:    "",
 		},
 		// ---- chained commands behind a read-only head (allowed before) ----
 		{
@@ -488,12 +512,12 @@ func TestEditGateDecisions(t *testing.T) {
 		{
 			name:    "two readers chained allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "git status && ls -la"}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "reader piped into a reader allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `grep -rn "gate" . | head -20`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			// A newline separates commands as surely as `;` does; without CR/LF
@@ -523,17 +547,17 @@ func TestEditGateDecisions(t *testing.T) {
 			// free text: a metacharacter test over the raw string denied it.
 			name:    "record-agent with an ampersand in the description allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `kratos step record-agent "sess-1" odysseus sonnet "auth & billing split" --project "C:/repo"`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "slug title with a semicolon allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `kratos slug --dated "fix the header; then ship"`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "grep pattern with a pipe allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `grep -rn "a|b" src/`}),
-			want:    "allow",
+			want:    "",
 		},
 		// ---- per-segment guards ----
 		{
@@ -549,7 +573,7 @@ func TestEditGateDecisions(t *testing.T) {
 		{
 			name:    "sed quiet read allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `sed --quiet '1,20p' main.go`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "find -delete denied",
@@ -564,7 +588,7 @@ func TestEditGateDecisions(t *testing.T) {
 		{
 			name:    "find -name allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": `find . -name "*.go"`}),
-			want:    "allow",
+			want:    "",
 		},
 		{
 			name:    "tail -f denied",
@@ -574,7 +598,7 @@ func TestEditGateDecisions(t *testing.T) {
 		{
 			name:    "tail -n allowed",
 			payload: odysseusPayload("Bash", map[string]any{"command": "tail -n 20 build.log"}),
-			want:    "allow",
+			want:    "",
 		},
 		// ---- path shapes (W1, W5) ----
 		{
@@ -823,6 +847,23 @@ func TestEditGateMultiTurnOdysseusHandoff(t *testing.T) {
 	}
 	if !writeDenied("C:/repo/src/a.ts") {
 		t.Fatal("source write after approval was not denied")
+	}
+
+	// A research spawn is not a hand-off. Odysseus's own protocol tells him to
+	// dispatch kratos:metis for grounding, and while *any* kratos:<god>
+	// cleared the lock that call was a one-step escape: the next Write went
+	// through and the planner implemented his own plan.
+	captureStdout(func() {
+		handleEditGate([]byte(payloadJSON(map[string]any{
+			"session_id": sessionID, "cwd": cwd, "tool_name": "Task",
+			"tool_input": map[string]any{"subagent_type": "kratos:metis"},
+		})))
+	})
+	if got := ledgerString(readLedgerFor(t, sessionID), ledgerKeyInlineGod); got != "odysseus" {
+		t.Fatalf("a kratos:metis grounding spawn cleared inline_god (= %q); the planner would implement his own plan", got)
+	}
+	if !writeDenied("C:/repo/src/a.ts") {
+		t.Fatal("source write after a grounding spawn was not denied")
 	}
 
 	// The hand-off — the plan leaves his hands, and so does his authority.

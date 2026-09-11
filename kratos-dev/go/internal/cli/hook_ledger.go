@@ -173,17 +173,16 @@ func inlineGodFromPrompt(prompt string) string {
 	return ""
 }
 
-// isEmbeddedGod reports whether name has an agent definition in the embedded FS.
+// isEmbeddedGod reports whether name has an agent definition in the embedded
+// FS. ReadFile rather than Open+Close, which is how agent.go reads the same FS;
+// an embedded read is a slice of a byte array already in the binary, so there
+// is no I/O to save by not reading it.
 func isEmbeddedGod(name string) bool {
 	if name == "" {
 		return false
 	}
-	f, err := agentsFS.Open("agents/" + name + ".md")
-	if err != nil {
-		return false
-	}
-	f.Close()
-	return true
+	_, err := agentsFS.ReadFile("agents/" + name + ".md")
+	return err == nil
 }
 
 // isUserTurnPrompt reports whether the prompt is text the user typed, as

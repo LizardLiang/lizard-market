@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -28,11 +29,23 @@ const (
 	ledgerKeyCwd = "cwd"
 )
 
+// sessionIDRE is the character set a Claude Code session id may use. It is
+// enforced before the id reaches filepath.Join: the id arrives from a hook
+// payload, and one of "../../../evil" would otherwise escape ~/.kratos/sessions
+// and make the gate read — and rewrite — an arbitrary file. Precedent:
+// featureNameRE in check.go, which guards --feature the same way.
+var sessionIDRE = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
 // sessionLedgerFile is the ledger path for one Claude Code session id, or ""
-// when the home dir or the id is unknown.
+// when the home dir is unknown or the id is not a safe file name. A rejected id
+// yields no path, and every caller treats a missing path as fail-open.
 func sessionLedgerFile(sessionID string) string {
 	dir := sessionLedgerDir()
 	if dir == "" || sessionID == "" {
+		return ""
+	}
+	if filepath.Base(sessionID) != sessionID || !sessionIDRE.MatchString(sessionID) {
+		debugLog("ledger: rejected session id %q as a file name", sessionID)
 		return ""
 	}
 	return filepath.Join(dir, sessionID+".json")

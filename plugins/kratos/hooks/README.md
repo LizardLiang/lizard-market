@@ -26,7 +26,7 @@ The plugin registers hooks via `hooks.json`. Claude Code automatically loads the
 |------|---------|--------|
 | `UserPromptSubmit` | Every prompt | Detects Kratos god keywords (skill activation) and resume phrases (on-demand session-handoff injection, once per session — see below) |
 | `SessionStart` | Claude Code starts | Creates memory session; prints a one-line notice if a fresh handoff exists (content stays on-demand, not injected here). Preserves the edit gate's ledger keys across compaction/resume |
-| `PreToolUse` | Write/Edit/MultiEdit/NotebookEdit/Bash/Agent/Task | Inline edit gate (`hook edit-gate`): denies source edits the inline god should dispatch — Odysseus to plans and spec deltas, Iris to two source files per turn — and auto-corrects `npm` to the project's package manager (`hook fix-pm`) |
+| `PreToolUse` | Write/Edit/MultiEdit/NotebookEdit/Bash/Agent/Task | Inline edit gate (`hook edit-gate`): denies source edits the inline god should dispatch — Odysseus to plans and spec deltas, Iris to two source files per turn — and auto-corrects `npm` to the project's package manager (`hook fix-pm`). The gate only ever denies: a permitted call gets no decision and keeps Claude Code's normal permission prompt, so a classifier miss costs a prompt rather than an unattended `rm -rf` |
 | `PostToolUse` | Task/Write/Edit tools | Records agent spawns & file changes |
 | `Stop` | Claude Code exits | Ends session with summary, then runs the transcript memory sweep |
 

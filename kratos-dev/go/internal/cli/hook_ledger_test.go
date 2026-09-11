@@ -293,9 +293,13 @@ func TestPromptSubmitRecordsInlineGod(t *testing.T) {
 	})
 }
 
-// TestGateBypassPhrases pins the stand-down regex. A bare \byou do\b matched
-// ordinary questions and switched the gate off for the turn; every phrase below
-// is either an instruction (bypass) or prose about one (no bypass).
+// TestGateBypassPhrases pins the stand-down regex. Two failure modes are
+// pinned here. A bare \byou do\b matched ordinary questions and switched the
+// gate off for the turn. And unanchored alternatives made the stand-down
+// *quotable*: the gate's own deny message and README.md both contain "do it
+// yourself" verbatim, so pasting either one back into the prompt disabled the
+// gate. Every phrase below is either an instruction at the head of a line
+// (bypass) or prose that merely contains one (no bypass).
 func TestGateBypassPhrases(t *testing.T) {
 	cases := []struct {
 		prompt string
@@ -303,14 +307,25 @@ func TestGateBypassPhrases(t *testing.T) {
 	}{
 		{"you do the html part", true},
 		{"You do it, faster than explaining", true},
-		{"just do it yourself", true},
+		{"do it yourself", true},
 		{"do this inline please", true},
 		{"inline it, it is two lines", true},
+		// The instruction is often the last line of a longer prompt.
+		{"the diff is tiny and ares is overkill here\nyou do it", true},
 		{"can you do a quick review?", false},
 		{"why did you do that?", false},
 		{"how do you do the release here?", false},
 		{"the way you do these reviews is fine, keep it", false},
 		{"the inline gate is broken, look into it", false},
+		// Prose that quotes the stand-down. Both strings ship in the product:
+		// the first is the shape of a question about the docs, the second is
+		// README.md's own sentence about the gate.
+		{"explain how you do it in the docs", false},
+		{"the readme says 'do it yourself' somewhere", false},
+		{`Saying "you do it", "do it yourself" or "inline it" stands the gate down for that turn.`, false},
+		// The anchor's cost, pinned so it is a decision and not a surprise: a
+		// mid-sentence stand-down no longer counts.
+		{"just do it yourself", false},
 		{"", false},
 	}
 	for _, tc := range cases {
