@@ -179,13 +179,13 @@ The edit gate (`kratos hook edit-gate`, v2.109) keeps the god running **inline i
 
 | Inline god | Rule |
 |------------|------|
-| **Odysseus** (`/kratos:plan`, `/kratos:odysseus`) | `Write` / `Edit` / `MultiEdit` only to `.claude/.Arena/tactical-plans/*.md` and `.claude/feature/<slug>/spec-delta/<capability>.md`. `Bash` limited to read-only inspection (`git status`, `sed -n`, `head`, `grep`, …) and read-only `kratos` subcommands (`slug`, `now`, `template get`, `spec validate`, `step record-agent`, …). |
+| **Odysseus** (`/kratos:plan`, `/kratos:odysseus`) | `Write` / `Edit` / `MultiEdit` / `NotebookEdit` only to `.claude/.Arena/tactical-plans/*.md` and `.claude/feature/<slug>/spec-delta/<capability>.md`, both resolved against `cwd` so a `..` path cannot escape. `Bash` limited to read-only inspection (`git status`, `sed -n`, `head`, `grep`, …) and read-only `kratos` subcommands (`slug`, `now`, `template get`, `spec validate`, `step record-agent`, …). Every segment of a chained line is classified, not just the prefix, and quoted arguments are inert. |
 | **Iris** (`/kratos:iris`) | At most **two distinct project source files per user turn**; the third is denied with the `kratos:ares` spawn template. Documents (`.md`, `.drawio`, `.pptx`, …), `.claude/` and `.kratos/` bookkeeping, agent scratchpads, and repeat edits to an already-counted file do not count. `Bash` is never gated. |
 | **Every other case** | No decision — the gate fails open. |
 
-The budget refills on every new user prompt and whenever the inline god spawns `kratos:ares` or `kratos:hades`. Saying "you do it" or "do it yourself" stands the gate down for that turn.
+Iris's budget refills on every new user prompt and whenever she spawns `kratos:ares` or `kratos:hades`. Odysseus's rule ends at the hand-off instead: dispatching to any `kratos:` god clears the recorded god, because the plan has left his hands. A plain user turn does **not** clear it — "approve" is a plain turn, and the planner implementing his own approved plan is the failure this gate exists to stop. Saying "you do it", "do it yourself" or "inline it" stands the gate down for that turn; a question that merely contains those words ("can you do a quick review?") does not.
 
-Fail-open means exactly that: a payload from a spawned subagent other than Odysseus (so **Ares is never gated**), a session with no ledger, an unreadable ledger, no recorded god, a god with no rule, or any error produces no output at all.
+Fail-open means exactly that: a payload from a spawned subagent other than Odysseus (so **Ares is never gated**), a session with no ledger, an unreadable ledger, no recorded god, a god with no rule, a payload with no recognizable file path, or any error produces no output at all.
 
 Intercepts every `Bash` tool call containing `npm` and rewrites it to the project's actual package manager, detected from lockfiles in the project root:
 

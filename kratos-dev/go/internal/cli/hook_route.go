@@ -11,17 +11,21 @@ import (
 var launcherBodyRE = regexp.MustCompile(`(?i)KRATOS_ROOT=|hooks/launch\.cjs|\bagent load [a-z-]+ --resolve\b`)
 
 // isExpandedLauncherBody reports whether prompt is a slash-command expansion
-// rather than something the user typed.
+// rather than something the user typed. The marker has to be on the opening
+// line: a launcher body starts with the KRATOS_ROOT echo and the launch.cjs
+// load lines, while a user sentence that merely quotes one of those strings
+// ("what does hooks/launch.cjs do?") is a real user turn — and a real turn
+// misread as a body kept the previous turn's spent edit budget.
 func isExpandedLauncherBody(prompt string) bool {
-	return launcherBodyRE.MatchString(prompt)
+	for _, line := range strings.Split(prompt, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		return launcherBodyRE.MatchString(line)
+	}
+	return false
 }
-
-// inlineGodRE pulls the god out of an expanded launcher body. Claude Code
-// 2.1.268 delivers the literal `/kratos:<command>` text to UserPromptSubmit
-// instead of the expansion (verified 2026-09-11 with a payload probe), so
-// slashGodRE below is the path that fires in practice — this one is kept
-// because isExpandedLauncherBody shows other harness versions do send bodies.
-var inlineGodRE = regexp.MustCompile(`(?i)\bagent load ([a-z-]+) --resolve\b`)
 
 // slashGodRE matches the launcher invocation as the user types it.
 var slashGodRE = regexp.MustCompile(`(?i)^\s*/kratos:([a-z-]+)\b`)
@@ -32,9 +36,13 @@ var slashGodRE = regexp.MustCompile(`(?i)^\s*/kratos:([a-z-]+)\b`)
 var inlineGodAliases = map[string]string{"plan": "odysseus"}
 
 // gateBypassRE matches the user explicitly handing the work back to the model.
-// Deliberately narrower than a bare \binline\b, which matches ordinary prose
-// about the gate itself ("the inline gate is broken") and would switch it off.
-var gateBypassRE = regexp.MustCompile(`(?i)\byou do\b|\bdo it yourself\b|\bdo (?:it|this|that) inline\b|\binline it\b`)
+// Every alternative is an instruction, not a topic: a bare \binline\b matches
+// prose about the gate itself ("the inline gate is broken"), and a bare
+// \byou do\b matched ordinary questions ("can you do a quick review?", "why did
+// you do that?") and switched the gate off for the turn. The instruction shape
+// actually observed — "you do the html part" — opens the prompt, so that one is
+// anchored.
+var gateBypassRE = regexp.MustCompile(`(?i)^\s*you do\b|\byou do it\b|\bdo it yourself\b|\bdo (?:it|this|that) inline\b|\binline it\b`)
 
 // directRouteGods are the gods a user can address by name and get directly,
 // without the kratos:auto router in between. Odysseus runs inline (plan

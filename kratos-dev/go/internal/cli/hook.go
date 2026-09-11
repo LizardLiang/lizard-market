@@ -154,20 +154,32 @@ type subagentStopOutput struct {
 // 2026-09-11; without it the gate would count a subagent's edits against the
 // inline god's budget.
 type preToolUseInput struct {
-	ToolName     string              `json:"tool_name"`
-	ToolInput    preToolUseToolInput `json:"tool_input"`
-	SessionID    string              `json:"session_id"`
-	Cwd          string              `json:"cwd"`
-	AgentType    string              `json:"agent_type"`
-	SubagentType string              `json:"subagent_type"`
+	ToolName  string              `json:"tool_name"`
+	ToolInput preToolUseToolInput `json:"tool_input"`
+	SessionID string              `json:"session_id"`
+	Cwd       string              `json:"cwd"`
+	AgentType string              `json:"agent_type"`
+	AgentID   string              `json:"agent_id"`
 }
 
 type preToolUseToolInput struct {
 	Command string `json:"command"`
-	// Write/Edit/MultiEdit target.
-	FilePath string `json:"file_path"`
+	// Write/Edit/MultiEdit target, plus the spellings other tools use for the
+	// same thing. NotebookEdit sends notebook_path; some harness versions send
+	// path or filePath.
+	FilePath     string `json:"file_path"`
+	Path         string `json:"path"`
+	FilePathAlt  string `json:"filePath"`
+	NotebookPath string `json:"notebook_path"`
 	// Agent/Task spawn target, e.g. "kratos:ares".
 	SubagentType string `json:"subagent_type"`
+}
+
+// targetPath is the file an edit tool is about to change, whichever key the
+// tool used. "" means the payload names no target — the gate fails open there
+// rather than denying a call it cannot even describe.
+func (t preToolUseToolInput) targetPath() string {
+	return firstNonEmpty(t.FilePath, t.Path, t.FilePathAlt, t.NotebookPath)
 }
 
 // preToolUseOutput is the hookSpecificOutput response for PreToolUse

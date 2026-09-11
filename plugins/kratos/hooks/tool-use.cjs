@@ -107,13 +107,21 @@ function processToolUse(data) {
   }
 }
 
-let inputData = '';
-process.stdin.setEncoding('utf-8');
-process.stdin.on('data', (chunk) => (inputData += chunk));
-process.stdin.on('end', () => {
-  if (inputData.trim()) processToolUse(inputData);
-});
+// Only read stdin when run as a hook. Required as a module, this file is the
+// reference implementation of isProjectFile: the Go edit gate ports that rule
+// and a shared fixture test (TestGateProjectFileMatchesJS) runs both over the
+// same inputs so the two copies cannot drift.
+if (require.main === module) {
+  let inputData = '';
+  process.stdin.setEncoding('utf-8');
+  process.stdin.on('data', (chunk) => (inputData += chunk));
+  process.stdin.on('end', () => {
+    if (inputData.trim()) processToolUse(inputData);
+  });
 
-setTimeout(() => {
-  if (!inputData) process.exit(0);
-}, 100);
+  setTimeout(() => {
+    if (!inputData) process.exit(0);
+  }, 100);
+} else {
+  module.exports = { isProjectFile, detectAgent, toSlashes };
+}

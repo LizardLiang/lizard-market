@@ -90,6 +90,14 @@ func sessionLedgerDir() string {
 	return filepath.Join(home, ".kratos", "sessions")
 }
 
+// isSessionLedgerFile reports whether a directory entry belongs to the ledger:
+// a session file, or a temp file a killed writer left behind. Leftovers were
+// never swept before, so every interrupted write leaked a file that stayed in
+// ~/.kratos/sessions forever.
+func isSessionLedgerFile(name string) bool {
+	return strings.HasSuffix(name, ".json") || strings.HasSuffix(name, ".tmp")
+}
+
 // pruneSessionLedger deletes ledger files older than maxAge and returns
 // (candidates, removed). A missing directory is not an error.
 func pruneSessionLedger(maxAge time.Duration, dryRun bool) (int, int, error) {
@@ -107,7 +115,7 @@ func pruneSessionLedger(maxAge time.Duration, dryRun bool) (int, int, error) {
 	cutoff := time.Now().Add(-maxAge)
 	candidates, removed := 0, 0
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+		if e.IsDir() || !isSessionLedgerFile(e.Name()) {
 			continue
 		}
 		info, err := e.Info()

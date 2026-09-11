@@ -142,22 +142,52 @@ func readStatusJSON(path string) (map[string]interface{}, error) {
 
 // writeStatusJSON atomically writes a status.json file
 func writeStatusJSON(path string, status map[string]interface{}) error {
-	data, err := json.MarshalIndent(status, "", "  ")
+	return atomicWriteJSON(path, status)
+}
+
+// atomicWriteJSON marshals v as indented JSON and replaces path atomically:
+// write a temp file in the same directory, then rename over the target. A
+// reader either sees the old file or the new one, never a half-written one.
+func atomicWriteJSON(path string, v interface{}) error {
+	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return fmt.Errorf("cannot marshal JSON: %w", err)
 	}
-	data = append(data, '\n')
+	return atomicWriteFile(path, append(data, '\n'))
+}
 
-	dir := filepath.Dir(path)
+// atomicWriteFile writes data to a uniquely named temp file beside dest and
+// renames it over dest. The name is unique rather than the old fixed
+// "<dest>.tmp" because two processes can target one file — the prompt-submit
+// hook and the edit gate both write the session ledger, and the async
+// PostToolUse recorder can overlap either — and a shared temp name makes them
+// clobber each other's partial write.
+func atomicWriteFile(dest string, data []byte) error {
+	dir := filepath.Dir(dest)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("cannot create directory %s: %w", dir, err)
 	}
-
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	f, err := os.CreateTemp(dir, "."+filepath.Base(dest)+"-*.tmp")
+	if err != nil {
+		return fmt.Errorf("cannot create temp file: %w", err)
+	}
+	tmp := f.Name()
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		os.Remove(tmp)
 		return fmt.Errorf("cannot write temp file: %w", err)
 	}
-	if err := os.Rename(tmp, path); err != nil {
+	// os.CreateTemp makes the file 0600; the files these writers replace are
+	// world-readable state, not secrets. Done through the open handle so the
+	// rename below is the only operation that touches the name.
+	if err := f.Chmod(0o644); err != nil {
+		debugLog("atomic write: chmod %s: %v", tmp, err)
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(tmp)
+		return fmt.Errorf("cannot close temp file: %w", err)
+	}
+	if err := os.Rename(tmp, dest); err != nil {
 		os.Remove(tmp)
 		return fmt.Errorf("cannot rename temp file: %w", err)
 	}

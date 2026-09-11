@@ -587,23 +587,11 @@ func readCheckState(featureDir string) (map[string]int, error) {
 func writeCheckState(featureDir string, state map[string]int) error {
 	path := filepath.Join(featureDir, "check-state.json")
 
-	data, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return fmt.Errorf("cannot marshal check-state.json: %w", err)
-	}
-	data = append(data, '\n')
-
 	if err := os.MkdirAll(featureDir, 0o755); err != nil {
 		return fmt.Errorf("cannot create feature dir: %w", err)
 	}
-
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return fmt.Errorf("cannot write temp file: %w", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return fmt.Errorf("cannot rename temp file: %w", err)
+	if err := atomicWriteJSON(path, state); err != nil {
+		return fmt.Errorf("cannot write check-state.json: %w", err)
 	}
 	return nil
 }

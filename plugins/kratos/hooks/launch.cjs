@@ -13,6 +13,10 @@
 //   - Stale binary (older than 2.108, rejects `--part`) → re-run the body line without `--part` so
 //     the launcher degrades to the single full load instead of an empty definition; the extras line
 //     prints nothing rather than repeating the body.
+//
+// Every other subcommand is captured rather than inherited, so a stale binary that answers an
+// unknown subcommand with its parent's help text (cobra prints it and exits 0) produces no output
+// instead of dumping the help into a hook's stdout.
 
 const fs = require('fs');
 const path = require('path');
@@ -52,6 +56,17 @@ function withoutPart(argv) {
     out.push(argv[i]);
   }
   return out;
+}
+
+// A binary too old for the requested subcommand does not fail loudly: cobra runs
+// the parent group's Help() and exits 0, so `hook edit-gate` on a 2.108 binary
+// prints the whole `hook` help text to stdout — straight into the hook's stdout,
+// where Claude Code reads it as hook output. Recognize that shape, and the
+// "unknown command/flag" error, and emit nothing instead.
+function looksLikeCobraHelp(text) {
+  if (!text) return false;
+  if (/^Error: unknown (?:command|flag)\b/m.test(text)) return true;
+  return /^Usage:\s*$/m.test(text) && /^Available Commands:\s*$/m.test(text);
 }
 
 function readPluginFile(root, rel) {
@@ -103,7 +118,22 @@ function main() {
   }
 
   if (!isAgentLoad) {
-    const res = spawnSync(bin, args, { stdio: 'inherit' });
+    // Capture rather than inherit so a stale binary's help dump can be dropped
+    // instead of landing in the hook's stdout. stdin still passes through: hook
+    // payloads arrive there.
+    const res = spawnSync(bin, args, {
+      stdio: ['inherit', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    const out = res.stdout || '';
+    const err = res.stderr || '';
+    if (looksLikeCobraHelp(out) || looksLikeCobraHelp(err)) {
+      process.exitCode = 0;
+      return;
+    }
+    if (out) process.stdout.write(out);
+    if (err) process.stderr.write(err);
     process.exitCode = res.status === null ? 0 : res.status;
     return;
   }
@@ -134,5 +164,5 @@ function main() {
 if (require.main === module) {
   main();
 } else {
-  module.exports = { loadAgentFallback, parseLoadArgs, withoutPart };
+  module.exports = { loadAgentFallback, parseLoadArgs, withoutPart, looksLikeCobraHelp };
 }

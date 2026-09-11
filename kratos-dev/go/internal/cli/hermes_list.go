@@ -71,16 +71,7 @@ func hermesListCheckCmd() *cobra.Command {
 			tiers[tier] = true
 			doc["tiers"] = tiers
 
-			updated, err := json.MarshalIndent(doc, "", "  ")
-			if err != nil {
-				return err
-			}
-
-			tmp := path + ".tmp"
-			if err := os.WriteFile(tmp, updated, 0644); err != nil {
-				return err
-			}
-			if err := os.Rename(tmp, path); err != nil {
+			if err := atomicWriteJSON(path, doc); err != nil {
 				return err
 			}
 

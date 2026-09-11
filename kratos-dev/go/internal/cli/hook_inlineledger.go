@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 )
 
 // The per-session ledger (~/.kratos/sessions/<session_id>.json) is written by
@@ -23,6 +23,9 @@ const (
 	ledgerKeyInlineSince = "inline_god_since"
 	ledgerKeyEditedFiles = "inline_edited_files"
 	ledgerKeyGateBypass  = "gate_bypass"
+	// ledgerKeyCwd is session-start.cjs's own key, read here as the fallback
+	// project root when a payload carries no cwd.
+	ledgerKeyCwd = "cwd"
 )
 
 // sessionLedgerFile is the ledger path for one Claude Code session id, or ""
@@ -60,35 +63,37 @@ func readInlineLedger(sessionID string) (map[string]any, error) {
 
 // writeInlineLedger replaces the ledger atomically: a half-written file read by
 // the next edit hook must never be possible, and one counted edit writes the
-// whole file.
+// whole file. The temp file is uniquely named (see atomicWriteJSON) because two
+// writers share this path — prompt-submit and the edit gate, with the async
+// PostToolUse recorder able to overlap both.
 func writeInlineLedger(sessionID string, m map[string]any) error {
 	path := sessionLedgerFile(sessionID)
 	if path == "" {
 		return os.ErrNotExist
 	}
-	data, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-	return nil
+	return atomicWriteJSON(path, m)
 }
 
-// normalizeLedgerPath canonicalizes a file path for list membership, using the
-// same rule as stored project paths (slashes, no trailing slash, lower case on
-// Windows).
+// normalizeLedgerPath canonicalizes a file path for both the budget list and
+// the project-root test: forward slashes, `..` and doubled separators resolved,
+// no trailing slash, lower case.
+//
+// One normalizer, deliberately: while the list used one rule and the
+// project-root test another, an already-counted file arriving as
+// C:/repo//src//a.ts burned a second budget slot. Case folds on every platform
+// (not only Windows, as normalizeProjectPath does) because the paths this gate
+// compares come from Windows payloads that differ in drive-letter case, and
+// because the JS isProjectFile it ports folds case unconditionally.
 func normalizeLedgerPath(p string) string {
-	return normalizeProjectPath(p)
+	cleaned := gateCleanPath(p)
+	if cleaned == "" {
+		return ""
+	}
+	trimmed := strings.TrimRight(cleaned, "/")
+	if trimmed == "" {
+		trimmed = cleaned // a bare "/" is the root, not an empty path
+	}
+	return strings.ToLower(trimmed)
 }
 
 // ledgerString reads a string key, "" when absent or of another type.
@@ -123,10 +128,4 @@ func ledgerStrings(m map[string]any, key string) []string {
 		return out
 	}
 	return nil
-}
-
-// nowRFC3339 is the timestamp format the ledger stores, in local time with an
-// offset — the same shape `kratos now` prints.
-func nowRFC3339() string {
-	return time.Now().Format(time.RFC3339)
 }
