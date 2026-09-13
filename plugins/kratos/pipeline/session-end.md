@@ -7,5 +7,5 @@ description: "[DEPRECATED] Session end is handled automatically by hooks/session
 
 Session termination and summary recording happen automatically via `hooks/session-end.cjs` using the Go binary (`kratos session end`). No agent action required.
 
-- Session-end phrases ("done for today", "wrap up", "bye") are detected by the hook — do NOT treat a bare "thanks" as session end.
+- The hook fires on Claude Code's `SessionEnd` event only. It does not detect phrases such as "done for today" or "bye" — do NOT treat any chat phrase (including a bare "thanks") as session end; the user ends a session with `/kratos:wrap` or by closing Claude Code.
 - Memory lives at `~/.kratos/memory.db`; resume a past session with `/kratos:recall`.

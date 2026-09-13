@@ -83,11 +83,41 @@ func TestMatchKeywords(t *testing.T) {
 			text: "the kratosConfig variable",
 			want: nil,
 		},
+		{
+			name: "relative plugin path does not trigger",
+			text: "the plugins/kratos launcher",
+			want: nil,
+		},
+		{
+			name: "hyphenated dev dir path does not trigger",
+			text: "kratos-dev/go",
+			want: nil,
+		},
+		{
+			name: "hyphenated compound does not trigger",
+			text: "rebuild the kratos-bin copy",
+			want: nil,
+		},
+		{
+			name: "backticked binary name does not trigger",
+			text: "the `kratos` binary",
+			want: nil,
+		},
+		{
+			name: "direct address triggers",
+			text: "Kratos, build X",
+			want: []string{"kratos"},
+		},
+		{
+			name: "ask a god triggers",
+			text: "ask Athena to write the PRD",
+			want: []string{"athena"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchKeywords(tt.text)
+			got := matchKeywords(sanitizePrompt(tt.text))
 			if len(got) != len(tt.want) {
 				t.Errorf("matchKeywords() returned %d matches, want %d: %v", len(got), len(tt.want), got)
 				return
@@ -151,6 +181,7 @@ func TestDetectPackageManager(t *testing.T) {
 		wantLock  string
 	}{
 		{"bun takes priority", []string{"bun.lockb", "yarn.lock"}, "bun", "bun.lockb"},
+		{"bun text lockfile detected", []string{"bun.lock"}, "bun", "bun.lock"},
 		{"yarn detected", []string{"yarn.lock"}, "yarn", "yarn.lock"},
 		{"pnpm detected", []string{"pnpm-lock.yaml"}, "pnpm", "pnpm-lock.yaml"},
 		{"no lockfile returns empty", []string{}, "", ""},
@@ -175,27 +206,100 @@ func TestDetectPackageManager(t *testing.T) {
 
 func TestFixPMRewrite(t *testing.T) {
 	tests := []struct {
-		name    string
-		command string
-		pm      string
-		want    string
+		name        string
+		command     string
+		pm          string
+		want        string
+		wantChanged bool
 	}{
-		{"npm install → yarn install", "npm install", "yarn", "yarn install"},
-		{"npm run build → bun run build", "npm run build", "bun", "bun run build"},
-		{"npm test → pnpm test", "npm test", "pnpm", "pnpm test"},
-		{"no npm → unchanged", "node index.js", "yarn", "node index.js"},
-		{"partial word no match", "npmrc check", "yarn", "npmrc check"},
+		{"npm install → yarn install", "npm install", "yarn", "yarn install", true},
+		{"npm run build → bun run build", "npm run build", "bun", "bun run build", true},
+		{"npm test → pnpm test", "npm test", "pnpm", "pnpm test", true},
+		{"no npm → unchanged", "node index.js", "yarn", "node index.js", false},
+		{"partial word no match", "npmrc check", "yarn", "npmrc check", false},
+		{"npm ci → frozen install", "npm ci", "pnpm", "pnpm install --frozen-lockfile", true},
+		{"npm ci with trailing flags", "npm ci --ignore-scripts", "bun", "bun install --frozen-lockfile --ignore-scripts", true},
+		{"after &&", "cd app && npm install", "pnpm", "cd app && pnpm install", true},
+		{"after ;", "echo hi; npm test", "yarn", "echo hi; yarn test", true},
+		{"after ||", "true || npm test", "yarn", "true || yarn test", true},
+		{"after pipe", "cat x | npm exec foo", "pnpm", "cat x | pnpm exec foo", true},
+		{"env prefix", "CI=true npm test", "pnpm", "CI=true pnpm test", true},
+		{"grep npm untouched", "grep npm package.json", "pnpm", "grep npm package.json", false},
+		{"double-quoted untouched", `echo "npm install"`, "pnpm", `echo "npm install"`, false},
+		{"single-quoted untouched", `echo 'run npm ci'`, "pnpm", `echo 'run npm ci'`, false},
+		{"quoted segment separator untouched", `echo "a; npm test"`, "pnpm", `echo "a; npm test"`, false},
+		{"mixed: leading rewritten, argument kept", "npm run lint && grep npm README.md", "yarn", "yarn run lint && grep npm README.md", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := npmWordBoundary.ReplaceAllString(tt.command, tt.pm)
+			got, changed := rewriteNPMCommand(tt.command, tt.pm)
 			if got != tt.want {
 				t.Errorf("rewrite %q with %q = %q, want %q", tt.command, tt.pm, got, tt.want)
+			}
+			if changed != tt.wantChanged {
+				t.Errorf("changed = %v, want %v", changed, tt.wantChanged)
 			}
 		})
 	}
 }
+
+// TestFixPMCommandOutput runs the real fix-pm command: cwd comes from the hook
+// payload, and the output carries updatedInput but no permissionDecision.
+func TestFixPMCommandOutput(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte{}, 0644); err != nil {
+		t.Fatal(err)
+	}
+	run := func(command string) string {
+		b, _ := json.Marshal(map[string]interface{}{
+			"tool_name":  "Bash",
+			"tool_input": map[string]string{"command": command},
+			"cwd":        dir,
+		})
+		var out string
+		pipeStdin(string(b), func() {
+			out = captureStdout(func() {
+				_ = fixPMCmd().RunE(nil, nil)
+			})
+		})
+		return strings.TrimSpace(out)
+	}
+
+	t.Run("rewrites and leaves permission flow alone", func(t *testing.T) {
+		out := run("npm install")
+		if out == "" {
+			t.Fatal("expected a rewrite, got no output")
+		}
+		if strings.Contains(out, "permissionDecision") {
+			t.Errorf("output must not carry permissionDecision: %s", out)
+		}
+		var parsed struct {
+			HookSpecificOutput struct {
+				HookEventName string            `json:"hookEventName"`
+				UpdatedInput  map[string]string `json:"updatedInput"`
+			} `json:"hookSpecificOutput"`
+		}
+		if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+			t.Fatalf("output not valid JSON: %v\n%s", err, out)
+		}
+		if parsed.HookSpecificOutput.HookEventName != "PreToolUse" {
+			t.Errorf("hookEventName = %q", parsed.HookSpecificOutput.HookEventName)
+		}
+		if got := parsed.HookSpecificOutput.UpdatedInput["command"]; got != "pnpm install" {
+			t.Errorf("updatedInput.command = %q, want %q", got, "pnpm install")
+		}
+	})
+
+	t.Run("argument-position npm produces no output", func(t *testing.T) {
+		if out := run("grep npm package.json"); out != "" {
+			t.Errorf("expected no output, got %s", out)
+		}
+	})
+}
+
+// allowed reports whether a SubagentStop response lets the agent stop (no block decision).
+func (o subagentStopOutput) allowed() bool { return o.Decision != "block" }
 
 func TestSubagentStopGate(t *testing.T) {
 	tests := []struct {
@@ -272,16 +376,18 @@ func TestSubagentStopGate(t *testing.T) {
 			msgLower := strings.ToLower(msg)
 
 			if tt.input.StopHookActive {
-				out, _ := json.Marshal(subagentStopOutput{OK: true})
 				var result subagentStopOutput
-				json.Unmarshal(out, &result)
-				if !result.OK {
+				json.Unmarshal([]byte("{}"), &result)
+				if !result.allowed() {
 					t.Error("stop_hook_active should always pass")
 				}
 				return
 			}
 
 			var result subagentStopOutput
+			block := func(reason string) subagentStopOutput {
+				return subagentStopOutput{Decision: "block", Reason: reason}
+			}
 
 			if strings.Contains(agentType, "ares") {
 				var failures []string
@@ -289,8 +395,6 @@ func TestSubagentStopGate(t *testing.T) {
 				if !hasTaskList {
 					failures = append(failures, "no task list recap was written before starting work")
 				}
-				mentionsFiles := npmWordBoundary.String() != "" && strings.Contains(msg, ".ts") || strings.Contains(msg, ".js") || strings.Contains(msg, ".go") || strings.Contains(msg, ".py")
-				_ = mentionsFiles
 				hasFiles := strings.Contains(msg, "created") || strings.Contains(msg, "wrote") || strings.Contains(msg, "modified")
 				fileExt := strings.Contains(msg, ".ts") || strings.Contains(msg, ".js") || strings.Contains(msg, ".go") || strings.Contains(msg, ".py")
 				if !hasFiles || !fileExt {
@@ -300,7 +404,9 @@ func TestSubagentStopGate(t *testing.T) {
 				if !done {
 					failures = append(failures, "implementation completion was not confirmed")
 				}
-				result = subagentStopOutput{OK: len(failures) == 0, Reason: strings.Join(failures, "; ")}
+				if len(failures) > 0 {
+					result = block(strings.Join(failures, "; "))
+				}
 			} else if strings.Contains(agentType, "hephaestus") {
 				sections := []string{"architecture", "data model", "api", "implementation", "schema", "interface"}
 				var found []string
@@ -310,20 +416,64 @@ func TestSubagentStopGate(t *testing.T) {
 					}
 				}
 				if len(found) < 2 {
-					result = subagentStopOutput{OK: false, Reason: "technical spec appears incomplete"}
-				} else {
-					result = subagentStopOutput{OK: true}
+					result = block("technical spec appears incomplete")
 				}
 			}
 
-			if result.OK != tt.wantOK {
-				t.Errorf("gate OK = %v, want %v (reason: %s)", result.OK, tt.wantOK, result.Reason)
+			if result.allowed() != tt.wantOK {
+				t.Errorf("gate allowed = %v, want %v (reason: %s)", result.allowed(), tt.wantOK, result.Reason)
 			}
 			if tt.wantInMsg != "" && !strings.Contains(result.Reason, tt.wantInMsg) {
 				t.Errorf("reason %q should contain %q", result.Reason, tt.wantInMsg)
 			}
 		})
 	}
+}
+
+// TestSubagentStopOutputShape runs the real subagent-stop command and checks the
+// wire format: a block is a top-level {"decision":"block","reason":...} (the only
+// shape Claude Code honors for SubagentStop), an allow is an empty object.
+func TestSubagentStopOutputShape(t *testing.T) {
+	run := func(payload string) map[string]interface{} {
+		var out string
+		pipeStdin(payload, func() {
+			out = captureStdout(func() {
+				_ = subagentStopCmd().RunE(nil, nil)
+			})
+		})
+		var got map[string]interface{}
+		if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &got); err != nil {
+			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, out)
+		}
+		return got
+	}
+
+	t.Run("block uses decision:block", func(t *testing.T) {
+		dir := t.TempDir()
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:hephaestus",
+			"cwd":                    dir,
+			"last_assistant_message": "This is a brief spec.",
+		})
+		got := run(string(b))
+		if got["decision"] != "block" {
+			t.Fatalf("decision = %v, want %q (full output %v)", got["decision"], "block", got)
+		}
+		if _, has := got["ok"]; has {
+			t.Error("legacy \"ok\" field must not be emitted")
+		}
+		if reason, _ := got["reason"].(string); !strings.Contains(reason, "incomplete") {
+			t.Errorf("reason = %q, want mention of incomplete spec", reason)
+		}
+	})
+
+	t.Run("allow is an empty object", func(t *testing.T) {
+		dir := t.TempDir()
+		got := run(makeStopStdin("kratos:ares", dir, true))
+		if len(got) != 0 {
+			t.Errorf("allow output = %v, want {}", got)
+		}
+	})
 }
 
 // TestMalformedStopPayloadFailsClosed verifies that a SubagentStop payload that cannot be
@@ -368,6 +518,26 @@ func TestMalformedStopPayloadFailsClosed(t *testing.T) {
 		raw := []byte(`{bad json cassandra`)
 		if agent := gatedAgentInRaw(raw); agent != "" {
 			t.Errorf("gatedAgentInRaw = %q; ungated agent should fail open", agent)
+		}
+	})
+
+	// Substrings of ordinary words must not read as a gated agent.
+	t.Run("substring words are not gated agents", func(t *testing.T) {
+		raw := []byte(`{bad json "the diff shares and compares squares"`)
+		if agent := gatedAgentInRaw(raw); agent != "" {
+			t.Errorf("gatedAgentInRaw = %q; 'shares'/'compares' must not match ares", agent)
+		}
+	})
+
+	// A surviving agent_type field wins over the message body.
+	t.Run("agent_type field takes precedence over body", func(t *testing.T) {
+		raw := []byte(`{"agent_type":"kratos:cassandra","last_assistant_message":"asked ares and hermes`)
+		if agent := gatedAgentInRaw(raw); agent != "" {
+			t.Errorf("gatedAgentInRaw = %q; agent_type is cassandra (ungated)", agent)
+		}
+		raw = []byte(`{"agent_type":"kratos:ares","last_assistant_message":"oops` + "\n" + `"`)
+		if agent := gatedAgentInRaw(raw); agent != "ares" {
+			t.Errorf("gatedAgentInRaw = %q, want ares", agent)
 		}
 	})
 }

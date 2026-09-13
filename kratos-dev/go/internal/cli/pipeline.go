@@ -54,6 +54,16 @@ var verdictFields = map[string]map[string]string{
 	},
 }
 
+// verdictMirrorStages lists the stages whose schema carries the generic "verdict"
+// field alongside the stage-specific one; applyStageUpdate keeps both in sync.
+// 9-review is absent on purpose: Hermes and Cassandra write different fields
+// there and a shared "verdict" would let one clobber the other.
+var verdictMirrorStages = map[string]bool{
+	"2-prd-review":     true,
+	"5-spec-review-sa": true,
+	"8-prd-alignment":  true,
+}
+
 // verdictField resolves the schema field and canonical value for a verdict on a
 // stage. Unknown values or verdicts on non-review stages are hard errors — a
 // silently misfiled verdict reads as a missing gate signal downstream.
@@ -338,7 +348,7 @@ func pipelineUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&feature, "feature", "", "Feature name (required)")
 	cmd.Flags().StringVar(&stage, "stage", "", "Pipeline stage number 1-9 (required)")
 	cmd.Flags().StringVar(&status, "status", "", "New status: in-progress, complete, blocked, ready, skipped (required)")
-	cmd.Flags().StringVar(&mode, "mode", "", "Implementation mode: ares or user (stage 8 only)")
+	cmd.Flags().StringVar(&mode, "mode", "", "Implementation mode: ares or user (stage 7 only)")
 	cmd.Flags().StringVar(&verdict, "verdict", "", "Review verdict — stage 2: approved/revisions/rejected; stage 5: sound/concerns/unsound; stage 8: aligned/gaps/misaligned; stage 9: approved/changes-required (Hermes) or clear/caution/blocked (Cassandra)")
 	cmd.Flags().StringVar(&document, "document", "", "Document path to record")
 	cmd.Flags().StringVar(&summary, "summary", "", "2-3 sentence summary for downstream agents")
@@ -427,8 +437,9 @@ func applyStageUpdate(statusJSON map[string]interface{}, stage, newStatus, mode,
 			return err
 		}
 		stageMap[field] = normalized
-		// Stages whose schema also carries the generic field keep it in sync.
-		if stage == "2-prd-review" || stage == "5-spec-review-sa" {
+		// Stages whose schema also carries the generic field keep it in sync
+		// (readers such as spec backfill and pipeline next fall back to it).
+		if verdictMirrorStages[stage] {
 			stageMap["verdict"] = normalized
 		}
 	}

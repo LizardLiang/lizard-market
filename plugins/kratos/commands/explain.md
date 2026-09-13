@@ -24,18 +24,7 @@ You spawn Metis and Clio in parallel, wait for both, then synthesize their outpu
 
 ---
 
-## Execution Modes
-
-Default: **normal**. If eco/power keywords are present (`eco`, `budget`, `cheap` / `power`, `max`, `full-power`), read `<KRATOS_ROOT>/modes/modes.md` for the full model matrix.
-
----
-
-## Model Routing Table
-
-| Agent | Normal | Eco | Power |
-|-------|--------|-----|-------|
-| **Metis** | sonnet | haiku | opus |
-| **Clio** | sonnet | haiku | opus |
+Models: see `<KRATOS_ROOT>/modes/modes.md` (default normal; eco/power keywords switch).
 
 ---
 

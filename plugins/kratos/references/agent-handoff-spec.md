@@ -8,17 +8,18 @@ This document defines the interface and deliverables for every agent in the Krat
 
 | Stage | Agent | Deliverable | Key Prerequisite |
 |-------|-------|-------------|------------------|
+| 0 | Metis | Arena shards (optional) | — |
 | 1 | Athena | `prd.md` | Requirements (from user) |
 | 2 | Nemesis | `prd-challenge.md` | `prd.md` |
 | 3 | Daedalus | `decomposition.md` | `prd.md` (vetted) |
 | 4pre | Themis | `context.md` | `prd.md` (approved) |
 | 4 | Hephaestus | `tech-spec.md` | `context.md`, `prd.md` |
-| 6 | Apollo | `spec-review-sa.md` | `tech-spec.md` |
-| 7 | Artemis | `test-plan.md` | `tech-spec.md` |
-| 8 | Ares | `implementation-notes.md` | `test-plan.md` |
-| 9 | Hera | `prd-alignment.md` | implementation |
-| 10 | Hermes | `code-review.md` | implementation |
-| 10 | Cassandra | `risk-analysis.md` | implementation |
+| 5 | Apollo | `spec-review-sa.md` | `tech-spec.md` |
+| 6 | Artemis | `test-plan.md` | `tech-spec.md` |
+| 7 | Ares | `implementation-notes.md` | `test-plan.md` |
+| 8 | Hera | `prd-alignment.md` | implementation |
+| 9 | Hermes | `code-review.md` | implementation |
+| 9 | Cassandra | `risk-analysis.md` | implementation |
 
 ---
 
@@ -45,8 +46,7 @@ If an agent needs one of these files and it is missing, the agent should stop an
 ## Agent Missions
 
 ### Athena (Product Manager)
-- **Mission 1**: Create `prd.md` based on user requirements.
-- **Mission 2**: Review `prd.md` for quality (Stage 2).
+- **Mission**: Create `prd.md` based on user requirements (Stage 1).
 
 ### Nemesis (Adversary)
 - **Mission**: Challenge `prd.md` from devil's advocate and user advocate perspectives.
@@ -165,15 +165,7 @@ If an agent needs one of these files and it is missing, the agent should stop an
 
 ## Communication Protocol
 
-1. **State your mission** clearly at the start of every session.
-2. **Auto-discover the feature** by searching `.claude/feature/`.
-3. **Consult only the documents you need** for the current decision.
-4. **If a needed file is missing**, stop and report the owning upstream agent to Kratos.
-5. **Update status.json** after every successful completion.
-6. **Use real timestamps** from the Kratos CLI (`<kratos-bin> now`) when direct writes are required.
-7. **Report gate status** to Kratos (Passed / Blocked).
-
-Kratos validates required deliverables after the agent finishes.
+Follow `<KRATOS_ROOT>/references/agent-protocol.md` for mission statement, feature discovery, status.json updates and gate reporting.
 
 ---
 

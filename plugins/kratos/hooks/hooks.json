@@ -139,7 +139,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --init",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --init --stage 1-prd",
             "timeout": 3000
           }
         ]
@@ -241,7 +241,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" check --verify --stage 1-prd",
             "timeout": 5000
           },
           {

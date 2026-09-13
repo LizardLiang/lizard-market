@@ -2,7 +2,7 @@
 
 > *「我就是眾神所造之物。」* — 現在，眾神為**你**服務。
 
-![version](https://img.shields.io/badge/version-2.97.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-2.111.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **別再交付 AI 垃圾。** Kratos 讓你的功能走一條真正的流水線：PM 撰寫 PRD、魔鬼代言人（**Nemesis**）逐條挑戰、架構師寫出技術規格、對齊門（**Hera**）驗證實作確實對得上你**真正**要的東西。具名代理人、由 Hooks 強制執行的評審門、跨 session 的持久記憶 — 不是又一堆 subagent。
 
@@ -21,7 +21,7 @@ Kratos 分兩層運作。**markdown 層獨立可用 — 免建置、免二進位
 
 |                                      | markdown 層 *(預設)* | + Go 二進位檔 *(選用)* |
 | ------------------------------------ | :------------------: | :--------------------: |
-| 全部 19 代理人 + 11 階段流水線       |          ✅          |           ✅          |
+| 全部 19 代理人 + 9 階段流水線        |          ✅          |           ✅          |
 | 指令（`/kratos:quick`、`review`…）   |          ✅          |           ✅          |
 | 強制品質門 Hooks                     |          ✅          |           ✅          |
 | 流水線時間戳與階段歷史               |       檔案備援       |        ✅ 精確        |
@@ -109,7 +109,7 @@ cd ~/.claude/plugins/cache/kratos
 | **Ares** | 實作 | 程式撰寫、Bug 修復、重構 | Sonnet |
 | **Hermes** | 同儕審查 | 程式審查、品質稽核 | Opus |
 | **Hades** | 除錯 | 錯誤定位、失敗證明、根因分析 | Sonnet |
-| **Ananke** | 任務管理 | 個人待辦清單（二進位檔 + 檔案備援） | Sonnet |
+| **Ananke** | 任務管理 | 個人待辦清單（二進位檔 + 檔案備援） | Haiku |
 | **Iris** | 秘書 | 每日簡報 + 日常助理 — 學習、腦力激盪、深入調查、筆記；透過個人檔案、記憶與例行事項了解使用者 | Sonnet |
 
 ---
@@ -118,18 +118,42 @@ cd ~/.claude/plugins/cache/kratos
 
 Kratos 內建 Claude Code Hooks，自動強制執行工作流程規範 — Hooks 隨外掛內附於 `hooks/hooks.json`，無需額外設定。若舊版安裝曾執行 `kratos install`，請執行一次 `kratos uninstall` 以移除 `~/.claude/settings.json` 中的舊版全域 Hooks。
 
+### 所有已註冊的 Hooks
+
+| 事件 | 比對條件 | 腳本／指令 | 作用 |
+|------|---------|-----------|------|
+| `UserPromptSubmit` | 所有提示詞 | `launch.cjs hook prompt-submit` | 偵測 Kratos 關鍵字與 handoff，注入 skill 啟動 |
+| `SessionStart` | 所有 session | `session-start.cjs` | 登記 session 帳本、印出 `KRATOS_BIN:`、記憶、handoff 與待處理 spec delta，必要時自動下載二進位檔 |
+| `SessionEnd` | 所有 session | `session-end.cjs` | 以一行摘要關閉 session 帳本 |
+| `PermissionRequest` | `Read` | `permission-read.cjs` | 僅自動允許外掛根目錄與 `~/.kratos/` 下的讀取 |
+| `PreToolUse` | `Write\|Edit\|MultiEdit\|Bash` | `plan-mode-guard.cjs` | Odysseus 計畫模式的寫入／指令白名單 |
+| `PreToolUse` | `Bash` | `launch.cjs hook fix-pm` | 將 `npm` 改寫為 lockfile 對應的套件管理器 |
+| `PostToolUse` | `Agent\|Task\|Write\|Edit\|MultiEdit` | `tool-use.cjs`（非同步） | 將代理人啟動與專案檔案變更記錄到記憶 |
+| `PostToolUse` | `Write\|Edit` | `launch.cjs hook spec-delta-check` | 立即驗證剛寫入的 spec delta |
+| `SubagentStart` | `kratos:.*` | `path-inject.cjs` | 注入解析後的 `<KRATOS_ROOT>` 與 `<kratos-bin>` 路徑 |
+| `SubagentStart` | ares、hephaestus、hermes | `launch.cjs hook subagent-start` | 待辦清單優先關卡；Hermes 層級檢查表 |
+| `SubagentStart` | athena | `launch.cjs check --init` | 依 `pending_stage` 注入交付成果要求 |
+| `SubagentStart` | apollo、artemis、hera、cassandra、daedalus | `launch.cjs check --init --stage <stage>` | 第 5、6、8、9、3 階段的交付成果要求 |
+| `SubagentStop` | nemesis、ares、hephaestus、hermes | `launch.cjs hook subagent-stop` | 交付成果與品質關卡（見下表） |
+| `SubagentStop` | athena | `launch.cjs check --verify`，再 `hook subagent-stop` | `prd.md` 存在，再驗證 spec delta |
+| `SubagentStop` | apollo、artemis、hera、cassandra、daedalus | `launch.cjs check --verify --stage <stage>` | 確認該階段交付成果已寫入；重試耗盡時記錄 `check_failures[]` |
+| `Stop` | 每次助理回合 | `memory-sweep.cjs` | 定期記憶掃描提醒（持久事實、代理人回饋） |
+
 ### SubagentStart — 待辦清單優先關卡
 
 在 **Ares** 和 **Hephaestus** 開始工作前觸發。注入強制提示，要求代理人在呼叫任何工具前必須先撰寫編號待辦清單。
 
 ### SubagentStop — 交付成果驗證
 
-在 **Ares** 或 **Hephaestus** 嘗試完成工作時觸發。若未達標則封鎖完成並強制繼續：
+在 **Ares**、**Hephaestus**、**Hermes**、**Nemesis** 或 **Athena** 嘗試完成工作時觸發。若未達標則封鎖完成並強制繼續：
 
 | 代理人 | 檢查項目 |
 |--------|---------|
 | **Ares** | 必須撰寫待辦清單、提及具體修改的檔案，並確認完成 |
 | **Hephaestus** | 規格文件必須涵蓋至少 2 項：架構、資料模型、API、實作、Schema、介面 |
+| **Hermes** | `hermes-checklist.json` 中所有層級皆已標記完成 |
+| **Nemesis** | `prd-challenge.md` 存在且含有判定結果 |
+| **Athena** | `prd.md` 存在（`check --verify`），且任何 spec delta 通過 `spec validate` |
 
 當 `stop_hook_active` 為 true（由 Hook 觸發的重新執行）時，關卡自動放行以避免無限迴圈。
 
@@ -181,8 +205,9 @@ Kratos 內建分層審查標準，由 Hermes 在每次審查中強制執行：
 | 5 | **一致性** | 專案慣例 |
 | 6 | **韌性** | 錯誤處理、資源清理 |
 | 7 | **效能** | N+1 查詢、阻塞操作、浪費 |
+| 8 | **可維護性** | 程式品質、效率 |
 
-規則存放於 `rules/`（全域基準）與 `.claude/.Arena/review-rules/`（專案專屬，優先級較高）。語言特定規則（React、TypeScript、Python 等）依偵測到的檔案類型自動載入。
+規則存放於 `rules/`（全域基準）與 `.claude/.Arena/review-rules/`（專案專屬，優先級較高）。目前內附兩個語言特定規則檔：`rules/react.md` 與 `rules/sql.md`。若存在其他 `rules/<language>.md`，Hermes 會依審查檔案類型自動載入。
 
 ```bash
 /kratos:review src/auth.ts           # 審查單一檔案
@@ -209,21 +234,20 @@ Hermes 回報 `[BLOCKER]`、`[WARNING]` 和 `[SUGGESTION]` 結果 — BLOCKER �
 
 ## 流水線（複雜功能）
 
-建立新功能時，Kratos 遵循 11 階段神聖路徑：
+建立新功能時，Kratos 遵循 9 階段神聖路徑（另有選用的第 0 階段研究）：
 
 ```
-[0] 研究（Metis，選用）
-[1] PRD（Athena）
-[2] PRD 審查（Athena）
-[3] 功能分解（Daedalus，選用）
-[4] 決策討論（Themis，選用）← 在 Hephaestus 規格前鎖定決策
-[4] 技術規格（Hephaestus）
-[5] PM 審查（Athena）─┐ 平行執行
-[6] SA 審查（Apollo）  ─┘
-[7] 測試計畫（Artemis）
-[8] 實作（Ares）
-[9] PRD 對齊（Hera）
-[11] 程式審查（Hermes + Cassandra）
+[0] 研究（Metis）— 選用的程式庫預先掃描
+[1] PRD（Athena）— 缺口分析、釐清、需求
+[2] PRD 審查（Nemesis）— 對抗式 + 使用者代言人
+[3] 功能分解（Daedalus）— 選用，階段與依賴關係
+[3b] 決策討論（Themis）— 選用，鎖定實作決策 → context.md
+[4] 技術規格（Hephaestus）— 方案選擇、灰色地帶、藍圖
+[5] SA 審查（Apollo）
+[6] 測試計畫（Artemis）
+[7] 實作（Ares）— Ares 模式或 User 模式
+[8] PRD 對齊（Hera）
+[9] 審查（Hermes + Cassandra）— 平行執行
 ```
 
 流水線狀態記錄於 `.claude/feature/<name>/status.json`。安裝 Kratos 二進位檔後，代理人會使用 `kratos pipeline update` 寫入真實時間戳記並維護歷史記錄。未安裝時，代理人直接編輯檔案作為備援。

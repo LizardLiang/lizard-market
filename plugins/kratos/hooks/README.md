@@ -1,6 +1,6 @@
-# Kratos Memory Hooks
+# Kratos Hooks
 
-Automatic journey recording via Claude Code plugin hooks.
+Claude Code plugin hooks: quality gates for god-agents, package-manager correction, session ledger recording, and the transcript memory sweep.
 
 ## Architecture
 
@@ -10,7 +10,7 @@ Automatic journey recording via Claude Code plugin hooks.
 ├─────────────────────────────────────────────────────────────┤
 │  hooks.json (uses ${CLAUDE_PLUGIN_ROOT})                    │
 │       ↓                                                      │
-│  Hook Scripts (.cjs files)                                  │
+│  Hook Scripts (.cjs files) — some call launch.cjs → kratos   │
 │       ↓                                                      │
 │  Go binary (kratos)                                          │
 │       ↓                                                      │
@@ -20,14 +20,34 @@ Automatic journey recording via Claude Code plugin hooks.
 
 ## How It Works
 
-The plugin registers hooks via `hooks.json`. Claude Code automatically loads these when the Kratos plugin is enabled.
+The plugin registers hooks via `hooks.json`. Claude Code loads them automatically when the Kratos plugin is enabled. Go-implemented hooks run through `launch.cjs`, which resolves the binary and forwards the subcommand.
 
-| Hook | Trigger | Action |
-|------|---------|--------|
-| `UserPromptSubmit` | Every prompt | Detects Kratos god keywords (skill activation) and resume phrases (on-demand session-handoff injection, once per session — see below) |
-| `SessionStart` | Claude Code starts | Creates memory session; prints a one-line notice if a fresh handoff exists (content stays on-demand, not injected here) |
-| `PostToolUse` | Task/Write/Edit tools | Records agent spawns & file changes |
-| `Stop` | Claude Code exits | Ends session with summary, then runs the transcript memory sweep |
+| Event | Matcher | Command | Action |
+|-------|---------|---------|--------|
+| `UserPromptSubmit` | all | `launch.cjs hook prompt-submit` | Detects Kratos god keywords (skill activation) and resume phrases (on-demand session-handoff injection, once per session — see below) |
+| `SessionStart` | all | `session-start.cjs` | Registers the session in the ledger, injects the output constraint, `KRATOS_BIN`, stored user preferences, and one-line pointers (fresh handoff, pending spec deltas, draft plans, legacy-hook warning) |
+| `SessionEnd` | all | `session-end.cjs` | Closes the session's ledger row with a one-line summary and removes its state file |
+| `PermissionRequest` | `Read` | `permission-read.cjs` | Auto-allows Read requests scoped under `CLAUDE_PLUGIN_ROOT` or `~/.kratos/`; every other path falls through to the normal prompt |
+| `PreToolUse` | `Write\|Edit\|MultiEdit\|Bash` | `plan-mode-guard.cjs` | Keeps Odysseus (plan mode) from writing outside tactical plans and spec deltas; fails open for other agents |
+| `PreToolUse` | `Bash` | `launch.cjs hook fix-pm` | Rewrites a segment-leading `npm` to the project's package manager (lockfile detection: `bun.lockb`/`bun.lock`, `yarn.lock`, `pnpm-lock.yaml`); `npm ci` becomes `<pm> install --frozen-lockfile`. Emits `updatedInput` only — no permission decision, so the normal permission flow applies to the rewritten command |
+| `PostToolUse` | `Agent\|Task\|Write\|Edit\|MultiEdit` | `tool-use.cjs` (async) | Records agent spawns and project file changes (`.claude/feature/` and `.claude/.Arena/` count; `.claude/tmp/`, `.kratos/`, `.git/` and the scratchpad do not) |
+| `PostToolUse` | `Write\|Edit` | `launch.cjs hook spec-delta-check` | Validates a just-written spec delta and blocks on a malformed one |
+| `SubagentStart` | `kratos:.*` | `path-inject.cjs` | Injects the resolved `<KRATOS_ROOT>` / `<kratos-bin>`, the agent's composed protocol block, and its stored feedback lessons |
+| `SubagentStart` | `kratos:ares`, `kratos:hephaestus`, `kratos:hermes` | `launch.cjs hook subagent-start` | Ares: markdown task-list gate; Hephaestus: TODO gate + Arena reminder; Hermes: creates `hermes-checklist.json` and injects tier instructions |
+| `SubagentStart` | `kratos:athena`, `apollo`, `artemis`, `hera`, `cassandra`, `daedalus` | `launch.cjs check --init --stage <key>` | Announces the stage's expected deliverables |
+| `SubagentStop` | `kratos:ares`, `hephaestus`, `hermes`, `nemesis`, `athena` | `launch.cjs hook subagent-stop` | Content gates: Ares task list/files/landed commit, Hephaestus spec sections + file on disk, Hermes 8-tier checklist, Nemesis `prd-challenge.md`, Athena spec-delta validation |
+| `SubagentStop` | `kratos:athena`, `apollo`, `artemis`, `hera`, `cassandra`, `daedalus` | `launch.cjs check --verify --stage <key>` | Tier 1 deliverable check (file exists, verdict present) with a retry counter |
+| `Stop` | all | `memory-sweep.cjs` | Periodic transcript memory sweep (see below) |
+
+### SubagentStop response shape
+
+Claude Code honors exactly one shape for a SubagentStop/Stop block:
+
+```json
+{"decision": "block", "reason": "Ares quality gate failed: ..."}
+```
+
+An allow is an empty object (`{}`) with exit 0. Every Go gate (`hook subagent-stop`, `check --verify`, `hook spec-delta-check`) emits this shape. The former `{"ok": true|false, "reason": ...}` output was ignored by the harness, which made every gate advisory.
 
 ## Files
 
@@ -35,10 +55,17 @@ The plugin registers hooks via `hooks.json`. Claude Code automatically loads the
 |------|---------|
 | `hooks.json` | Hook registration (loaded by Claude Code) |
 | `launch.cjs` | Shim that finds the kratos binary (plugin `bin/`, then `~/.kratos/bin/`) and forwards any subcommand — hooks call it for `hook prompt-submit` etc., launchers for `agent load <god> --resolve --part body\|extras`. With no binary it serves `agent load` from `agents/<god>.md` on disk; with a pre-2.108 binary that rejects `--part` it retries the body line without the flag |
-| `session-start.cjs` | Starts memory session; prints a one-line handoff notice (no content) |
-| `tool-use.cjs` | Records tool usage |
-| `session-end.cjs` | Ends session with summary |
-| `memory-sweep.cjs` | Once-per-session transcript sweep for durable user facts (see below) |
+| `kratos-bin.cjs` | Shared binary resolver (`resolveBinary`, `platformBinaryName`) used by every other script |
+| `ensure-binary.cjs` | Downloads the platform binary from GitHub Release assets into `~/.kratos/bin/` when no plugin-local binary exists; spawned detached by `session-start.cjs` |
+| `session-start.cjs` | SessionStart: ledger registration, output constraint, memories, pointers. Every spawn carries a timeout; the serial sum stays under ~4 s of the 5 s budget and the plugin-bin copy runs last |
+| `session-end.cjs` | SessionEnd: closes the ledger row (two 600 ms calls inside the 1.5 s budget) |
+| `tool-use.cjs` | PostToolUse: records agent spawns and project file changes |
+| `permission-read.cjs` | PermissionRequest: scoped Read auto-allow via `hookSpecificOutput.decision.behavior` |
+| `plan-mode-guard.cjs` | PreToolUse: Odysseus plan-mode write guard |
+| `path-inject.cjs` | SubagentStart: `<KRATOS_ROOT>` / `<kratos-bin>` resolution, protocol block, feedback lessons |
+| `memory-sweep.cjs` | Stop: periodic transcript sweep for durable user facts and per-agent lessons (see below) |
+
+All scripts that call the binary use `spawnSync` with an argv array — hook payload text (descriptions, paths, summaries) never passes through a shell.
 
 ## On-Demand Session Handoff (`hook prompt-submit`)
 
@@ -50,6 +77,8 @@ The plugin registers hooks via `hooks.json`. Claude Code automatically loads the
 - **Byte cap**: content is capped at 8KB without splitting a multi-byte UTF-8 rune (`capUTF8Bytes`).
 - **Merged with keyword injection**: a god-keyword match and a resume-phrase match are independent — either, both, or neither may fire; the hook merges both contexts into one `additionalContext` and only passes the prompt through untouched when both are empty. (A bare "continue" with no god keyword still injects the handoff.)
 - **Fails open** on every error — a missing/stale/unreadable handoff or unresolvable `cwd` degrades to "no injection." A marker I/O failure does *not* suppress this run's injection; it only means the once-per-session guard may not take effect next time. No error path ever blocks the prompt.
+
+Keyword matching strips fenced and inline code, URLs, absolute and relative paths (`plugins/kratos`, `kratos-dev/go`) and hyphenated compounds (`kratos-dev`, `kratos-bin`) before looking for a god name, so file references never trigger the skill; "Kratos, build X" and "ask Athena to …" still do.
 
 `/kratos:recall` is the explicit manual path to the same handoff file — it reads `handoff.md` directly (with or without the binary) and works regardless of resume-phrase detection. Note recall presents the file uncapped, whereas the on-demand hook caps injected content at 8KB (`capUTF8Bytes`), so the two paths can differ for an unusually large handoff.
 
@@ -97,16 +126,17 @@ ls ~/.kratos/sessions/
 
 Registered on `Stop` (`session-end.cjs` moved to `SessionEnd`, which fires once when the session
 actually ends). Where Iris's inline memory capture only catches facts flagged during an Iris
-mission, this hook is a session-wide safety net: once enough new human messages and assistant
-turns have accumulated since the previous sweep (10 and 25; re-armed after each sweep, at most 8
-per session, tracked in `~/.kratos/sweeps/<session_id>.json` with the transcript offset already
-scanned), it quietly injects a one-sentence instruction
-for Claude via `hookSpecificOutput.additionalContext` (no `decision` field, so no Stop-hook-error
-styling — see below) pointing at `references/memory-sweep.md`, the full two-target protocol:
-(1) review the whole conversation for durable user facts (preferences, habits, weak spots,
-corrections, working style — never project/task facts, never secrets), dedupe against
-`kratos memory list`, and save at most 3 via `kratos memory add`; (2) identify corrections the
-user made to a specific god-agent's finished work and save at most 2 as per-agent lessons via
+mission, this hook is a session-wide safety net that fires periodically: `Stop` runs after every
+assistant turn, and the hook keeps a per-session marker (`~/.kratos/sweeps/<session_id>.json`)
+with the transcript byte offset already scanned plus human/assistant message counters. Once at
+least 10 new human messages AND 25 new assistant turns have accumulated since the previous sweep,
+it emits a sweep, resets the counters, and re-arms — up to 8 sweeps per session. It quietly injects
+a one-sentence instruction for Claude via `hookSpecificOutput.additionalContext` (no `decision`
+field, so no Stop-hook-error styling — see below) pointing at `references/memory-sweep.md`, the
+full two-target protocol: (1) review the whole conversation for durable user facts (preferences,
+habits, weak spots, corrections, working style — never project/task facts, never secrets), dedupe
+against `kratos memory list`, and save at most 3 via `kratos memory add`; (2) identify corrections
+the user made to a specific god-agent's finished work and save at most 2 as per-agent lessons via
 `kratos feedback add --agent <god>`. Lessons are re-injected at that agent's next spawn by
 `path-inject.cjs` (≤5, current-project first via `feedback list --prefer-project`; fail-open —
 any error just drops the lessons block).
@@ -127,31 +157,33 @@ the sweep with zero user-visible output: no narration, no closing 📝 note.
 |-------|----------|
 | `stop_hook_active === true` | Already re-invoked because of this hook — never re-emit on a hook-blocked continuation |
 | `KRATOS_MEMORY_SWEEP=off` | Opt-out (see below) |
-| Marker `~/.kratos/sweeps/<session_id>` exists | Already swept this session |
-| Transcript has fewer than 6 user messages | Session too short to be worth a sweep |
-| Transcript contains `IRIS COMPLETE` | Iris already swept her own mission — don't double-sweep |
-| Transcript contains `KRATOS WRAP COMPLETE` | `/kratos:wrap` already swept inline before printing its marker — don't double-sweep |
+| Fewer than 10 new human messages or 25 new assistant turns since the last sweep | Not armed yet — the marker is updated and nothing is emitted |
+| 8 sweeps already emitted this session | Per-session cap reached |
+| New transcript tail contains `IRIS COMPLETE` or `KRATOS WRAP COMPLETE` | An inline sweep already ran (Iris mission, `/kratos:wrap`) — counters reset, no double-sweep |
 | Transcript file missing or unreadable | Fail open — never block blind |
 | `kratos` binary unresolvable | No CLI, no sweep |
 | `references/memory-sweep.md` missing | Partial install — no protocol, no sweep |
 
-On a qualifying session the hook writes the marker file first (so a hung or interrupted sweep
-never causes a repeat emission), prunes markers older than 7 days, then emits
+On a qualifying turn the hook writes the marker first (so a hung or interrupted sweep never
+causes a repeat emission), prunes markers older than 7 days, then emits
 `{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":"<sweep instruction>"}}`.
 
 **Opt-out**: set `KRATOS_MEMORY_SWEEP=off` in your environment to disable the sweep entirely.
-`session-end.cjs` and the rest of the `Stop` hooks are unaffected.
+`session-end.cjs` and the other hooks are unaffected.
 
 ## Troubleshooting
 
 **Hooks not running?**
-- Ensure Kratos plugin is enabled: `kratos@lizard-plugins` in settings.json
+- Ensure Kratos plugin is enabled: `kratos@kratos` in settings.json
 - Check `~/.kratos/` directory was created
 - Restart Claude Code after enabling plugin
 
 **No data recorded?**
 - Run: `kratos init` (binary at `${CLAUDE_PLUGIN_ROOT}/bin/kratos` or `~/.kratos/bin/kratos`)
-- Rebuild if missing: `cd go && make build`
+- Rebuild if missing: `cd kratos-dev/go && make build`
+
+**A gate never blocks?**
+- Check the hook's stdout: a block must be `{"decision":"block","reason":"..."}` at the top level; anything else is treated as allow
 
 **View hook errors:**
 - Check Claude Code logs for hook execution errors

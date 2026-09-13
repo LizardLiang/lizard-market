@@ -440,7 +440,7 @@ func TestDispatch(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
-		if !resp.OK {
+		if !resp.allowed() {
 			t.Errorf("cassandra with risk-analysis.md should pass, got ok=false reason=%q", resp.Reason)
 		}
 	})
@@ -460,7 +460,7 @@ func TestDispatch(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
-		if !resp.OK {
+		if !resp.allowed() {
 			t.Errorf("hermes at stage 9 should return ok=true (no Tier 1 check), got ok=false")
 		}
 	})
@@ -480,7 +480,7 @@ func TestDispatch(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
-		if resp.OK {
+		if resp.allowed() {
 			t.Error("cassandra without risk-analysis.md should fail")
 		}
 		if !strings.Contains(resp.Reason, "risk-analysis.md") {
@@ -502,7 +502,7 @@ func TestDispatch(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
-		if !resp.OK {
+		if !resp.allowed() {
 			t.Error("unknown agent_type at stage 9 should fail-open (ok=true)")
 		}
 	})
@@ -531,7 +531,7 @@ func TestOptional(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
-		if !resp.OK {
+		if !resp.allowed() {
 			t.Error("skipped optional stage should return ok=true without file checks")
 		}
 	})
@@ -556,7 +556,7 @@ func TestOptional(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
-		if resp.OK {
+		if resp.allowed() {
 			t.Error("non-skipped stage with missing file should return ok=false")
 		}
 		if !strings.Contains(resp.Reason, "decomposition.md") {
@@ -581,7 +581,7 @@ func TestFailOpen(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
-		if !resp.OK {
+		if !resp.allowed() {
 			t.Error("stop_hook_active=true should return ok=true immediately")
 		}
 	})
@@ -599,7 +599,7 @@ func TestFailOpen(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
-		if !resp.OK {
+		if !resp.allowed() {
 			t.Error("unknown stage should fail-open (ok=true)")
 		}
 	})
@@ -616,7 +616,7 @@ func TestFailOpen(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
-		if !resp.OK {
+		if !resp.allowed() {
 			t.Error("malformed stdin should fail-open (ok=true)")
 		}
 	})
@@ -634,7 +634,7 @@ func TestFailOpen(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
-		if !resp.OK {
+		if !resp.allowed() {
 			t.Error("missing feature dir should fail-open (ok=true)")
 		}
 	})
@@ -858,7 +858,7 @@ func TestCheckIntegration(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(verifyOutput)), &verifyResp); err != nil {
 			t.Fatalf("--verify output not valid JSON: %v\noutput: %q", err, verifyOutput)
 		}
-		if !verifyResp.OK {
+		if !verifyResp.allowed() {
 			t.Errorf("--verify with all files present should pass, got ok=false reason=%q", verifyResp.Reason)
 		}
 
@@ -885,7 +885,7 @@ func TestCheckIntegration(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(out1)), &resp1); err != nil {
 			t.Fatalf("resp1 not valid JSON: %v", err)
 		}
-		if resp1.OK {
+		if resp1.allowed() {
 			t.Error("first verify with no file should block (ok=false)")
 		}
 		if !strings.Contains(resp1.Reason, "attempt 1/2") {
@@ -907,7 +907,7 @@ func TestCheckIntegration(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(out2)), &resp2); err != nil {
 			t.Fatalf("resp2 not valid JSON: %v", err)
 		}
-		if !resp2.OK {
+		if !resp2.allowed() {
 			t.Errorf("second verify with file present should pass, got ok=false reason=%q", resp2.Reason)
 		}
 
@@ -931,7 +931,7 @@ func TestCheckIntegration(t *testing.T) {
 		})
 		var r1 subagentStopOutput
 		json.Unmarshal([]byte(strings.TrimSpace(out1)), &r1)
-		if r1.OK {
+		if r1.allowed() {
 			t.Error("attempt 1 should block")
 		}
 
@@ -944,7 +944,7 @@ func TestCheckIntegration(t *testing.T) {
 		})
 		var r2 subagentStopOutput
 		json.Unmarshal([]byte(strings.TrimSpace(out2)), &r2)
-		if r2.OK {
+		if r2.allowed() {
 			t.Error("attempt 2 should block")
 		}
 		if !strings.Contains(r2.Reason, "attempt 2/2") {
@@ -960,7 +960,7 @@ func TestCheckIntegration(t *testing.T) {
 		})
 		var r3 subagentStopOutput
 		json.Unmarshal([]byte(strings.TrimSpace(out3)), &r3)
-		if !r3.OK {
+		if !r3.allowed() {
 			t.Errorf("attempt 3 (max exhausted) should return ok=true, got ok=false reason=%q", r3.Reason)
 		}
 
@@ -1019,7 +1019,7 @@ func TestCheckIntegration(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
 			t.Fatalf("output not valid JSON: %v", err)
 		}
-		if !resp.OK {
+		if !resp.allowed() {
 			t.Errorf("explicit --feature=feature-a with files present should pass, got ok=false reason=%q", resp.Reason)
 		}
 	})

@@ -802,7 +802,12 @@ func specBackfillIn(root string) (string, error) {
 		if !ok {
 			continue
 		}
-		verdict, _ := stage8["verdict"].(string)
+		// Hera files her verdict as alignment_verdict; older or hand-edited
+		// status.json files carry only the generic field.
+		verdict, _ := stage8["alignment_verdict"].(string)
+		if verdict == "" {
+			verdict, _ = stage8["verdict"].(string)
+		}
 		if strings.ToLower(verdict) != "aligned" {
 			continue
 		}

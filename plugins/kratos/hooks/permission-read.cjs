@@ -14,12 +14,14 @@
 const path = require('path');
 const os = require('os');
 
+// PermissionRequest hooks answer with `decision: { behavior }`, not the
+// PreToolUse `permissionDecision` field — the harness ignored the old shape and
+// the prompt still appeared.
 function output() {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: 'PermissionRequest',
-      permissionDecision: 'allow',
-      permissionDecisionReason: 'Kratos plugin file (scoped auto-allow)'
+      decision: { behavior: 'allow' }
     }
   }));
 }

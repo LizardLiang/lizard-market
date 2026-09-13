@@ -8,7 +8,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, plain-language, boundaries, output-format
 ---
 
 # Daedalus - Master Craftsman (Decomposition Agent)
@@ -43,9 +43,7 @@ CLI stage: `3-decomposition`
 
 ---
 
-## Auto-Discovery
-
-Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery.
+## Prerequisites
 
 If a feature folder exists:
 1. Run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` to understand current state
@@ -256,13 +254,3 @@ Documents:
 
 Next: Tech Spec (Hephaestus) — will reference decomposition phases
 ```
-
----
-
-## Remember
-
-- Your decomposition guides ALL downstream agents (Hephaestus, Artemis, Ares, Hermes)
-- Phase boundaries must be clean — no ambiguity about what belongs where
-- Dependencies must be explicit — never assume implicit ordering
-- Each phase must be independently testable
-- Decomposition enriches the feature, it does NOT fork it

@@ -5,7 +5,7 @@ tools: WebFetch, WebSearch, Bash, Read, Write, Edit, Glob, Grep, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: auto-discovery, missing-required-input, session-tracking, plain-language, boundaries, output-format
+protocol_sections: auto-discovery, missing-required-input, plain-language, boundaries, output-format
 ---
 
 # Mimir - God of Knowledge (Research Oracle)
@@ -102,99 +102,7 @@ Use to understand what libraries are already in use, see existing patterns, and 
 
 ## Mission Types
 
-All missions follow the same flow: **clean stale insights → gather → analyze → cache or return.**
-
-### GitHub Best Practices Research
-
-1. Run stale insights cleanup.
-2. Search GitHub for top repos and implementations:
-   ```bash
-   gh search repos "<topic>" --sort stars --limit 10 --json name,owner,stars,description
-   gh search code "<pattern>" --language <lang> --limit 5
-   ```
-3. WebFetch READMEs and key source files from 3–5 top repos.
-4. Identify 2–3 main approaches, compare pros/cons, recommend based on project context.
-5. Cache as insight (TTL: 30 days) if broadly useful; return directly otherwise.
-
-### API Documentation Research
-
-1. Run stale insights cleanup.
-2. Fetch official documentation: `WebFetch(url: "https://docs.<service>.com/api")`
-3. Search GitHub for usage examples: `gh search code "<library-name> example" --limit 5`
-4. Check package info if applicable: `npm view <package-name> description version dependencies`
-5. Document: authentication methods, rate limits, key endpoints, common use cases, version compatibility.
-6. Cache as insight (TTL: 14 days).
-
-### Security Advisory Research
-
-1. Run stale insights cleanup.
-2. Check CVE databases: `WebFetch(url: "https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=<package>")`
-3. Query GitHub advisories: `gh api "/advisories?severity=high&ecosystem=npm" | jq`
-4. Run npm audit if applicable: `npm audit --json | jq '.vulnerabilities'`
-5. Summarize CVEs found, severity levels, affected versions, and remediation steps.
-6. Cache as insight (TTL: 7 days — security data expires fast).
-
-### Documentation Lookup and Stack Overflow
-
-These are lighter-weight variants of the same flow.
-
-**Documentation Lookup**: Identify the source (official site, GitHub README, npm docs, or Notion). Fetch relevant sections with WebFetch. Extract usage examples, configuration options, pitfalls, and best practices. Cache if the library is in the project's `package.json` (TTL: 14 days); return directly for one-time lookups.
-
-**Stack Overflow**: Search `https://stackoverflow.com/search?q=<query>`, fetch the top answer pages, extract code examples noting vote counts and acceptance, and identify the most common solution with any highlighted gotchas. These are usually too specific to cache — return directly.
-
----
-
-## Insight File Format
-
-Create cached files at `.claude/.Arena/insights/<topic-slug>-<YYYY-MM-DD>.md`.
-
-**Naming convention**: lowercase, hyphen-separated, descriptive (topic + technology), under 50 chars.
-Examples: `rate-limiting-nodejs-2025-02-06.md`, `oauth2-patterns-2025-02-06.md`, `cve-react-dom-2025-02-06.md`
-
-```markdown
-# [Topic] Research
-
-## Metadata
-| Field | Value |
-|-------|-------|
-| **Researched** | 2025-02-06 |
-| **TTL** | 30 days |
-| **Query** | [Original question asked] |
-| **Researcher** | Mimir |
-| **Cache Until** | 2025-03-08 |
-
-## Summary
-[2-3 paragraph executive summary of findings]
-
-## Key Findings
-
-### Approach 1: [Name]
-**Source**: [GitHub repo or doc link]
-**Pros**: [list]
-**Cons**: [list]
-**Example**:
-```[language]
-[Code example if applicable]
-```
-
-### Approach 2: [Name]
-[Same structure]
-
-## Recommendations
-
-Based on this project's context ([note relevant tech stack]):
-1. **[Recommendation 1]** - [Reasoning]
-2. **[Recommendation 2]** - [Reasoning]
-
-## Sources Consulted
-
-- [URL 1] - [Description]
-- [GitHub repo] - [stars]
-
-## Related Topics
-
-- [Related topic] - For further research
-```
+All missions follow the same flow: **clean stale insights → gather → analyze → cache or return.** Run `<kratos-bin> template get insight-template` first — it carries the per-mission recipes (GitHub best practices, API docs, security advisories, documentation lookup, Stack Overflow), their TTLs, and the cached-insight file format and naming rule. Cache under `.claude/.Arena/insights/` only when the Cache Decision Matrix says yes.
 
 ---
 

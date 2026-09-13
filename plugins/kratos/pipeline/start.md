@@ -39,21 +39,27 @@ AskUserQuestion(
 )
 ```
 
-Write only the bare level into status.json — **exactly one of `P0`/`P1`/`P2`/`P3`**, never the full option label: `status.json`, the Go CLI, and `status.md` all expect the atomic value.
+Pass only the bare level to the CLI — **exactly one of `P0`/`P1`/`P2`/`P3`**, never the full option label: `status.json`, the Go CLI, and `status.md` all expect the atomic value.
 
 ### Step 2: Create the Battlefield
 
 0. **Derive the folder name** from the typed feature name: `FEATURE=$(<kratos-bin> slug --dated "<typed name>")` — prepends today's local date (`YYYY-MM-DD-`) to the kebab slug. Fallback if the binary is unavailable: prepend today's date as `YYYY-MM-DD-` to the kebab slug by hand. This dated slug is `<feature-name>` for every path below.
 
-1. **Initialize status.json** by creating the file directly with the base schema. See `<KRATOS_ROOT>/references/status-json-schema.md` for the complete schema. Create `.claude/feature/<feature-name>/status.json` with the full pipeline template, setting `feature`, `description`, `priority`, and real timestamps. `feature` = the dated folder name from Step 0 above.
+1. **Initialize status.json** with the CLI — it writes the full pipeline template with real timestamps:
 
-2. **Create arena-deltas.md** for feature-specific discoveries
+   ```bash
+   <kratos-bin> pipeline init --feature <feature-name> --description "<one sentence>" --priority P0|P1|P2|P3
+   ```
 
-3. **Create README** for the feature
+   Fallback without the binary: create `.claude/feature/<feature-name>/status.json` by hand from `<KRATOS_ROOT>/references/status-json-schema.md`, setting `feature` (the dated folder name), `description`, `priority`, and real timestamps.
 
-**Note on Stage 8 fields:**
-- `mode`: Set to `"ares"` (AI implements) or `"user"` (manual implementation) after Stage 7 by editing status.json directly. See `<KRATOS_ROOT>/references/status-json-schema.md` for the schema.
-- `tasks`: Only populated in User Mode with this structure:
+2. **Create arena-deltas.md** for feature-specific discoveries (Step 3)
+
+3. **Create README** for the feature (Step 4)
+
+**Note on Stage 7 fields** (`pipeline["7-implementation"]`):
+- `mode`: the pre-implementation gate sets `"ares"` (AI implements) or `"user"` (manual implementation) with `<kratos-bin> pipeline update --stage 7 --status in-progress --mode ares|user` — see `<KRATOS_ROOT>/pipeline/pre-implementation.md`.
+- `tasks`: only populated in User Mode with this structure:
   ```json
   {
     "total": 10,
@@ -104,16 +110,16 @@ Stage 1: PRD Creation (in-progress)
 ## Pipeline Status
 | Stage | Status | Agent | Document |
 |-------|--------|-------|----------|
+| 0. Research (optional) | Skipped | Metis | .claude/.Arena/* |
 | 1. PRD | In Progress | Athena | prd.md |
 | 2. PRD Review | Blocked | Nemesis | prd-challenge.md |
-| 3. Decomposition | Blocked | Daedalus | decomposition.md |
-| 4. Discuss | Blocked | Themis | context.md |
-| 5. Tech Spec | Blocked | Hephaestus | tech-spec.md |
-| 6. SA Spec Review | Blocked | Apollo | spec-review-sa.md |
-| 7. Test Plan | Blocked | Artemis | test-plan.md |
-| 8. Implementation | Blocked | Ares | implementation-notes.md |
-| 9. PRD Alignment | Blocked | Hera | prd-alignment.md |
-| 10. Review | Blocked | Hermes + Cassandra | code-review.md + risk-analysis.md |
+| 3. Decomposition (optional) | Blocked | Daedalus | decomposition.md |
+| 4. Tech Spec (Themis discuss phase → Hephaestus) | Blocked | Themis + Hephaestus | context.md + tech-spec.md |
+| 5. SA Spec Review | Blocked | Apollo | spec-review-sa.md |
+| 6. Test Plan | Blocked | Artemis | test-plan.md |
+| 7. Implementation | Blocked | Ares | implementation-notes.md |
+| 8. PRD Alignment | Blocked | Hera | prd-alignment.md |
+| 9. Review | Blocked | Hermes + Cassandra | code-review.md + risk-analysis.md |
 
 ## History
 - <timestamp>: Feature created by Kratos
@@ -135,7 +141,7 @@ Priority: <priority>
 Battlefield: .claude/feature/<feature-name>/
 
 Pipeline Initialized:
-[1]PRD -> [2]Review -> [3]Decompose -> [4]Discuss -> [4]Spec -> [5]Review -> [6]Test -> [7]Impl -> [8]Align -> [9]Review -> VICTORY
+[1]PRD -> [2]Review -> [3]Decompose -> [4]Spec (discuss + write) -> [5]Review -> [6]Test -> [7]Impl -> [8]Align -> [9]Review -> VICTORY
 
 Current Stage: 1 - PRD Creation
 Agent: Athena (opus)

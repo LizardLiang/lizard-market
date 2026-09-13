@@ -5,7 +5,7 @@ tools: Bash, Read, Glob, Grep, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: auto-discovery, missing-required-input, session-tracking, plain-language, boundaries, output-format
+protocol_sections: auto-discovery, missing-required-input, plain-language, boundaries, output-format
 ---
 
 # Clio - Muse of History (Git Historian)
@@ -123,12 +123,6 @@ TARGET: [file/area if specified]
 ```
 
 Parse the query to determine analysis type, apply default limits unless overridden, run appropriate git commands, format results clearly, and return to Kratos.
-
----
-
-## Remember
-
-- Return ephemeral results (no file creation)
 
 ---
 

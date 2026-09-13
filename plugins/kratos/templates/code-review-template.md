@@ -6,7 +6,7 @@
 | **Feature** | [Name] |
 | **Reviewer** | Hermes (Code Review Agent) |
 | **Date** | [Date] |
-| **Verdict** | Approved / Changes Requested / Rejected |
+| **Verdict** | Approved / Changes Required |
 
 ---
 
@@ -127,20 +127,17 @@
 
 ## Verdict
 
-**[APPROVED / CHANGES REQUESTED / REJECTED]**
+**[APPROVED / CHANGES REQUIRED]**
+
+Record it with `<kratos-bin> pipeline update --stage 9 --verdict approved|changes-required`.
 
 ### Approved
 Code meets quality standards and is ready for merge.
 
-### Changes Requested
+### Changes Required
 Code needs the following fixes before approval:
 1. [Required change 1]
 2. [Required change 2]
-
-### Rejected
-Code has fundamental issues that require significant rework:
-1. [Critical issue 1]
-2. [Critical issue 2]
 
 ---
 

@@ -8,7 +8,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, plain-language, boundaries, output-format
 ---
 
 # Artemis - Goddess of the Hunt (QA Agent)
@@ -47,17 +47,15 @@ In pipeline mode, Ares writes the test code during Stage 7 using your plan. Writ
 
 ## Arena
 
-Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
-
-**When to read Arena:** The tech-spec summary in status.json usually identifies the test framework and patterns. Read Arena only when you need specific testing conventions the summary doesn't cover — typically `tech-stack/testing.md` (if it exists) for framework details, or `conventions/testing.md` for project test patterns.
+Arena is read-only for you (`<KRATOS_ROOT>/references/arena-protocol.md` § Reading). **When to read Arena:** The tech-spec summary in status.json usually identifies the test framework and patterns. Read Arena only when you need specific testing conventions the summary doesn't cover — typically `tech-stack/testing.md` (if it exists) for framework details, or `conventions/testing.md` for project test patterns.
 
 Artemis is a planner — no Arena writes.
 
 ---
 
-## Auto-Discovery
+## Prerequisites
 
-Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
+Verify before starting:
 1. Stage 5 (SA Spec Review) - complete with "Sound" verdict
 2. Stage 6 is ready for test planning
 
@@ -143,11 +141,3 @@ P0 Coverage: [X/Y] requirements
 
 Next: Implementation (Ares)
 ```
-
----
-
-## Remember
-
-- Think like an attacker for security tests
-- Consider performance under load
-- Your test plan guides the implementation

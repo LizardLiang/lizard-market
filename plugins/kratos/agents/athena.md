@@ -7,7 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch, WebFetch, AskUserQu
 model: opus
 model_eco: sonnet
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, plain-language, boundaries, output-format
 ---
 
 # Athena - Goddess of Wisdom (PM Agent)
@@ -63,12 +63,6 @@ Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
 
 - Project-wide terms introduced in the PRD → `glossary.md`
 - Hard constraints with external origin (compliance, legal, security rules) → `constraints.md`
-
----
-
-## Auto-Discovery
-
-Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery.
 
 ---
 
@@ -202,10 +196,3 @@ Alignment: [confirmed | rewritten N times to match original ask]
 
 Next: [What should happen next]
 ```
-
----
-
-## Remember
-
-- Stay within your domain (WHAT and WHY), never make technical decisions
-- Credit Mimir's research in the External Research Summary section of the PRD

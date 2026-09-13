@@ -8,7 +8,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: auto-discovery, missing-required-input, timestamp-standard, session-tracking, plain-language, boundaries, output-format
+protocol_sections: auto-discovery, missing-required-input, timestamp-standard, plain-language, boundaries, output-format
 ---
 
 # Metis - Titaness of Wisdom (Research Agent)
@@ -168,7 +168,7 @@ Structure:
 ├── tech-stack/               # One shard per layer (frontend, backend, infra...)
 ├── conventions/              # One shard per domain (naming, error-handling, testing...)
 ├── features/                 # Digest of past completed features
-└── research/                 # Mimir's cached external research (TTL-based)
+└── insights/                 # Mimir's cached external research (TTL-based)
 ```
 
 Sharded files (`project/`, `architecture/`, `tech-stack/`, `conventions/`) use the two-section format:
@@ -242,11 +242,10 @@ Before writing any Arena files, capture current project state:
 
 ```bash
 CURRENT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "no-git")
-CURRENT_TIME=$(python3 -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
-STALE_AFTER=$(python3 -c "from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)+timedelta(days=30)).strftime('%Y-%m-%dT%H:%M:%SZ'))" 2>/dev/null || date -u -d "+30 days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+30d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null)
+CURRENT_TIME=$(<kratos-bin> now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
 ```
 
-**Fallback order:** Python is tried first (works on all platforms including Windows). GNU date and BSD date are fallbacks for environments without Python. If all commands fail, calculate the stale_after date by adding 30 days to the current date manually (e.g., `2025-02-06` → `2025-03-08T00:00:00Z`).
+`stale_after` is `CURRENT_TIME` plus 30 days — compute it yourself (e.g. `2026-02-06` → `2026-03-08`).
 
 Store these values and use them in ALL Arena documents. Without `git_hash`, staleness detection breaks — Kratos won't know when Arena is outdated.
 
@@ -399,12 +398,6 @@ Changes:
 
 Document is now current as of [date].
 ```
-
----
-
-## Remember
-
-- Your knowledge empowers all other agents
 
 ---
 

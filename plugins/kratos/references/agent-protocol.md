@@ -1,23 +1,6 @@
 # Agent Protocol — Shared Procedures
 
-Procedures shared across all Kratos agents. Spawned and inline agents receive their relevant sections injected automatically (SubagentStart hook / `kratos agent load`) — read this file only as a fallback when no injected **Agent Protocol** block is present in your context. Orchestrators read § Spawn Prompt Fields and § Spawning Athena here directly.
-
----
-
-## Path Resolution
-<!-- protocol: path-resolution -->
-
-Plugin-internal paths are written as `<KRATOS_ROOT>/...` (e.g., `<KRATOS_ROOT>/references/...`). Resolution is deterministic, not LLM text-substitution:
-
-- **Spawned subagents**: the SubagentStart hook (`hooks/path-inject.cjs`) injects the resolved absolute plugin root into your context alongside the `<kratos-bin>` path. Use the injected root wherever you see `<KRATOS_ROOT>`. Orchestrators do not (and should not) rewrite `<KRATOS_ROOT>` in spawn prompts themselves.
-- **Inline command-mode gods** (e.g. `/kratos:ares`): the generated launcher loads your body via `kratos agent load <name> --resolve`, which substitutes `<KRATOS_ROOT>` and `<kratos-bin>` before you ever see the text — by the time you're reading your persona, the tokens are already gone.
-- **Fallback**: if you receive an unsubstituted `<KRATOS_ROOT>` reference (no root was injected and no `--resolve` ran — e.g. the binary is unavailable and the JS fallback in `launch.cjs` also couldn't resolve it), fall back to `plugins/kratos/` relative to the project root (in-repo installs).
-
-Project-artifact paths (e.g., `.claude/feature/...`, `.claude/.Arena/...`) remain relative to the **project root** (git repository root).
-
-Templates are retrieved via the CLI: `'<kratos-path>' template get <template-name>` (omit the `.md` extension). The CLI handles file location regardless of where the plugin is installed.
-
-**Kratos binary**: The `SubagentStart` hook injects the resolved absolute path. Wherever instructions show `<kratos-bin>`, substitute the literal path from the hook directly — e.g. `'/usr/local/bin/kratos' <subcommand>`. If no path was injected, skip all kratos calls and report to Kratos that the binary is unavailable.
+Procedures shared across all Kratos agents. Spawned and inline agents receive their relevant sections injected automatically (SubagentStart hook / `kratos agent load`) — read this file only as a fallback when no injected **Agent Protocol** block is present in your context. Orchestrator-only procedures (path resolution, spawn prompt fields, spawning Athena) live in `references/orchestrator-protocol.md`.
 
 ---
 
@@ -26,8 +9,7 @@ Templates are retrieved via the CLI: `'<kratos-path>' template get <template-nam
 
 Choose documents based on the decision you are making; don't mechanically read every input.
 
-- Use `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state, summaries, and quick context (do not read `status.json` directly). The `--compact` flag omits the audit-only `history[]` and `check_failures[]`, which grow every stage and waste tokens — always prefer it unless you specifically need the audit trail.
-- Other deterministic pipeline work also belongs to the CLI, never hand computation: `pipeline next --json` (next stage, agents, gate check per the transition table), `pipeline status [feature] --json` (dashboard: progress %, health, conflicts), `pipeline tasks list|complete --json` (User Mode task bookkeeping with atomic writes and auto-advance), `slug <text>` (kebab-case slugs; add `--dated` to prepend today's local date `YYYY-MM-DD-` when minting artifact names — feature folders, tactical/strategic plans — so they sort chronologically).
+- Use `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state, summaries, and quick context (do not read `status.json` directly). `--compact` omits the audit-only `history[]` and `check_failures[]`.
 - Use `prd.md` for requirements, acceptance criteria, and product intent
 - Use `tech-spec.md` for architecture, interfaces, sequencing, and implementation constraints
 - Use `test-plan.md` for expected coverage and verification scope
@@ -41,18 +23,7 @@ Avoid rereading the same document unless you need a section not already captured
 ## Auto-Discovery
 <!-- protocol: auto-discovery -->
 
-Find the active feature and read pipeline state before starting any mission:
-
-```
-Search: .claude/feature/*/status.json
-```
-
-Then read the pipeline state:
-```bash
-<kratos-bin> pipeline get --compact --feature FEATURE_NAME
-```
-
-Your agent definition lists the stage-specific prerequisites to verify. In command mode (inline invocation), Auto-Discovery may find no active feature — follow the feature name derivation instructions in your command-mode suffix if present.
+Find the active feature before starting a pipeline mission: search `.claude/feature/*/status.json`, then run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME`. Your agent definition lists the stage prerequisites to verify. In command mode (inline invocation) there may be no active feature — follow the feature-name derivation in your command-mode suffix if present.
 
 ---
 
@@ -86,18 +57,6 @@ Canonical rule for every `AskUserQuestion` call across kratos agents, commands, 
 
 ---
 
-## Spawn Prompt Fields (recommended)
-<!-- protocol: spawn-prompt-fields -->
-
-Alongside the usual `MISSION:` / `FEATURE:` / `FOLDER:` fields, orchestrators SHOULD include two scope-control fields when spawning agents that write files:
-
-- `NON-GOALS:` — what this spawn must NOT touch, lifted from the PRD's Non-Goals or the tech-spec's scope section. Agents treat this as a scope fence: work that would cross it gets logged (e.g., as debt in implementation-notes.md), never done "while you're here".
-- `STOP-CONDITIONS:` — the named early-return signals for this agent (e.g., missing prerequisite → report the owning upstream agent; genuine ambiguity → `<AGENT> NEEDS CLARIFICATION`; wave boundary → checkpoint). Naming them in the packet makes stopping the expected move, not a failure.
-
-Both fields are advisory for read-only spawns (Explore-style searches) but mandatory-in-spirit for implementation spawns — a spawn prompt without a scope fence invites scope creep.
-
----
-
 ## Document Creation
 <!-- protocol: document-creation -->
 
@@ -113,106 +72,14 @@ Your primary deliverable is a document file. Kratos verifies this file exists af
 ## Timestamp Standard
 <!-- protocol: timestamp-standard -->
 
-**Never write `<ISO-timestamp>` placeholders.** Always use a real timestamp.
-
-**Preferred**: Let `kratos pipeline update` stamp timestamps automatically (always uses real time).
-
-**When you must write a timestamp manually** (e.g., fallback JSON edits or nested fields the CLI doesn't cover):
-
-```bash
-# Capture a precise ISO8601 timestamp
-TS=$(<kratos-bin> now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
-```
-
-Then use `$TS` wherever the schema expects `<ISO8601>`:
-
-```json
-{ "started": "2026-03-30T14:05:00Z", "completed": "2026-03-30T14:07:30Z" }
-```
-
-`kratos now` outputs RFC3339 with local timezone offset (e.g., `2026-03-30T22:05:00+08:00`). `date` fallback outputs UTC. Both are valid ISO8601.
+Never write `<ISO-timestamp>` placeholders. `kratos pipeline update` stamps timestamps itself. When you must write one by hand (fallback JSON edits, nested fields the CLI doesn't cover), capture it first: `TS=$(<kratos-bin> now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)`.
 
 ---
 
 ## Status Updates via Kratos CLI
 <!-- protocol: status-updates -->
 
-Update pipeline status using the exact command format below. Do NOT improvise flags or invent new ones.
-
-**CRITICAL**: For authentic timestamps, always use the two-step process:
-
-### Step 1: Mark Work as Started
-```bash
-# When you BEGIN work, immediately mark as in-progress
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage STAGE_NUMBER --status in-progress
-```
-
-### Step 2: Mark Work as Complete  
-```bash
-# When you FINISH work, mark as complete with deliverables
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage STAGE_NUMBER --status complete --document DOC_NAME
-
-# For review stages, include verdict:
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage STAGE_NUMBER --status complete --verdict VERDICT --document DOC_NAME
-```
-
-### Examples
-```bash
-# PRD Creation (two steps):
-<kratos-bin> pipeline update --feature auth-system --stage 1 --status in-progress
-# ... do the actual PRD work ...
-<kratos-bin> pipeline update --feature auth-system --stage 1 --status complete --document prd.md
-
-# Review (two steps):
-<kratos-bin> pipeline update --feature auth-system --stage 2 --status in-progress
-# ... do the actual review work ...
-<kratos-bin> pipeline update --feature auth-system --stage 2 --status complete --verdict approved --document prd-challenge.md
-```
-
-**Why Two Steps**: Ensures `started` and `completed` have different timestamps, preventing zero-duration work periods that appear fabricated.
-
-- If the command outputs JSON → done. Do NOT also write status.json manually.
-- If the command is not found or errors → fall back to editing status.json directly using `kratos now` for timestamps.
-
----
-
-## Spawning Athena (orchestrator-only)
-<!-- protocol: spawning-athena -->
-
-Athena runs at Stage 1 only (`prd.md`); revision loops (Nemesis verdict `revisions`) re-spawn her at Stage 1. The `kratos check --init` hook reads `pending_stage` at SubagentStart to inject the correct deliverable expectations — it is set to `1-prd` at feature init, so a normal first spawn needs no extra step.
-
-```bash
-# Only if re-spawning Athena after other stages have run (keeps --init pointed at stage 1):
-<kratos-bin> pipeline set-pending --feature FEATURE_NAME --stage 1
-
-# After Athena completes (clears the field):
-<kratos-bin> pipeline set-pending --feature FEATURE_NAME --stage ""
-```
-
-If `pending_stage` is stale or empty on a re-spawn, `--init` falls back to reading the previous completed stage and may tell Athena to produce the wrong deliverable.
-
----
-
-## Session Tracking
-<!-- protocol: session-tracking -->
-
-Record your work in the Kratos session ledger so Kratos can reconstruct what happened.
-
-Your injected context carries **Kratos session:** `<id>` (and the project root). That id IS the
-session — use it directly; the CLI creates the row on demand, so recording never fails on a
-missing session.
-
-```bash
-# Record your spawn at start (replace AGENT_NAME, MODEL, DESCRIPTION)
-<kratos-bin> step record-agent "<session-id>" AGENT_NAME MODEL "DESCRIPTION" --project "<project-root>"
-
-# Record each document you create or modify (action: created | modified)
-<kratos-bin> step record-file "<session-id>" created "path/to/file" --project "<project-root>"
-```
-
-If no session id was injected (older harness, inline command mode), skip session tracking
-silently — the PostToolUse hook already records file edits and agent spawns for the main session.
-Never call `session active` to hunt for an id.
+Your agent definition carries the exact `pipeline update` commands for your stage. Do not improvise flags. Always run them as two steps so `started` and `completed` carry real, different timestamps: `--status in-progress` when you begin, then `--status complete --document DOC_NAME` (add `--verdict VERDICT` on review stages) when you finish. If the command outputs JSON, you are done — never also edit `status.json` by hand. If the binary is missing or errors, fall back to editing `status.json` directly (top-level key `pipeline`, see Timestamp Standard).
 
 ---
 
@@ -245,7 +112,7 @@ Detail: `<KRATOS_ROOT>/references/artifact-edit-protocol.md`.
 ## Boundaries (all agents)
 <!-- protocol: boundaries -->
 
-Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.md`. Complete mission and return. End every turn with visible text — a turn that only launched background work still states what was launched and what comes next; never poll with `sleep` loops, rely on task notifications.
+Subagent of Kratos. Stay in your domain. Complete mission and return. End every turn with visible text — a turn that only launched background work still states what was launched and what comes next; never poll with `sleep` loops, rely on task notifications. The PostToolUse hook records your file writes and agent spawns in the session ledger — never call `session active` or `step record-*` yourself.
 
 **Git safety** ("why are you messing with my branches"):
 - Commit only on the checked-out branch.

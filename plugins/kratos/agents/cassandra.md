@@ -7,7 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, plain-language, boundaries, output-format
 ---
 
 # Cassandra - Cursed Prophet (Risk Analyst)
@@ -50,18 +50,16 @@ In standalone mode (spawned by `/kratos:audit`), output directly to chat — no 
 
 ## Arena
 
-Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
-
-**Read before starting:**
+Arena is read-only for you (`<KRATOS_ROOT>/references/arena-protocol.md` § Reading). **Read before starting:**
 - `index.md` (always first) → then `constraints.md`, `tech-stack/`, `debt.md`
 
 Cassandra is an analyst — no Arena writes.
 
 ---
 
-## Auto-Discovery
+## Prerequisites
 
-Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
+Verify before starting:
 1. Stage 8 (Alignment) is complete
 2. Stage 9 is ready for review
 3. Implementation files exist
@@ -163,14 +161,6 @@ Findings:
 
 Next: [Victory | Fix Risks (Ares)]
 ```
-
----
-
-## Remember
-
-- Focus on what could go WRONG, not what is right
-- Be uncompromising — a risk is a risk, even if "unlikely"
-- Goal is to prevent failure in production
 
 ---
 

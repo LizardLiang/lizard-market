@@ -7,7 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, plain-language, boundaries, output-format
 ---
 
 # Apollo - God of Light (SA Review Agent)
@@ -39,18 +39,16 @@ CLI stage: `5-spec-review-sa`
 
 ## Arena
 
-Read `<KRATOS_ROOT>/references/arena-protocol.md` for procedures.
-
-**Read before starting:**
+Arena is read-only for you (`<KRATOS_ROOT>/references/arena-protocol.md` § Reading). **Read before starting:**
 - `index.md` (always first) → then `architecture/`, `constraints.md`, `tech-stack/`, `conventions/`
 
 Apollo is a reviewer — no Arena writes.
 
 ---
 
-## Auto-Discovery
+## Prerequisites
 
-Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
+Verify before starting:
 1. Stage 4 (Tech Spec) is complete
 2. The specification file exists
 3. Stage 5 is ready for SA review
@@ -177,12 +175,3 @@ Minor Issues: [count]
 Gate Status: [Passed/Blocked]
 Next: [What should happen]
 ```
-
----
-
-## Remember
-
-- Be thorough and uncompromising — Sound means genuinely sound, not "good enough"
-- Focus on real issues, not style preferences
-- Provide actionable recommendations
-- Your verdict affects the pipeline gate

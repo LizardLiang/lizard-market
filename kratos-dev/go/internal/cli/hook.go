@@ -105,7 +105,9 @@ var stripPatterns = []*regexp.Regexp{
 	regexp.MustCompile("`[^`]+`"),                                    // inline code
 	regexp.MustCompile(`<[^>]+>[^<]*</[^>]+>`),                       // XML tags with content
 	regexp.MustCompile(`https?://\S+`),                               // URLs
-	regexp.MustCompile(`(?:^|\s)[/\\]\S+`),                           // file paths
+	regexp.MustCompile(`(?:^|\s)[/\\]\S+`),                           // absolute file paths
+	regexp.MustCompile(`\S+[/\\]\S+`),                                // relative paths (plugins/kratos, kratos-dev/go)
+	regexp.MustCompile(`[A-Za-z0-9_.]+(?:-[A-Za-z0-9_.]+)+`),         // hyphenated compounds (kratos-dev, kratos-bin)
 	regexp.MustCompile(`(?s)<system-reminder>.*?</system-reminder>`), // system reminders
 }
 
@@ -140,16 +142,20 @@ type subagentStopInput struct {
 	TranscriptPath      string `json:"transcript_path"`
 }
 
-// subagentStopOutput is returned to allow or block subagent completion
+// subagentStopOutput is the SubagentStop/Stop hook response. Claude Code honors
+// only a top-level {"decision":"block","reason":"..."} to block; an allow is an
+// empty object (or no output) with exit 0. The former {"ok":true|false} shape was
+// silently ignored by the harness, so every gate was advisory.
 type subagentStopOutput struct {
-	OK     bool   `json:"ok"`
-	Reason string `json:"reason,omitempty"`
+	Decision string `json:"decision,omitempty"`
+	Reason   string `json:"reason,omitempty"`
 }
 
 // preToolUseInput is the JSON Claude Code sends for PreToolUse
 type preToolUseInput struct {
 	ToolName  string              `json:"tool_name"`
 	ToolInput preToolUseToolInput `json:"tool_input"`
+	Cwd       string              `json:"cwd"`
 }
 
 type preToolUseToolInput struct {
@@ -161,15 +167,126 @@ type preToolUseOutput struct {
 	HookSpecificOutput preToolUseHookSpecific `json:"hookSpecificOutput"`
 }
 
+// preToolUseHookSpecific deliberately carries no permissionDecision: fix-pm only
+// rewrites the command, and the normal permission flow must still apply to the
+// rewritten input.
 type preToolUseHookSpecific struct {
-	HookEventName      string            `json:"hookEventName"`
-	PermissionDecision string            `json:"permissionDecision"`
-	UpdatedInput       map[string]string `json:"updatedInput,omitempty"`
-	AdditionalContext  string            `json:"additionalContext,omitempty"`
+	HookEventName     string            `json:"hookEventName"`
+	UpdatedInput      map[string]string `json:"updatedInput,omitempty"`
+	AdditionalContext string            `json:"additionalContext,omitempty"`
 }
 
-// npmWordBoundary matches the word "npm" with word boundaries
-var npmWordBoundary = regexp.MustCompile(`\bnpm\b`)
+// npmCiRE matches the " ci" that may follow a segment-leading "npm".
+var npmCiRE = regexp.MustCompile(`^[ \t]+ci\b`)
+
+// shellAssignRE matches a leading VAR=value token, which does not end the
+// "first token of the segment" position (`CI=true npm test`).
+var shellAssignRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
+
+// rewriteNPMCommand replaces `npm` with pm only where npm is the first token of a
+// shell command segment — start of line, or after `&&`, `||`, `;`, `|`, `(` —
+// and never inside single or double quotes. So `grep npm`, `echo "npm install"`
+// and `npmrc` stay untouched. `npm ci` becomes `<pm> install --frozen-lockfile`.
+// Returns the rewritten command and whether anything changed.
+func rewriteNPMCommand(command, pm string) (string, bool) {
+	isTokenByte := func(c byte) bool {
+		switch c {
+		case ' ', '\t', '\n', '\r', ';', '|', '&', '\'', '"', '(', ')', '`':
+			return false
+		}
+		return true
+	}
+
+	var out strings.Builder
+	changed := false
+	inSingle, inDouble := false, false
+	atSegmentStart := true
+	n := len(command)
+	for i := 0; i < n; {
+		c := command[i]
+		if inSingle {
+			if c == '\'' {
+				inSingle = false
+			}
+			out.WriteByte(c)
+			i++
+			continue
+		}
+		if inDouble {
+			if c == '\\' && i+1 < n {
+				out.WriteByte(c)
+				out.WriteByte(command[i+1])
+				i += 2
+				continue
+			}
+			if c == '"' {
+				inDouble = false
+			}
+			out.WriteByte(c)
+			i++
+			continue
+		}
+		switch c {
+		case '\'':
+			inSingle = true
+			atSegmentStart = false
+			out.WriteByte(c)
+			i++
+			continue
+		case '"':
+			inDouble = true
+			atSegmentStart = false
+			out.WriteByte(c)
+			i++
+			continue
+		case ';', '|', '&', '\n', '(', '`':
+			atSegmentStart = true
+			out.WriteByte(c)
+			i++
+			continue
+		case ' ', '\t', '\r', ')':
+			out.WriteByte(c)
+			i++
+			continue
+		case '\\':
+			if i+1 < n {
+				out.WriteByte(c)
+				out.WriteByte(command[i+1])
+				i += 2
+			} else {
+				out.WriteByte(c)
+				i++
+			}
+			atSegmentStart = false
+			continue
+		}
+
+		// Plain token.
+		j := i
+		for j < n && isTokenByte(command[j]) {
+			j++
+		}
+		token := command[i:j]
+		switch {
+		case atSegmentStart && shellAssignRE.MatchString(token):
+			// VAR=value prefix — the next token is still the command.
+			out.WriteString(token)
+		case atSegmentStart && token == "npm":
+			out.WriteString(pm)
+			changed = true
+			if m := npmCiRE.FindStringIndex(command[j:]); m != nil {
+				out.WriteString(" install --frozen-lockfile")
+				j += m[1]
+			}
+			atSegmentStart = false
+		default:
+			out.WriteString(token)
+			atSegmentStart = false
+		}
+		i = j
+	}
+	return out.String(), changed
+}
 
 // HookCmd returns the 'hook' command group
 func HookCmd() *cobra.Command {
@@ -600,21 +717,16 @@ func outputJSON(output hookOutput) error {
 }
 
 const todoQualityGate = `
-╔══════════════════════════════════════════════════════════════╗
-║  KRATOS QUALITY GATE — MANDATORY BEFORE ANY TOOL CALL        ║
-╠══════════════════════════════════════════════════════════════╣
-║  1. Write your complete numbered TODO list FIRST             ║
-║     Format:                                                  ║
-║       TODO:                                                  ║
-║       1. [ ] Task description                                ║
-║       2. [ ] Task description                                ║
-║       ...                                                    ║
-║  2. Work through each item in order                          ║
-║  3. Mark each item [x] as you complete it                    ║
-║  4. Do NOT call any tool before your TODO list is written    ║
-╚══════════════════════════════════════════════════════════════╝
+## KRATOS QUALITY GATE — MANDATORY BEFORE ANY TOOL CALL
 
-Output: status lines terse [status][what][result][next], never a bare [what]:; answers/decisions conclusion-first full sentences, keep hedges. Technical terms exact.
+1. Write your complete numbered TODO list FIRST. Format:
+   TODO:
+   1. [ ] Task description
+   2. [ ] Task description
+   ...
+2. Work through each item in order.
+3. Mark each item [x] as you complete it.
+4. Do NOT call any tool before your TODO list is written.
 `
 
 // aresTaskGate is injected for Ares specifically — and only in subagent mode,
@@ -624,22 +736,19 @@ Output: status lines terse [status][what][result][next], never a bare [what]:; a
 // The closing "Task list:" recap is what the SubagentStop gate matches on (it can
 // only see the final message text, not tool calls), so the recap keeps the gate
 // meaningful.
+//
+// Neither gate repeats the output-format constraint: the protocol block that
+// path-inject.cjs injects for the same spawn already carries it.
 const aresTaskGate = `
-╔══════════════════════════════════════════════════════════════╗
-║  KRATOS QUALITY GATE — CREATE YOUR TASK LIST FIRST          ║
-╠══════════════════════════════════════════════════════════════╣
-║  You are a SUBAGENT: TaskCreate/TaskUpdate/TaskList are NOT  ║
-║  available here — do not call them, do not retry on denial.  ║
-║  1. Write a markdown task checklist BEFORE any other work    ║
-║     — one item per file/module, not one vague "implement"    ║
-║     (small missions ≤2 files: one umbrella item is enough)   ║
-║  2. Mark an item in-progress when you start it               ║
-║  3. Mark [x] ONLY when truly done (tests green)              ║
-║  4. Add any new work that surfaces mid-mission to the list   ║
-║  5. End with a "Task list:" recap of every item + status     ║
-╚══════════════════════════════════════════════════════════════╝
+## KRATOS QUALITY GATE — CREATE YOUR TASK LIST FIRST
 
-Output: status lines terse [status][what][result][next], never a bare [what]:; answers/decisions conclusion-first full sentences, keep hedges. Technical terms exact.
+You are a SUBAGENT: TaskCreate/TaskUpdate/TaskList are NOT available here — do not call them, do not retry on denial.
+
+1. Write a markdown task checklist BEFORE any other work — one item per file/module, not one vague "implement" (small missions ≤2 files: one umbrella item is enough).
+2. Mark an item in-progress when you start it.
+3. Mark [x] ONLY when truly done (tests green).
+4. Add any new work that surfaces mid-mission to the list.
+5. End with a "Task list:" recap of every item + status.
 `
 
 // subagentStartCmd injects a mandatory TODO-first instruction into Ares and Hephaestus agents.
@@ -681,8 +790,11 @@ func subagentStartCmd() *cobra.Command {
 				return outputSubagentStartContext(todoQualityGate + reminder)
 			}
 
-			// For all other agents (athena, daedalus, etc.) — inject text TODO quality gate
-			return outputSubagentStartContext(todoQualityGate)
+			// hooks.json wires `hook subagent-start` only for ares, hephaestus and
+			// hermes. Any other agent type reaching here is a wiring change we did
+			// not plan for — inject nothing rather than a gate the agent's
+			// SubagentStop hook never checks.
+			return nil
 		},
 	}
 }
@@ -740,8 +852,7 @@ func handleHermesStart(input subagentStartInput) error {
 			"After each tier review run (Bash tool, do NOT edit the file directly):\n"+
 			"  '%s' hermes-list check T1   # after T1, T2 for T2, … T8 for T8\n"+
 			"Run immediately after each tier — not in a batch at the end.\n"+
-			"A hook verifies all 8 tiers on stop — incomplete tiers block completion.\n\n"+
-			"Output: status lines terse [status][what][result][next], never a bare [what]:; answers/decisions conclusion-first full sentences, keep hedges. Technical terms exact.",
+			"A hook verifies all 8 tiers on stop — incomplete tiers block completion.",
 		checklistPath, kratosBinPath(),
 	)
 
@@ -749,7 +860,7 @@ func handleHermesStart(input subagentStartInput) error {
 }
 
 // findActiveFeatureDir scans .claude/feature/*/status.json and returns the feature folder
-// for the first feature where stage 8-review has status pending, in-progress, or ready.
+// for the first feature where stage 9-review has status pending, in-progress, or ready.
 func findActiveFeatureDir(cwd string) (string, error) {
 	pattern := filepath.Join(cwd, ".claude", "feature", "*", "status.json")
 	matches, err := filepath.Glob(pattern)
@@ -818,15 +929,33 @@ func outputSubagentStartContext(additionalContext string) error {
 // bypassable via a malformed payload.
 var gatedAgents = []string{"ares", "hephaestus", "hermes", "nemesis", "athena"}
 
-// gatedAgentInRaw reports which gated agent (if any) a raw, unparseable payload appears
-// to concern. It scans the whole payload, so a message body that merely mentions a gated
-// agent name also trips it — that is intentional: on a malformed payload we prefer to
-// fail closed rather than risk letting a gated agent slip through.
+// rawAgentTypeRE pulls the agent_type value out of a payload that failed to parse
+// as JSON (the field itself is usually intact; it is the message body that breaks).
+var rawAgentTypeRE = regexp.MustCompile(`"agent_type"\s*:\s*"([^"]*)"`)
+
+// gatedAgentREs match gated agent names on word boundaries, so "shares" or
+// "compares" in a message body never read as Ares.
+var gatedAgentREs = func() []*regexp.Regexp {
+	res := make([]*regexp.Regexp, len(gatedAgents))
+	for i, a := range gatedAgents {
+		res[i] = regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(a) + `\b`)
+	}
+	return res
+}()
+
+// gatedAgentInRaw reports which gated agent (if any) a raw, unparseable payload
+// concerns. It prefers the agent_type field when that survived the corruption;
+// otherwise it scans the whole payload on word boundaries — a message body that
+// names a gated agent still trips it, deliberately: on a malformed payload we
+// fail closed rather than let a gated agent slip through.
 func gatedAgentInRaw(raw []byte) string {
-	s := strings.ToLower(string(raw))
-	for _, a := range gatedAgents {
-		if strings.Contains(s, a) {
-			return a
+	haystack := string(raw)
+	if m := rawAgentTypeRE.FindSubmatch(raw); m != nil {
+		haystack = string(m[1])
+	}
+	for i, re := range gatedAgentREs {
+		if re.MatchString(haystack) {
+			return gatedAgents[i]
 		}
 	}
 	return ""
@@ -996,7 +1125,7 @@ func aresVerifyGateFailure(input subagentStopInput) string {
 }
 
 // subagentStopCmd verifies that Ares and Hephaestus produced complete deliverables.
-// Returns {"ok": true} to allow completion or {"ok": false, "reason": "..."} to block.
+// Prints {} to allow completion or {"decision": "block", "reason": "..."} to block.
 func subagentStopCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "subagent-stop",
@@ -1270,14 +1399,16 @@ func handleNemesisStop(input subagentStopInput) error {
 	return outputSubagentOK()
 }
 
+// outputSubagentOK allows the subagent to stop: an empty JSON object, exit 0.
 func outputSubagentOK() error {
-	data, _ := json.Marshal(subagentStopOutput{OK: true})
-	fmt.Println(string(data))
+	fmt.Println("{}")
 	return nil
 }
 
+// outputSubagentBlock blocks the subagent from stopping with the given reason,
+// using the only shape Claude Code honors for SubagentStop/Stop.
 func outputSubagentBlock(reason string) error {
-	data, _ := json.Marshal(subagentStopOutput{OK: false, Reason: reason})
+	data, _ := json.Marshal(subagentStopOutput{Decision: "block", Reason: reason})
 	fmt.Println(string(data))
 	return nil
 }
@@ -1480,13 +1611,17 @@ func fixPMCmd() *cobra.Command {
 
 			command := input.ToolInput.Command
 
-			// Only act if npm is used
-			if !npmWordBoundary.MatchString(command) {
+			// Cheap pre-filter before touching the filesystem.
+			if !strings.Contains(command, "npm") {
 				return nil
 			}
 
-			// Detect package manager from lockfiles
-			cwd := os.Getenv("CLAUDE_PROJECT_DIR")
+			// Detect package manager from lockfiles: hook payload cwd first,
+			// then CLAUDE_PROJECT_DIR, then the process working directory.
+			cwd := input.Cwd
+			if cwd == "" {
+				cwd = os.Getenv("CLAUDE_PROJECT_DIR")
+			}
 			if cwd == "" {
 				cwd, _ = os.Getwd()
 			}
@@ -1496,14 +1631,18 @@ func fixPMCmd() *cobra.Command {
 				return nil // no alternative PM found, let npm through
 			}
 
-			fixed := npmWordBoundary.ReplaceAllString(command, pm)
+			fixed, changed := rewriteNPMCommand(command, pm)
+			if !changed {
+				return nil // npm only appears as an argument or inside quotes
+			}
 
+			// No permissionDecision: the rewritten command goes through the
+			// normal permission flow like any other Bash call.
 			output := preToolUseOutput{
 				HookSpecificOutput: preToolUseHookSpecific{
-					HookEventName:      "PreToolUse",
-					PermissionDecision: "allow",
-					UpdatedInput:       map[string]string{"command": fixed},
-					AdditionalContext:  fmt.Sprintf("[Kratos] Auto-corrected: npm → %s (detected %s in project root). Use %s for all package operations in this project.", pm, lockfile, pm),
+					HookEventName:     "PreToolUse",
+					UpdatedInput:      map[string]string{"command": fixed},
+					AdditionalContext: fmt.Sprintf("[Kratos] Auto-corrected: npm → %s (detected %s in project root). Use %s for all package operations in this project.", pm, lockfile, pm),
 				},
 			}
 
@@ -1518,13 +1657,14 @@ func fixPMCmd() *cobra.Command {
 }
 
 // detectPackageManager checks lockfiles in cwd to determine the package manager.
-// Priority: bun.lockb > yarn.lock > pnpm-lock.yaml
+// Priority: bun.lockb / bun.lock > yarn.lock > pnpm-lock.yaml
 func detectPackageManager(cwd string) (pm string, lockfile string) {
 	checks := []struct {
 		file string
 		pm   string
 	}{
 		{"bun.lockb", "bun"},
+		{"bun.lock", "bun"},
 		{"yarn.lock", "yarn"},
 		{"pnpm-lock.yaml", "pnpm"},
 	}

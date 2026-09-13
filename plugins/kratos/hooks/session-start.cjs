@@ -13,9 +13,15 @@
  * shared by every concurrent window: sessions in other projects ended each
  * other, resume pointers named the wrong project, and `step record-agent`
  * failed with FOREIGN KEY errors (2026-09 transcript review).
+ *
+ * Budget: hooks.json gives SessionStart 5000 ms. Every spawn below carries a
+ * timeout and the serial sum stays under ~4000 ms (version 800 + memory list
+ * 1500 + init 500 + session start 800); the plugin-bin → ~/.kratos/bin copy
+ * runs last so it can never starve the calls. Every kratos call uses spawnSync
+ * with an argv array — payload text never reaches a shell.
  */
 
-const { execSync, execFileSync, spawn, spawnSync } = require("child_process");
+const { execFileSync, spawn, spawnSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -59,15 +65,26 @@ function ensureDir() {
 
 const findKratosBinary = resolveBinary;
 
-function runKratos(args) {
+// Per-call budgets (ms). Serial sum must stay under the 5000 ms hook timeout
+// with room for node startup.
+const VERSION_TIMEOUT_MS = 800;
+const MEMORY_LIST_TIMEOUT_MS = 1500;
+const INIT_TIMEOUT_MS = 500;
+const SESSION_START_TIMEOUT_MS = 800;
+
+// Runs the kratos binary with an argv array; stdout on success, null otherwise.
+function runKratos(args, timeoutMs) {
   const kratosCmd = findKratosBinary();
   if (!kratosCmd) return null;
   try {
-    return execSync(`"${kratosCmd}" ${args}`, {
+    const r = spawnSync(kratosCmd, args, {
       encoding: "utf-8",
       env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
       stdio: ["ignore", "pipe", "ignore"],
+      timeout: timeoutMs,
     });
+    if (r.error || r.status !== 0) return null;
+    return r.stdout;
   } catch (e) {
     return null;
   }
@@ -80,7 +97,7 @@ function firstLine(text) {
 
 // Like runKratos, but keeps stderr so a failure can name its cause.
 // Returns { out, err }; out is null on any failure.
-function runKratosCapture(args) {
+function runKratosCapture(args, timeoutMs) {
   const kratosCmd = findKratosBinary();
   if (!kratosCmd) return { out: null, err: "kratos binary not found" };
   try {
@@ -88,7 +105,7 @@ function runKratosCapture(args) {
       encoding: "utf-8",
       env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: 3000,
+      timeout: timeoutMs,
     });
     if (r.error || r.status !== 0 || !r.stdout) {
       return { out: null, err: firstLine(r.stderr) || firstLine(r.error && r.error.message) || `exit ${r.status}` };
@@ -116,7 +133,7 @@ function binaryVersion(bin) {
     const out = execFileSync(bin, ["--version"], {
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
-      timeout: 2000,
+      timeout: VERSION_TIMEOUT_MS,
     });
     const match = out.match(/v?(\d+\.\d+\.\d+)/);
     return match ? match[1] : null;
@@ -147,7 +164,7 @@ function initDb() {
     );
     return false;
   }
-  return runKratos("init") !== null;
+  return runKratos(["init"], INIT_TIMEOUT_MS) !== null;
 }
 
 function toSlashes(p) {
@@ -170,7 +187,7 @@ function normalizeProject(p) {
 // A failed list with an existing DB returns one "memory unavailable" line
 // instead of nothing: silent null hid a broken binary for weeks (2026-09).
 function formatMemories(cwd) {
-  const { out, err } = runKratosCapture(["memory", "list", "--limit", "80"]);
+  const { out, err } = runKratosCapture(["memory", "list", "--limit", "80"], MEMORY_LIST_TIMEOUT_MS);
   const unavailable = (reason) => (fs.existsSync(DB_PATH) ? `Kratos: memory unavailable (${reason})` : null);
   if (!out) return unavailable(err || "no output");
   let data;
@@ -337,7 +354,11 @@ function formatTimeAgo(timestampMs) {
   return `${Math.floor(diffDay / 7)} weeks ago`;
 }
 
-// Copy kratos binary to ~/.kratos/bin/ so agents use a single fixed path
+// Keep ~/.kratos/bin/ in sync with the plugin binary so agents use a single
+// fixed path. Returns { refreshing, copy }: refreshing is true when a background
+// release download was spawned; copy is a function performing the plugin-bin →
+// ~/.kratos/bin copy, or null when the target is already current. The caller
+// runs copy() last so a slow ~10MB copy never starves the CLI calls.
 function ensureBinary() {
   const targetDir = path.join(KRATOS_HOME, "bin");
   const isWin = process.platform === "win32";
@@ -348,8 +369,7 @@ function ensureBinary() {
   const srcPath = path.join(pluginRoot, "bin", platformBinaryName());
   if (!fs.existsSync(srcPath)) {
     // No plugin-local binary (release install) — background download; the
-    // SessionStart budget cannot fit a ~10MB fetch inline. Returns true so the
-    // caller knows a refresh is under way.
+    // SessionStart budget cannot fit a ~10MB fetch inline.
     try {
       const child = spawn(process.execPath, [path.join(__dirname, "ensure-binary.cjs")], {
         detached: true,
@@ -359,19 +379,22 @@ function ensureBinary() {
     } catch (e) {
       // best-effort
     }
-    return true;
+    return { refreshing: true, copy: null };
   }
 
   let needsCopy = !fs.existsSync(targetPath);
   if (!needsCopy) {
     needsCopy = fs.statSync(srcPath).mtimeMs > fs.statSync(targetPath).mtimeMs;
   }
-  if (needsCopy) {
-    fs.mkdirSync(targetDir, { recursive: true });
-    fs.copyFileSync(srcPath, targetPath);
-    if (!isWin) fs.chmodSync(targetPath, 0o755);
-  }
-  return false;
+  if (!needsCopy) return { refreshing: false, copy: null };
+  return {
+    refreshing: false,
+    copy: () => {
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.copyFileSync(srcPath, targetPath);
+      if (!isWin) fs.chmodSync(targetPath, 0o755);
+    },
+  };
 }
 
 // Remove per-session state files older than 7 days, plus the legacy shared
@@ -405,7 +428,7 @@ function registerSession(sessionId, cwd, source) {
   if (!sessionId) return;
   if (!initDb()) return;
 
-  const raw = runKratos(`session start "${cwd}" --session-id "${sessionId}"`);
+  const raw = runKratos(["session", "start", cwd, "--session-id", sessionId], SESSION_START_TIMEOUT_MS);
   let created = false;
   if (raw) {
     try {
@@ -440,10 +463,13 @@ function main(payload) {
 
   ensureDir();
   let refreshing = false;
+  let pendingCopy = null;
   try {
-    refreshing = ensureBinary() === true;
+    const bin = ensureBinary();
+    refreshing = bin.refreshing;
+    pendingCopy = bin.copy;
   } catch (e) {
-    // a failed copy must not block session start
+    // a failed binary check must not block session start
   }
   pruneSessionFiles();
 
@@ -467,6 +493,16 @@ function main(payload) {
   }
 
   registerSession(sessionId, cwd, source);
+
+  // Copy last: resolveBinary() prefers the plugin-local binary, so nothing
+  // above depends on the ~/.kratos/bin copy being fresh.
+  if (pendingCopy) {
+    try {
+      pendingCopy();
+    } catch (e) {
+      // a failed copy must not block session start
+    }
+  }
 }
 
 // Read the hook payload from stdin (session_id, cwd, source). Older harnesses

@@ -88,27 +88,30 @@ This file captures feature-specific discoveries and changes that are NOT yet in 
 
 ## Integration Checklist
 
-When integrating these deltas into Master Arena:
+When integrating these deltas into the sharded Arena (`.claude/.Arena/`):
 
-### tech-stack.md
+### tech-stack/<layer>.md
 - [ ] Add new dependencies: {list}
 - [ ] Update versions: {list}
 
-### architecture.md
+### architecture/system-design.md
 - [ ] Document new services: {list}
 - [ ] Update component diagram
 - [ ] Add new patterns: {list}
 
-### file-structure.md
+### architecture/file-structure.md
 - [ ] Add new directories: {list}
 - [ ] Update key files list
 
-### conventions.md
+### conventions/<domain>.md
 - [ ] Document any new conventions discovered
 - [ ] Note any exceptions to existing patterns
 
-### project-overview.md
+### project/overview.md
 - [ ] Update if feature significantly changes project scope
+
+### index.md
+- [ ] Update the `Updated` column for every shard you touched
 
 ---
 
@@ -125,5 +128,4 @@ If this delta contradicted Master Arena, document here:
 ## Notes
 
 - This file is temporary and will be deleted after integration
-- Master Arena remains read-only during feature development
 - Agents read: Master Arena + This Delta = Combined View

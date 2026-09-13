@@ -45,7 +45,7 @@ Kratos is a **Claude Code plugin** (`.claude-plugin/plugin.json`) that orchestra
 - **`pipeline/`** — Stage orchestration logic. `stages.md` has exact Agent tool invocations for each stage (0–9). `next.md` handles stage progression. `classify.md` routes requests to quick-path vs full pipeline.
 - **`templates/`** — Document templates agents fill in (PRD, tech spec, test plan, code review, etc.).
 - **`rules/`** — Code review standards (tiered). `default.md` is the baseline; language-specific files (e.g., `react.md`) auto-load based on file types.
-- **`references/`** — Protocol docs agents read: `agent-protocol.md` (shared procedures), `arena-protocol.md` (knowledge base read/write rules), `status-json-schema.md`.
+- **`references/`** — Protocol docs: `agent-protocol.md` (the sections injected into every god — nothing orchestrator-only lives here), `orchestrator-protocol.md` (path resolution, spawn prompt fields, spawning Athena — read by Kratos only), `arena-protocol.md` (knowledge base read/write rules), `status-json-schema.md`.
 - **`modes/`** — Execution mode reference (`modes.md`) with the eco/normal/power model matrix for every agent.
 - **`hooks/`** — Claude Code hooks (`hooks.json` + JS/Go implementations). Key hooks: SubagentStart/Stop gates for Ares/Hephaestus/Hermes, PreToolUse for npm→project-PM rewriting, SessionStart/SessionEnd ledger registration keyed by the Claude Code `session_id` (state in `~/.kratos/sessions/<id>.json`), and the periodic Stop-hook memory sweep.
 

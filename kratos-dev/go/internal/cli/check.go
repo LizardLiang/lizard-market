@@ -609,10 +609,10 @@ func writeCheckState(featureDir string, state map[string]int) error {
 }
 
 // incrementRetry increments the retry counter for a stage and returns the new count.
-// Stage 11 concurrency assumption (M-002): kratos:hermes has no Tier 1 check and returns OK
+// Stage 9-review concurrency assumption (M-002): kratos:hermes has no Tier 1 check and returns OK
 // immediately (check.go AgentDispatch: hermes entry absent), so it never calls incrementRetry.
-// The only stage-11 agent that reaches this path is kratos:cassandra, making the concurrent
-// read-modify-write race between two stage-11 agents a non-issue in practice. If future Tier 2/3
+// The only 9-review agent that reaches this path is kratos:cassandra, making the concurrent
+// read-modify-write race between two 9-review agents a non-issue in practice. If future Tier 2/3
 // checks are added for hermes, introduce an advisory file lock before the read-modify-write here.
 func incrementRetry(featureDir, stage string) (int, error) {
 	state, err := readCheckState(featureDir)

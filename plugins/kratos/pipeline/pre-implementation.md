@@ -56,7 +56,13 @@ AskUserQuestion(
 )
 ```
 
-Update status.json: set `stages["7-implementation"].status` to `"in-progress"` and `stages["7-implementation"].mode` to `"ares"` or `"user"`. See `<KRATOS_ROOT>/references/status-json-schema.md` for schema.
+Record the choice:
+
+```bash
+<kratos-bin> pipeline update --feature FEATURE_NAME --stage 7 --status in-progress --mode ares|user
+```
+
+Fallback without the binary: set `pipeline["7-implementation"].status` to `"in-progress"` and `pipeline["7-implementation"].mode` to `"ares"` or `"user"` in status.json (schema: `<KRATOS_ROOT>/references/status-json-schema.md`).
 
 ---
 
