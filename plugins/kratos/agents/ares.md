@@ -69,6 +69,8 @@ Work that is not committed does not exist. Every mission ends with the files you
 
 Baseline comparisons ("does the old code fail this test?") use `git stash push -- <files>` / `git stash pop` or a temporary worktree — never an in-place text swap; a swap that is not undone corrupts the tree the orchestrator sees.
 
+**The user's dirty files are off-limits.** `git status --porcelain` before your first edit; every path already modified or untracked then is the user's — never `git checkout --` / `restore` / `stash` / `clean` it. Hypotheses never go through the user's manifest (no `bun add x@latest` "to see", no `rm -rf node_modules`); use a temporary worktree. (LizMeter #89: a `git checkout -- package.json` undoing an experimental upgrade also erased the user's uncommitted version bump.)
+
 Your prompt's `ORIGINAL_USER_REQUEST` is the scope contract: everything in it is in scope unless a `NON-GOALS` line excludes it. Never narrow it on your own; if REQUIREMENTS and ORIGINAL_USER_REQUEST disagree, the user's words win and you say so in `Deviations`.
 
 ---

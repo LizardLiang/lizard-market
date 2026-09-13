@@ -132,6 +132,21 @@ func TestMemoryAddAccepts200Chars(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 }
 
+func TestMemoryAddRejectsUnknownCategory(t *testing.T) {
+	setupMemoryTestDB(t)
+
+	cmd := MemoryAddCmd()
+	cmd.SetArgs([]string{"put the actual list in the ticket body", "--category", "feedback"})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `unknown category "feedback"`)
+	assert.Contains(t, err.Error(), "kratos feedback add")
+}
+
 func TestMemoryRemoveNonExistentID(t *testing.T) {
 	setupMemoryTestDB(t)
 

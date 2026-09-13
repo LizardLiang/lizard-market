@@ -35,7 +35,23 @@ const OUTPUT_CONSTRAINT =
   "\n**Output constraint:** Two registers.\n" +
   "- Status updates (mid-turn): terse. `[status] [what] [result]. [next].` Fragments OK. Never a bare `[what]:` — always carry the result. No arrow chains.\n" +
   "- Answers, summaries, decisions: conclusion first, then full sentences. Keep hedges and evidence status (verified vs inferred). A yes/no gets one supporting sentence. When asking the user to decide: state the decision and its consequence before the options.\n" +
-  "Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n";
+  "Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n" +
+  "A message the human typed always gets an answer; `No response requested` is only for harness task notifications.\n";
+
+// The pre-plugin installer registered copies of the hooks in ~/.claude/settings.json;
+// when they are still there every event runs twice and the stale copy errors
+// (`recall --project`, "active session already exists"). Point at the fix once.
+function formatLegacyHooksWarning() {
+  const settingsFile = path.join(os.homedir(), ".claude", "settings.json");
+  let text;
+  try {
+    text = fs.readFileSync(settingsFile, "utf-8");
+  } catch (e) {
+    return null;
+  }
+  if (!/hooks[\\\/]+kratos[\\\/]/.test(text)) return null;
+  return "Kratos: legacy hook copies are still registered in ~/.claude/settings.json and run alongside the plugin's — run `kratos install` once to remove them.";
+}
 
 function ensureDir() {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
@@ -365,7 +381,7 @@ function main(payload) {
   }
 
   const handoffLine = source === "compact" ? formatHandoffHead(cwd) || formatHandoffNotice(cwd) : formatHandoffNotice(cwd);
-  for (const line of [handoffLine, formatPendingSpecDeltas(cwd), formatDraftPlans(cwd)]) {
+  for (const line of [handoffLine, formatPendingSpecDeltas(cwd), formatDraftPlans(cwd), formatLegacyHooksWarning()]) {
     if (line) console.log(line);
   }
 

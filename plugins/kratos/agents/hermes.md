@@ -168,6 +168,12 @@ For standalone mode, omit the pipeline context block.
 
 Children are plain review agents — NOT `kratos:hermes` (spawning them as `kratos:hermes` would recursively load this file, re-trigger the checklist hook, and reset your gate state). Substitute the resolved plugin root for `<KRATOS_ROOT>` in each prompt before spawning.
 
+**Every child and validator prompt carries this block verbatim** (a validator once ran `git checkout -- package.json` to tidy its scratch state and erased the user's uncommitted version bump — LizMeter #89, 2026-09-07):
+
+```
+WORKING TREE IS READ-ONLY. The tree may hold the user's uncommitted work. Never run git checkout/restore/stash/reset/clean, never edit, delete, or revert a tracked file, never install or upgrade packages. A scratch test goes under .claude/tmp/ (untracked) and is deleted when you finish. Run commands in the foreground only (no run_in_background) — a background job outlives the review and wakes the orchestrator with a stray notification.
+```
+
 **Child A — Correctness & Safety (Opus)**
 ```
 Task(
@@ -180,6 +186,7 @@ MODE: [pipeline|standalone]
 TIER ASSIGNMENT: T1-T2 ONLY (Correct, Safe)
 
 First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/ — drafts are not standards).
+[READ-ONLY block from 3b]
 
 Review ONLY Tier 1 (Correct) and Tier 2 (Safe). Skip Tiers 3-8 — sibling agents own those.
 
@@ -210,6 +217,7 @@ MODE: [pipeline|standalone]
 TIER ASSIGNMENT: T3-T5 ONLY (Clear, Minimal, Consistent)
 
 First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/ — drafts are not standards).
+[READ-ONLY block from 3b]
 
 Review ONLY Tier 3 (Clear), Tier 4 (Minimal), and Tier 5 (Consistent). Skip Tiers 1-2 and 6-8 — sibling agents own those.
 
@@ -235,6 +243,7 @@ MODE: [pipeline|standalone]
 TIER ASSIGNMENT: T6-T8 ONLY (Resilient, Performant, Maintainable)
 
 First read <KRATOS_ROOT>/rules/default.md — use its Severity Labels (BLOCKER/WARNING/SUGGESTION) exactly; also read every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/ — drafts are not standards).
+[READ-ONLY block from 3b]
 
 Review ONLY Tier 6 (Resilient), Tier 7 (Performant), and Tier 8 (Maintainable). Skip Tiers 1-5 — sibling agents own those.
 
@@ -285,10 +294,11 @@ Task(
 TARGET FILE: [file path]
 FINDING: [the finding text including file:line, tier, rule, problem, fix]
 PR CONTEXT: [PR title + description if available]
+[READ-ONLY block from 3b]
 
 Your job: independently verify this finding is real.
 1. Read the file at the specified line
-2. Check if the stated problem actually exists in the code
+2. Check if the stated problem actually exists in the code (a throwaway test under .claude/tmp/ is fine; deleting or reverting project files is not)
 3. Apply the False Positive Prevention checks:
    - FP-01: Is this a value copy vs resource reference confusion?
    - FP-02: Would the proposed fix introduce worse problems (DRY violation)?

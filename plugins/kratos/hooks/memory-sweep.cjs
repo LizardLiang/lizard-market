@@ -110,8 +110,11 @@ function readTail(transcriptPath, offset) {
 }
 
 // Count human prompts and assistant turns in a transcript chunk. A "user" line
-// that carries a tool_result, a slash-command echo, or hook metadata is not a
-// human message.
+// that carries a tool_result, a slash-command echo, hook metadata, or a
+// background-task wake-up is not a human message: a session babysitting a
+// long eval receives dozens of <task-notification> turns that the human never
+// typed, and counting them armed sweeps over stretches with nothing to sweep
+// (ghg-rag, 2026-09-08: eight consecutive "Kratos: nothing to sweep" turns).
 function countMessages(text) {
   let human = 0;
   let assistant = 0;
@@ -122,9 +125,18 @@ function countMessages(text) {
     }
     if (!line.includes('"type":"user"')) continue;
     if (line.includes('"tool_result"') || line.includes('"isMeta":true') || line.includes('<command-name>')) continue;
+    if (isSystemPrompt(line)) continue;
     human++;
   }
   return { human, assistant };
+}
+
+// True for user-role lines the harness generated on the human's behalf.
+function isSystemPrompt(line) {
+  return line.includes('<task-notification>')
+    || line.includes('"kind":"task-notification"')
+    || line.includes('"promptSource":"system"')
+    || line.includes('<local-command-caveat>');
 }
 
 // Returns the one-line sweep instruction, or null when the protocol file is
@@ -135,7 +147,8 @@ function buildInstruction(kratosBin) {
   if (!fs.existsSync(protocol)) return null;
   return `Silently run the memory sweep in "${protocol.replace(/\\/g, '/')}" `
     + `with <kratos-bin> = ${kratosBin} — no narration; finish with exactly one line: `
-    + '`Kratos: swept <n>` or `Kratos: nothing to sweep`.';
+    + '`Kratos: swept <n>` or `Kratos: nothing to sweep`. '
+    + 'This applies to the current turn only: it is not a standing rule, and later turns print no Kratos line unless this instruction appears again.';
 }
 
 function quietSweep(instruction) {
