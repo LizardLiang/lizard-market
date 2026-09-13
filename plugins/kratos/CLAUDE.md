@@ -26,8 +26,9 @@ cd kratos-dev/go && make gen
 # Verify generated launchers/SKILL.md match agents/*.md (no write; CI + publish.sh gate)
 cd kratos-dev/go && make gen-check
 
-# Initialize DB + install hooks after build
-./plugins/kratos/bin/kratos init && ./plugins/kratos/bin/kratos install
+# Initialize DB after build (hooks ship with the plugin via hooks/hooks.json — nothing to install;
+# `kratos uninstall` removes legacy global hooks left by old installs)
+./plugins/kratos/bin/kratos init
 
 # Publish to the dedicated distribution repo (LizardLiang/kratos) after tagging
 kratos-dev/publish.sh

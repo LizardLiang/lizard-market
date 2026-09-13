@@ -247,6 +247,13 @@ Detail: `<KRATOS_ROOT>/references/artifact-edit-protocol.md`.
 
 Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.md`. Complete mission and return. End every turn with visible text — a turn that only launched background work still states what was launched and what comes next; never poll with `sleep` loops, rely on task notifications.
 
+**Git safety** ("why are you messing with my branches"):
+- Commit only on the checked-out branch.
+- Ask before checkout/switch, rebase, reset, cherry-pick, or a merge into another branch.
+- Never merge into master/main/prod/product and never push unless the user asked.
+- Baseline, bisect, or other-branch runs use `git worktree add` — never the user's checkout (a dev server runs from it).
+- A push or deploy that carries commits the user did not name: state the count and ask.
+
 ---
 
 ## Output Format

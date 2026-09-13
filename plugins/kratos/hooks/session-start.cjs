@@ -15,7 +15,7 @@
  * failed with FOREIGN KEY errors (2026-09 transcript review).
  */
 
-const { execSync, spawn } = require("child_process");
+const { execSync, execFileSync, spawn, spawnSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -73,6 +73,69 @@ function runKratos(args) {
   }
 }
 
+function firstLine(text) {
+  const line = String(text || "").split(/\r?\n/).find((l) => l.trim()) || "";
+  return line.trim().slice(0, 160);
+}
+
+// Like runKratos, but keeps stderr so a failure can name its cause.
+// Returns { out, err }; out is null on any failure.
+function runKratosCapture(args) {
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return { out: null, err: "kratos binary not found" };
+  try {
+    const r = spawnSync(kratosCmd, args, {
+      encoding: "utf-8",
+      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 3000,
+    });
+    if (r.error || r.status !== 0 || !r.stdout) {
+      return { out: null, err: firstLine(r.stderr) || firstLine(r.error && r.error.message) || `exit ${r.status}` };
+    }
+    return { out: r.stdout, err: firstLine(r.stderr) };
+  } catch (e) {
+    return { out: null, err: firstLine(e && e.message) };
+  }
+}
+
+// plugin.json version without a leading "v", or null when unreadable.
+function pluginVersion() {
+  try {
+    const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, "..");
+    const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, ".claude-plugin", "plugin.json"), "utf-8"));
+    return manifest.version ? String(manifest.version).replace(/^v/, "") : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// `<bin> --version` prints "kratos version v2.108.0"; returns "2.108.0" or null.
+function binaryVersion(bin) {
+  try {
+    const out = execFileSync(bin, ["--version"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 2000,
+    });
+    const match = out.match(/v?(\d+\.\d+\.\d+)/);
+    return match ? match[1] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// A stale binary silently lacks flags newer agents call (2026-09 review: a
+// v2.1.0 binary under a v2.108.0 plugin). One line; ensureBinary already
+// spawned the refresh when the binary is a release download.
+function formatVersionMismatch(bin, refreshing) {
+  const have = binaryVersion(bin);
+  const want = pluginVersion();
+  if (!have || !want || have === want) return null;
+  const action = refreshing ? "refreshing in background" : "rebuild: cd kratos-dev/go && make build";
+  return `Kratos: binary v${have} ≠ plugin v${want} — ${action}`;
+}
+
 // Initialize database if needed
 function initDb() {
   if (fs.existsSync(DB_PATH)) return true;
@@ -103,11 +166,20 @@ function normalizeProject(p) {
 // preferences / habits / weak spots, then global context; other projects'
 // scoped facts are never shown. The old newest-15-of-everything injection put
 // the same list in every project and 0-2 of 15 items were relevant (2026-09).
+//
+// A failed list with an existing DB returns one "memory unavailable" line
+// instead of nothing: silent null hid a broken binary for weeks (2026-09).
 function formatMemories(cwd) {
-  const raw = runKratos("memory list --limit 80");
-  if (!raw) return null;
+  const { out, err } = runKratosCapture(["memory", "list", "--limit", "80"]);
+  const unavailable = (reason) => (fs.existsSync(DB_PATH) ? `Kratos: memory unavailable (${reason})` : null);
+  if (!out) return unavailable(err || "no output");
+  let data;
   try {
-    const data = JSON.parse(raw);
+    data = JSON.parse(out);
+  } catch (e) {
+    return unavailable(err || "unreadable output");
+  }
+  try {
     if (!data.memories || data.memories.length === 0) return null;
     const total = typeof data.total === "number" ? data.total : data.memories.length;
     const here = normalizeProject(cwd);
@@ -276,7 +348,8 @@ function ensureBinary() {
   const srcPath = path.join(pluginRoot, "bin", platformBinaryName());
   if (!fs.existsSync(srcPath)) {
     // No plugin-local binary (release install) — background download; the
-    // SessionStart budget cannot fit a ~10MB fetch inline.
+    // SessionStart budget cannot fit a ~10MB fetch inline. Returns true so the
+    // caller knows a refresh is under way.
     try {
       const child = spawn(process.execPath, [path.join(__dirname, "ensure-binary.cjs")], {
         detached: true,
@@ -286,7 +359,7 @@ function ensureBinary() {
     } catch (e) {
       // best-effort
     }
-    return;
+    return true;
   }
 
   let needsCopy = !fs.existsSync(targetPath);
@@ -298,6 +371,7 @@ function ensureBinary() {
     fs.copyFileSync(srcPath, targetPath);
     if (!isWin) fs.chmodSync(targetPath, 0o755);
   }
+  return false;
 }
 
 // Remove per-session state files older than 7 days, plus the legacy shared
@@ -365,7 +439,12 @@ function main(payload) {
   const source = payload && payload.source ? String(payload.source) : "";
 
   ensureDir();
-  ensureBinary();
+  let refreshing = false;
+  try {
+    refreshing = ensureBinary() === true;
+  } catch (e) {
+    // a failed copy must not block session start
+  }
   pruneSessionFiles();
 
   // Always inject the output constraint, regardless of session source.
@@ -374,6 +453,8 @@ function main(payload) {
   const kratosBin = findKratosBinary();
   if (kratosBin) {
     console.log(`KRATOS_BIN: ${kratosBin}`);
+    const mismatch = formatVersionMismatch(kratosBin, refreshing);
+    if (mismatch) console.log(mismatch);
   }
   const memoriesMsg = formatMemories(cwd);
   if (memoriesMsg) {

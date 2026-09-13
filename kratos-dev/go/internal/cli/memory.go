@@ -67,7 +67,7 @@ in that project).`,
 				return fmt.Errorf("memory text is empty")
 			}
 			if n := utf8.RuneCountInString(text); n > memoryTextMaxLen {
-				return fmt.Errorf("memory text exceeds %d characters (got %d) — shorten the fact instead of truncating it", memoryTextMaxLen, n)
+				return fmt.Errorf("memory text exceeds %d characters (got %d) — cut %d; shorten the fact instead of truncating it", memoryTextMaxLen, n, n-memoryTextMaxLen)
 			}
 			if !validMemoryCategories[category] {
 				return fmt.Errorf("unknown category %q — use preference, habit, weak-spot, or context (agent lessons go to `kratos feedback add`)", category)

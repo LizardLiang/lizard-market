@@ -26,8 +26,8 @@ go/
 │   │   └── session.go           # Session data model
 │   └── cli/
 │       ├── init.go              # `kratos init` — DB initialization
-│       ├── install.go           # `kratos install` — hook installation
-│       ├── uninstall.go         # `kratos uninstall`
+│       ├── install.go           # `kratos install` — binary placement only (hooks ship with the plugin)
+│       ├── uninstall.go         # `kratos uninstall` — removes legacy global hooks
 │       ├── session.go           # `kratos session` — session management
 │       ├── session_start.go     # `kratos session start`
 │       ├── pipeline.go          # `kratos pipeline` — stage updates
@@ -63,8 +63,11 @@ make install
 ## Usage
 
 ```bash
-# Initialize database & install hooks
-./bin/kratos init && ./bin/kratos install
+# Initialize database (hooks ship with the plugin in hooks/hooks.json)
+./bin/kratos init
+
+# Old installs only: remove legacy global hooks from ~/.claude/settings.json
+./bin/kratos uninstall
 
 # Pipeline stage management
 ./bin/kratos pipeline update --feature <name> --stage 7 --status complete
@@ -113,8 +116,7 @@ GOOS=darwin GOARCH=arm64 go build -o bin/kratos-mac ./cmd/kratos
 | Command | Purpose |
 |---------|---------|
 | `kratos init` | Initialize SQLite database at `~/.kratos/memory.db` |
-| `kratos install` | Install Claude Code hooks from `hooks/hooks.json` |
-| `kratos uninstall` | Remove installed hooks |
+| `kratos uninstall` | Remove legacy global hooks that old installs wrote to `~/.claude/settings.json` |
 | `kratos session start` | Start a new session for a feature |
 | `kratos pipeline update` | Update pipeline stage status and timestamps |
 | `kratos step record` | Record an agent step with metadata |

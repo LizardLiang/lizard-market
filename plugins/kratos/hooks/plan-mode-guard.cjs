@@ -19,6 +19,12 @@ const PLAN_ROOT_PARTS = ['.claude', '.Arena', 'tactical-plans'];
 const SPEC_DELTA_RE = /(^|\/)\.claude\/feature\/[^/]+\/spec-delta\/[^/]+\.md$/i;
 const READ_ONLY_COMMANDS = [
   /^git\s+(status|diff|show|log|branch|rev-parse|ls-files)\b/i,
+  // `git -C <path> <verb>` is how Odysseus inspects a sibling repo without cd.
+  /^git\s+-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+(status|diff|show|log|branch|rev-parse|ls-files)\b/i,
+  // `sed -n 'a,bp'` prints a line range; `sed -i` is caught by the deny heuristics first.
+  /^sed\s+-n\b/i,
+  /^(head|tail|wc|which|stat|file)\b/i,
+  /^command\s+-v\b/i,
   /^(ls|dir|pwd)\b/i,
   /^(cat|type)\b/i,
   /^(find|grep|rg)\b/i,
@@ -125,7 +131,13 @@ function isReadOnlyCommand(command) {
   if (/(^|\s)(>|>>|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item)\b/i.test(trimmed)) {
     return false;
   }
-  if (/\b(rm|del|erase|mv|move|mkdir|rmdir|npm\s+install|pnpm\s+install|yarn\s+add|bun\s+add|git\s+(push|commit|reset|checkout|switch|merge|rebase|pull))\b/i.test(trimmed)) {
+  // The optional `-C <path>` keeps `git -C /repo checkout main` denied here
+  // rather than relying on the allowlist missing it.
+  if (/\b(rm|del|erase|mv|move|mkdir|rmdir|npm\s+install|pnpm\s+install|yarn\s+add|bun\s+add|git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(push|commit|reset|checkout|switch|merge|rebase|pull))\b/i.test(trimmed)) {
+    return false;
+  }
+  // In-place sed edits files: `-i`, `-i.bak`, a combined `-ni`, or `--in-place`.
+  if (/^sed\b.*\s(-[A-Za-z]*i|--in-place)/i.test(trimmed)) {
     return false;
   }
 

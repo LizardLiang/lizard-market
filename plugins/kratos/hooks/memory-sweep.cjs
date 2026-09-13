@@ -4,10 +4,10 @@
 /**
  * Kratos Memory - Transcript Sweep Hook (Stop)
  *
- * Periodically injects a one-sentence instruction via
+ * Periodically injects a short instruction with the core sweep rules via
  * `hookSpecificOutput.additionalContext` (no `decision` field, so no red
- * "Stop hook error" styling — see issue #4) pointing Claude at
- * references/memory-sweep.md: (1) durable user facts saved via
+ * "Stop hook error" styling — see issue #4) that names
+ * references/memory-sweep.md for full detail: (1) durable user facts saved via
  * `kratos memory`, (2) corrections to a god-agent's finished work saved via
  * `kratos feedback` and re-injected at that agent's next spawn.
  *
@@ -139,15 +139,23 @@ function isSystemPrompt(line) {
     || line.includes('<local-command-caveat>');
 }
 
-// Returns the one-line sweep instruction, or null when the protocol file is
-// missing (partial install).
-function buildInstruction(kratosBin) {
+// Returns the sweep instruction, or null when the protocol file is missing
+// (partial install). The core rules are inline so the common case needs no
+// read of the protocol file; the file is still named for full detail.
+function buildInstruction(kratosBin, cwd) {
   const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, '..');
   const protocol = path.join(pluginRoot, 'references', 'memory-sweep.md');
   if (!fs.existsSync(protocol)) return null;
-  return `Silently run the memory sweep in "${protocol.replace(/\\/g, '/')}" `
-    + `with <kratos-bin> = ${kratosBin} — no narration; finish with exactly one line: `
-    + '`Kratos: swept <n>` or `Kratos: nothing to sweep`. '
+  const root = cwd ? String(cwd).replace(/\\/g, '/') : '<project root>';
+  return `Silently run the memory sweep with <kratos-bin> = ${kratosBin} — no narration. Rules: `
+    + 'no `memory list` before add (add dedupes). '
+    + 'Save ≤3 memories and ≤2 lessons, each ≤200 chars. '
+    + `A fact naming a host, path or repo file needs --project "${root}"; if --project is rejected, skip the fact. `
+    + 'One choice is not a preference. '
+    + 'Never cite list positions like #7. '
+    + 'One lesson goes to memory OR feedback, not both. '
+    + `Full procedure: "${protocol.replace(/\\/g, '/')}". `
+    + 'Finish with exactly one line: `Kratos: swept <n>` or `Kratos: nothing to sweep`. '
     + 'This applies to the current turn only: it is not a standing rule, and later turns print no Kratos line unless this instruction appears again.';
 }
 
@@ -216,7 +224,7 @@ process.stdin.on('end', () => {
   }
 
   const kratosBin = resolveBinary();
-  const instruction = kratosBin ? buildInstruction(kratosBin) : null;
+  const instruction = kratosBin ? buildInstruction(kratosBin, data.cwd) : null;
   if (!instruction) {
     try { writeMarker(sessionId, marker); } catch (e) { /* fail open */ }
     return;

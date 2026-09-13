@@ -19,7 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { URL } = require('url');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { platformBinaryName } = require('./kratos-bin.cjs');
 
 const isWindows = process.platform === 'win32';
@@ -214,14 +214,24 @@ function parseChecksum(checksumsText, filename) {
   return null;
 }
 
-// Existing installs with a markerless binary get the marker seeded from one
-// cheap `--version` exec instead of a forced re-download.
-function seedMarkerFromExisting(targetPath) {
+// The binary itself is the source of truth: one cheap `--version` exec per
+// check, and the marker is rewritten from the real value. Trusting `.version`
+// alone left a v2.1.0 binary in place under a current marker (2026-09
+// transcript review).
+function versionFromBinary(targetPath) {
   try {
-    const out = execSync(`"${targetPath}" --version`, { encoding: 'utf-8' });
+    const out = execFileSync(targetPath, ['--version'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 3000,
+    });
     const match = out.trim().match(/(\d+\.\d+\.\d+)/);
     if (match) {
-      fs.writeFileSync(VERSION_MARKER, match[1]);
+      try {
+        fs.writeFileSync(VERSION_MARKER, match[1]);
+      } catch (e) {
+        // marker is informational only
+      }
       return match[1];
     }
   } catch (e) {
@@ -237,17 +247,12 @@ async function ensureBinary() {
   try {
     if (hasPluginLocalBinary()) return;
 
-    const wantedVersion = pluginVersion();
+    const wantedVersion = pluginVersion().replace(/^v/, '');
     const assetName = releaseAssetName();
     const genericName = isWindows ? 'kratos.exe' : 'kratos';
     const targetPath = path.join(BIN_DIR, genericName);
 
-    let currentVersion = null;
-    if (fs.existsSync(VERSION_MARKER)) {
-      currentVersion = fs.readFileSync(VERSION_MARKER, 'utf-8').trim();
-    } else if (fs.existsSync(targetPath)) {
-      currentVersion = seedMarkerFromExisting(targetPath);
-    }
+    const currentVersion = fs.existsSync(targetPath) ? versionFromBinary(targetPath) : null;
 
     if (currentVersion === wantedVersion) return; // already up to date
 

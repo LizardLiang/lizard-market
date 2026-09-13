@@ -46,6 +46,9 @@ Archive spec delta for [feature-name]?
   Capability: [capability]
   Changes: [N] added, [N] modified, [N] removed, [N] renamed
 
+Tactical-plan features (a `.claude/.Arena/tactical-plans/<feature-name>.md` exists) have no
+status.json — skip any `pipeline get` stage check and this warning for them.
+
 If this feature's stage 8-prd-alignment status is not "complete" with verdict "aligned",
 warn explicitly: "No alignment check ran for this feature — archiving promotes the delta
 based on Athena's authorship alone."

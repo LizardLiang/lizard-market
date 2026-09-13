@@ -237,6 +237,79 @@ func TestPlanModeGuardDecisions(t *testing.T) {
 			},
 			want: "allow",
 		},
+		// Inspection commands Odysseus was denied in 3d7510ed (2026-09 transcript review).
+		{
+			name: "sed -n line range allowed",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "sed -n '370,470p' src/a.ts"},
+			},
+			want: "allow",
+		},
+		{
+			name: "git -C read-only verb allowed",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "git -C /repo log --oneline -40"},
+			},
+			want: "allow",
+		},
+		{
+			name: "wc allowed",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "wc -l a.ts"},
+			},
+			want: "allow",
+		},
+		{
+			name: "which allowed",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "which codex"},
+			},
+			want: "allow",
+		},
+		{
+			name: "command -v allowed",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "command -v codex"},
+			},
+			want: "allow",
+		},
+		{
+			name: "sed in-place edit denied",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "sed -i 's/a/b/' f"},
+			},
+			want: "deny",
+		},
+		{
+			name: "sed -n combined with -i denied",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "sed -n -i 's/a/b/p' f"},
+			},
+			want: "deny",
+		},
+		{
+			name: "git -C mutating verb denied",
+			payload: map[string]any{
+				"agent_type": "kratos:odysseus",
+				"tool_name":  "Bash",
+				"tool_input": map[string]any{"command": "git -C /repo checkout main"},
+			},
+			want: "deny",
+		},
 		{
 			name: "non-odysseus agents unaffected",
 			payload: map[string]any{

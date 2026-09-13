@@ -103,3 +103,31 @@ func removeHooksFromSettings(settingsFile string) error {
 
 	return writeSettings(settingsFile, settings)
 }
+
+// hasLegacyHooks reports whether settingsFile still registers any legacy
+// ~/.claude/hooks/kratos/ hook. A missing or unreadable file counts as none.
+func hasLegacyHooks(settingsFile string) bool {
+	data, err := os.ReadFile(settingsFile)
+	if err != nil {
+		return false
+	}
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return false
+	}
+	hooks, _ := settings["hooks"].(map[string]interface{})
+	for _, groups := range hooks {
+		list, _ := groups.([]interface{})
+		for _, g := range list {
+			group, _ := g.(map[string]interface{})
+			entries, _ := group["hooks"].([]interface{})
+			for _, e := range entries {
+				entry, _ := e.(map[string]interface{})
+				if command, _ := entry["command"].(string); isLegacyKratosCommand(command) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}

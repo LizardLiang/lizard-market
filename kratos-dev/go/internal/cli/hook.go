@@ -221,6 +221,26 @@ func handleSpecDeltaCheck(stdin io.Reader, stdout io.Writer) error {
 	return specDeltaCheckIn(gitRoot(), raw, stdout)
 }
 
+// specDeltaRoot returns the project that owns a spec-delta write: prefix is
+// the file path up to its ".claude/feature/" segment, i.e. the directory that
+// holds .claude/feature/. A relative prefix resolves against fallback. When
+// that directory has no .claude/feature/ (unusual payload), fallback wins.
+// The file path, not cwd, decides: a session in one repo can write a delta
+// into another (sibling checkout, worktree).
+func specDeltaRoot(prefix, fallback string) string {
+	prefix = strings.TrimRight(prefix, `/\`)
+	if prefix == "" {
+		return fallback
+	}
+	if !filepath.IsAbs(prefix) {
+		prefix = filepath.Join(fallback, prefix)
+	}
+	if info, err := os.Stat(filepath.Join(prefix, ".claude", "feature")); err == nil && info.IsDir() {
+		return prefix
+	}
+	return fallback
+}
+
 func specDeltaCheckIn(root string, raw []byte, stdout io.Writer) error {
 	var input postToolUseInput
 	if err := json.Unmarshal(raw, &input); err != nil {
@@ -228,11 +248,13 @@ func specDeltaCheckIn(root string, raw []byte, stdout io.Writer) error {
 		return nil
 	}
 
-	m := specDeltaPathRE.FindStringSubmatch(input.ToolInput.FilePath)
+	filePath := input.ToolInput.FilePath
+	m := specDeltaPathRE.FindStringSubmatchIndex(filePath)
 	if m == nil {
 		return nil
 	}
-	feature := m[1]
+	feature := filePath[m[2]:m[3]]
+	root = specDeltaRoot(filePath[:m[0]], root)
 
 	ok, messages, err := specValidateIn(root, feature, false)
 	if err != nil {

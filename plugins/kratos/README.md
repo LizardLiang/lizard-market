@@ -2,7 +2,7 @@
 
 > *"I am what the gods have made me."* — now the gods serve **you**.
 
-![version](https://img.shields.io/badge/version-2.109.1-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-2.110.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **Stop shipping AI slop.** Kratos runs your feature through a real pipeline: a PM drafts the PRD, a devil's advocate (**Nemesis**) tears it apart, an architect specs it, and an alignment gate (**Hera**) proves the implementation matches what you *actually* asked for. Named agents, review gates enforced by hooks, persistent memory across sessions — not another pile of subagents.
 
@@ -67,8 +67,8 @@ That's it — try `/kratos:quick Add tests for UserService.js`. The markdown lay
 **Optional — enable precise tracking & memory** (the binary downloads automatically to `~/.kratos/bin/` on first session start; Linux, macOS arm64/amd64, and Windows amd64 all covered):
 
 ```bash
-~/.kratos/bin/kratos init && ~/.kratos/bin/kratos install   # initialize DB + register hooks
-~/.kratos/bin/kratos status                                 # verify
+~/.kratos/bin/kratos init     # initialize DB (hooks ship with the plugin — nothing to register)
+~/.kratos/bin/kratos status   # verify
 ```
 
 Prefer manual download or to build from source? See **[INSTALL.md — Step 3](INSTALL.md#step-3-set-up-the-binary)**.
@@ -152,7 +152,7 @@ Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5
 
 ## Hooks & Quality Gates
 
-Kratos ships Claude Code hooks that enforce workflow discipline automatically — no configuration needed after `~/.kratos/bin/kratos install`.
+Kratos ships Claude Code hooks that enforce workflow discipline automatically — the hooks ship with the plugin in `hooks/hooks.json`, so no configuration is needed. If an old install ran `kratos install`, run `~/.kratos/bin/kratos uninstall` once to remove the legacy global hooks from `~/.claude/settings.json`; session start prints a reminder while they remain.
 
 ### SubagentStart — TODO-First Gate
 
@@ -590,11 +590,9 @@ mkdir -p ~/.kratos/bin
 curl -L -o ~/.kratos/bin/kratos \
   https://github.com/LizardLiang/lizard-market/releases/download/<tag>/kratos-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 chmod +x ~/.kratos/bin/kratos
-~/.kratos/bin/kratos install
+~/.kratos/bin/kratos --version   # must match the plugin version
 # (Building from source requires cloning the repo — see kratos-dev/go; source is not shipped with the plugin.)
-
-# Verify hook registration
-cat ~/.claude/settings.json | python3 -m json.tool | grep -A3 SubagentStart
+# Hooks ship with the plugin (hooks/hooks.json) — there is nothing to register.
 ```
 
 Agents gracefully fall back to direct `status.json` edits if the binary is unavailable.
@@ -704,8 +702,7 @@ kratos template get decomposition-linear-template
 kratos now                                        # RFC3339 timestamp
 kratos status                                     # system health
 kratos init                                       # initialize SQLite DB
-kratos install                                    # register hooks
-kratos uninstall                                  # remove hooks
+kratos uninstall                                  # remove legacy global hooks from old installs
 ```
 
 ### Template Usage by Agents

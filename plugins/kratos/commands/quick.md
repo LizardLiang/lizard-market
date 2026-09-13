@@ -109,6 +109,7 @@ Read `<KRATOS_ROOT>/agents/odysseus.md`, adopt the persona, and:
 - Author the pending spec delta at `.claude/feature/<slug>/spec-delta/<capability>.md` and self-validate it (`<kratos-bin> spec validate <slug>`)
 - Finalize the plan in place at `.claude/.Arena/tactical-plans/<slug>.md` — `status: draft` → `status: ready`, banner removed, Locked Decisions retained
 - Do not implement code
+- On approval of the ready plan ("approve", "go", "build it"), spawn Ares with the approved-plan template below (plus any requirements added with the approval, verbatim), then run the Post-Task. Never implement inline. A revision that only adds facts to an already-approved plan goes straight to Ares; ask again only when a locked decision changed ("i said approve").
 
 If the user supplied an **approved tactical plan path** and asked to implement it, do not plan again — first read the file's frontmatter. If it says `status: draft`, the interview never finished: do **not** spawn Ares. Report that the plan is incomplete and offer to resume it with `/kratos:plan`. Otherwise spawn Ares with:
 `MISSION: Implement Approved Tactical Plan / PLAN: <path> / REQUIREMENTS: Read the plan file first and treat it as the execution contract. Refuse it if its frontmatter says status: draft. If the plan is missing, ambiguous, or contradicts the repo, stop and report the mismatch before editing.`
@@ -147,7 +148,7 @@ Spawned agents cannot reach the user — `AskUserQuestion` only works from your 
 
 After Ares completes:
 
-1. **Landed check.** Ares's final message must carry `Landed: <branch>@<hash>` (or `LANDED-NOT-APPLICABLE: <reason>`). Run `<kratos-bin> verify --landed --hash <hash>`. On BLOCKED, continue/re-spawn Ares **once** with `Commit your files and report Landed:`; never accept "left uncommitted, pending your manual check" — that state is how finished work disappears (LizMeter #63).
+1. **Landed check.** Ares's final message must carry `Landed: <branch>@<hash>` (or `LANDED-NOT-APPLICABLE: <reason>`). Run `<kratos-bin> verify --landed --hash <hash>`. On BLOCKED, continue/re-spawn Ares **once** with `Commit your files and report Landed:`; never accept "left uncommitted, pending your manual check" — that state is how finished work disappears (LizMeter #63). If `verify --landed` fails with `unknown flag`, the binary is stale: say so in one line and check the commit with `git branch --contains <hash>` and `git log -1 <hash>`. Never skip the check silently.
 2. **Ticket note.** If the mission came from a tracker ticket (`#N`): append a note to that ticket — commit hash, files changed, test evidence, what the user should check — through the project's todo backend (below). Then ask exactly one question via AskUserQuestion: "Mark #N done?" (Yes / Keep open). Never close a ticket on your own.
 3. **Review offer.** Offer review via **AskUserQuestion** ("Task complete. Would you like Hermes to review the changes?"). If accepted, spawn Hermes (`prompt: "Review the recent changes. Focus on correctness, quality, and potential issues."`).
 

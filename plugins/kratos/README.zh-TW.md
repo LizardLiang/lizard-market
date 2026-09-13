@@ -41,8 +41,8 @@ claude plugin install kratos@kratos
 
 ```bash
 cd ~/.claude/plugins/cache/kratos
-./bin/kratos init && ./bin/kratos install   # 初始化資料庫 + 註冊 Hooks
-./bin/kratos status                         # 驗證
+./bin/kratos init     # 初始化資料庫（Hooks 隨外掛內附，無需註冊）
+./bin/kratos status   # 驗證
 ```
 
 想從原始碼建置？請參閱 **[INSTALL.md — Option B](INSTALL.md)**。接著將自動啟動區塊加入你的 `CLAUDE.md`（參見 [INSTALL.md - 步驟 5](INSTALL.md#step-5-enable-auto-activation)）。
@@ -116,7 +116,7 @@ cd ~/.claude/plugins/cache/kratos
 
 ## Hooks 與品質關卡
 
-Kratos 內建 Claude Code Hooks，自動強制執行工作流程規範 — 執行 `./bin/kratos install` 後無需額外設定。
+Kratos 內建 Claude Code Hooks，自動強制執行工作流程規範 — Hooks 隨外掛內附於 `hooks/hooks.json`，無需額外設定。若舊版安裝曾執行 `kratos install`，請執行一次 `kratos uninstall` 以移除 `~/.claude/settings.json` 中的舊版全域 Hooks。
 
 ### SubagentStart — 待辦清單優先關卡
 

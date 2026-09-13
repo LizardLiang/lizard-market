@@ -74,7 +74,6 @@ Kratos remembers where you left off across sessions.
 |---------|-------------|
 | `/kratos:recall` | See what you were working on last time |
 | `/kratos:recall --global` | See recent sessions across all projects |
-| Read `pipeline/install-hooks.md` | Install memory hooks globally |
 
 Memory is stored in `~/.kratos/memory.db`. Natural language recall works too:
 - "Where did we stop?"
@@ -82,9 +81,13 @@ Memory is stored in `~/.kratos/memory.db`. Natural language recall works too:
 
 ### Installation
 
+The memory hooks ship with the plugin in `hooks/hooks.json`, so there is nothing to install. Initialize the database once:
+
 ```bash
-node plugins/kratos/hooks/install.cjs
+~/.kratos/bin/kratos init
 ```
+
+If an old install registered legacy global hooks, run `~/.kratos/bin/kratos uninstall` once to remove them.
 
 ---
 
@@ -171,7 +174,7 @@ At Stage 6, Kratos asks how you want implementation handled:
 | `check-arena-staleness.md` | Check Arena freshness |
 | `integrate-arena-deltas.md` | Sync Arena after merge |
 | `clean-insights.md` | Clean stale research cache |
-| `install-hooks.md` | Install memory hooks |
+| `install-hooks.md` | Deprecated tombstone — hooks ship with the plugin |
 | `main-with-memory.md` | Pipeline with session recording |
 
 ---
