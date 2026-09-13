@@ -172,8 +172,11 @@ func removeLegacyHookEntries(settings map[string]interface{}) int {
 	return removed
 }
 
+// isLegacyKratosCommand matches both slash and backslash spellings of the
+// legacy path; filepath.ToSlash is a no-op on Linux, so the replacement is
+// explicit (the CI runner is Linux, the settings files come from Windows).
 func isLegacyKratosCommand(s string) bool {
-	return strings.Contains(filepath.ToSlash(s), legacyHookMarker)
+	return strings.Contains(strings.ReplaceAll(s, "\\", "/"), legacyHookMarker)
 }
 
 // writeSettings writes settings.json indented and without HTML escaping, so
