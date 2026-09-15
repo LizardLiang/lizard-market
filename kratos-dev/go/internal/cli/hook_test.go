@@ -173,130 +173,10 @@ func TestBuildInjectionContext(t *testing.T) {
 	})
 }
 
-func TestDetectPackageManager(t *testing.T) {
-	tests := []struct {
-		name      string
-		lockfiles []string
-		wantPM    string
-		wantLock  string
-	}{
-		{"bun takes priority", []string{"bun.lockb", "yarn.lock"}, "bun", "bun.lockb"},
-		{"bun text lockfile detected", []string{"bun.lock"}, "bun", "bun.lock"},
-		{"yarn detected", []string{"yarn.lock"}, "yarn", "yarn.lock"},
-		{"pnpm detected", []string{"pnpm-lock.yaml"}, "pnpm", "pnpm-lock.yaml"},
-		{"no lockfile returns empty", []string{}, "", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dir := t.TempDir()
-			for _, f := range tt.lockfiles {
-				os.WriteFile(filepath.Join(dir, f), []byte{}, 0644)
-			}
-			pm, lock := detectPackageManager(dir)
-			if pm != tt.wantPM {
-				t.Errorf("detectPackageManager() pm = %q, want %q", pm, tt.wantPM)
-			}
-			if lock != tt.wantLock {
-				t.Errorf("detectPackageManager() lockfile = %q, want %q", lock, tt.wantLock)
-			}
-		})
-	}
-}
-
-func TestFixPMRewrite(t *testing.T) {
-	tests := []struct {
-		name        string
-		command     string
-		pm          string
-		want        string
-		wantChanged bool
-	}{
-		{"npm install → yarn install", "npm install", "yarn", "yarn install", true},
-		{"npm run build → bun run build", "npm run build", "bun", "bun run build", true},
-		{"npm test → pnpm test", "npm test", "pnpm", "pnpm test", true},
-		{"no npm → unchanged", "node index.js", "yarn", "node index.js", false},
-		{"partial word no match", "npmrc check", "yarn", "npmrc check", false},
-		{"npm ci → frozen install", "npm ci", "pnpm", "pnpm install --frozen-lockfile", true},
-		{"npm ci with trailing flags", "npm ci --ignore-scripts", "bun", "bun install --frozen-lockfile --ignore-scripts", true},
-		{"after &&", "cd app && npm install", "pnpm", "cd app && pnpm install", true},
-		{"after ;", "echo hi; npm test", "yarn", "echo hi; yarn test", true},
-		{"after ||", "true || npm test", "yarn", "true || yarn test", true},
-		{"after pipe", "cat x | npm exec foo", "pnpm", "cat x | pnpm exec foo", true},
-		{"env prefix", "CI=true npm test", "pnpm", "CI=true pnpm test", true},
-		{"grep npm untouched", "grep npm package.json", "pnpm", "grep npm package.json", false},
-		{"double-quoted untouched", `echo "npm install"`, "pnpm", `echo "npm install"`, false},
-		{"single-quoted untouched", `echo 'run npm ci'`, "pnpm", `echo 'run npm ci'`, false},
-		{"quoted segment separator untouched", `echo "a; npm test"`, "pnpm", `echo "a; npm test"`, false},
-		{"mixed: leading rewritten, argument kept", "npm run lint && grep npm README.md", "yarn", "yarn run lint && grep npm README.md", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, changed := rewriteNPMCommand(tt.command, tt.pm)
-			if got != tt.want {
-				t.Errorf("rewrite %q with %q = %q, want %q", tt.command, tt.pm, got, tt.want)
-			}
-			if changed != tt.wantChanged {
-				t.Errorf("changed = %v, want %v", changed, tt.wantChanged)
-			}
-		})
-	}
-}
-
-// TestFixPMCommandOutput runs the real fix-pm command: cwd comes from the hook
-// payload, and the output carries updatedInput but no permissionDecision.
-func TestFixPMCommandOutput(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "pnpm-lock.yaml"), []byte{}, 0644); err != nil {
-		t.Fatal(err)
-	}
-	run := func(command string) string {
-		b, _ := json.Marshal(map[string]interface{}{
-			"tool_name":  "Bash",
-			"tool_input": map[string]string{"command": command},
-			"cwd":        dir,
-		})
-		var out string
-		pipeStdin(string(b), func() {
-			out = captureStdout(func() {
-				_ = fixPMCmd().RunE(nil, nil)
-			})
-		})
-		return strings.TrimSpace(out)
-	}
-
-	t.Run("rewrites and leaves permission flow alone", func(t *testing.T) {
-		out := run("npm install")
-		if out == "" {
-			t.Fatal("expected a rewrite, got no output")
-		}
-		if strings.Contains(out, "permissionDecision") {
-			t.Errorf("output must not carry permissionDecision: %s", out)
-		}
-		var parsed struct {
-			HookSpecificOutput struct {
-				HookEventName string            `json:"hookEventName"`
-				UpdatedInput  map[string]string `json:"updatedInput"`
-			} `json:"hookSpecificOutput"`
-		}
-		if err := json.Unmarshal([]byte(out), &parsed); err != nil {
-			t.Fatalf("output not valid JSON: %v\n%s", err, out)
-		}
-		if parsed.HookSpecificOutput.HookEventName != "PreToolUse" {
-			t.Errorf("hookEventName = %q", parsed.HookSpecificOutput.HookEventName)
-		}
-		if got := parsed.HookSpecificOutput.UpdatedInput["command"]; got != "pnpm install" {
-			t.Errorf("updatedInput.command = %q, want %q", got, "pnpm install")
-		}
-	})
-
-	t.Run("argument-position npm produces no output", func(t *testing.T) {
-		if out := run("grep npm package.json"); out != "" {
-			t.Errorf("expected no output, got %s", out)
-		}
-	})
-}
+// The npm-to-lockfile-PM auto-correction (fix-pm, rewriteNPMCommand,
+// detectPackageManager) was removed — the user no longer wants Kratos
+// rewriting their package-manager invocations. See item 8 of the 2026-09-15
+// bug-fix batch.
 
 // allowed reports whether a SubagentStop response lets the agent stop (no block decision).
 func (o subagentStopOutput) allowed() bool { return o.Decision != "block" }
@@ -359,14 +239,10 @@ func TestSubagentStopGate(t *testing.T) {
 			wantOK:    false,
 			wantInMsg: "incomplete",
 		},
-		{
-			name: "stop_hook_active bypasses gate",
-			input: subagentStopInput{
-				AgentType:      "kratos:ares",
-				StopHookActive: true,
-			},
-			wantOK: true,
-		},
+		// stop_hook_active is no longer a special case: TestStopHookActiveGate
+		// below drives the real subagentStopCmd handler to pin that a
+		// re-invocation with stop_hook_active=true is checked exactly like
+		// one with it false, instead of duplicating that behavior here.
 	}
 
 	for _, tt := range tests {
@@ -374,15 +250,6 @@ func TestSubagentStopGate(t *testing.T) {
 			agentType := strings.ToLower(tt.input.AgentType)
 			msg := tt.input.LastAssistantMessage
 			msgLower := strings.ToLower(msg)
-
-			if tt.input.StopHookActive {
-				var result subagentStopOutput
-				json.Unmarshal([]byte("{}"), &result)
-				if !result.allowed() {
-					t.Error("stop_hook_active should always pass")
-				}
-				return
-			}
 
 			var result subagentStopOutput
 			block := func(reason string) subagentStopOutput {
@@ -469,9 +336,155 @@ func TestSubagentStopOutputShape(t *testing.T) {
 
 	t.Run("allow is an empty object", func(t *testing.T) {
 		dir := t.TempDir()
-		got := run(makeStopStdin("kratos:ares", dir, true))
+		// A compliant Ares message with stop_hook_active=true: this must
+		// still allow (its checks pass), pairing with
+		// TestStopHookActiveGate's negative case below which pins that an
+		// unmet gate on a stop_hook_active=true retry blocks instead of
+		// bypassing.
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:ares",
+			"cwd":                    dir,
+			"stop_hook_active":       true,
+			"last_assistant_message": "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234",
+		})
+		got := run(string(b))
 		if len(got) != 0 {
 			t.Errorf("allow output = %v, want {}", got)
+		}
+	})
+}
+
+// TestStopHookActiveGate drives the real subagentStopCmd handler (not a
+// re-implemented copy) to pin that stop_hook_active=true no longer bypasses
+// the per-agent quality gate. Regression coverage for the bug where hook.go's
+// SubagentStop handler returned {} unconditionally whenever
+// stop_hook_active was true, before any per-agent check — including
+// handleHermesStop's block_count guard — ever ran.
+func TestStopHookActiveGate(t *testing.T) {
+	run := func(payload string) subagentStopOutput {
+		var out string
+		pipeStdin(payload, func() {
+			out = captureStdout(func() {
+				_ = subagentStopCmd().RunE(nil, nil)
+			})
+		})
+		var resp subagentStopOutput
+		if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &resp); err != nil {
+			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, out)
+		}
+		return resp
+	}
+
+	t.Run("ares still blocked on a re-invocation with an unmet gate", func(t *testing.T) {
+		dir := t.TempDir()
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:ares",
+			"cwd":                    dir,
+			"stop_hook_active":       true,
+			"last_assistant_message": "I did some work.", // no task list, no files, no "complete"
+		})
+		resp := run(string(b))
+		if resp.allowed() {
+			t.Error("stop_hook_active=true must not bypass Ares's quality gate — got allow")
+		}
+	})
+
+	t.Run("hephaestus still blocked on a re-invocation with a thin spec", func(t *testing.T) {
+		dir := t.TempDir()
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:hephaestus",
+			"cwd":                    dir,
+			"stop_hook_active":       true,
+			"last_assistant_message": "This is a brief spec.",
+		})
+		resp := run(string(b))
+		if resp.allowed() {
+			t.Error("stop_hook_active=true must not bypass Hephaestus's quality gate — got allow")
+		}
+	})
+
+	// Hermes block_count guard: reproduces "a blocked agent's second stop is
+	// never re-checked" for handleHermesStop specifically. Before the fix,
+	// every one of these three stops returned allow without ever touching
+	// checklistPath's block_count, since the blanket StopHookActive check ran
+	// first. With the fix, block_count must advance to 1, then 2 across the
+	// stop_hook_active=true re-invocations, then hit the >=3 cap and allow.
+	t.Run("hermes block_count advances across stop_hook_active retries then caps", func(t *testing.T) {
+		root := t.TempDir()
+		featureDir := filepath.Join(root, ".claude", "feature", "review-feature")
+		// findHermesChecklist mirrors handleHermesStart: it only resolves this
+		// feature dir when 9-review is active there (see TestFindHermesChecklist).
+		createFeatureStatusJSON(t, featureDir, "in-progress")
+		checklistPath := filepath.Join(featureDir, "hermes-checklist.json")
+		checklist := map[string]interface{}{
+			"agent_id":    "hermes-1",
+			"block_count": 0,
+			"tiers":       map[string]bool{}, // every tier incomplete
+		}
+		data, _ := json.Marshal(checklist)
+		if err := os.WriteFile(checklistPath, data, 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+
+		payload := func(stopHookActive bool) string {
+			b, _ := json.Marshal(map[string]interface{}{
+				"agent_type":       "kratos:hermes",
+				"cwd":              root,
+				"stop_hook_active": stopHookActive,
+			})
+			return string(b)
+		}
+		readBlockCount := func() int {
+			raw, err := os.ReadFile(checklistPath)
+			if err != nil {
+				t.Fatalf("ReadFile checklist: %v", err)
+			}
+			var c struct {
+				BlockCount int `json:"block_count"`
+			}
+			if err := json.Unmarshal(raw, &c); err != nil {
+				t.Fatalf("Unmarshal checklist: %v", err)
+			}
+			return c.BlockCount
+		}
+
+		// Stop 1: fresh, stop_hook_active=false. Blocked, block_count -> 1.
+		resp1 := run(payload(false))
+		if resp1.allowed() {
+			t.Fatal("stop 1: expected block (all tiers incomplete), got allow")
+		}
+		if got := readBlockCount(); got != 1 {
+			t.Fatalf("stop 1: block_count = %d, want 1", got)
+		}
+
+		// Stop 2: Claude Code's re-invocation, stop_hook_active=true. Must
+		// still be blocked and advance block_count to 2 — this is the exact
+		// call the old bypass skipped.
+		resp2 := run(payload(true))
+		if resp2.allowed() {
+			t.Fatal("stop 2 (stop_hook_active=true): expected block, got allow — the bypass regressed")
+		}
+		if got := readBlockCount(); got != 2 {
+			t.Fatalf("stop 2: block_count = %d, want 2 (must advance on stop_hook_active=true too)", got)
+		}
+
+		// Stop 3: another re-invocation, stop_hook_active=true. block_count
+		// is now >= 3's cap boundary after this call's own increment check
+		// (guard fires at BlockCount>=3 BEFORE incrementing), so the third
+		// stop is where it should still block once more (2 < 3) and reach 3.
+		resp3 := run(payload(true))
+		if resp3.allowed() {
+			t.Fatal("stop 3: expected block (block_count 2 < 3 cap), got allow")
+		}
+		if got := readBlockCount(); got != 3 {
+			t.Fatalf("stop 3: block_count = %d, want 3", got)
+		}
+
+		// Stop 4: block_count is now 3, hits the cap — allowed through with
+		// tiers still incomplete.
+		resp4 := run(payload(true))
+		if !resp4.allowed() {
+			t.Fatalf("stop 4: expected allow once block_count cap (3) is reached, got block: %q", resp4.Reason)
 		}
 	})
 }
@@ -637,12 +650,10 @@ func TestFindActiveFeatureDir(t *testing.T) {
 }
 
 func TestFindHermesChecklist(t *testing.T) {
-	t.Run("single checklist in feature folder", func(t *testing.T) {
+	t.Run("active feature's checklist is used", func(t *testing.T) {
 		root := t.TempDir()
 		featureDir := filepath.Join(root, ".claude", "feature", "my-feature")
-		if err := os.MkdirAll(featureDir, 0755); err != nil {
-			t.Fatalf("MkdirAll: %v", err)
-		}
+		createFeatureStatusJSON(t, featureDir, "in-progress")
 		checklistPath := filepath.Join(featureDir, "hermes-checklist.json")
 		if err := os.WriteFile(checklistPath, []byte("{}"), 0644); err != nil {
 			t.Fatalf("WriteFile: %v", err)
@@ -654,7 +665,7 @@ func TestFindHermesChecklist(t *testing.T) {
 		}
 	})
 
-	t.Run("fallback to .claude/tmp/ when no feature checklist", func(t *testing.T) {
+	t.Run("fallback to .claude/tmp/ when no feature has an active 9-review", func(t *testing.T) {
 		root := t.TempDir()
 		tmpDir := filepath.Join(root, ".claude", "tmp")
 		if err := os.MkdirAll(tmpDir, 0755); err != nil {
@@ -679,37 +690,125 @@ func TestFindHermesChecklist(t *testing.T) {
 		}
 	})
 
-	t.Run("multiple checklists returns most recently modified", func(t *testing.T) {
+	// Regression for the review finding: findHermesChecklist used to glob
+	// every feature dir and return "whichever file exists" (most recently
+	// modified when there were several), instead of mirroring
+	// handleHermesStart's own findActiveFeatureDir resolution. A stale
+	// checklist sitting in an already-reviewed feature — even one with a
+	// newer mtime than the real review's tmp checklist — must never be
+	// picked up as the current review's state.
+	t.Run("stale checklist in an inactive feature is not used, even if newer", func(t *testing.T) {
 		root := t.TempDir()
-		featureA := filepath.Join(root, ".claude", "feature", "feature-a")
-		featureB := filepath.Join(root, ".claude", "feature", "feature-b")
-		if err := os.MkdirAll(featureA, 0755); err != nil {
-			t.Fatalf("MkdirAll featureA: %v", err)
-		}
-		if err := os.MkdirAll(featureB, 0755); err != nil {
-			t.Fatalf("MkdirAll featureB: %v", err)
-		}
 
-		pathA := filepath.Join(featureA, "hermes-checklist.json")
-		pathB := filepath.Join(featureB, "hermes-checklist.json")
+		staleFeatureDir := filepath.Join(root, ".claude", "feature", "a-old")
+		createFeatureStatusJSON(t, staleFeatureDir, "complete")
+		staleChecklist := filepath.Join(staleFeatureDir, "hermes-checklist.json")
+		writeHermesChecklist(t, staleChecklist, map[string]bool{
+			"T1_correct": true, "T2_safe": true, "T3_clear": true, "T4_minimal": true,
+			"T5_consistent": true, "T6_resilient": true, "T7_performant": true, "T8_maintainable": true,
+		})
 
-		// Write A first, then back-date it so B is clearly newer.
-		if err := os.WriteFile(pathA, []byte(`{"feature":"a"}`), 0644); err != nil {
-			t.Fatalf("WriteFile A: %v", err)
+		// No feature has an active 9-review (a-old is complete), so
+		// handleHermesStart would have written to tmp. Give tmp a checklist
+		// that is OLDER than the stale one to prove mtime is not the
+		// deciding factor.
+		tmpDir := filepath.Join(root, ".claude", "tmp")
+		if err := os.MkdirAll(tmpDir, 0755); err != nil {
+			t.Fatalf("MkdirAll tmp: %v", err)
 		}
-		old := time.Now().Add(-10 * time.Second)
-		if err := os.Chtimes(pathA, old, old); err != nil {
-			t.Fatalf("Chtimes A: %v", err)
+		freshChecklist := filepath.Join(tmpDir, "hermes-checklist.json")
+		writeHermesChecklist(t, freshChecklist, map[string]bool{}) // 0/8, real review in progress
+		old := time.Now().Add(-1 * time.Hour)
+		if err := os.Chtimes(freshChecklist, old, old); err != nil {
+			t.Fatalf("Chtimes fresh: %v", err)
 		}
-		if err := os.WriteFile(pathB, []byte(`{"feature":"b"}`), 0644); err != nil {
-			t.Fatalf("WriteFile B: %v", err)
+		newer := time.Now()
+		if err := os.Chtimes(staleChecklist, newer, newer); err != nil {
+			t.Fatalf("Chtimes stale: %v", err)
 		}
 
 		got := findHermesChecklist(root)
-		if got != pathB {
-			t.Errorf("expected most-recent checklist %q, got %q", pathB, got)
+		if got != freshChecklist {
+			t.Errorf("got %q, want the tmp checklist %q (mirroring handleHermesStart's own resolution) — the stale a-old checklist must not shadow it", got, freshChecklist)
 		}
 	})
+
+	// The mirror-image case: an active feature's OWN checklist must win even
+	// when an unrelated feature's stale (complete) checklist has a newer
+	// mtime.
+	t.Run("active feature's checklist wins over a newer stale one elsewhere", func(t *testing.T) {
+		root := t.TempDir()
+
+		staleFeatureDir := filepath.Join(root, ".claude", "feature", "a-old")
+		createFeatureStatusJSON(t, staleFeatureDir, "complete")
+		staleChecklist := filepath.Join(staleFeatureDir, "hermes-checklist.json")
+		writeHermesChecklist(t, staleChecklist, map[string]bool{
+			"T1_correct": true, "T2_safe": true, "T3_clear": true, "T4_minimal": true,
+			"T5_consistent": true, "T6_resilient": true, "T7_performant": true, "T8_maintainable": true,
+		})
+
+		activeFeatureDir := filepath.Join(root, ".claude", "feature", "b-new")
+		createFeatureStatusJSON(t, activeFeatureDir, "in-progress")
+		activeChecklist := filepath.Join(activeFeatureDir, "hermes-checklist.json")
+		writeHermesChecklist(t, activeChecklist, map[string]bool{}) // 0/8, real review
+
+		old := time.Now().Add(-1 * time.Hour)
+		if err := os.Chtimes(activeChecklist, old, old); err != nil {
+			t.Fatalf("Chtimes active: %v", err)
+		}
+		newer := time.Now()
+		if err := os.Chtimes(staleChecklist, newer, newer); err != nil {
+			t.Fatalf("Chtimes stale: %v", err)
+		}
+
+		got := findHermesChecklist(root)
+		if got != activeChecklist {
+			t.Errorf("got %q, want the active feature's checklist %q", got, activeChecklist)
+		}
+	})
+}
+
+// TestHermesStopUsesStartResolution is the end-to-end repro from the review:
+// an old feature whose review already completed (all 8 tiers true) sits next
+// to a fresh checklist for the review actually in progress (0/8, in tmp
+// because no feature is marked active yet). Before the fix, handleHermesStop
+// found the old feature's checklist (the only, or most-recently-modified,
+// glob match) and reported "all 8 tiers complete" — satisfying a brand new
+// review with zero real work. The fix must block, because the fresh
+// tmp checklist (the one handleHermesStart actually wrote) has 0/8 tiers.
+func TestHermesStopUsesStartResolution(t *testing.T) {
+	root := t.TempDir()
+
+	oldFeatureDir := filepath.Join(root, ".claude", "feature", "a-old")
+	createFeatureStatusJSON(t, oldFeatureDir, "complete")
+	writeHermesChecklist(t, filepath.Join(oldFeatureDir, "hermes-checklist.json"), map[string]bool{
+		"T1_correct": true, "T2_safe": true, "T3_clear": true, "T4_minimal": true,
+		"T5_consistent": true, "T6_resilient": true, "T7_performant": true, "T8_maintainable": true,
+	})
+
+	tmpDir := filepath.Join(root, ".claude", "tmp")
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		t.Fatalf("MkdirAll tmp: %v", err)
+	}
+	writeHermesChecklist(t, filepath.Join(tmpDir, "hermes-checklist.json"), map[string]bool{}) // 0/8
+
+	b, _ := json.Marshal(map[string]interface{}{
+		"agent_type": "kratos:hermes",
+		"cwd":        root,
+	})
+	var out string
+	pipeStdin(string(b), func() {
+		out = captureStdout(func() {
+			_ = subagentStopCmd().RunE(nil, nil)
+		})
+	})
+	var resp subagentStopOutput
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &resp); err != nil {
+		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, out)
+	}
+	if resp.allowed() {
+		t.Error("stale a-old checklist must not satisfy the in-progress review — got allow (\"all 8 tiers complete\")")
+	}
 }
 
 // writeHermesChecklist creates a hermes-checklist.json with the provided tier values.
@@ -726,6 +825,154 @@ func writeHermesChecklist(t *testing.T, path string, tiers map[string]bool) {
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		t.Fatalf("WriteFile checklist: %v", err)
 	}
+}
+
+// runSubagentStop pipes payload through the real subagent-stop handler and
+// decodes its response.
+func runSubagentStop(t *testing.T, payload string) subagentStopOutput {
+	t.Helper()
+	var out string
+	pipeStdin(payload, func() {
+		out = captureStdout(func() {
+			_ = subagentStopCmd().RunE(nil, nil)
+		})
+	})
+	var resp subagentStopOutput
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &resp); err != nil {
+		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, out)
+	}
+	return resp
+}
+
+// TestHephaestusStopScopesToOwnFeature reproduces the review finding: the
+// Hephaestus disk check globbed every .claude/feature/*/ dir and accepted a
+// tech-spec.md/tech-spec-proposal.md found in ANY of them, so an old
+// feature's valid spec satisfied the gate for a different feature (the one
+// Hephaestus is actually working on right now) that has none. The fix must
+// resolve only the feature whose pipeline is currently on 4-tech-spec
+// (findFeatureDirByStage, the same resolver check.go uses) and check that
+// dir specifically.
+func TestHephaestusStopScopesToOwnFeature(t *testing.T) {
+	specMessage := "## Architecture\n...\n## API\n...\n## Data Model\n..." // passes the section-count check
+
+	t.Run("old feature's valid spec does not satisfy a different feature with none", func(t *testing.T) {
+		root := t.TempDir()
+
+		oldFeatureDir := filepath.Join(root, ".claude", "feature", "a-old")
+		writeFile(t, filepath.Join(oldFeatureDir, "status.json"),
+			`{"feature":"a-old","stage":"9-review","pipeline":{"4-tech-spec":{"status":"complete"}}}`)
+		writeFile(t, filepath.Join(oldFeatureDir, "tech-spec.md"), "# Old feature's real tech spec")
+
+		newFeatureDir := filepath.Join(root, ".claude", "feature", "b-new")
+		writeFile(t, filepath.Join(newFeatureDir, "status.json"),
+			`{"feature":"b-new","stage":"4-tech-spec","pipeline":{"4-tech-spec":{"status":"in-progress"}}}`)
+		// b-new has no tech-spec.md / tech-spec-proposal.md yet.
+
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:hephaestus",
+			"cwd":                    root,
+			"last_assistant_message": specMessage,
+		})
+		resp := runSubagentStop(t, string(b))
+		if resp.allowed() {
+			t.Error("a-old's tech-spec.md must not satisfy b-new's Hephaestus stop — got allow")
+		}
+		if !strings.Contains(resp.Reason, "b-new") {
+			t.Errorf("reason should name the b-new feature dir, got: %q", resp.Reason)
+		}
+	})
+
+	t.Run("own feature's spec file allows stop", func(t *testing.T) {
+		root := t.TempDir()
+		featureDir := filepath.Join(root, ".claude", "feature", "my-feature")
+		writeFile(t, filepath.Join(featureDir, "status.json"),
+			`{"feature":"my-feature","stage":"4-tech-spec","pipeline":{"4-tech-spec":{"status":"in-progress"}}}`)
+		writeFile(t, filepath.Join(featureDir, "tech-spec.md"), "# Real tech spec")
+
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:hephaestus",
+			"cwd":                    root,
+			"last_assistant_message": specMessage,
+		})
+		resp := runSubagentStop(t, string(b))
+		if !resp.allowed() {
+			t.Errorf("own feature's tech-spec.md should allow stop, got block: %q", resp.Reason)
+		}
+	})
+
+	t.Run("no feature on stage 4-tech-spec fails open", func(t *testing.T) {
+		root := t.TempDir() // no .claude/feature/ at all — pure command mode
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:hephaestus",
+			"cwd":                    root,
+			"last_assistant_message": specMessage,
+		})
+		resp := runSubagentStop(t, string(b))
+		if !resp.allowed() {
+			t.Errorf("no pipeline feature should fail open, got block: %q", resp.Reason)
+		}
+	})
+}
+
+// TestNemesisStopScopesToOwnFeature reproduces the same review finding for
+// Nemesis: handleNemesisStop globbed every feature dir for prd-challenge.md,
+// so an old feature's valid challenge satisfied the gate for a different
+// feature (the one on stage 2-prd-review right now) with none.
+func TestNemesisStopScopesToOwnFeature(t *testing.T) {
+	t.Run("old feature's valid challenge does not satisfy a different feature with none", func(t *testing.T) {
+		root := t.TempDir()
+
+		oldFeatureDir := filepath.Join(root, ".claude", "feature", "a-old")
+		writeFile(t, filepath.Join(oldFeatureDir, "status.json"),
+			`{"feature":"a-old","stage":"9-review","pipeline":{"2-prd-review":{"status":"complete"}}}`)
+		writeFile(t, filepath.Join(oldFeatureDir, "prd-challenge.md"), "## Challenge: assumption A\ncontent")
+
+		newFeatureDir := filepath.Join(root, ".claude", "feature", "b-new")
+		writeFile(t, filepath.Join(newFeatureDir, "status.json"),
+			`{"feature":"b-new","stage":"2-prd-review","pipeline":{"2-prd-review":{"status":"in-progress"}}}`)
+		// b-new has no prd-challenge.md yet.
+
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type": "kratos:nemesis",
+			"cwd":        root,
+		})
+		resp := runSubagentStop(t, string(b))
+		if resp.allowed() {
+			t.Error("a-old's prd-challenge.md must not satisfy b-new's Nemesis stop — got allow")
+		}
+		if !strings.Contains(resp.Reason, "b-new") {
+			t.Errorf("reason should name the b-new feature dir, got: %q", resp.Reason)
+		}
+	})
+
+	t.Run("own feature's challenge allows stop", func(t *testing.T) {
+		root := t.TempDir()
+		featureDir := filepath.Join(root, ".claude", "feature", "my-feature")
+		writeFile(t, filepath.Join(featureDir, "status.json"),
+			`{"feature":"my-feature","stage":"2-prd-review","pipeline":{"2-prd-review":{"status":"in-progress"}}}`)
+		writeFile(t, filepath.Join(featureDir, "prd-challenge.md"), "## Challenge: assumption A\ncontent")
+
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type": "kratos:nemesis",
+			"cwd":        root,
+		})
+		resp := runSubagentStop(t, string(b))
+		if !resp.allowed() {
+			t.Errorf("own feature's prd-challenge.md should allow stop, got block: %q", resp.Reason)
+		}
+	})
+
+	t.Run("no feature on stage 2-prd-review fails open", func(t *testing.T) {
+		root := t.TempDir()
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type": "kratos:nemesis",
+			"cwd":        root,
+		})
+		resp := runSubagentStop(t, string(b))
+		if !resp.allowed() {
+			t.Errorf("no pipeline feature should fail open, got block: %q", resp.Reason)
+		}
+	})
 }
 
 // allTiersFalse returns a map with all 8 tiers set to false.

@@ -192,127 +192,14 @@ type preToolUseOutput struct {
 	HookSpecificOutput preToolUseHookSpecific `json:"hookSpecificOutput"`
 }
 
-// preToolUseHookSpecific omits an empty permissionDecision: fix-pm only
-// rewrites the command, so the normal permission flow must still apply to the
-// rewritten input, and the edit gate only ever sets "deny".
+// preToolUseHookSpecific carries a PreToolUse hook's decision: the edit gate
+// sets PermissionDecision/PermissionDecisionReason (only ever "deny" — see
+// the contract note in hook_editgate.go) and never AdditionalContext.
 type preToolUseHookSpecific struct {
-	HookEventName            string            `json:"hookEventName"`
-	PermissionDecision       string            `json:"permissionDecision,omitempty"`
-	PermissionDecisionReason string            `json:"permissionDecisionReason,omitempty"`
-	UpdatedInput             map[string]string `json:"updatedInput,omitempty"`
-	AdditionalContext        string            `json:"additionalContext,omitempty"`
-}
-
-// npmCiRE matches the " ci" that may follow a segment-leading "npm".
-var npmCiRE = regexp.MustCompile(`^[ \t]+ci\b`)
-
-// shellAssignRE matches a leading VAR=value token, which does not end the
-// "first token of the segment" position (`CI=true npm test`).
-var shellAssignRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
-
-// rewriteNPMCommand replaces `npm` with pm only where npm is the first token of a
-// shell command segment — start of line, or after `&&`, `||`, `;`, `|`, `(` —
-// and never inside single or double quotes. So `grep npm`, `echo "npm install"`
-// and `npmrc` stay untouched. `npm ci` becomes `<pm> install --frozen-lockfile`.
-// Returns the rewritten command and whether anything changed.
-func rewriteNPMCommand(command, pm string) (string, bool) {
-	isTokenByte := func(c byte) bool {
-		switch c {
-		case ' ', '\t', '\n', '\r', ';', '|', '&', '\'', '"', '(', ')', '`':
-			return false
-		}
-		return true
-	}
-
-	var out strings.Builder
-	changed := false
-	inSingle, inDouble := false, false
-	atSegmentStart := true
-	n := len(command)
-	for i := 0; i < n; {
-		c := command[i]
-		if inSingle {
-			if c == '\'' {
-				inSingle = false
-			}
-			out.WriteByte(c)
-			i++
-			continue
-		}
-		if inDouble {
-			if c == '\\' && i+1 < n {
-				out.WriteByte(c)
-				out.WriteByte(command[i+1])
-				i += 2
-				continue
-			}
-			if c == '"' {
-				inDouble = false
-			}
-			out.WriteByte(c)
-			i++
-			continue
-		}
-		switch c {
-		case '\'':
-			inSingle = true
-			atSegmentStart = false
-			out.WriteByte(c)
-			i++
-			continue
-		case '"':
-			inDouble = true
-			atSegmentStart = false
-			out.WriteByte(c)
-			i++
-			continue
-		case ';', '|', '&', '\n', '(', '`':
-			atSegmentStart = true
-			out.WriteByte(c)
-			i++
-			continue
-		case ' ', '\t', '\r', ')':
-			out.WriteByte(c)
-			i++
-			continue
-		case '\\':
-			if i+1 < n {
-				out.WriteByte(c)
-				out.WriteByte(command[i+1])
-				i += 2
-			} else {
-				out.WriteByte(c)
-				i++
-			}
-			atSegmentStart = false
-			continue
-		}
-
-		// Plain token.
-		j := i
-		for j < n && isTokenByte(command[j]) {
-			j++
-		}
-		token := command[i:j]
-		switch {
-		case atSegmentStart && shellAssignRE.MatchString(token):
-			// VAR=value prefix — the next token is still the command.
-			out.WriteString(token)
-		case atSegmentStart && token == "npm":
-			out.WriteString(pm)
-			changed = true
-			if m := npmCiRE.FindStringIndex(command[j:]); m != nil {
-				out.WriteString(" install --frozen-lockfile")
-				j += m[1]
-			}
-			atSegmentStart = false
-		default:
-			out.WriteString(token)
-			atSegmentStart = false
-		}
-		i = j
-	}
-	return out.String(), changed
+	HookEventName            string `json:"hookEventName"`
+	PermissionDecision       string `json:"permissionDecision,omitempty"`
+	PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
+	AdditionalContext        string `json:"additionalContext,omitempty"`
 }
 
 // HookCmd returns the 'hook' command group
@@ -325,7 +212,6 @@ func HookCmd() *cobra.Command {
 	cmd.AddCommand(promptSubmitCmd())
 	cmd.AddCommand(subagentStartCmd())
 	cmd.AddCommand(subagentStopCmd())
-	cmd.AddCommand(fixPMCmd())
 	cmd.AddCommand(editGateCmd())
 	cmd.AddCommand(specDeltaCheckCmd())
 	return cmd
@@ -1187,11 +1073,15 @@ func subagentStopCmd() *cobra.Command {
 				return outputSubagentOK()
 			}
 
-			// Prevent infinite loops
-			if input.StopHookActive {
-				return outputSubagentOK()
-			}
-
+			// stop_hook_active=true is a re-invocation after this same hook
+			// already blocked once on this stop attempt, not a verified-clean
+			// stop. Unconditionally allowing here (the old behavior) let a
+			// blocked Ares/Hephaestus/Hermes agent through on its very next
+			// try with the deliverable still missing, and it kept
+			// handleHermesStop's block_count guard (below) from ever
+			// incrementing past 1. The checks below must run the same way
+			// regardless of this flag; each gate's own retry/block-count cap
+			// (MaxRetries, BlockCount>=3) is what bounds the loop.
 			agentType := strings.ToLower(input.AgentType)
 			msg := input.LastAssistantMessage
 			msgLower := strings.ToLower(msg)
@@ -1261,26 +1151,29 @@ func subagentStopCmd() *cobra.Command {
 					))
 				}
 
-				// Disk check: verify tech-spec-proposal.md or tech-spec.md was written to a feature dir.
-				// Only enforce when a pipeline feature dir exists (allows fail-open in pure command mode).
+				// Disk check: verify tech-spec-proposal.md or tech-spec.md was written to
+				// THIS Hephaestus's feature dir — the one whose pipeline has 4-tech-spec
+				// as its current stage — not any feature dir on disk. Checking every
+				// feature/* dir let a stale, unrelated feature's tech-spec.md satisfy the
+				// gate while the feature actually being worked on had nothing.
+				// Only enforce when a pipeline feature is actually on this stage (allows
+				// fail-open in pure command mode or when resolution is ambiguous).
 				cwd := input.Cwd
 				if cwd == "" {
 					cwd, _ = os.Getwd()
 				}
-				dirs, _ := filepath.Glob(filepath.Join(cwd, ".claude", "feature", "*"))
-				if len(dirs) > 0 {
-					specFound := false
-					for _, dir := range dirs {
-						if discoverFileExists(filepath.Join(dir, "tech-spec-proposal.md")) ||
-							discoverFileExists(filepath.Join(dir, "tech-spec.md")) {
-							specFound = true
-							break
-						}
-					}
+				featureDir, ferr := findFeatureDirByStage(cwd, "4-tech-spec")
+				if ferr != nil {
+					debugLog("hephaestus-stop: findFeatureDirByStage error: %v", ferr)
+				}
+				if featureDir != "" {
+					specFound := discoverFileExists(filepath.Join(featureDir, "tech-spec-proposal.md")) ||
+						discoverFileExists(filepath.Join(featureDir, "tech-spec.md"))
 					if !specFound {
-						return outputSubagentBlock(
-							"Hephaestus quality gate failed: neither tech-spec-proposal.md nor tech-spec.md was found in any feature directory. Write the output to .claude/feature/<name>/ before completing.",
-						)
+						return outputSubagentBlock(fmt.Sprintf(
+							"Hephaestus quality gate failed: neither tech-spec-proposal.md nor tech-spec.md was found in %s. Write the output to .claude/feature/<name>/ before completing.",
+							featureDir,
+						))
 					}
 				}
 			}
@@ -1382,32 +1275,33 @@ func findMostRecentFeatureDirWithFile(cwd, filename string) string {
 var challengeHeadingRe = regexp.MustCompile(`(?im)^#{1,6}\s+.*challenge`)
 
 // handleNemesisStop verifies prd-challenge.md exists, is non-empty, and contains at least one challenge section.
-// Fails open when no feature directory exists (allows completion in quick/command mode).
+// Fails open when no feature is currently on stage 2-prd-review (allows completion in
+// quick/command mode, or when resolution is ambiguous).
 func handleNemesisStop(input subagentStopInput) error {
 	cwd := input.Cwd
 	if cwd == "" {
 		cwd, _ = os.Getwd()
 	}
 
-	dirs, _ := filepath.Glob(filepath.Join(cwd, ".claude", "feature", "*"))
-	if len(dirs) == 0 {
-		debugLog("nemesis-stop: no feature dirs found, failing open")
+	// Resolve THIS Nemesis's own feature — the one whose pipeline has
+	// 2-prd-review as its current stage — rather than any feature/* dir on
+	// disk. Accepting any dir's prd-challenge.md let an old, unrelated
+	// feature's valid challenge satisfy the gate for a feature with none.
+	featureDir, err := findFeatureDirByStage(cwd, "2-prd-review")
+	if err != nil {
+		debugLog("nemesis-stop: findFeatureDirByStage error: %v", err)
+	}
+	if featureDir == "" {
+		debugLog("nemesis-stop: no feature on stage 2-prd-review, failing open")
 		return outputSubagentOK()
 	}
 
-	var challengePath string
-	for _, dir := range dirs {
-		p := filepath.Join(dir, "prd-challenge.md")
-		if discoverFileExists(p) {
-			challengePath = p
-			break
-		}
-	}
-
-	if challengePath == "" {
-		return outputSubagentBlock(
-			"Nemesis quality gate failed: prd-challenge.md not found in any feature directory. Write your PRD challenge to .claude/feature/<name>/prd-challenge.md before completing.",
-		)
+	challengePath := filepath.Join(featureDir, "prd-challenge.md")
+	if !discoverFileExists(challengePath) {
+		return outputSubagentBlock(fmt.Sprintf(
+			"Nemesis quality gate failed: prd-challenge.md not found in %s. Write your PRD challenge to .claude/feature/<name>/prd-challenge.md before completing.",
+			featureDir,
+		))
 	}
 
 	content, err := os.ReadFile(challengePath)
@@ -1578,40 +1472,29 @@ func kratosBinPath() string {
 	return "kratos"
 }
 
-// findHermesChecklist scans .claude/feature/*/hermes-checklist.json and returns
-// the most recently modified one. Falls back to .claude/tmp/hermes-checklist.json.
+// findHermesChecklist resolves the checklist file for the Hermes agent that is
+// stopping now, mirroring handleHermesStart's own resolution exactly:
+// findActiveFeatureDir's feature dir when a 9-review is pending/in-progress/
+// ready, otherwise .claude/tmp/hermes-checklist.json.
+//
+// This must mirror the Start-side choice rather than glob every feature dir
+// and return "whichever hermes-checklist.json exists" (the old behavior): a
+// stale checklist left in an unrelated or already-reviewed feature — however
+// recently its mtime happens to be — must never satisfy the review Hermes is
+// running right now just because it is the only (or newest) file on disk.
 func findHermesChecklist(cwd string) string {
-	pattern := filepath.Join(cwd, ".claude", "feature", "*", "hermes-checklist.json")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		debugLog("findHermesChecklist: glob error: %v", err)
-	}
-
-	if len(matches) == 1 {
-		return matches[0]
-	}
-
-	if len(matches) > 1 {
-		// Return the most recently modified file
-		best := matches[0]
-		bestInfo, err := os.Stat(best)
-		if err != nil {
-			return best
+	if dir, err := findActiveFeatureDir(cwd); err != nil {
+		debugLog("findHermesChecklist: findActiveFeatureDir error: %v", err)
+	} else if dir != "" {
+		path := filepath.Join(dir, "hermes-checklist.json")
+		if _, err := os.Stat(path); err == nil {
+			return path
 		}
-		for _, m := range matches[1:] {
-			info, err := os.Stat(m)
-			if err != nil {
-				continue
-			}
-			if info.ModTime().After(bestInfo.ModTime()) {
-				best = m
-				bestInfo = info
-			}
-		}
-		return best
+		debugLog("findHermesChecklist: active feature %s has no checklist yet, falling back to tmp", dir)
 	}
 
-	// Fall back to .claude/tmp/
+	// Fall back to .claude/tmp/ — same fallback handleHermesStart uses when
+	// no feature has an active 9-review stage.
 	fallback := filepath.Join(cwd, ".claude", "tmp", "hermes-checklist.json")
 	if _, err := os.Stat(fallback); err == nil {
 		return fallback
@@ -1620,86 +1503,3 @@ func findHermesChecklist(cwd string) string {
 	return ""
 }
 
-// fixPMCmd intercepts Bash commands using npm and rewrites them to the correct
-// package manager detected from lockfiles in the project root.
-func fixPMCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "fix-pm",
-		Short: "Handle PreToolUse Bash hook — auto-correct npm to the project's package manager",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			raw, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return nil
-			}
-
-			var input preToolUseInput
-			if err := json.Unmarshal(raw, &input); err != nil {
-				return nil
-			}
-
-			command := input.ToolInput.Command
-
-			// Cheap pre-filter before touching the filesystem.
-			if !strings.Contains(command, "npm") {
-				return nil
-			}
-
-			// Detect package manager from lockfiles: hook payload cwd first,
-			// then CLAUDE_PROJECT_DIR, then the process working directory.
-			cwd := input.Cwd
-			if cwd == "" {
-				cwd = os.Getenv("CLAUDE_PROJECT_DIR")
-			}
-			if cwd == "" {
-				cwd, _ = os.Getwd()
-			}
-
-			pm, lockfile := detectPackageManager(cwd)
-			if pm == "" {
-				return nil // no alternative PM found, let npm through
-			}
-
-			fixed, changed := rewriteNPMCommand(command, pm)
-			if !changed {
-				return nil // npm only appears as an argument or inside quotes
-			}
-
-			// No permissionDecision: the rewritten command goes through the
-			// normal permission flow like any other Bash call.
-			output := preToolUseOutput{
-				HookSpecificOutput: preToolUseHookSpecific{
-					HookEventName:     "PreToolUse",
-					UpdatedInput:      map[string]string{"command": fixed},
-					AdditionalContext: fmt.Sprintf("[Kratos] Auto-corrected: npm → %s (detected %s in project root). Use %s for all package operations in this project.", pm, lockfile, pm),
-				},
-			}
-
-			data, err := json.Marshal(output)
-			if err != nil {
-				return nil
-			}
-			fmt.Println(string(data))
-			return nil
-		},
-	}
-}
-
-// detectPackageManager checks lockfiles in cwd to determine the package manager.
-// Priority: bun.lockb / bun.lock > yarn.lock > pnpm-lock.yaml
-func detectPackageManager(cwd string) (pm string, lockfile string) {
-	checks := []struct {
-		file string
-		pm   string
-	}{
-		{"bun.lockb", "bun"},
-		{"bun.lock", "bun"},
-		{"yarn.lock", "yarn"},
-		{"pnpm-lock.yaml", "pnpm"},
-	}
-	for _, c := range checks {
-		if _, err := os.Stat(filepath.Join(cwd, c.file)); err == nil {
-			return c.pm, c.file
-		}
-	}
-	return "", ""
-}
