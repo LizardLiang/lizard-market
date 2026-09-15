@@ -14,7 +14,7 @@
  * other, resume pointers named the wrong project, and `step record-agent`
  * failed with FOREIGN KEY errors (2026-09 transcript review).
  *
- * Budget: hooks.json gives SessionStart 5000 ms. Every spawn below carries a
+ * Budget: hooks.json gives SessionStart 5 s (5000 ms). Every spawn below carries a
  * timeout and the serial sum stays under ~4000 ms (version 800 + memory list
  * 1500 + init 500 + session start 800); the plugin-bin → ~/.kratos/bin copy
  * runs last so it can never starve the calls. Every kratos call uses spawnSync
@@ -65,7 +65,7 @@ function ensureDir() {
 
 const findKratosBinary = resolveBinary;
 
-// Per-call budgets (ms). Serial sum must stay under the 5000 ms hook timeout
+// Per-call budgets (ms). Serial sum must stay under the 5 s (5000 ms) hook timeout
 // with room for node startup.
 const VERSION_TIMEOUT_MS = 800;
 const MEMORY_LIST_TIMEOUT_MS = 1500;
