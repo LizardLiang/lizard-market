@@ -975,6 +975,160 @@ func TestNemesisStopScopesToOwnFeature(t *testing.T) {
 	})
 }
 
+// TestAresBlockCountCapsThenAllows reproduces item B's diagnosis: before evaluateGateBlock,
+// Ares's SubagentStop content gate had no cap of its own — unlike Hermes's block_count or
+// check --verify's MaxRetries — so an unsatisfiable gate (a message that never satisfies the
+// task-list/files/completion checks) forced continuations indefinitely. Drives the real
+// subagentStopCmd handler through repeated stop_hook_active=true stops to prove it now blocks
+// up to gateMaxBlocks, then allows — and that a fresh spawn (a different agent_id) starts its
+// own count at 0 rather than inheriting the exhausted one.
+func TestAresBlockCountCapsThenAllows(t *testing.T) {
+	dir := t.TempDir()
+	payload := func(agentID string, stopHookActive bool) string {
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:ares",
+			"agent_id":               agentID,
+			"cwd":                    dir,
+			"stop_hook_active":       stopHookActive,
+			"last_assistant_message": "I did some work.", // no task list, no files, no "complete" — never passes
+		})
+		return string(b)
+	}
+
+	for i := 1; i <= gateMaxBlocks; i++ {
+		resp := runSubagentStop(t, payload("ares-1", i > 1))
+		if resp.allowed() {
+			t.Fatalf("stop %d: expected block (block_count %d < cap %d), got allow", i, i-1, gateMaxBlocks)
+		}
+	}
+
+	resp := runSubagentStop(t, payload("ares-1", true))
+	if !resp.allowed() {
+		t.Fatalf("stop %d: expected allow once block-count cap (%d) is reached, got block: %q", gateMaxBlocks+1, gateMaxBlocks, resp.Reason)
+	}
+
+	// A fresh spawn (different agent_id) must start its own count at 0, not inherit ares-1's
+	// exhausted cap — the cross-spawn carry-over class of bug item 3 fixed for Hermes and
+	// check --verify.
+	resp = runSubagentStop(t, payload("ares-2", false))
+	if resp.allowed() {
+		t.Fatal("fresh spawn (new agent_id) allowed through immediately — it must start its own block count at 0")
+	}
+}
+
+// TestAresBlockCountResetsOnPass proves the block-count guard resets once the gate passes
+// (item B.2's "make the counter reset when the gate passes"), so a later failure in a new stop
+// sequence starts counting from 0 rather than picking up where an earlier, resolved sequence
+// left off.
+func TestAresBlockCountResetsOnPass(t *testing.T) {
+	dir := t.TempDir()
+	fail := func(stopHookActive bool) string {
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:ares",
+			"agent_id":               "ares-1",
+			"cwd":                    dir,
+			"stop_hook_active":       stopHookActive,
+			"last_assistant_message": "I did some work.",
+		})
+		return string(b)
+	}
+	pass := func() string {
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:ares",
+			"agent_id":               "ares-1",
+			"cwd":                    dir,
+			"last_assistant_message": "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234",
+		})
+		return string(b)
+	}
+
+	for i := 0; i < gateMaxBlocks-1; i++ {
+		if resp := runSubagentStop(t, fail(i > 0)); resp.allowed() {
+			t.Fatalf("expected block on attempt %d", i+1)
+		}
+	}
+
+	if resp := runSubagentStop(t, pass()); !resp.allowed() {
+		t.Fatalf("expected allow on a compliant message, got block: %q", resp.Reason)
+	}
+
+	// A fresh failure right after a pass must start counting from 1 again, not from the
+	// pre-pass count (which would otherwise hit the cap on this very next block).
+	if resp := runSubagentStop(t, fail(false)); resp.allowed() {
+		t.Fatal("expected block on the first failure after a pass — the count must have reset")
+	}
+}
+
+// TestHephaestusBlockCountCapsThenAllows mirrors TestAresBlockCountCapsThenAllows for
+// Hephaestus's content gate (section-count check), which also had no cap before item B.
+func TestHephaestusBlockCountCapsThenAllows(t *testing.T) {
+	dir := t.TempDir()
+	payload := func(agentID string, stopHookActive bool) string {
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:hephaestus",
+			"agent_id":               agentID,
+			"cwd":                    dir,
+			"stop_hook_active":       stopHookActive,
+			"last_assistant_message": "This is a brief spec.", // too few sections — never passes
+		})
+		return string(b)
+	}
+
+	for i := 1; i <= gateMaxBlocks; i++ {
+		resp := runSubagentStop(t, payload("heph-1", i > 1))
+		if resp.allowed() {
+			t.Fatalf("stop %d: expected block, got allow", i)
+		}
+	}
+
+	resp := runSubagentStop(t, payload("heph-1", true))
+	if !resp.allowed() {
+		t.Fatalf("expected allow once block-count cap (%d) is reached, got block: %q", gateMaxBlocks, resp.Reason)
+	}
+
+	resp = runSubagentStop(t, payload("heph-2", false))
+	if resp.allowed() {
+		t.Fatal("fresh spawn (new agent_id) allowed through immediately — it must start its own block count at 0")
+	}
+}
+
+// TestNemesisBlockCountCapsThenAllows mirrors TestAresBlockCountCapsThenAllows for Nemesis's
+// content gate (prd-challenge.md checks), which also had no cap before item B.
+func TestNemesisBlockCountCapsThenAllows(t *testing.T) {
+	root := t.TempDir()
+	featureDir := filepath.Join(root, ".claude", "feature", "my-feature")
+	writeFile(t, filepath.Join(featureDir, "status.json"),
+		`{"feature":"my-feature","stage":"2-prd-review","pipeline":{"2-prd-review":{"status":"in-progress"}}}`)
+	// No prd-challenge.md — never passes.
+
+	payload := func(agentID string, stopHookActive bool) string {
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":       "kratos:nemesis",
+			"agent_id":         agentID,
+			"cwd":              root,
+			"stop_hook_active": stopHookActive,
+		})
+		return string(b)
+	}
+
+	for i := 1; i <= gateMaxBlocks; i++ {
+		resp := runSubagentStop(t, payload("nem-1", i > 1))
+		if resp.allowed() {
+			t.Fatalf("stop %d: expected block, got allow", i)
+		}
+	}
+
+	resp := runSubagentStop(t, payload("nem-1", true))
+	if !resp.allowed() {
+		t.Fatalf("expected allow once block-count cap (%d) is reached, got block: %q", gateMaxBlocks, resp.Reason)
+	}
+
+	resp = runSubagentStop(t, payload("nem-2", false))
+	if resp.allowed() {
+		t.Fatal("fresh spawn (new agent_id) allowed through immediately — it must start its own block count at 0")
+	}
+}
+
 // allTiersFalse returns a map with all 8 tiers set to false.
 func allTiersFalse() map[string]bool {
 	return map[string]bool{

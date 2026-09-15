@@ -130,7 +130,12 @@ type subagentStartHookSpecific struct {
 
 // subagentStopInput is the JSON Claude Code sends for SubagentStop
 type subagentStopInput struct {
-	AgentType            string `json:"agent_type"`
+	AgentType string `json:"agent_type"`
+	// AgentID is Claude Code's unique identifier for this specific subagent spawn
+	// (documented as a common SubagentStop field, mirroring subagentStartInput's
+	// AgentID). Used to key the block-count guards below so a fresh spawn never
+	// inherits an earlier, unrelated spawn's count.
+	AgentID              string `json:"agent_id"`
 	StopHookActive       bool   `json:"stop_hook_active"`
 	LastAssistantMessage string `json:"last_assistant_message"`
 	Cwd                  string `json:"cwd"`
@@ -1076,12 +1081,19 @@ func subagentStopCmd() *cobra.Command {
 			// stop_hook_active=true is a re-invocation after this same hook
 			// already blocked once on this stop attempt, not a verified-clean
 			// stop. Unconditionally allowing here (the old behavior) let a
-			// blocked Ares/Hephaestus/Hermes agent through on its very next
-			// try with the deliverable still missing, and it kept
-			// handleHermesStop's block_count guard (below) from ever
-			// incrementing past 1. The checks below must run the same way
-			// regardless of this flag; each gate's own retry/block-count cap
-			// (MaxRetries, BlockCount>=3) is what bounds the loop.
+			// blocked Ares/Hephaestus/Hermes/Nemesis agent through on its very
+			// next try with the deliverable still missing, and it kept every
+			// gate's own block-count guard (below) from ever incrementing
+			// past 1. The checks below must run the same way regardless of
+			// this flag; every content gate now carries its own bounded cap —
+			// Hermes via block_count in hermes-checklist.json, the Tier 1
+			// "check --verify" gates via MaxRetries in check-state.json, and
+			// Ares/Hephaestus/Nemesis via evaluateGateBlock's gateMaxBlocks
+			// (added because they previously had no cap at all: an
+			// unsatisfiable gate forced continuations indefinitely, since the
+			// "ends the turn after 8 consecutive blocks" override is
+			// documented only for the plain Stop hook, not SubagentStop) — so
+			// none of them can force continuations indefinitely.
 			agentType := strings.ToLower(input.AgentType)
 			msg := input.LastAssistantMessage
 			msgLower := strings.ToLower(msg)
@@ -1122,8 +1134,11 @@ func subagentStopCmd() *cobra.Command {
 					failures = append(failures, f)
 				}
 
-				if len(failures) > 0 {
-					return outputSubagentBlock(fmt.Sprintf(
+				statePath := gateStatePath(input.Cwd, "", "ares-stop-state.json")
+				if len(failures) == 0 {
+					clearGateBlock(statePath)
+				} else {
+					return evaluateGateBlock("ares", statePath, input.AgentID, fmt.Sprintf(
 						"Ares quality gate failed: %s. Write a markdown task checklist (Task* tools are unavailable to subagents), implement all items, end with a 'Task list:' recap naming the files you created or modified, and land the work: commit your files on the current branch and report `Landed: <branch>@<hash>`.",
 						strings.Join(failures, "; "),
 					))
@@ -1132,6 +1147,8 @@ func subagentStopCmd() *cobra.Command {
 
 			// Hephaestus (tech spec agent) quality checks
 			if strings.Contains(agentType, "hephaestus") {
+				var failures []string
+
 				specSections := []string{"architecture", "data model", "api", "implementation", "schema", "interface"}
 				var found []string
 				for _, s := range specSections {
@@ -1140,8 +1157,8 @@ func subagentStopCmd() *cobra.Command {
 					}
 				}
 				if len(found) < 2 {
-					return outputSubagentBlock(fmt.Sprintf(
-						"Hephaestus quality gate failed: technical spec appears incomplete (only found sections: %s). A complete spec must cover architecture, data models, API design, and implementation details.",
+					failures = append(failures, fmt.Sprintf(
+						"technical spec appears incomplete (only found sections: %s)",
 						func() string {
 							if len(found) == 0 {
 								return "none"
@@ -1170,11 +1187,20 @@ func subagentStopCmd() *cobra.Command {
 					specFound := discoverFileExists(filepath.Join(featureDir, "tech-spec-proposal.md")) ||
 						discoverFileExists(filepath.Join(featureDir, "tech-spec.md"))
 					if !specFound {
-						return outputSubagentBlock(fmt.Sprintf(
-							"Hephaestus quality gate failed: neither tech-spec-proposal.md nor tech-spec.md was found in %s. Write the output to .claude/feature/<name>/ before completing.",
-							featureDir,
+						failures = append(failures, fmt.Sprintf(
+							"neither tech-spec-proposal.md nor tech-spec.md was found in %s", featureDir,
 						))
 					}
+				}
+
+				statePath := gateStatePath(cwd, featureDir, "hephaestus-stop-state.json")
+				if len(failures) == 0 {
+					clearGateBlock(statePath)
+				} else {
+					return evaluateGateBlock("hephaestus", statePath, input.AgentID, fmt.Sprintf(
+						"Hephaestus quality gate failed: %s. A complete spec must cover architecture, data models, API design, and implementation details, written to .claude/feature/<name>/ before completing.",
+						strings.Join(failures, "; "),
+					))
 				}
 			}
 
@@ -1296,29 +1322,28 @@ func handleNemesisStop(input subagentStopInput) error {
 		return outputSubagentOK()
 	}
 
+	statePath := gateStatePath(cwd, featureDir, "nemesis-stop-state.json")
+
+	var failure string
 	challengePath := filepath.Join(featureDir, "prd-challenge.md")
 	if !discoverFileExists(challengePath) {
-		return outputSubagentBlock(fmt.Sprintf(
-			"Nemesis quality gate failed: prd-challenge.md not found in %s. Write your PRD challenge to .claude/feature/<name>/prd-challenge.md before completing.",
+		failure = fmt.Sprintf(
+			"prd-challenge.md not found in %s. Write your PRD challenge to .claude/feature/<name>/prd-challenge.md before completing.",
 			featureDir,
-		))
-	}
-
-	content, err := os.ReadFile(challengePath)
-	if err != nil || len(strings.TrimSpace(string(content))) == 0 {
-		return outputSubagentBlock(
-			"Nemesis quality gate failed: prd-challenge.md exists but is empty. Add at least one challenge section before completing.",
 		)
+	} else if content, rerr := os.ReadFile(challengePath); rerr != nil || len(strings.TrimSpace(string(content))) == 0 {
+		failure = "prd-challenge.md exists but is empty. Add at least one challenge section before completing."
+	} else if !challengeHeadingRe.Match(content) {
+		failure = "prd-challenge.md contains no challenge sections (expected at least one heading containing 'challenge'). Structure your output with explicit challenge headings."
 	}
 
-	if !challengeHeadingRe.Match(content) {
-		return outputSubagentBlock(
-			"Nemesis quality gate failed: prd-challenge.md contains no challenge sections (expected at least one heading containing 'challenge'). Structure your output with explicit challenge headings.",
-		)
+	if failure == "" {
+		clearGateBlock(statePath)
+		debugLog("nemesis-stop: prd-challenge.md valid, allowing stop")
+		return outputSubagentOK()
 	}
 
-	debugLog("nemesis-stop: prd-challenge.md valid, allowing stop")
-	return outputSubagentOK()
+	return evaluateGateBlock("nemesis", statePath, input.AgentID, "Nemesis quality gate failed: "+failure)
 }
 
 // outputSubagentOK allows the subagent to stop: an empty JSON object, exit 0.
@@ -1333,6 +1358,97 @@ func outputSubagentBlock(reason string) error {
 	data, _ := json.Marshal(subagentStopOutput{Decision: "block", Reason: reason})
 	fmt.Println(string(data))
 	return nil
+}
+
+// gateBlockState is the persisted block-count guard for a SubagentStop content gate that has
+// no bounded cap of its own (Hermes has block_count in hermes-checklist.json; the Tier 1
+// "check --verify" gates have MaxRetries in check-state.json — see check.go's
+// handleRetryLogic). Ares, Hephaestus, and Nemesis's content gates had neither, so an
+// unsatisfiable condition forced continuations indefinitely: the "ends the turn after 8
+// consecutive blocks" override is documented only for the plain Stop hook, not SubagentStop.
+//
+// Keyed by agent_id so a fresh spawn (a different agent_id) starts its own count at 0 instead
+// of inheriting a previous, unrelated spawn's count — the same cross-spawn carry-over class of
+// bug already fixed for check --verify's retry counter and Hermes's block_count.
+type gateBlockState struct {
+	AgentID    string `json:"agent_id"`
+	BlockCount int    `json:"block_count"`
+}
+
+// gateMaxBlocks bounds every content gate below at the same cap handleHermesStop already uses
+// (BlockCount >= 3), so all gated agents behave identically once capped.
+const gateMaxBlocks = 3
+
+// gateStatePath resolves where a gate's block-count state persists: inside featureDir when the
+// gate already resolved one (Hephaestus, Nemesis — this mirrors the b14cbed feature-scoping fix,
+// so the state file can never leak across features either), otherwise cwd's .claude/tmp/, the
+// same fallback Hermes's checklist uses.
+func gateStatePath(cwd, featureDir, filename string) string {
+	if featureDir != "" {
+		return filepath.Join(featureDir, filename)
+	}
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
+	return filepath.Join(cwd, ".claude", "tmp", filename)
+}
+
+// evaluateGateBlock applies the bounded block-count guard for a content gate that just found
+// failures: it blocks (persisting an incremented counter) until gateMaxBlocks is reached, then
+// allows the stop through with a debug log instead of blocking forever.
+func evaluateGateBlock(gateName, statePath, agentID, reason string) error {
+	state := readGateBlockState(statePath)
+	if agentID != "" && state.AgentID != "" && state.AgentID != agentID {
+		// A different spawn than the one that left this count — never carry it over.
+		state = gateBlockState{}
+	}
+	if state.BlockCount >= gateMaxBlocks {
+		debugLog("%s-stop: max block attempts reached (%d), allowing stop despite unmet gate", gateName, state.BlockCount)
+		return outputSubagentOK()
+	}
+	state.AgentID = agentID
+	state.BlockCount++
+	writeGateBlockState(statePath, state)
+	return outputSubagentBlock(fmt.Sprintf("%s (attempt %d/%d)", reason, state.BlockCount, gateMaxBlocks))
+}
+
+// clearGateBlock resets a gate's block-count state once its checks pass, so a later failure in
+// a new stop sequence starts counting from 0 rather than from where an earlier, already-resolved
+// sequence left off.
+func clearGateBlock(statePath string) {
+	_ = os.Remove(statePath)
+}
+
+// readGateBlockState reads a gate's persisted block-count state. Any error (missing file,
+// unreadable, malformed) fails open to a fresh zero state — state management errors must never
+// themselves cause an extra block.
+func readGateBlockState(path string) gateBlockState {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return gateBlockState{}
+	}
+	var s gateBlockState
+	if err := json.Unmarshal(data, &s); err != nil {
+		return gateBlockState{}
+	}
+	return s
+}
+
+// writeGateBlockState persists a gate's block-count state. Failures are logged and otherwise
+// ignored — state management is best-effort and must never block on its own account.
+func writeGateBlockState(path string, state gateBlockState) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		debugLog("gate block state: mkdir failed for %s: %v", path, err)
+		return
+	}
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		debugLog("gate block state: marshal failed: %v", err)
+		return
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		debugLog("gate block state: write failed for %s: %v", path, err)
+	}
 }
 
 // tierDisplayNames maps tier keys to human-readable names for error messages.
@@ -1502,4 +1618,3 @@ func findHermesChecklist(cwd string) string {
 
 	return ""
 }
-
