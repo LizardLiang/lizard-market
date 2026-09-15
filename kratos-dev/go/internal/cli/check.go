@@ -220,10 +220,16 @@ func handleCheckVerify(stage, feature string) error {
 		return outputSubagentOK()
 	}
 
-	// Guard: prevent infinite loops
+	// stop_hook_active=true means Claude Code is re-invoking this hook after a
+	// prior block on the same stop attempt — not a fresh, already-verified
+	// stop. Returning OK here unconditionally (the old behavior) let a single
+	// block through on the very next retry regardless of whether the
+	// deliverable was actually produced, and it skipped resetRetry/
+	// incrementRetry entirely, so the counter never advanced either. The
+	// checks below must run exactly as they would for stop_hook_active=false;
+	// MaxRetries (via handleRetryLogic) is what bounds the loop.
 	if input.StopHookActive {
-		checkDebugLog("verify: stop_hook_active=true, returning OK immediately")
-		return outputSubagentOK()
+		checkDebugLog("verify: stop_hook_active=true, re-running checks (not bypassing)")
 	}
 
 	cwd := input.Cwd

@@ -568,7 +568,12 @@ func TestOptional(t *testing.T) {
 // ---------- TC-014/015/016/017: Fail-open cases ----------
 
 func TestFailOpen(t *testing.T) {
-	t.Run("stop_hook_active returns ok immediately", func(t *testing.T) {
+	t.Run("stop_hook_active alone does not fail open — missing feature dir does", func(t *testing.T) {
+		// This case still returns ok=true, but for a reason orthogonal to
+		// stop_hook_active: no .claude/feature/ exists at all, so
+		// resolveFeatureDir fails and every check.go path fails open
+		// regardless of the flag (see TestStopHookActiveStillRunsChecks for
+		// the case that actually exercises stop_hook_active).
 		dir := t.TempDir()
 		var output string
 		pipeStdin(makeStopStdin("kratos:athena", dir, true), func() {
@@ -582,7 +587,7 @@ func TestFailOpen(t *testing.T) {
 			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
 		}
 		if !resp.allowed() {
-			t.Error("stop_hook_active=true should return ok=true immediately")
+			t.Error("missing feature dir should still fail-open (ok=true)")
 		}
 	})
 
@@ -638,6 +643,125 @@ func TestFailOpen(t *testing.T) {
 			t.Error("missing feature dir should fail-open (ok=true)")
 		}
 	})
+}
+
+// ---------- stop_hook_active must not bypass Tier 1 verification ----------
+//
+// Regression coverage for the bug where handleCheckVerify returned OK
+// immediately whenever stop_hook_active was true, before handleRetryLogic
+// (and therefore incrementRetry/resetRetry) ever ran. Every case below
+// drives the real handleCheckVerify function — not a re-implemented copy of
+// its logic — the same way TestDispatch/TestOptional above do.
+
+// TestStopHookActiveStillRunsChecks pins the single-call contract: a stop
+// with stop_hook_active=true must be checked exactly like one with it false
+// when a real deliverable is missing. Before the fix this returned ok=true
+// unconditionally; the deliverable being absent must still block.
+func TestStopHookActiveStillRunsChecks(t *testing.T) {
+	root, _ := makeFeatureDir(t, "sha-feature", "1-prd")
+	// prd.md and decisions.md are both missing.
+
+	var output string
+	pipeStdin(makeStopStdin("kratos:athena", root, true), func() {
+		output = captureStdout(func() {
+			handleCheckVerify("1-prd", "sha-feature")
+		})
+	})
+
+	var resp subagentStopOutput
+	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
+		t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
+	}
+	if resp.allowed() {
+		t.Error("stop_hook_active=true must not bypass a missing deliverable — got ok=true")
+	}
+	if !strings.Contains(resp.Reason, "prd.md") {
+		t.Errorf("reason should mention the missing deliverable, got: %q", resp.Reason)
+	}
+}
+
+// TestStopHookActiveAcrossSpawnsRetryCounterAdvances reproduces the
+// Athena/Nemesis repro from the review: three consecutive stop attempts on a
+// feature whose deliverable is never produced. Real Claude Code re-invokes
+// the Stop hook with stop_hook_active=true after a block, so the second and
+// third attempts here carry it true — before the fix that made every one of
+// them silently return ok=true without ever touching the retry counter.
+// With the fix, the counter must advance exactly as it would for
+// stop_hook_active=false: blocked at 1/2, blocked at 2/2, then allowed
+// through at attempt 3 with the failure recorded (MaxRetries=2 for 1-prd).
+func TestStopHookActiveAcrossSpawnsRetryCounterAdvances(t *testing.T) {
+	root, featureDir := makeFeatureDir(t, "spawn-feature", "1-prd")
+	// prd.md and decisions.md never get created — the repro's "deliverable
+	// still missing" condition.
+
+	attempt := func(stopHookActive bool) subagentStopOutput {
+		var output string
+		pipeStdin(makeStopStdin("kratos:athena", root, stopHookActive), func() {
+			output = captureStdout(func() {
+				handleCheckVerify("1-prd", "spawn-feature")
+			})
+		})
+		var resp subagentStopOutput
+		if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &resp); err != nil {
+			t.Fatalf("output is not valid JSON: %v\noutput: %q", err, output)
+		}
+		return resp
+	}
+
+	// Spawn 1: fresh stop attempt, stop_hook_active=false. First failure —
+	// blocked, retry count becomes 1 (attempt 1/2).
+	resp1 := attempt(false)
+	if resp1.allowed() {
+		t.Fatal("spawn 1: expected block (deliverable missing), got ok=true")
+	}
+	if !strings.Contains(resp1.Reason, "1/2") {
+		t.Errorf("spawn 1: reason should read attempt 1/2, got: %q", resp1.Reason)
+	}
+	state, _ := readCheckState(featureDir)
+	if state["1-prd"] != 1 {
+		t.Fatalf("spawn 1: check-state[1-prd] = %d, want 1", state["1-prd"])
+	}
+
+	// Spawn 2: Claude Code's re-invocation after the block, stop_hook_active
+	// true. Before the fix this returned ok=true here and the counter never
+	// moved — "a blocked agent's second stop is never re-checked". The fix
+	// must re-run the same check and advance the counter to 2 (attempt 2/2).
+	resp2 := attempt(true)
+	if resp2.allowed() {
+		t.Fatal("spawn 2 (stop_hook_active=true): expected block (deliverable still missing), got ok=true — the bypass regressed")
+	}
+	if !strings.Contains(resp2.Reason, "2/2") {
+		t.Errorf("spawn 2: reason should read attempt 2/2, got: %q", resp2.Reason)
+	}
+	state, _ = readCheckState(featureDir)
+	if state["1-prd"] != 2 {
+		t.Fatalf("spawn 2: check-state[1-prd] = %d, want 2 (counter must advance on stop_hook_active=true too)", state["1-prd"])
+	}
+
+	// Spawn 3: another re-invocation, stop_hook_active=true, deliverable
+	// still missing. MaxRetries=2 is now exhausted, so this attempt is
+	// allowed through with the failure recorded — matching the repro's
+	// "spawn 3 passes with deliverable still missing" — and the counter is
+	// reset for the next real attempt at this stage.
+	resp3 := attempt(true)
+	if !resp3.allowed() {
+		t.Fatalf("spawn 3: expected ok=true after MaxRetries exhausted, got block: %q", resp3.Reason)
+	}
+	state, _ = readCheckState(featureDir)
+	if _, ok := state["1-prd"]; ok {
+		t.Errorf("spawn 3: check-state[1-prd] should be reset after exhaustion, got %v", state["1-prd"])
+	}
+	statusFile := filepath.Join(featureDir, "status.json")
+	status, err := readStatusJSON(statusFile)
+	if err != nil {
+		t.Fatalf("readStatusJSON: %v", err)
+	}
+	pipeline, _ := status["pipeline"].(map[string]interface{})
+	stageData, _ := pipeline["1-prd"].(map[string]interface{})
+	failures, _ := stageData["check_failures"].([]interface{})
+	if len(failures) != 1 {
+		t.Errorf("expected 1 recorded check_failures entry after exhaustion, got %d", len(failures))
+	}
 }
 
 // ---------- TC-001/002/003: handleCheckInit ----------
