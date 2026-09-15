@@ -69,7 +69,6 @@ Features never edit `specs/` directly. Athena (pipeline) or Odysseus (quick path
 
 | Item | Where instead |
 |------|---------------|
-| Package manager | PreToolUse `fix-pm` hook |
 | Feature-specific context | The spawn prompt |
 | Full PRD / tech spec | `.claude/feature/<name>/` (only the distilled contract lives in `specs/`) |
 | Git history | `git log` |

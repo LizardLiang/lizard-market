@@ -133,8 +133,7 @@ The message names `kratos install`; both `kratos install` and `kratos uninstall`
 | `SessionStart` | Claude Code opens | `session-start.cjs` — registers the session ledger, prints `KRATOS_BIN:`, memories and pending items, downloads the binary when missing |
 | `SessionEnd` | Claude Code closes | `session-end.cjs` — closes the session ledger row with a one-line summary |
 | `PermissionRequest` | Read permission request | Auto-allows Read **only for plugin-root and `~/.kratos/` paths**; all other paths prompt normally |
-| `PreToolUse` (Write/Edit/MultiEdit/NotebookEdit/Bash/Agent/Task) | Any write, Bash call or spawn | `hook edit-gate` — inline edit gate: Odysseus plan-only lane, Iris source-file budget; fails open for other agents |
-| `PreToolUse` (Bash) | Any Bash call | `hook fix-pm` — rewrites `npm` to detected package manager |
+| `PreToolUse` (Write/Edit/MultiEdit/NotebookEdit/Bash/PowerShell/Agent/Task) | Any write, Bash/PowerShell call or spawn | `hook edit-gate` — inline edit gate: Odysseus plan-only lane, Iris source-file budget; fails open for other agents |
 | `PostToolUse` (Agent/Task/Write/Edit/MultiEdit) | After tool completes | `tool-use.cjs` — records agent spawns and file changes |
 | `PostToolUse` (Write/Edit) | After a file write | `hook spec-delta-check` — validates a just-written spec delta |
 | `SubagentStart` (kratos:*) | Any Kratos agent starts | `path-inject.cjs` — injects resolved `<kratos-bin>` path into prompt |

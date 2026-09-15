@@ -1,6 +1,6 @@
 # Kratos Hooks
 
-Claude Code plugin hooks: quality gates for god-agents, package-manager correction, session ledger recording, and the transcript memory sweep.
+Claude Code plugin hooks: quality gates for god-agents, session ledger recording, and the transcript memory sweep.
 
 ## Architecture
 
@@ -28,8 +28,7 @@ The plugin registers hooks via `hooks.json`. Claude Code loads them automaticall
 | `SessionStart` | all | `session-start.cjs` | Registers the session in the ledger, injects the output constraint, `KRATOS_BIN`, stored user preferences, and one-line pointers (fresh handoff, pending spec deltas, draft plans, legacy-hook warning). Preserves the edit gate's ledger keys across compaction/resume |
 | `SessionEnd` | all | `session-end.cjs` | Closes the session's ledger row with a one-line summary and removes its state file |
 | `PermissionRequest` | `Read` | `permission-read.cjs` | Auto-allows Read requests scoped under `CLAUDE_PLUGIN_ROOT` or `~/.kratos/`; every other path falls through to the normal prompt |
-| `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|Agent\|Task` | `launch.cjs hook edit-gate` | Inline edit gate: denies source edits the inline god should dispatch — Odysseus to plans and spec deltas, Iris to two source files per turn. The gate only ever denies: a permitted call gets no decision and keeps Claude Code's normal permission prompt, so a classifier miss costs a prompt rather than an unattended `rm -rf` |
-| `PreToolUse` | `Bash` | `launch.cjs hook fix-pm` | Rewrites a segment-leading `npm` to the project's package manager (lockfile detection: `bun.lockb`/`bun.lock`, `yarn.lock`, `pnpm-lock.yaml`); `npm ci` becomes `<pm> install --frozen-lockfile`. Emits `updatedInput` only — no permission decision, so the normal permission flow applies to the rewritten command |
+| `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|PowerShell\|Agent\|Task` | `launch.cjs hook edit-gate` | Inline edit gate: denies source edits the inline god should dispatch — Odysseus to plans and spec deltas, Iris to two source files per turn. The gate only ever denies: a permitted call gets no decision and keeps Claude Code's normal permission prompt, so a classifier miss costs a prompt rather than an unattended `rm -rf` |
 | `PostToolUse` | `Agent\|Task\|Write\|Edit\|MultiEdit` | `tool-use.cjs` (async) | Records agent spawns and project file changes (`.claude/feature/` and `.claude/.Arena/` count; `.claude/tmp/`, `.kratos/`, `.git/` and the scratchpad do not) |
 | `PostToolUse` | `Write\|Edit` | `launch.cjs hook spec-delta-check` | Validates a just-written spec delta and blocks on a malformed one |
 | `SubagentStart` | `kratos:.*` | `path-inject.cjs` | Injects the resolved `<KRATOS_ROOT>` / `<kratos-bin>`, the agent's composed protocol block, and its stored feedback lessons |

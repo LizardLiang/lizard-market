@@ -17,15 +17,15 @@
 
 ## 你實際會得到什麼 — lite vs full
 
-Kratos 分兩層運作。**markdown 層獨立可用 — 免建置、免二進位檔、免設定。** 選用的 Go 二進位檔只是讓追蹤更精確。
+Kratos 分兩層運作。**markdown 層獨立可用 — 免建置、免二進位檔、免設定** — 代理人、指令與流水線都能用。品質門 Hooks 需要 Go 二進位檔：沒有它，除了 `agent load` 之外的每個 Hook 都會靜默結束，沒有任何門會擋下任何東西。
 
-|                                      | markdown 層 *(預設)* | + Go 二進位檔 *(選用)* |
-| ------------------------------------ | :------------------: | :--------------------: |
-| 全部 19 代理人 + 9 階段流水線        |          ✅          |           ✅          |
-| 指令（`/kratos:quick`、`review`…）   |          ✅          |           ✅          |
-| 強制品質門 Hooks                     |          ✅          |           ✅          |
-| 流水線時間戳與階段歷史               |       檔案備援       |        ✅ 精確        |
-| Session 記憶 / recall                |          —           |        ✅ SQLite      |
+|                                      | markdown 層 *(預設)* | + Go 二進位檔 *(品質門必需)* |
+| ------------------------------------ | :------------------: | :---------------------------: |
+| 全部 19 代理人 + 9 階段流水線        |          ✅          |               ✅              |
+| 指令（`/kratos:quick`、`review`…）   |          ✅          |               ✅              |
+| 強制品質門 Hooks                     |          ✗          |               ✅              |
+| 流水線時間戳與階段歷史               |       檔案備援       |            ✅ 精確            |
+| Session 記憶 / recall                |          —           |            ✅ SQLite          |
 
 ### 快速開始
 
@@ -126,8 +126,7 @@ Kratos 內建 Claude Code Hooks，自動強制執行工作流程規範 — Hooks
 | `SessionStart` | 所有 session | `session-start.cjs` | 登記 session 帳本、印出 `KRATOS_BIN:`、記憶、handoff 與待處理 spec delta，必要時自動下載二進位檔 |
 | `SessionEnd` | 所有 session | `session-end.cjs` | 以一行摘要關閉 session 帳本 |
 | `PermissionRequest` | `Read` | `permission-read.cjs` | 僅自動允許外掛根目錄與 `~/.kratos/` 下的讀取 |
-| `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|Agent\|Task` | `launch.cjs hook edit-gate` | 內嵌編輯閘門：Odysseus 僅限計畫檔，Iris 的原始碼檔案額度 |
-| `PreToolUse` | `Bash` | `launch.cjs hook fix-pm` | 將 `npm` 改寫為 lockfile 對應的套件管理器 |
+| `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|PowerShell\|Agent\|Task` | `launch.cjs hook edit-gate` | 內嵌編輯閘門：Odysseus 僅限計畫檔，Iris 的原始碼檔案額度 |
 | `PostToolUse` | `Agent\|Task\|Write\|Edit\|MultiEdit` | `tool-use.cjs`（非同步） | 將代理人啟動與專案檔案變更記錄到記憶 |
 | `PostToolUse` | `Write\|Edit` | `launch.cjs hook spec-delta-check` | 立即驗證剛寫入的 spec delta |
 | `SubagentStart` | `kratos:.*` | `path-inject.cjs` | 注入解析後的 `<KRATOS_ROOT>` 與 `<kratos-bin>` 路徑 |
@@ -155,21 +154,9 @@ Kratos 內建 Claude Code Hooks，自動強制執行工作流程規範 — Hooks
 | **Nemesis** | `prd-challenge.md` 存在且含有判定結果 |
 | **Athena** | `prd.md` 存在（`check --verify`），且任何 spec delta 通過 `spec validate` |
 
-當 `stop_hook_active` 為 true（由 Hook 觸發的重新執行）時，關卡自動放行以避免無限迴圈。
+當 `stop_hook_active` 為 true（Claude Code 在同一次停止嘗試中因先前的封鎖而重新呼叫此 Hook）時，上述檢查仍會照常執行 — 2026-09 修正前的一個錯誤讓這個旗標無條件放行，導致被封鎖的代理人下一次停止嘗試即可通過，即使交付成果仍缺失。改由每個關卡自身的重試／封鎖次數上限（`check --verify` 的 `MaxRetries`、Hermes 的 `block_count >= 3`）來限制迴圈次數。
 
 **Ares 驗證關卡（v2.87）：** 同一個 SubagentStop Hook 會掃描 session transcript — 若程式碼檔案已修改但未執行任何測試指令，則封鎖 Ares 完成（掃描失敗時放行；若變更確實無執行面向，可宣告 `TESTS-NOT-APPLICABLE: <原因>` 豁免；僅檢查 subagent 自身的活動）。Ares 也會在 `implementation-notes.md` 中為每個任務記錄先失敗後通過的證據（修正前 RED、修正後 GREEN），由 Hera 在第 8 階段驗證。
-
-### PreToolUse — 套件管理器自動修正
-
-攔截所有含 `npm` 的 `Bash` 工具呼叫，並依據專案根目錄的 lockfile 自動改寫為正確的套件管理器：
-
-| Lockfile | 偵測結果 |
-|----------|---------|
-| `bun.lockb` | `bun` |
-| `yarn.lock` | `yarn` |
-| `pnpm-lock.yaml` | `pnpm` |
-
-若未找到其他 lockfile，`npm` 指令原樣通過。
 
 ---
 

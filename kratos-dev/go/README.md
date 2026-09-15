@@ -79,7 +79,7 @@ make install
 # Hook subcommands (invoked by Claude Code hooks)
 ./bin/kratos hook subagent-start   # inject TODO-first gate
 ./bin/kratos hook subagent-stop    # verify deliverable completeness
-./bin/kratos hook fix-pm           # rewrite npm → project PM
+./bin/kratos hook edit-gate        # inline edit gate (PreToolUse)
 
 # Show version / help
 ./bin/kratos --version
@@ -126,7 +126,7 @@ GOOS=darwin GOARCH=arm64 go build -o bin/kratos-mac ./cmd/kratos
 | `kratos todo` | Manage agent todo lists |
 | `kratos hook subagent-start` | Inject TODO-first gate (SubagentStart hook) |
 | `kratos hook subagent-stop` | Verify deliverable completeness (SubagentStop hook) |
-| `kratos hook fix-pm` | Rewrite npm → project package manager (PreToolUse hook) |
+| `kratos hook edit-gate` | Inline edit gate — Odysseus plan-only lane, Iris source-file budget (PreToolUse hook) |
 
 ## Performance
 

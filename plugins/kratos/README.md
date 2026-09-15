@@ -17,17 +17,17 @@
 
 ## What you actually get — lite vs full
 
-Kratos works at two levels. **The markdown layer runs standalone — no build, no binary, no setup.** The optional Go binary only sharpens tracking.
+Kratos works at two levels. **The markdown layer runs standalone — no build, no binary, no setup** — agents, commands, and the pipeline all work. The Go binary is required for the quality-gate hooks: without it, every hook except `agent load` exits silently and no gate blocks anything.
 
-|                                       | Markdown layer *(default)* | + Go binary *(optional)* |
-| ------------------------------------- | :------------------------: | :----------------------: |
-| All 19 agents + 9-stage pipeline      |             ✅              |            ✅            |
-| Commands (`/kratos:quick`, `review`…) |             ✅              |            ✅            |
-| Enforced quality-gate hooks           |             ✅              |            ✅            |
-| Pipeline timestamps & stage history   |       file fallback        |       ✅ precise         |
-| Session memory / recall               |             —              |       ✅ SQLite          |
+|                                       | Markdown layer *(default)* | + Go binary *(required for gates)* |
+| ------------------------------------- | :------------------------: | :---------------------------------: |
+| All 19 agents + 9-stage pipeline      |             ✅              |                 ✅                  |
+| Commands (`/kratos:quick`, `review`…) |             ✅              |                 ✅                  |
+| Enforced quality-gate hooks           |             ✗              |                 ✅                  |
+| Pipeline timestamps & stage history   |       file fallback        |             ✅ precise              |
+| Session memory / recall               |             —              |             ✅ SQLite               |
 
-> Install the plugin and go. Add the binary later if you want precise pipeline tracking.
+> Install the plugin and go for agents, commands, and the pipeline. Add the binary if you want the quality gates enforced, precise pipeline tracking, or session memory.
 
 Kratos is the master orchestrator plugin that commands specialist **agents** to deliver features and wisdom — from quick bug fixes to full 9-stage feature pipelines (stages 1–9, plus optional Stage 0 research), with persistent memory, external research, and git history expertise.
 
@@ -162,8 +162,7 @@ Kratos ships Claude Code hooks that enforce workflow discipline automatically �
 | `SessionStart` | all sessions | `session-start.cjs` | Registers the session ledger, prints `KRATOS_BIN:`, memories, handoff and pending spec deltas, auto-downloads the binary |
 | `SessionEnd` | all sessions | `session-end.cjs` | Closes the session ledger row with a one-line summary |
 | `PermissionRequest` | `Read` | `permission-read.cjs` | Auto-allows reads under the plugin root and `~/.kratos/` only |
-| `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|Agent\|Task` | `launch.cjs hook edit-gate` | Inline edit gate: Odysseus plan-only lane, Iris source-file budget (section below) |
-| `PreToolUse` | `Bash` | `launch.cjs hook fix-pm` | Rewrites `npm` to the lockfile's package manager |
+| `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|PowerShell\|Agent\|Task` | `launch.cjs hook edit-gate` | Inline edit gate: Odysseus plan-only lane, Iris source-file budget (section below) |
 | `PostToolUse` | `Agent\|Task\|Write\|Edit\|MultiEdit` | `tool-use.cjs` (async) | Records agent spawns and project file changes in memory |
 | `PostToolUse` | `Write\|Edit` | `launch.cjs hook spec-delta-check` | Validates a just-written spec delta immediately |
 | `SubagentStart` | `kratos:.*` | `path-inject.cjs` | Injects the resolved `<KRATOS_ROOT>` and `<kratos-bin>` paths |
@@ -193,18 +192,18 @@ Fires when **Ares**, **Hephaestus**, **Hermes**, **Nemesis** or **Athena** attem
 | **Nemesis** | `prd-challenge.md` exists and carries a verdict |
 | **Athena** | `prd.md` exists (`check --verify`) and any spec delta passes `spec validate` |
 
-When `stop_hook_active` is true (hook-triggered re-run), the gate passes automatically to prevent infinite loops.
+When `stop_hook_active` is true (Claude Code re-invoking the hook after a prior block on the same stop attempt), the checks above still run exactly as they would otherwise — a fixed 2026-09 bug let this flag bypass the gate unconditionally, so a blocked agent's very next stop attempt passed with the deliverable still missing. Each gate's own retry/block-count cap (`check --verify`'s `MaxRetries`, Hermes's `block_count >= 3`) is what bounds the loop instead.
 
 **Ares verify gate (v2.87):** the same SubagentStop hook scans the session transcript and blocks Ares completion when code files were edited but no test command ran — fail-open on scan errors, and waived by stating `TESTS-NOT-APPLICABLE: <reason>` for changes with no runtime surface. The check is sidechain-scoped, so it only looks at the subagent's own activity. Ares also records fail-then-pass evidence per task in `implementation-notes.md` — a RED (failing) result before the fix and a GREEN (passing) result after — which Hera verifies at Stage 8.
 
-### PreToolUse — Inline Edit Gate + Package Manager Auto-Correction
+### PreToolUse — Inline Edit Gate
 
 The edit gate (`kratos hook edit-gate`, v2.109) keeps the god running **inline in the main context** inside its lane, so work that belongs to a specialist is dispatched instead of absorbed. It reads the god from the per-session ledger `~/.kratos/sessions/<session_id>.json`, which the `UserPromptSubmit` hook writes when a launcher (`/kratos:iris`, `/kratos:plan`, …) runs.
 
 | Inline god | Rule |
 |------------|------|
-| **Odysseus** (`/kratos:plan`, `/kratos:odysseus`) | `Write` / `Edit` / `MultiEdit` / `NotebookEdit` only to `.claude/.Arena/tactical-plans/*.md` and `.claude/feature/<slug>/spec-delta/<capability>.md`, both resolved against `cwd` so a `..` path cannot escape. `Bash` limited to read-only inspection (`git status`, `sed -n`, `head`, `grep`, …) and read-only `kratos` subcommands (`slug`, `now`, `template get`, `spec validate`, `step record-agent`, …). Every segment of a chained line is classified, not just the prefix, and quoted arguments are inert. |
-| **Iris** (`/kratos:iris`) | At most **two distinct project source files per user turn**; the third is denied with the `kratos:ares` spawn template. Documents (`.md`, `.drawio`, `.pptx`, …), `.claude/` and `.kratos/` bookkeeping, agent scratchpads, and repeat edits to an already-counted file do not count. `Bash` is never gated. |
+| **Odysseus** (`/kratos:plan`, `/kratos:odysseus`) | `Write` / `Edit` / `MultiEdit` / `NotebookEdit` only to `.claude/.Arena/tactical-plans/*.md` and `.claude/feature/<slug>/spec-delta/<capability>.md`, both resolved against `cwd` so a `..` path cannot escape. `Bash` and `PowerShell` limited to read-only inspection (`git status`, `sed -n`, `head`, `grep`, `Get-Content`, `Test-Path`, …) and read-only `kratos` subcommands (`slug`, `now`, `template get`, `spec validate`, `step record-agent`, …). Every segment of a chained line is classified, not just the prefix, and quoted arguments are inert. |
+| **Iris** (`/kratos:iris`) | At most **two distinct project source files per user turn**; the third is denied with the `kratos:ares` spawn template. Documents (`.md`, `.drawio`, `.pptx`, …), `.claude/` and `.kratos/` bookkeeping, agent scratchpads, and repeat edits to an already-counted file do not count. `Bash`/`PowerShell` are never gated. |
 | **Every other case** | No decision — the gate fails open. |
 
 Where the table says "only", it means "everything else is denied" — never "this is auto-approved".
@@ -214,16 +213,6 @@ Where the table says "only", it means "everything else is denied" — never "thi
 Iris's budget refills on every new user prompt and whenever she spawns `kratos:ares` or `kratos:hades`. Odysseus's rule ends at the hand-off instead: dispatching to one of those two builders clears the recorded god, because the work has left his hands. Nothing else clears it — not a plain user turn ("approve" is a plain turn, and the planner implementing his own approved plan is the failure this gate exists to stop), and not a research or review spawn such as `kratos:metis` for grounding, which would otherwise be a one-call escape from the lock. Stand-down phrases ("you do it", "do it yourself", "inline it") switch the gate off for that turn **only when one opens a line of the prompt**, so a question that merely contains the words — or a paste of this paragraph — does not.
 
 Fail-open means exactly that: a payload from a spawned subagent other than Odysseus (so **Ares is never gated**), a session with no ledger, an unreadable ledger, a session id that is not a safe file name, no recorded god, a god with no rule, a payload with no recognizable file path, or any error produces no output at all.
-
-Intercepts every `Bash` tool call containing `npm` and rewrites it to the project's actual package manager, detected from lockfiles in the project root:
-
-| Lockfile | Detected PM |
-|----------|-------------|
-| `bun.lockb` | `bun` |
-| `yarn.lock` | `yarn` |
-| `pnpm-lock.yaml` | `pnpm` |
-
-If no alternative lockfile is found, `npm` commands pass through unchanged.
 
 ### PermissionRequest — Scoped Read Auto-Allow
 
