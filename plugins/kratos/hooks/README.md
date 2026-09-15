@@ -57,7 +57,7 @@ An allow is an empty object (`{}`) with exit 0. Every Go gate (`hook subagent-st
 | `kratos-bin.cjs` | Shared binary resolver (`resolveBinary`, `platformBinaryName`) used by every other script |
 | `ensure-binary.cjs` | Downloads the platform binary from GitHub Release assets into `~/.kratos/bin/` when no plugin-local binary exists; spawned detached by `session-start.cjs` |
 | `session-start.cjs` | SessionStart: ledger registration, output constraint, memories, pointers. Every spawn carries a timeout; the serial sum stays under ~4 s of the 5 s budget and the plugin-bin copy runs last. Writes `~/.kratos/sessions/<id>.json` while keeping keys other hooks store there |
-| `session-end.cjs` | SessionEnd: closes the ledger row (two 600 ms calls inside the 2 s hooks.json timeout) |
+| `session-end.cjs` | SessionEnd: closes the ledger row (two 600 ms calls; the SessionEnd budget stays 1.5 s because plugin hook timeouts don't raise it) |
 | `tool-use.cjs` | PostToolUse: records agent spawns and project file changes |
 | `permission-read.cjs` | PermissionRequest: scoped Read auto-allow via `hookSpecificOutput.decision.behavior` |
 | `path-inject.cjs` | SubagentStart: `<KRATOS_ROOT>` / `<kratos-bin>` resolution, protocol block, feedback lessons |

@@ -9,11 +9,10 @@
  * so the old wiring ended the session on turn one, deleted the shared state
  * file, and then printed "Kratos: No active session to end" plus the pending
  * spec-delta list on every later turn (9× in one session). SessionEnd is
- * fire-and-forget — hooks.json declares a 2 s timeout for this hook (rounded
- * up from Claude Code's 1.5 s default SessionEnd budget; no fractional
- * per-hook timeout is shown in the docs' examples, and a longer per-hook
- * timeout raises that shared budget to match) — keep this to two quick CLI
- * calls of 600 ms each and print nothing.
+ * fire-and-forget — hooks.json declares a 2 s timeout for this hook, but
+ * Claude Code's SessionEnd budget stays 1.5 s: "Timeouts set on
+ * plugin-provided hooks don't raise the budget" (hooks docs, SessionEnd).
+ * Keep this to two quick CLI calls of 600 ms each and print nothing.
  *
  * Kratos calls use spawnSync with an argv array, so the summary text (feature
  * names, cwd basename) never reaches a shell.
@@ -29,7 +28,7 @@ const KRATOS_HOME = path.join(os.homedir(), '.kratos');
 const DB_PATH = path.join(KRATOS_HOME, 'memory.db');
 const SESSIONS_DIR = path.join(KRATOS_HOME, 'sessions');
 
-// Two calls must fit hooks.json's 2 s SessionEnd timeout with node startup — 600 ms each.
+// Two calls must fit the 1.5 s SessionEnd budget with node startup — 600 ms each.
 const CALL_TIMEOUT_MS = 600;
 
 function runKratos(kratosCmd, args) {
