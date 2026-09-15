@@ -103,16 +103,7 @@ The following templates define what content belongs in each shard. Use the shard
 ## project/overview.md
 
 ```markdown
----
-created: {TIMESTAMP}
-updated: {TIMESTAMP}
-author: metis
-git_hash: {HASH}
-analysis_scope: full
-confidence: {high|medium|low}
-stale_after: {TIMESTAMP}
-verification_status: unverified
----
+Frontmatter: as above
 
 # Project Overview
 
@@ -149,16 +140,7 @@ verification_status: unverified
 ## tech-stack/<layer>.md
 
 ```markdown
----
-created: {TIMESTAMP}
-updated: {TIMESTAMP}
-author: metis
-git_hash: {HASH}
-analysis_scope: full
-confidence: {high|medium|low}
-stale_after: {TIMESTAMP}
-verification_status: unverified
----
+Frontmatter: as above
 
 # Tech Stack
 
@@ -204,16 +186,7 @@ verification_status: unverified
 ## architecture/system-design.md
 
 ```markdown
----
-created: {TIMESTAMP}
-updated: {TIMESTAMP}
-author: metis
-git_hash: {HASH}
-analysis_scope: full
-confidence: {high|medium|low}
-stale_after: {TIMESTAMP}
-verification_status: unverified
----
+Frontmatter: as above
 
 # Architecture
 
@@ -254,16 +227,7 @@ verification_status: unverified
 ## architecture/file-structure.md
 
 ```markdown
----
-created: {TIMESTAMP}
-updated: {TIMESTAMP}
-author: metis
-git_hash: {HASH}
-analysis_scope: full
-confidence: {high|medium|low}
-stale_after: {TIMESTAMP}
-verification_status: unverified
----
+Frontmatter: as above
 
 # File Structure
 
@@ -300,16 +264,7 @@ project/
 ## conventions/<domain>.md
 
 ```markdown
----
-created: {TIMESTAMP}
-updated: {TIMESTAMP}
-author: metis
-git_hash: {HASH}
-analysis_scope: full
-confidence: {confidence}
-stale_after: {TIMESTAMP}
-verification_status: unverified
----
+Frontmatter: as above
 
 # Coding Conventions
 

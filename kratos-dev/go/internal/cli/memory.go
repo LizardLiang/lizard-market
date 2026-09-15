@@ -16,6 +16,16 @@ import (
 // counted in characters (a CJK fact is not penalized for its byte length).
 const memoryTextMaxLen = 200
 
+// validMemoryCategories is the closed set `memory add` accepts. Anything else
+// (a 2026-09 sweep saved `--category feedback`) silently became an untyped row
+// the session-start ranking could not place.
+var validMemoryCategories = map[string]bool{
+	"preference": true,
+	"habit":      true,
+	"weak-spot":  true,
+	"context":    true,
+}
+
 // MemoryCmd returns the 'memory' subcommand
 func MemoryCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -57,7 +67,10 @@ in that project).`,
 				return fmt.Errorf("memory text is empty")
 			}
 			if n := utf8.RuneCountInString(text); n > memoryTextMaxLen {
-				return fmt.Errorf("memory text exceeds %d characters (got %d) — shorten the fact instead of truncating it", memoryTextMaxLen, n)
+				return fmt.Errorf("memory text exceeds %d characters (got %d) — cut %d; shorten the fact instead of truncating it", memoryTextMaxLen, n, n-memoryTextMaxLen)
+			}
+			if !validMemoryCategories[category] {
+				return fmt.Errorf("unknown category %q — use preference, habit, weak-spot, or context (agent lessons go to `kratos feedback add`)", category)
 			}
 
 			conn, err := db.GetConnection()

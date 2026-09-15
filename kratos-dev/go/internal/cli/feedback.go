@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/db"
 	"github.com/spf13/cobra"
@@ -37,15 +38,23 @@ func FeedbackCmd() *cobra.Command {
 // FeedbackAddCmd adds a new agent feedback lesson
 func FeedbackAddCmd() *cobra.Command {
 	var agent string
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:   "add <lesson>",
 		Short: "Add a lesson for a specific agent",
-		Args:  cobra.ExactArgs(1),
+		Long: `Add a lesson a specific god-agent should apply next time.
+
+One lesson goes in one store: when a user memory already holds the same fact
+(the near-duplicate check of "kratos memory add"), the command exits non-zero
+and names that memory. Re-run with --force to keep both if the lesson is
+genuinely agent-specific.`,
+		Args:         cobra.ExactArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lesson := args[0]
-			if len(lesson) > feedbackLessonMaxLen {
-				return fmt.Errorf("lesson exceeds %d characters (got %d)", feedbackLessonMaxLen, len(lesson))
+			if n := utf8.RuneCountInString(lesson); n > feedbackLessonMaxLen {
+				return fmt.Errorf("lesson exceeds %d characters (got %d) — cut %d", feedbackLessonMaxLen, n, n-feedbackLessonMaxLen)
 			}
 
 			conn, err := db.GetConnection()
@@ -56,6 +65,17 @@ func FeedbackAddCmd() *cobra.Command {
 
 			if err := db.InitDB(conn); err != nil {
 				return fmt.Errorf("failed to init db: %w", err)
+			}
+
+			if !force {
+				match, err := db.FindSimilarMemory(conn, lesson)
+				if err != nil {
+					return err
+				}
+				if match != nil {
+					return fmt.Errorf("lesson duplicates memory %d (%s %.2f): %q — one lesson goes in one store: keep the memory (update it with 'kratos memory add --replace %d'), or re-run with --force if the lesson is genuinely agent-specific",
+						match.Memory.ID, match.Metric, match.Score, match.Memory.Text, match.Memory.ID)
+				}
 			}
 
 			feedback, err := db.AddFeedback(conn, normalizeAgent(agent), lesson, getProject())
@@ -72,6 +92,7 @@ func FeedbackAddCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&agent, "agent", "", "God-agent the lesson applies to (e.g. ares, hermes)")
 	_ = cmd.MarkFlagRequired("agent")
+	cmd.Flags().BoolVar(&force, "force", false, "Add even when a user memory holds the same fact")
 	return cmd
 }
 

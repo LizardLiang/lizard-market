@@ -29,7 +29,7 @@ Before scoring, read the request carefully:
 
 ## Step 2: Run the Gap Checklist
 
-Read `plugins/kratos/references/athena-gap-checklist.md` and work through it — including the **Behavioral Lifecycle** group, which forces per-verb coverage (grant/enforce/revoke/…) for stateful features. Each uncovered item is a gap.
+Read `<KRATOS_ROOT>/references/athena-gap-checklist.md` and work through it — including the **Behavioral Lifecycle** group, which forces per-verb coverage (grant/enforce/revoke/…) for stateful features. Each uncovered item is a gap.
 
 **Seed a gap tree**: every checklist item the request does not cover becomes an `[open]` branch. An `[open]` branch can only close by becoming a `[leaf]` (answered by the user), `[assumed: X]` (documented assumption with risk-if-wrong), or `[out of scope]` (explicitly marked, one line of why). The clarity score below measures how well-specified the covered ground is; the gap tree is what stops you from scoring a tunnel-visioned slice at 0.05 while an entire lifecycle verb sits unasked.
 
@@ -37,7 +37,7 @@ Read `plugins/kratos/references/athena-gap-checklist.md` and work through it —
 
 ## Step 2b: Run the Quadrant Sweep
 
-The checklist only finds gaps you already know to look for. Read `plugins/kratos/references/discovery-quadrants.md` and run the full sweep — evidence check on silently-resolved branches, assumption surfacing (yours / the user's / the repo's), and all six unknown-unknown techniques (premortem, inversion, boundary probe, actor sweep, analogous failures, checklist escape). Fold every discovery into the gap tree as a new `[open]` or `[assumed: X]` branch, and write the **Discovery Ledger** — the PRD appendix carries it, and WRITE_READY requires it.
+The checklist only finds gaps you already know to look for. Read `<KRATOS_ROOT>/references/discovery-quadrants.md` and run the full sweep — evidence check on silently-resolved branches, assumption surfacing (yours / the user's / the repo's), and all six unknown-unknown techniques (premortem, inversion, boundary probe, actor sweep, analogous failures, checklist escape). Fold every discovery into the gap tree as a new `[open]` or `[assumed: X]` branch, and write the **Discovery Ledger** — the PRD appendix carries it, and WRITE_READY requires it.
 
 ---
 

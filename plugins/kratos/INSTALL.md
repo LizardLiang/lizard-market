@@ -10,7 +10,7 @@ This guide covers installing Kratos into your Claude Code environment. Follow ev
 |-------------|---------|---------------|
 | **Claude Code** | Host CLI | `claude --version` |
 | **Node.js 18+** | Session tracking hooks | `node --version` |
-| **Go 1.21+** | Build binary from source (optional) | `go version` |
+| **Go 1.25.6+** | Build binary from source (optional; version from `kratos-dev/go/go.mod`) | `go version` |
 
 ---
 
@@ -19,6 +19,8 @@ This guide covers installing Kratos into your Claude Code environment. Follow ev
 ```bash
 claude plugin marketplace add https://github.com/LizardLiang/kratos
 ```
+
+Two repositories are involved: `LizardLiang/kratos` is the runtime-only install and marketplace mirror that this command adds, and `LizardLiang/lizard-market` is the source repository that hosts development and the GitHub Release assets (the prebuilt binaries in Step 3).
 
 ---
 
@@ -107,38 +109,44 @@ go build -ldflags="-s -w" -o ~/.kratos/bin/kratos ./cmd/kratos
 
 ---
 
-## Step 4: Install Hooks
+## Step 4: Hooks (Automatic)
 
-Hooks wire the binary into Claude Code's lifecycle events.
+Hooks wire the binary into Claude Code's lifecycle events. They ship with the plugin in `hooks/hooks.json`, and Claude Code loads them when the plugin is enabled. There is nothing to install.
+
+**Upgrading from an old install?** Earlier versions had a `kratos install` command that copied hook scripts to `~/.claude/hooks/kratos/` and registered them in `~/.claude/settings.json`. Those legacy global hooks run beside the plugin hooks, so every event fires twice. Remove them once:
 
 ```bash
-~/.kratos/bin/kratos install
+~/.kratos/bin/kratos uninstall
 ```
 
-This copies hook scripts to `~/.claude/hooks/kratos/` and registers all hooks in `~/.claude/settings.json`.
+While they remain, session start prints this line:
+
+> Kratos: legacy hook copies are still registered in ~/.claude/settings.json and run alongside the plugin's — run `kratos install` once to remove them.
+
+The message names `kratos install`; both `kratos install` and `kratos uninstall` remove the legacy copies.
 
 ### What the Hooks Do
 
 | Hook | Trigger | Action |
 |------|---------|--------|
-| `UserPromptSubmit` | Every user message | `hook prompt-submit` — injects session context |
-| `SessionStart` | Claude Code opens | `session-start.cjs` — starts memory session |
+| `UserPromptSubmit` | Every user message | `hook prompt-submit` — detects Kratos keywords and handoffs, injects skill activation |
+| `SessionStart` | Claude Code opens | `session-start.cjs` — registers the session ledger, prints `KRATOS_BIN:`, memories and pending items, downloads the binary when missing |
+| `SessionEnd` | Claude Code closes | `session-end.cjs` — closes the session ledger row with a one-line summary |
 | `PermissionRequest` | Read permission request | Auto-allows Read **only for plugin-root and `~/.kratos/` paths**; all other paths prompt normally |
+| `PreToolUse` (Write/Edit/MultiEdit/NotebookEdit/Bash/Agent/Task) | Any write, Bash call or spawn | `hook edit-gate` — inline edit gate: Odysseus plan-only lane, Iris source-file budget; fails open for other agents |
 | `PreToolUse` (Bash) | Any Bash call | `hook fix-pm` — rewrites `npm` to detected package manager |
-| `PostToolUse` (Task/Write/Edit) | After tool completes | `tool-use.cjs` — records agent spawns and file changes |
+| `PostToolUse` (Agent/Task/Write/Edit/MultiEdit) | After tool completes | `tool-use.cjs` — records agent spawns and file changes |
+| `PostToolUse` (Write/Edit) | After a file write | `hook spec-delta-check` — validates a just-written spec delta |
 | `SubagentStart` (kratos:*) | Any Kratos agent starts | `path-inject.cjs` — injects resolved `<kratos-bin>` path into prompt |
 | `SubagentStart` (ares/hephaestus/hermes) | These agents start | `hook subagent-start` — TODO-first gate + Hermes tier checklist |
-| `SubagentStart` (athena/apollo/artemis/hera/cassandra/daedalus) | These agents start | `check --init` — prerequisite validation for the agent's stage |
-| `SubagentStop` (ares/hephaestus/hermes) | These agents finish | `hook subagent-stop` — deliverable verification gate |
+| `SubagentStart` (athena/apollo/artemis/hera/cassandra/daedalus) | These agents start | `check --init` — deliverable expectations for the agent's stage |
+| `SubagentStop` (ares/hephaestus/hermes/nemesis/athena) | These agents finish | `hook subagent-stop` — deliverable verification gate |
 | `SubagentStop` (athena/apollo/artemis/hera/cassandra/daedalus) | These agents finish | `check --verify` — confirms deliverable was written |
-| `Stop` | Claude Code closes | `session-end.cjs` — records session summary |
+| `Stop` | Every assistant turn | `memory-sweep.cjs` — periodic memory sweep reminder |
 
-### Verify Hook Installation
+### Verify the Hooks
 
-```bash
-~/.kratos/bin/kratos status
-# → Status: FULLY OPERATIONAL
-```
+Start a new Claude Code session. The session-start output shows a `KRATOS_BIN:` line when the plugin hooks run.
 
 ---
 
@@ -202,25 +210,15 @@ Type `/kratos:` in Claude Code — autocomplete shows available commands.
 # → Database initialized at ~/.kratos/memory.db (or: already exists)
 ```
 
-### 6d. Hooks Installed
+### 6d. Hooks Active
 
-```bash
-~/.kratos/bin/kratos status
-# → Status: FULLY OPERATIONAL
-```
+Start a new Claude Code session. The session-start output shows a `KRATOS_BIN:` line, and no `legacy hook copies are still registered` line.
 
 ### 6e. Auto-Activation Works
 
 ```bash
 claude -p "Kratos, what can you do?"
 # → Kratos responds with capabilities, not a generic Claude answer
-```
-
-### 6f. Settings.json Has Hooks
-
-```bash
-grep -A2 "SubagentStart" ~/.claude/settings.json
-# → Should show path-inject.cjs and kratos binary commands
 ```
 
 ---
@@ -231,9 +229,8 @@ grep -A2 "SubagentStart" ~/.claude/settings.json
 |----------|---------|
 | `~/.claude/plugins/cache/kratos/` | Installed plugin (agents, commands, skills) |
 | `~/.kratos/bin/kratos[.exe]` | Go binary — downloaded automatically, or built/copied manually |
-| `~/.kratos/bin/.version` | Marker tracking the installed binary's version (auto-download only) |
-| `~/.claude/hooks/kratos/` | Hook scripts installed by `kratos install` |
-| `~/.claude/settings.json` | Hook registration (all event bindings) |
+| `~/.kratos/bin/.version` | Marker recording the installed binary's version, rewritten from `kratos --version` on each check (auto-download only) |
+| `~/.claude/plugins/cache/kratos/.../hooks/hooks.json` | Hook registration — ships with the plugin |
 | `~/.kratos/memory.db` | SQLite session database |
 | `.claude/.Arena/` | Per-project knowledge base (created by Metis on first run) |
 | `.claude/feature/*/` | Per-feature pipeline state (created by Kratos) |
@@ -243,11 +240,13 @@ grep -A2 "SubagentStart" ~/.claude/settings.json
 ## Uninstallation
 
 ```bash
-# Remove hooks only (preserves database)
+# Remove the plugin (its hooks go with it)
+claude plugin uninstall kratos@kratos
+
+# Old installs only: remove legacy global hooks from ~/.claude/settings.json
 ~/.kratos/bin/kratos uninstall
 
-# Full removal
-~/.kratos/bin/kratos uninstall
+# Full removal (database and binary)
 rm -rf ~/.kratos
 ```
 
@@ -267,15 +266,18 @@ On a release install the binary lands in `~/.kratos/bin/` via the automatic back
 
 ### SubagentStart/Stop hooks not triggering
 
-1. Restart Claude Code after hook installation — hooks are loaded at session start.
-2. Verify `~/.claude/settings.json` contains `SubagentStart` and `SubagentStop` entries with `kratos` in the command paths.
-3. Run `~/.kratos/bin/kratos status` to confirm hooks are registered.
+1. Restart Claude Code after enabling or updating the plugin — hooks are loaded at session start.
+2. Confirm the plugin is enabled: `claude plugin list` shows `kratos`.
+3. Confirm the matchers in the plugin's `hooks/hooks.json` name the agent (for example `kratos:ares`).
 
 ### Hooks not triggering at all
 
-1. Restart Claude Code after hook installation.
-2. Verify `~/.claude/settings.json` has hook entries.
-3. Run `~/.kratos/bin/kratos status`.
+1. Restart Claude Code after enabling the plugin.
+2. Confirm the plugin is enabled: `claude plugin list` shows `kratos`.
+
+### Hooks firing twice
+
+An old install left legacy global hooks in `~/.claude/settings.json`. Run `~/.kratos/bin/kratos uninstall` once to remove them.
 
 ### Kratos doesn't activate when called by name
 
@@ -303,8 +305,10 @@ claude plugin install kratos@kratos
 #    automatically in the background. Wait a few seconds, then verify:
 ~/.kratos/bin/kratos --version
 
-# 3. Initialize database + install hooks
-~/.kratos/bin/kratos init && ~/.kratos/bin/kratos install
+# 3. Initialize the database (hooks ship with the plugin — nothing to install)
+~/.kratos/bin/kratos init
+#    Upgrading from an old install? Remove legacy global hooks once:
+#    ~/.kratos/bin/kratos uninstall
 
 # 4. Verify
 ~/.kratos/bin/kratos status

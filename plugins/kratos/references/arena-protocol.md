@@ -1,193 +1,77 @@
 # Arena Protocol — Shared Procedures
 
-This document defines how all Kratos agents read from and write to the Arena memory system. Read the sections relevant to your mission.
+How Kratos agents read from and write to the Arena, the project's persistent knowledge base at `.claude/.Arena/`. Arena is a **pull system**: agents read what they need, when they need it; nothing is injected automatically.
+
+**Read-only gods** (Apollo, Artemis, Cassandra, Hera, Clio, Hades, Mimir on the codebase side): only § Reading applies to you. Skip the rest.
 
 ---
 
-## What is the Arena
+## Reading
 
-The Arena (`.claude/.Arena/`) is the project's persistent knowledge base. It contains stable, project-wide information that agents need across features and sessions.
-
-Arena is a **pull system** — agents read what they need, when they need it. Nothing is injected automatically.
-
----
-
-## Reading from Arena
-
-### Step 1: Check the index
-
-Before reading any Arena file, read the index to understand what exists:
-
-```
-Read: .claude/.Arena/index.md
-```
-
-If the index does not exist, Arena has not been bootstrapped. Skip Arena reads and proceed without it — do not create Arena files unless your agent definition explicitly lists write responsibilities.
-
-### Step 2: Read relevant shards only
-
-Read only the files relevant to your current task. Do not read the entire Arena.
-
-```
-.claude/.Arena/
-  index.md                  ← always read first
-  glossary.md               ← domain terms, naming conventions
-  constraints.md            ← hard limits, compliance, security rules
-  debt.md                   ← known issues, active workarounds
-  project/                  ← project purpose, module overviews
-  architecture/             ← system design, component decisions
-  conventions/              ← code patterns, "always/never" rules
-  tech-stack/               ← languages, frameworks, build commands
-  features/                 ← digest of past completed features
-  research/                 ← Mimir's cached external research
-  review-rules/             ← Hermes review standards and proposals
-  specs/                    ← living, capability-organized behavioral specs (see below)
-```
-
-### Step 3: Use what you find
-
-Arena information is authoritative. If a `conventions/` shard says "never do X", follow it. If `architecture/` documents a decision, respect it in your design. If `features/` shows a prior feature used a pattern, consider consistency.
+1. Read `.claude/.Arena/index.md` first — the registry of every shard. If it does not exist, Arena has not been bootstrapped: proceed without it and do not create Arena files unless your agent definition lists write responsibilities.
+2. Read only the shards your task needs. Layout: flat files `glossary.md`, `constraints.md`, `debt.md`; sharded directories `project/`, `architecture/`, `conventions/`, `tech-stack/`, `features/` (digests of completed features), `insights/` (Mimir's cached research, TTL-based), `review-rules/` (Hermes standards; `proposals/` holds unconfirmed drafts), `specs/` (living behavioral specs, see below).
+3. Arena information is authoritative. A `conventions/` "never do X" is a rule; an `architecture/` decision is respected in your design; a `features/` precedent argues for consistency.
 
 ---
 
-## Writing to Arena
+## Writing
 
-Only write to Arena if your agent definition lists explicit write responsibilities. Do not write to Arena shards you do not own.
+Only write to Arena if your agent definition lists explicit write responsibilities, and only to the shards it names.
 
-### Pre-write checklist
+### Pre-write checklist (also the pruning rules)
 
-Before writing any Arena shard:
-
-1. **Read the target shard** — does the information already exist? If yes, skip the write.
-2. **Check for superseded entries** — does your new entry replace an existing one on the same topic? If yes, replace it rather than appending.
-3. **Check the line count** — if `## Entries` exceeds 80 lines, consolidate before adding (compress related entries, remove entries whose source feature no longer exists).
-4. **Never touch `## Permanent`** — unless you are Athena or Hephaestus writing a permanent rule. All other agents append to `## Entries` only.
+1. **Read the target shard.** If the information already exists, skip the write.
+2. **Supersede, don't append.** If your entry replaces an existing one on the same topic, replace it. Two entries saying the same thing → keep the newer.
+3. **Remove entries whose source feature no longer exists.**
+4. **Consolidate above 80 lines.** If `## Entries` exceeds 80 lines, compress related entries before adding.
+5. **Never touch `## Permanent`** unless you are Metis (bootstrapping baseline), Athena (requirements/constraints), or Hephaestus (architecture decisions).
 
 ### Entry format
 
-Every entry in a shard must include evidence:
+Every entry carries evidence: `[YYYY-MM-DD | <agent> | <source>] <content>`, where source is the feature name that produced it or `project-setup` for global decisions.
 
-```
-[YYYY-MM-DD | <agent> | <source>] <content>
-```
-
-| Field | Value |
-|-------|-------|
-| Date | Today's date in YYYY-MM-DD |
-| Agent | Your agent name (e.g. `hephaestus`, `hermes`, `ares`) |
-| Source | Feature name that produced this entry (e.g. `kratos-hooks`), or `project-setup` for global decisions |
-
-**Example entries:**
 ```markdown
 [2026-03-13 | hephaestus | kratos-hooks] hook-commands: binary subcommand, never standalone .cjs
-[2026-03-13 | hermes | payment-feature] error-handling: always wrap external API calls in try/catch
 [2026-01-01 | athena | project-setup] auth: never store plaintext passwords
 ```
 
-### Shard file structure
-
-Every sharded file uses this layout:
+### Shard structure
 
 ```markdown
 # <shard-name>
 
 ## Permanent
-[entries that must never be pruned — written by Athena or Hephaestus only]
+[decisions intended to outlast any single feature — Metis, Athena, Hephaestus only]
 
 ## Entries
 [regular entries — subject to pruning and replacement]
 ```
 
-Flat files (`glossary.md`, `constraints.md`, `debt.md`) do not use this split. They use a simple dated list. `constraints.md` entries are all implicitly permanent.
+Flat files (`glossary.md`, `constraints.md`, `debt.md`) are simple dated lists; `constraints.md` entries are implicitly permanent (hard limits with external origin — compliance, legal, SLA — as opposed to `## Permanent`, which holds internal decisions).
 
-### Append-only
+Never overwrite a shard wholesale: read, then modify in place or append. A duplicate from two near-simultaneous writers is acceptable; the next writer prunes it.
 
-Never overwrite a shard file entirely. Always read first, modify in place or append. If two agents write the same shard near-simultaneously, the result may contain a duplicate entry — this is acceptable and will be pruned by the next writing agent.
+### New shards and the index
 
-### Creating a new shard
-
-If your entry does not fit any existing shard:
-
-1. Create a new file at the appropriate path (e.g. `.claude/.Arena/conventions/new-domain.md`)
-2. Use the standard shard structure with `## Permanent` and `## Entries`
-3. Add your entry under `## Entries`
-4. Update `index.md` — see below
-
-### Permanent entries
-
-Permanent entries are decisions intended to outlast any single feature and never be revisited.
-
-**Who can write to `## Permanent`**: Metis (bootstrapping baseline entries during initial Arena creation), Athena (requirements/constraints origin), and Hephaestus (architectural decisions).
-
-**How to mark permanent**: place the entry under `## Permanent` instead of `## Entries`. No special syntax required beyond the standard evidence format.
-
-**Distinction from `constraints.md`**:
-- `constraints.md` — hard limits with external origin (compliance, legal, performance SLA)
-- `## Permanent` in a shard — internal team decisions intended to never be revisited
+If your entry fits no existing shard, create one at the appropriate path (e.g. `conventions/new-domain.md`) with the standard structure. After any Arena write, update `index.md` last: add the new shard to its table with today's date, or refresh the `Updated` date of the shard you touched.
 
 ---
 
 ## Behavioral Specs (`specs/`)
 
-`.claude/.Arena/specs/<capability>/spec.md` is a **living, capability-organized behavioral contract** — the durable cross-feature memory of what the system SHALL do, organized by capability rather than by feature. Concepts are lifted from OpenSpec; format is defined in `templates/spec-shard-template.md`.
+`specs/<capability>/spec.md` is the living, capability-organized behavioral contract — the distilled `### Requirement: <Name>` + SHALL statement + scenarios that survive after a feature folder is forgotten. It is not a PRD; the PRD stays in `.claude/feature/<name>/prd.md`.
 
-**This is the deliberate exception to "no PRD in Arena" (see the table below):** a living spec is not a PRD. It holds only the *distilled, durable contract* — `### Requirement: <Name>` + SHALL statement + scenarios — never the full PRD body (executive summary, personas, metrics, risks, open questions). The PRD stays in `.claude/feature/<name>/prd.md`; the spec shard is what survives after the feature folder is forgotten.
-
-**Capability organization**: one shard per capability. A capability is a cohesive area of system behavior (e.g. `auth`, `billing`, `spec-lifecycle`) — not a feature name. Multiple features contribute deltas to the same capability over time.
-
-**Requirement identity**: the `### Requirement: <Name>` header is the durable ID, matched by trimmed, case-sensitive string equality across features. Renaming a requirement is an explicit `RENAMED` delta operation, never a silent header edit.
-
-**How specs change**: features never edit `specs/` directly. Athena authors a **delta** at `.claude/feature/<name>/spec-delta/<capability>.md` (format: `templates/spec-delta-template.md`) describing ADDED/MODIFIED/REMOVED/RENAMED requirements. The delta is a durable file — it survives even if the feature never reaches Hera. `kratos spec archive <feature>` mechanically merges an approved delta into the living spec (merge order: RENAMED → REMOVED → MODIFIED → ADDED; conflicts block, no partial merge).
-
-**Write ownership**:
-- **Athena** — author of record for deltas (assigns the capability emergently on first delta: picks an existing `specs/<capability>/` if one fits, else names a new one; no Metis prerequisite).
-- **Metis** — may opportunistically seed a capability shard during FULL_RESEARCH bootstrapping, but this is never a prerequisite for Athena's delta authoring.
-- **The `kratos spec archive` binary command** — applies the merge mechanically. No agent hand-authors changes to `specs/*/spec.md` directly.
-
-**Read access**: any agent may read `specs/` for context (Hera maps acceptance criteria against living-spec requirement headers; Nemesis reviews the delta as a focused diff against the existing shard).
-
----
-
-## Updating index.md
-
-Always update `index.md` as the last step after any Arena write.
-
-If you created a new shard, add it to the appropriate table in the index with today's date.
-If you updated an existing shard, update its `Updated` date.
-
-```markdown
-## Project Knowledge
-| File | Contents | Updated |
-|------|----------|---------|
-| project/overview.md | Project purpose, goals, users | 2026-03-13 |
-| architecture/api-design.md | API structure, endpoint patterns | 2026-03-13 |
-| conventions/hooks.md | Hook architecture decisions | 2026-03-13 |
-...
-```
-
----
-
-## Pruning rules
-
-Applied by the writing agent during the pre-write read:
-
-| Condition | Action |
-|-----------|--------|
-| New entry supersedes existing entry on same topic | Replace existing, do not append |
-| Existing entry's source feature no longer exists | Remove |
-| Two entries say the same thing | Keep the more recent one |
-| `## Entries` exceeds 80 lines | Consolidate before adding |
-| Entry is in `## Permanent` | Never touch |
+Features never edit `specs/` directly. Athena (pipeline) or Odysseus (quick path) author a **delta** at `.claude/feature/<name>/spec-delta/<capability>.md`; `kratos spec archive <feature>` merges it mechanically after implementation. Format, requirement identity, ADDED/MODIFIED semantics and merge order are defined in `templates/spec-delta-template.md` and `templates/spec-shard-template.md` — fetch them with `<kratos-bin> template get`. Any agent may read `specs/` for context.
 
 ---
 
 ## What does NOT belong in Arena
 
-| Item | Why | Where instead |
-|------|-----|---------------|
-| Package manager | Handled by PreToolUse `fix-pm` hook | Hook |
-| Feature-specific context | Orchestrator passes in agent prompt | Agent prompt |
-| Full PRD / tech spec | Too large, source of truth elsewhere | `.claude/feature/<name>/` (exception: the distilled `### Requirement:` contract lives in `specs/` — see "Behavioral Specs" above) |
-| Git history | Read git directly | `git log` |
-| Session-specific state | Does not persist usefully | `status.json` |
-| Anything derivable from the codebase | Agents can read the filesystem | Filesystem |
+| Item | Where instead |
+|------|---------------|
+| Package manager | PreToolUse `fix-pm` hook |
+| Feature-specific context | The spawn prompt |
+| Full PRD / tech spec | `.claude/feature/<name>/` (only the distilled contract lives in `specs/`) |
+| Git history | `git log` |
+| Session-specific state | `status.json` |
+| Anything derivable from the codebase | The filesystem |

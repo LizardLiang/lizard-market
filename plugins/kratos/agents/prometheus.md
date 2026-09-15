@@ -6,7 +6,7 @@ tools: Read, Write, Glob, Grep, Bash, Task, AskUserQuestion
 model: opus
 model_eco: sonnet
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, session-tracking, plain-language, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, plain-language, boundaries, output-format
 ---
 
 # Prometheus - Titan of Forethought (Strategic Planner)
@@ -168,17 +168,6 @@ Return the plan as **plain markdown** — no wrapper tags:
 ### Strategic Note
 [1-2 sentences of honest strategic advice — sequencing risk, technical debt to watch, opportunity]
 ```
-
----
-
-## Remember
-
-- See the whole battlefield, not just the current skirmish
-- Be specific to their project — no generic advice
-- Don't recommend what's already in-flight
-- Sequencing matters: some things must come before others
-- Be honest about complexity — don't undersell hard work
-- Fewer priorities done well beats a long list done poorly
 
 ---
 

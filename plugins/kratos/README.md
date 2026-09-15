@@ -2,7 +2,7 @@
 
 > *"I am what the gods have made me."* — now the gods serve **you**.
 
-![version](https://img.shields.io/badge/version-2.109.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-2.111.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **Stop shipping AI slop.** Kratos runs your feature through a real pipeline: a PM drafts the PRD, a devil's advocate (**Nemesis**) tears it apart, an architect specs it, and an alignment gate (**Hera**) proves the implementation matches what you *actually* asked for. Named agents, review gates enforced by hooks, persistent memory across sessions — not another pile of subagents.
 
@@ -67,8 +67,8 @@ That's it — try `/kratos:quick Add tests for UserService.js`. The markdown lay
 **Optional — enable precise tracking & memory** (the binary downloads automatically to `~/.kratos/bin/` on first session start; Linux, macOS arm64/amd64, and Windows amd64 all covered):
 
 ```bash
-~/.kratos/bin/kratos init && ~/.kratos/bin/kratos install   # initialize DB + register hooks
-~/.kratos/bin/kratos status                                 # verify
+~/.kratos/bin/kratos init     # initialize DB (hooks ship with the plugin — nothing to register)
+~/.kratos/bin/kratos status   # verify
 ```
 
 Prefer manual download or to build from source? See **[INSTALL.md — Step 3](INSTALL.md#step-3-set-up-the-binary)**.
@@ -145,14 +145,35 @@ Then add the auto-activation block to your `CLAUDE.md` (see [INSTALL.md - Step 5
 | **Hades** | Debugging | Error location, proof of failure, root cause | Sonnet |
 | **Odysseus** | Tactical Planning | Codex/Claude-style plan mode before Ares | Sonnet |
 | **Prometheus** | Strategic Planning | Interview-driven prioritized build plans | Opus |
-| **Ananke** | Task Management | Personal todo list (binary + file fallback) | Sonnet |
+| **Ananke** | Task Management | Personal todo list (binary + file fallback) | Haiku |
 | **Iris** | Secretary | Daily briefing + assistant — learn, brainstorm, dig, notes; knows the user via profile, memory, routines | Sonnet |
 
 ---
 
 ## Hooks & Quality Gates
 
-Kratos ships Claude Code hooks that enforce workflow discipline automatically — no configuration needed after `~/.kratos/bin/kratos install`.
+Kratos ships Claude Code hooks that enforce workflow discipline automatically — the hooks ship with the plugin in `hooks/hooks.json`, so no configuration is needed. If an old install ran `kratos install`, run `~/.kratos/bin/kratos uninstall` once to remove the legacy global hooks from `~/.claude/settings.json`; session start prints a reminder while they remain.
+
+### Every registered hook
+
+| Event | Matcher | Script / command | What it does |
+|-------|---------|------------------|--------------|
+| `UserPromptSubmit` | all prompts | `launch.cjs hook prompt-submit` | Detects Kratos keywords and handoffs, injects skill activation |
+| `SessionStart` | all sessions | `session-start.cjs` | Registers the session ledger, prints `KRATOS_BIN:`, memories, handoff and pending spec deltas, auto-downloads the binary |
+| `SessionEnd` | all sessions | `session-end.cjs` | Closes the session ledger row with a one-line summary |
+| `PermissionRequest` | `Read` | `permission-read.cjs` | Auto-allows reads under the plugin root and `~/.kratos/` only |
+| `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|Agent\|Task` | `launch.cjs hook edit-gate` | Inline edit gate: Odysseus plan-only lane, Iris source-file budget (section below) |
+| `PreToolUse` | `Bash` | `launch.cjs hook fix-pm` | Rewrites `npm` to the lockfile's package manager |
+| `PostToolUse` | `Agent\|Task\|Write\|Edit\|MultiEdit` | `tool-use.cjs` (async) | Records agent spawns and project file changes in memory |
+| `PostToolUse` | `Write\|Edit` | `launch.cjs hook spec-delta-check` | Validates a just-written spec delta immediately |
+| `SubagentStart` | `kratos:.*` | `path-inject.cjs` | Injects the resolved `<KRATOS_ROOT>` and `<kratos-bin>` paths |
+| `SubagentStart` | ares, hephaestus, hermes | `launch.cjs hook subagent-start` | TODO-first gate; Hermes tier checklist |
+| `SubagentStart` | athena | `launch.cjs check --init` | Deliverable expectations for the stage in `pending_stage` |
+| `SubagentStart` | apollo, artemis, hera, cassandra, daedalus | `launch.cjs check --init --stage <stage>` | Deliverable expectations for stages 5, 6, 8, 9, 3 |
+| `SubagentStop` | nemesis, ares, hephaestus, hermes | `launch.cjs hook subagent-stop` | Deliverable and quality gates (table below) |
+| `SubagentStop` | athena | `launch.cjs check --verify`, then `hook subagent-stop` | `prd.md` exists, then spec-delta validation |
+| `SubagentStop` | apollo, artemis, hera, cassandra, daedalus | `launch.cjs check --verify --stage <stage>` | Confirms the stage deliverable was written; records `check_failures[]` when retries run out |
+| `Stop` | every assistant turn | `memory-sweep.cjs` | Periodic memory sweep reminder (durable facts, agent feedback) |
 
 ### SubagentStart — TODO-First Gate
 
@@ -162,12 +183,15 @@ For **Hermes**, this hook creates a `hermes-checklist.json` that tracks tier-by-
 
 ### SubagentStop — Deliverable Verification
 
-Fires when **Ares** or **Hephaestus** attempt to finish. Blocks completion and forces continuation if:
+Fires when **Ares**, **Hephaestus**, **Hermes**, **Nemesis** or **Athena** attempt to finish. Blocks completion and forces continuation if:
 
 | Agent | Check |
 |-------|-------|
 | **Ares** | Must have written a TODO list, mentioned specific files modified, and declared completion |
 | **Hephaestus** | Spec must cover at least 2 of: architecture, data model, API, implementation, schema, interface |
+| **Hermes** | All tiers in `hermes-checklist.json` marked complete |
+| **Nemesis** | `prd-challenge.md` exists and carries a verdict |
+| **Athena** | `prd.md` exists (`check --verify`) and any spec delta passes `spec validate` |
 
 When `stop_hook_active` is true (hook-triggered re-run), the gate passes automatically to prevent infinite loops.
 
@@ -268,8 +292,9 @@ Kratos ships with a tiered review standard that Hermes enforces on every review:
 | 5 | **Consistent** | Project conventions |
 | 6 | **Resilient** | Error handling, cleanup |
 | 7 | **Performant** | N+1, blocking ops, waste |
+| 8 | **Maintainable** | Code quality, efficiency |
 
-Rules live in `rules/` (global baseline) and `.claude/.Arena/review-rules/` (project-specific, higher priority). Language-specific rules (React, TypeScript, Python, etc.) are loaded automatically based on detected file types.
+Rules live in `rules/` (global baseline) and `.claude/.Arena/review-rules/` (project-specific, higher priority). Two language-specific rule files ship today: `rules/react.md` and `rules/sql.md`. Hermes loads any other `rules/<language>.md` automatically when the file is present and the reviewed file types match.
 
 Hermes tracks tier completion via `hermes-checklist.json` (created by the SubagentStart hook). The `hermes-list` CLI commands let Hermes update this checklist without direct file edits.
 
@@ -338,7 +363,7 @@ The Arena (`.claude/.Arena/`) is Kratos's pull-model knowledge base. Agents read
 ├── tech-stack/               ← one shard per stack layer
 ├── conventions/              ← one shard per coding domain
 ├── features/                 ← digest of past completed features
-├── research/                 ← Mimir's cached external research (TTL)
+├── insights/                 ← Mimir's cached external research (TTL)
 └── review-rules/             ← Hermes review standards and proposals
 ```
 
@@ -421,7 +446,7 @@ Athena starts by parsing what you actually said:
 - **Implicit**: What assumptions would be needed to write the PRD right now?
 - **Ambiguity Level**: How many valid interpretations exist?
 
-Athena then runs a 17-item gap checklist (covering scope, users, constraints, success criteria, data needs, and integration requirements) and scores clarity across three weighted dimensions:
+Athena then runs a 30-item gap checklist (covering scope, users, constraints, success criteria, data needs, and integration requirements) and scores clarity across three weighted dimensions:
 
 | Dimension | Weight | What it Measures |
 |-----------|--------|-----------------|
@@ -466,7 +491,7 @@ Themis writes `context.md` which Hephaestus reads before writing the tech spec. 
 
 ### Stage 4 in Detail — Hephaestus's Tech Spec
 
-Hephaestus is unique: it **never reads the codebase directly**. Kratos spawns Metis (Haiku) with a directed scan query first. This enforces clean separation between architectural thinking and file exploration.
+Hephaestus is unique: it **never reads the codebase directly**. Kratos spawns Metis with a directed scan query first (model per `modes/modes.md`: sonnet normal, haiku eco, opus power). This enforces clean separation between architectural thinking and file exploration.
 
 After receiving the codebase scan, the ANALYZE phase runs **inline in the main session** (AskUserQuestion never reaches the user from a spawned subagent) — presenting 2-3 concrete implementation approaches with tradeoffs, then resolving gray areas one at a time. During spec writing (spawned, non-interactive), Hephaestus returns a `HEPHAESTUS NEEDS DECISIONS` block if new ambiguities surface (edge cases, interface design choices, decision tensions); Kratos asks the user and re-spawns. The spec is never written with silent assumptions.
 
@@ -514,7 +539,7 @@ Mark progress: `/kratos:task-complete 01`, then `/kratos:task-complete all` when
 
 Hermes and Cassandra are always spawned in the same response:
 
-**Hermes** evaluates against the 7-tier standard in priority order:
+**Hermes** evaluates against the 8-tier standard in priority order:
 1. **Correct** — logic, edge cases, silent failures
 2. **Safe** — injection, secrets, auth boundaries
 3. **Clear** — naming, complexity, readability
@@ -522,6 +547,7 @@ Hermes and Cassandra are always spawned in the same response:
 5. **Consistent** — project conventions
 6. **Resilient** — error handling, cleanup
 7. **Performant** — N+1 queries, blocking operations
+8. **Maintainable** — code quality, efficiency
 
 Hermes tracks tier completion via `hermes-checklist.json` — the SubagentStart hook creates this file and injects tier-by-tier instructions. Findings are `[BLOCKER]`, `[WARNING]`, or `[SUGGESTION]`. Only BLOCKERs trigger Ares re-spawn. Ares is re-spawned **at most once** per review cycle — if a BLOCKER survives the fix, Kratos surfaces it to you.
 
@@ -531,7 +557,7 @@ Hermes tracks tier completion via `hermes-checklist.json` — the SubagentStart 
 - Dependency CVEs
 - Reliability risks (missing error handling, race conditions)
 
-Verdicts: `clear` → ship | `caution` → noted, proceed | `critical` → blocked until resolved.
+Verdicts: `clear` → ship | `caution` → noted, proceed | `blocked` → held until resolved.
 
 ---
 
@@ -597,11 +623,9 @@ mkdir -p ~/.kratos/bin
 curl -L -o ~/.kratos/bin/kratos \
   https://github.com/LizardLiang/lizard-market/releases/download/<tag>/kratos-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 chmod +x ~/.kratos/bin/kratos
-~/.kratos/bin/kratos install
+~/.kratos/bin/kratos --version   # must match the plugin version
 # (Building from source requires cloning the repo — see kratos-dev/go; source is not shipped with the plugin.)
-
-# Verify hook registration
-cat ~/.claude/settings.json | python3 -m json.tool | grep -A3 SubagentStart
+# Hooks ship with the plugin (hooks/hooks.json) — there is nothing to register.
 ```
 
 Agents gracefully fall back to direct `status.json` edits if the binary is unavailable.
@@ -682,7 +706,7 @@ kratos spec backfill                              # generate living specs from p
 kratos session active <project>                   # get session ID
 kratos session gc [--days 7] [--dry-run]          # mark ghost 'active' sessions abandoned, prune old ~/.kratos/sessions ledgers
 kratos step record-agent <sid> <agent> <model> "desc"
-kratos step record-file <sid> <path> created|modified
+kratos step record-file <session_id> <action> <file_path>   # action is free text; the PostToolUse hook passes the tool name (Write, Edit)
 
 # Agent definitions (what the /kratos:<god> launchers run)
 kratos agent load <god> --resolve --part body     # agents/<god>.md, tokens resolved — under the 30K inline limit
@@ -711,8 +735,7 @@ kratos template get decomposition-linear-template
 kratos now                                        # RFC3339 timestamp
 kratos status                                     # system health
 kratos init                                       # initialize SQLite DB
-kratos install                                    # register hooks
-kratos uninstall                                  # remove hooks
+kratos uninstall                                  # remove legacy global hooks from old installs
 ```
 
 ### Template Usage by Agents
@@ -720,7 +743,7 @@ kratos uninstall                                  # remove hooks
 | Agent | Template Used |
 |-------|--------------|
 | Athena | `prd-template` |
-| Nemesis | `prd-review-template` |
+| Nemesis | (no template — writes `prd-challenge.md` in the format defined in `agents/nemesis.md`) |
 | Daedalus | `decomposition-template` (+ notion/linear variants) |
 | Hephaestus | `tech-spec-template` |
 | Apollo | `spec-review-sa-template` |

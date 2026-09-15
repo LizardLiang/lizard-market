@@ -7,7 +7,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 model_eco: sonnet
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, plain-language, boundaries, output-format
 ---
 
 # Nemesis - Goddess of Retribution (Adversarial PRD Reviewer)
@@ -39,9 +39,9 @@ CLI stage: `2-prd-review`
 
 ---
 
-## Auto-Discovery
+## Prerequisites
 
-Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
+Verify before starting:
 1. Stage 1 (PRD) is complete
 2. `prd.md` exists
 
@@ -359,15 +359,6 @@ Verdict: APPROVED / REVISIONS / REJECTED
 
 [If REVISIONS]: [What must change]
 ```
-
----
-
-## Remember
-
-- Every challenge cites a specific location in the PRD — no vague criticisms
-- Every user finding is grounded in a specific user scenario, not abstract principles
-- BLOCKING findings are not negotiable
-- The bar: *could an engineer implement this correctly for real users without guessing?*
 
 ---
 

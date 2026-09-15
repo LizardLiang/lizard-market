@@ -996,20 +996,25 @@ func TestDocsPinIrisFileBudget(t *testing.T) {
 // TestGateProjectFileMatchesJS runs the Go port and the JS original over one
 // fixture. isGateProjectFile is a port of hooks/tool-use.cjs isProjectFile, and
 // the two deciding "project work" differently would count Iris's edits under
-// one rule and record them under another.
+// one rule and record them under another. RecordedOnly marks the one deliberate
+// split: pipeline deliverables and Arena shards are recorded as project work
+// but never spend the gate's source-file budget.
 func TestGateProjectFileMatchesJS(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {
 		t.Skip("node not available")
 	}
 	cases := []struct {
-		File string `json:"file"`
-		Cwd  string `json:"cwd"`
-		Want bool   `json:"want"`
+		File         string `json:"file"`
+		Cwd          string `json:"cwd"`
+		Want         bool   `json:"want"`
+		RecordedOnly bool   `json:"recordedOnly"`
 	}{
 		{File: "C:/repo/src/a.ts", Cwd: "C:/repo", Want: true},
 		{File: "C:/repo/src/nested/deep/a.ts", Cwd: "C:/repo", Want: true},
-		{File: "C:/repo/.claude/feature/x/status.json", Cwd: "C:/repo", Want: false},
+		{File: "C:/repo/.claude/feature/x/status.json", Cwd: "C:/repo", Want: false, RecordedOnly: true},
+		{File: "C:/repo/.claude/.Arena/conventions.md", Cwd: "C:/repo", Want: false, RecordedOnly: true},
+		{File: "C:/repo/.claude/tmp/probe.ts", Cwd: "C:/repo", Want: false},
 		{File: "C:/repo/.kratos/bin/kratos", Cwd: "C:/repo", Want: false},
 		{File: "C:/repo/.git/config", Cwd: "C:/repo", Want: false},
 		{File: "C:/repo/tmp/claude/scratch/probe.ts", Cwd: "C:/repo", Want: false},
@@ -1056,8 +1061,8 @@ func TestGateProjectFileMatchesJS(t *testing.T) {
 		t.Fatalf("node returned %d results for %d cases", len(jsResults), len(cases))
 	}
 	for i, tc := range cases {
-		if jsResults[i] != tc.Want {
-			t.Errorf("JS isProjectFile(%q, %q) = %v, want %v (Go agrees with want)", tc.File, tc.Cwd, jsResults[i], tc.Want)
+		if want := tc.Want || tc.RecordedOnly; jsResults[i] != want {
+			t.Errorf("JS isProjectFile(%q, %q) = %v, want %v", tc.File, tc.Cwd, jsResults[i], want)
 		}
 	}
 }

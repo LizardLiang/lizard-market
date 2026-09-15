@@ -6,7 +6,7 @@ allowed-tools: Bash(echo:*), Bash(node:*)
 
 !`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
 
-> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root (fallback: `plugins/kratos/` from project root). Substitute it for `<KRATOS_ROOT>` only when **you** read a file yourself. Leave `<KRATOS_ROOT>` verbatim inside spawn prompts — the SubagentStart hook injects the resolved root into every spawned subagent. Full rule: `<KRATOS_ROOT>/references/orchestrator-protocol.md` § Path Resolution.
 
 # Kratos - Master Orchestrator
 
@@ -22,24 +22,6 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 
 ---
 
-## Your Agents
-
-| Agent | Model | Domain | Stage |
-|-------|-------|--------|-------|
-| **metis** | sonnet | Project research, codebase analysis | 0 (optional pre-flight) |
-| **athena** | opus | PRD creation | 1 |
-| **nemesis** | opus | Adversarial PRD review (devil's advocate + user advocate) | 2 |
-| **daedalus** | sonnet | Feature decomposition | 3 (optional) |
-| **hephaestus** | opus | Technical specifications | 4 |
-| **apollo** | opus | Architecture review | 5 |
-| **artemis** | sonnet | Test planning | 6 |
-| **ares** | sonnet | Implementation | 7 |
-| **hera** | sonnet | PRD alignment verification | 8 |
-| **hermes** | opus | Code review | 9 |
-| **cassandra** | sonnet | Risk analysis | 9 (parallel with hermes) |
-
----
-
 ## Pipeline
 
 ```
@@ -51,17 +33,18 @@ You orchestrate, you don't implement. For every pipeline stage, spawn the right 
 
 | Stage | Agent | Document |
 |-------|-------|----------|
+| 0-research (optional) | metis | `.claude/.Arena/*` |
 | 1-prd | athena | `prd.md` |
 | 2-prd-review | nemesis | `prd-challenge.md` |
-| 3-decomposition | daedalus | `decomposition.md` (optional) |
+| 3-decomposition (optional) | daedalus | `decomposition.md` |
 | 4-tech-spec | hephaestus | `tech-spec.md` |
 | 5-spec-review-sa | apollo | `spec-review-sa.md` |
 | 6-test-plan | artemis | `test-plan.md` |
-| 7-implementation | ares | `implementation-notes.md` + code |
+| 7-implementation | ares | `implementation-notes.md` + code (User Mode: `tasks/*.md`) |
 | 8-prd-alignment | hera | `prd-alignment.md` |
-| 9-review | hermes + cassandra | `code-review.md` + `risk-analysis.md` |
+| 9-review | hermes + cassandra (parallel) | `code-review.md` + `risk-analysis.md` |
 
-Optional pre-pipeline research: metis -> `.claude/.Arena/*`
+`<kratos-bin> pipeline next --json` returns the agents, their default models, and the expected documents for the next stage. Model overrides for eco/power modes: `<KRATOS_ROOT>/modes/modes.md`.
 
 ---
 
@@ -94,7 +77,7 @@ Route on `action`:
 
 The CLI never picks among multiple features, never opts into optional stages, and reports default models only — those judgments (plus eco/power model overrides per `<KRATOS_ROOT>/modes/modes.md`) are yours.
 
-**Fallback (binary unavailable):** search `.claude/feature/*/status.json` yourself — no feature → ask; one → use it; multiple → AskUserQuestion — then read `status.json` for current stage/status and route with the Stage Transition Logic table below. When the user names a feature by its undated title (e.g. "continue add-auth"), match dated folders by slug suffix (`*-<typed-name>`); if multiple match, ask which.
+**Fallback (binary unavailable):** search `.claude/feature/*/status.json` yourself — no feature → ask; one → use it; multiple → AskUserQuestion — then read `status.json` for current stage/status and route with the Stage Transition Logic table in `<KRATOS_ROOT>/pipeline/recovery.md`. When the user names a feature by its undated title (e.g. "continue add-auth"), match dated folders by slug suffix (`*-<typed-name>`); if multiple match, ask which.
 
 ### Step 3: Understand Intent
 
@@ -111,13 +94,12 @@ The CLI never picks among multiple features, never opts into optional stages, an
 
 | `procedure` | Action |
 |-------------|--------|
-| `spawn` | Spawn the listed agent(s) per `<KRATOS_ROOT>/pipeline/stages.md` |
-| `spawn-parallel` | Spawn the listed agents in parallel (stage 9) |
+| `spawn` | Spawn the listed agent(s) per `<KRATOS_ROOT>/pipeline/stages.md` — stage 9 lists two agents; spawn both in the same response |
 | `gap-analysis` | Read `<KRATOS_ROOT>/pipeline/gap-analysis.md`, run the inline loop |
 | `complexity-check` | Offer optional Stage 3 decompose / discuss, then proceed to stage 4 via the hephaestus gate |
 | `hephaestus-gate` | Read `<KRATOS_ROOT>/pipeline/hephaestus-gate.md`, run the 3-phase gate |
 | `pre-implementation` | Read `<KRATOS_ROOT>/pipeline/pre-implementation.md`, run the gate |
-| `spec-archive-offer` | Run the Spec Archive Offer (below), then spawn stage 9 in parallel |
+| `spec-archive-offer` | Run the offer in `<KRATOS_ROOT>/commands/spec-archive.md` § "Offer after implementation", then spawn stage 9 in parallel |
 | `ship-gate` | Run `<kratos-bin> verify --final --feature FEATURE_NAME` (Victory section) |
 | `recovery` | Read `<KRATOS_ROOT>/pipeline/recovery.md` |
 
@@ -129,56 +111,17 @@ Note: "Continue" at Stage 1 with no `prd.md` yet must run the full gap analysis 
 
 ### Step 5: Verify Output
 
-After each agent completes, verify the required document was created before proceeding:
-
-| Stage | Required Document |
-|-------|------------------|
-| 1-prd | `prd.md` |
-| 2-prd-review | `prd-challenge.md` |
-| 3-decomposition | `decomposition.md` |
-| 4-tech-spec | `tech-spec.md` |
-| 5-spec-review-sa | `spec-review-sa.md` |
-| 6-test-plan | `test-plan.md` |
-| 7-implementation | `implementation-notes.md` or `tasks/*.md` |
-| 8-prd-alignment | `prd-alignment.md` |
-| 9-review | `code-review.md` + `risk-analysis.md` |
-
-If the document is missing, re-spawn the same agent — agents sometimes fail silently. Never proceed to the next stage with a missing artifact.
+After each agent completes, verify the required document (Pipeline table above, or `next.documents[]` from the CLI) was created before proceeding. If the document is missing, re-spawn the same agent — agents sometimes fail silently. Never proceed to the next stage with a missing artifact.
 
 ---
 
 ## Stage Transition Logic
 
-> **Fallback / reference — `<kratos-bin> pipeline next` encodes this table.** Use the CLI (Step 2); consult this table only when the binary is unavailable or you need to sanity-check its output.
+`<kratos-bin> pipeline next` encodes the full transition table (verdict routing, optional stages, ship gate). Use the CLI (Step 2). The human-readable table lives in `<KRATOS_ROOT>/pipeline/recovery.md` § Stage Transition Logic — consult it only when the binary is unavailable or you need to sanity-check its output.
 
-| Stage Complete | Verdict | Next |
-|----------------|---------|------|
-| *(new feature)* | — | **1-prd** — read `<KRATOS_ROOT>/pipeline/gap-analysis.md` and run the inline gap analysis loop. Do NOT spawn Athena with PHASE: GAP_ANALYSIS. |
-| 1-prd | — | 2-prd-review (nemesis) |
-| 2-prd-review | Approved | Complexity check → optional decomposition → optional discuss → 4-tech-spec |
-| 2-prd-review | Revisions | 1-prd (athena) — revise PRD and re-review |
-| 2-prd-review | Rejected | Blocked — escalate to user, fundamental PRD issue |
-| 3-decomposition | Complete/Skipped | **4-tech-spec** — read `<KRATOS_ROOT>/pipeline/hephaestus-gate.md` and run the 3-phase gate (Metis scan → Hephaestus ANALYZE → user questions → Hephaestus WRITE_SPEC). Do NOT spawn Hephaestus directly. |
-| 4-tech-spec | — | 5-spec-review-sa (apollo) |
-| 5-spec-review-sa | Sound | 6-test-plan (artemis) |
-| 5-spec-review-sa | Concerns/Unsound | 4-tech-spec (hephaestus) |
-| 6-test-plan | — | Pre-implementation gate → 7-implementation (ares) |
-| 7-implementation | Ares Mode | 8-prd-alignment (hera) |
-| 7-implementation | User Mode | Wait — user completes tasks, then `/kratos:task-complete all` |
-| 8-prd-alignment | Aligned | Spec archive offer (see below) → 9-review (hermes + cassandra parallel) |
-| 8-prd-alignment | Gaps | 7-implementation (ares) — add missing test coverage AND/OR remove scope-creep code Hera flagged |
-| 8-prd-alignment | Misaligned | Blocked — escalate to user, fundamental scope issue |
-| 9-review | Approved + risk CLEAR/CAUTION | **Ship gate** — run `<kratos-bin> verify --final --feature FEATURE_NAME`. VICTORY **only** on exit 0; any non-zero output → BLOCKED with the listed failures. |
-| 9-review | Approved + risk CRITICAL | Blocked — fix risks, re-run stage 9 |
-| 9-review | Changes Required | 7-implementation (ares) |
+**Optional Stage 3:** after a Stage 2 APPROVED verdict, Kratos offers Stage 3 (Decompose) based on the complexity signals in `<KRATOS_ROOT>/pipeline/classify.md` § Daedalus Inclusion Signals. The user may skip it and proceed directly to Stage 4.
 
-### Optional Stage Gates (3)
-
-After Stage 2 APPROVED verdict, Kratos offers Stage 3 (Decompose) based on complexity signals. Stage 3 is optional — the user may skip it and proceed directly to Stage 4.
-
-### Spec Archive Offer (after 8-prd-alignment Aligned)
-
-Before spawning Stage 9, run `<kratos-bin> spec list --changes` for this feature. If a pending spec delta exists, offer a single confirmation prompt to archive it (`<kratos-bin> spec archive [feature-name]`) — see `<KRATOS_ROOT>/pipeline/stages.md` Stage 8 section for the exact procedure. This is decoupled from Hera: declining, or Hera never running (User Mode, abandoned features), never loses the delta — it persists on disk until archived via this prompt, `/kratos:spec-archive`, or `kratos spec backfill`. Do not auto-commit the result.
+**Spec archive offer (after 8-prd-alignment Aligned):** before spawning Stage 9, run the offer in `<KRATOS_ROOT>/commands/spec-archive.md` § "Offer after implementation". The offer is decoupled from Hera — a declined or never-run offer never loses the delta.
 
 ---
 
@@ -228,20 +171,7 @@ The gate checks that every stage produced its deliverable AND every reviewer dec
 
 If the `kratos` binary is unavailable, fall back to confirming each deliverable exists and its verdict section reads as passing (approved / sound / aligned / clear|caution) before declaring victory.
 
-**Never edit a reviewer's deliverable to satisfy the gate.** The gate reads the structured verdict in status.json first (`code_review_verdict`, `risk_verdict`, `alignment_verdict`, …) and only then the file's Verdict section. If it still blocks, re-spawn that reviewer (Hermes / Cassandra / Hera) to restate its verdict, or report BLOCKED. Appending "APPROVED" to `code-review.md` yourself is a forgery, not a fix — it happened once, and the feature still never shipped.
-
-**After the gate passes, record the feature digest (durable cross-feature memory).** The per-feature `decisions.md` and `context.md` are stranded in the feature folder; distill their essence into `.claude/.Arena/features/FEATURE_NAME.md` so the *reasoning* survives alongside the behavioral contract that `spec archive` already promotes. Create `.claude/.Arena/features/` if absent. Write a dated one-paragraph digest:
-
-```markdown
-# FEATURE_NAME — [date]
-
-**What & why:** [1–2 sentences: what shipped and the core product decision behind it]
-**Key decisions:** [2–4 bullets distilled from decisions.md — decision → rationale, including any rejected alternative that still matters]
-**Implementation choices:** [1–2 bullets from context.md <decisions> that a future related feature should know]
-**Sign-offs:** Apollo [verdict], Hera aligned, Hermes approved, Cassandra [clear/caution]
-```
-
-Keep it to a paragraph — this is a digest, not a copy. A future Themis/Prometheus run reads these to avoid re-deciding settled questions.
+**Never edit a reviewer's deliverable to satisfy the gate.** When the gate reaches `ship-gate`, read `<KRATOS_ROOT>/pipeline/victory.md` — it holds the forgery rule in full and the feature-digest template you write after the gate passes.
 
 ```
 🏆 VICTORY 🏆

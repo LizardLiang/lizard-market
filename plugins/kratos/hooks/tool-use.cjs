@@ -6,12 +6,18 @@
  * session id carried in the hook payload. The session row is created on
  * demand by the CLI, so recording never depends on a state file.
  *
- * Only files under the session's cwd are recorded; the agent scratchpad
- * (%TEMP%/claude), .claude/ bookkeeping and ~/.kratos are skipped — before this
- * filter 13 of 15 weekly "file_modify" steps were scratchpad writes.
+ * Only files under the session's cwd are recorded. Pipeline deliverables under
+ * .claude/feature/ and Arena writes under .claude/.Arena/ count as project work
+ * (agents no longer run `step record-file` themselves — this hook is the only
+ * recorder). The agent scratchpad (%TEMP%/claude), .claude/tmp/, other .claude/
+ * bookkeeping, .kratos/ and .git/ are skipped — before this filter 13 of 15
+ * weekly "file_modify" steps were scratchpad writes.
+ *
+ * Every kratos call goes through spawnSync with an argv array: payload text
+ * (agent descriptions, file paths) never reaches a shell.
  */
 
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
 const os = require('os');
 const { resolveBinary } = require('./kratos-bin.cjs');
@@ -31,20 +37,21 @@ function run(args) {
   const kratosCmd = findKratosBinary();
   if (!kratosCmd) return false;
   try {
-    execSync(`"${kratosCmd}" ${args}`, {
+    const r = spawnSync(kratosCmd, args, {
       stdio: 'ignore',
       env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
       timeout: 3000,
     });
-    return true;
+    return !r.error && r.status === 0;
   } catch (e) {
     return false;
   }
 }
 
-function escapeShell(str) {
+// Single-line, length-capped argument text (argv-safe; no shell quoting involved).
+function clip(str, max) {
   if (!str) return '';
-  return String(str).replace(/"/g, '\\"').replace(/\n/g, ' ').substring(0, 200);
+  return String(str).replace(/\r?\n/g, ' ').substring(0, max);
 }
 
 function toSlashes(p) {
@@ -64,13 +71,19 @@ function detectAgent(toolInput) {
 }
 
 // A file is project work when it sits under cwd and outside bookkeeping dirs.
+// Feature deliverables (.claude/feature/) and Arena shards (.claude/.Arena/) are
+// project work; the rest of .claude/ (tmp/, settings, plans) is not.
 function isProjectFile(filePath, cwd) {
   const file = toSlashes(filePath).toLowerCase();
   const root = toSlashes(cwd).toLowerCase().replace(/\/+$/, '');
   if (!file || !root) return false;
   if (!file.startsWith(root + '/')) return false;
   const rel = file.slice(root.length + 1);
-  if (rel.startsWith('.claude/') || rel.startsWith('.kratos/') || rel.startsWith('.git/')) return false;
+  if (rel.startsWith('.kratos/') || rel.startsWith('.git/')) return false;
+  if (rel.startsWith('.claude/')) {
+    if (rel.startsWith('.claude/tmp/')) return false;
+    if (!rel.startsWith('.claude/feature/') && !rel.startsWith('.claude/.arena/')) return false;
+  }
   if (/(^|\/)(temp|tmp)\/claude\//.test(file)) return false;
   return true;
 }
@@ -87,14 +100,14 @@ function processToolUse(data) {
   if (!sessionId) return;
   const cwd = toolData.cwd || process.cwd();
   const { tool_name, tool_input } = toolData;
-  const projectFlag = `--project "${escapeShell(cwd)}"`;
+  const projectArgs = ['--project', clip(cwd, 200)];
 
   // Agent spawns (the Agent tool; older harnesses call it Task)
   if (tool_name === 'Agent' || tool_name === 'Task') {
     const agent = detectAgent(tool_input);
     const action = (tool_input && tool_input.description) || 'Agent task';
     const model = (tool_input && tool_input.model) || 'default';
-    run(`step record-agent "${sessionId}" "${escapeShell(agent)}" "${escapeShell(model)}" "${escapeShell(action)}" ${projectFlag}`);
+    run(['step', 'record-agent', sessionId, clip(agent, 200), clip(model, 200), clip(action, 200), ...projectArgs]);
     return;
   }
 
@@ -103,7 +116,7 @@ function processToolUse(data) {
     const filePath = tool_input && tool_input.file_path;
     if (!isProjectFile(filePath, cwd)) return;
     const rel = toSlashes(filePath).slice(toSlashes(cwd).replace(/\/+$/, '').length + 1);
-    run(`step record-file "${sessionId}" "${tool_name}" "${escapeShell(rel)}" ${projectFlag}`);
+    run(['step', 'record-file', sessionId, tool_name, clip(rel, 200), ...projectArgs]);
   }
 }
 

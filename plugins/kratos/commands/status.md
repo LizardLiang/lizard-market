@@ -41,13 +41,7 @@ Odysseus plans live outside the pipeline, so `pipeline status` cannot see them. 
 
 Render the Output Format below from the JSON fields. Do not recompute any number the CLI already provided — theming (emoji, boxes, recommendations) is your job; arithmetic is not. Health mapping: `blocked` → 🔴, `conflict` → 🟡, `stale` → 🔵, `healthy` → 🟢/⚪.
 
-### Fallback (binary unavailable)
-
-Only if `<kratos-bin>` is missing:
-
-1. **Scan** all directories in `.claude/feature/*/`; load `status.json` from each. **Skip any folder that has no `status.json`** — note it separately as "plan-only (pending spec delta)".
-2. **Compute** per feature: current stage as N of 9, completion % (complete non-optional stages / 8), remaining stages.
-3. **Flag issues**: 🔴 Blocked (prerequisite not complete or failing verdict), 🟡 Conflict (source doc changed after dependent doc — see Conflict Detection below), 🔵 Stale (no activity > 7 days), ⚪ Healthy.
+**Fallback (binary unavailable):** read each `.claude/feature/*/status.json` and report stage/status per feature; folders without `status.json` are "plan-only (pending spec delta)". Do not compute health, conflicts, or percentages by hand.
 
 ---
 
@@ -71,7 +65,6 @@ Pipeline:
 │ [1] PRD          ✅ Complete    │ prd.md                       │
 │ [2] PRD Review   ✅ Approved    │ prd-challenge.md             │
 │ [3] Decompose    ⏭ Skipped      │ -                            │
-│ [4] Discuss      ⏭ Skipped      │ -                            │
 │ [4] Tech Spec    ✅ Complete    │ tech-spec.md                 │
 │ [5] SA Review    ✅ Sound       │ spec-review-sa.md            │
 │ [6] Test Plan    ✅ Complete    │ test-plan.md                 │
@@ -139,23 +132,6 @@ The battlefield is empty. Begin a new conquest:
 | 🟢 | Healthy |
 | 🟡 | Warning (conflict or stale) |
 | 🔴 | Critical (blocked or failed) |
-
----
-
-## Conflict Detection
-
-When checking status, verify document dependencies per `<KRATOS_ROOT>/references/status-json-schema.md`:
-
-```
-For each document with "based_on" in status.json:
-  - Compare based_on timestamp with current source timestamp
-  - If source is newer → flag as conflict
-
-Example:
-  tech-spec.md based_on prd.md (2024-01-15)
-  prd.md current modified (2024-01-18)
-  → CONFLICT: Tech spec may be outdated
-```
 
 ---
 

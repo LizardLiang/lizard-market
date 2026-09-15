@@ -46,6 +46,9 @@ Archive spec delta for [feature-name]?
   Capability: [capability]
   Changes: [N] added, [N] modified, [N] removed, [N] renamed
 
+Tactical-plan features (a `.claude/.Arena/tactical-plans/<feature-name>.md` exists) have no
+status.json — skip any `pipeline get` stage check and this warning for them.
+
 If this feature's stage 8-prd-alignment status is not "complete" with verdict "aligned",
 warn explicitly: "No alignment check ran for this feature — archiving promotes the delta
 based on Athena's authorship alone."
@@ -77,6 +80,24 @@ Delta archived: .claude/feature/[feature-name]/spec-delta/archived/[capability].
 
 Review and commit these changes when ready.
 ```
+
+---
+
+## Offer after implementation
+
+Kratos runs this offer once per feature when implementation lands — after Hera returns **aligned** (pipeline Ares Mode via `pipeline next` → `spec-archive-offer`, and User Mode via `/kratos:task-complete all`), and after a quick task implements an Odysseus tactical plan. The offer is decoupled from Hera: declining, or Hera never running (User Mode, abandoned features), never loses the delta — it persists on disk until archived here, via `/kratos:spec-archive`, or via `kratos spec backfill`.
+
+1. Run `<kratos-bin> spec list --changes`. If `.claude/feature/[feature-name]/spec-delta/*.md` has no pending (un-archived) file, skip the offer silently.
+2. Ask one confirmation question:
+   ```
+   AskUserQuestion(
+     question: "Feature [name] is implemented. Archive its spec delta into the living spec now? Capability: [capability] — [N] added, [N] modified, [N] removed, [N] renamed",
+     options: ["Yes — archive now", "No, leave it pending"]
+   )
+   ```
+3. **Yes** → run Steps 2 and 4 above (`spec validate`, then `spec archive [feature-name]`). The binary mechanically applies Athena's (or Odysseus's) authored delta — no extra agent spawn. Do not auto-commit the resulting spec.md change.
+4. **No** → the delta stays pending; `kratos spec list --changes` and the session-end reminder keep surfacing it until archived.
+5. Continue with the caller's next step (pipeline: spawn Stage 9; quick task: done).
 
 ---
 

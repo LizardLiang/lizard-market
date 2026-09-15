@@ -1,11 +1,9 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -15,14 +13,14 @@ func StatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Check Kratos installation status",
-		Long:  "Shows whether hooks are installed and configured",
+		Long:  "Shows the memory database, the binary, and any legacy global hooks left by old installs (hooks ship with the plugin)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return checkStatus()
+			return checkStatus(cmd.Root().Version)
 		},
 	}
 }
 
-func checkStatus() error {
+func checkStatus(version string) error {
 	fmt.Println("Kratos Installation Status")
 	fmt.Println("===========================")
 
@@ -31,80 +29,41 @@ func checkStatus() error {
 		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	claudeDir := filepath.Join(home, ".claude")
-	hooksDir := filepath.Join(claudeDir, "hooks", "kratos")
-	settingsFile := filepath.Join(claudeDir, "settings.json")
+	settingsFile := filepath.Join(home, ".claude", "settings.json")
 	dbPath := filepath.Join(home, ".kratos", "memory.db")
 
-	// Check hooks directory
-	hooksInstalled := false
-	var hookFiles []string
-	if stat, err := os.Stat(hooksDir); err == nil && stat.IsDir() {
-		hooksInstalled = true
-		entries, _ := os.ReadDir(hooksDir)
-		for _, entry := range entries {
-			hookFiles = append(hookFiles, entry.Name())
-		}
+	// Hooks ship with the plugin (hooks/hooks.json). The only hook state worth
+	// reporting is a legacy global install, which double-fires every hook next
+	// to the plugin's own (2026-09 review: 63 of 63 sessions).
+	fmt.Println("Hooks: provided by the plugin (hooks/hooks.json)")
+	legacy := hasLegacyHooks(settingsFile)
+	if legacy {
+		fmt.Println("  ⚠ Legacy global hooks found in ~/.claude/settings.json — run 'kratos install'")
 	}
 
-	fmt.Printf("Hooks directory: %s\n", statusString(hooksInstalled))
-	if hooksInstalled {
-		fmt.Printf("  Location: %s\n", hooksDir)
-		fmt.Printf("  Files: %s\n", strings.Join(hookFiles, ", "))
-	}
-
-	// Check settings.json
-	hasKratosHooks := false
-	if data, err := os.ReadFile(settingsFile); err == nil {
-		var settings map[string]interface{}
-		if json.Unmarshal(data, &settings) == nil {
-			if hooks, ok := settings["hooks"].(map[string]interface{}); ok {
-				_, hasStart := hooks["SessionStart"]
-				_, hasPost := hooks["PostToolUse"]
-				_, hasStop := hooks["Stop"]
-				hasKratosHooks = hasStart || hasPost || hasStop
-			}
-		}
-	}
-
-	fmt.Printf("Settings.json: %s\n", statusString(hasKratosHooks))
-
-	// Check database
 	dbExists := false
 	var dbSize int64
 	if stat, err := os.Stat(dbPath); err == nil {
 		dbExists = true
 		dbSize = stat.Size()
 	}
-
 	fmt.Printf("Memory database: %s\n", statusString(dbExists))
 	if dbExists {
 		fmt.Printf("  Size: %.1f KB\n", float64(dbSize)/1024)
 	}
 
-	// Check kratos binary
-	kratosInHooks := false
-	kratosBinaryPath := filepath.Join(hooksDir, "kratos")
-	if _, err := os.Stat(kratosBinaryPath); err == nil {
-		kratosInHooks = true
+	if exe, err := os.Executable(); err == nil {
+		fmt.Printf("Kratos binary: %s (%s)\n", exe, version)
 	}
 
-	fmt.Printf("Kratos binary: %s\n", statusString(kratosInHooks))
-	if kratosInHooks {
-		fmt.Printf("  Location: %s\n", kratosBinaryPath)
-	}
-
-	// Overall status
 	fmt.Println("\n===========================")
 	switch {
-	case hooksInstalled && hasKratosHooks && kratosInHooks:
-		fmt.Println("Status: ✅ FULLY OPERATIONAL")
-	case hooksInstalled && hasKratosHooks:
-		fmt.Println("Status: ⚠ INSTALLED (Binary missing)")
-		fmt.Println("\nRun 'kratos install' to reinstall.")
+	case legacy:
+		fmt.Println("Status: ⚠ LEGACY HOOKS — run 'kratos install'")
+	case !dbExists:
+		fmt.Println("Status: ❌ DATABASE MISSING — run 'kratos init'")
 	default:
-		fmt.Println("Status: ❌ NOT INSTALLED")
-		fmt.Println("\nRun 'kratos install' to install.")
+		fmt.Println("Status: ✅ FULLY OPERATIONAL")
 	}
 
 	return nil

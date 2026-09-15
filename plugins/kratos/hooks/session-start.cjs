@@ -13,9 +13,15 @@
  * shared by every concurrent window: sessions in other projects ended each
  * other, resume pointers named the wrong project, and `step record-agent`
  * failed with FOREIGN KEY errors (2026-09 transcript review).
+ *
+ * Budget: hooks.json gives SessionStart 5000 ms. Every spawn below carries a
+ * timeout and the serial sum stays under ~4000 ms (version 800 + memory list
+ * 1500 + init 500 + session start 800); the plugin-bin → ~/.kratos/bin copy
+ * runs last so it can never starve the calls. Every kratos call uses spawnSync
+ * with an argv array — payload text never reaches a shell.
  */
 
-const { execSync, spawn } = require("child_process");
+const { execFileSync, spawn, spawnSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -35,7 +41,23 @@ const OUTPUT_CONSTRAINT =
   "\n**Output constraint:** Two registers.\n" +
   "- Status updates (mid-turn): terse. `[status] [what] [result]. [next].` Fragments OK. Never a bare `[what]:` — always carry the result. No arrow chains.\n" +
   "- Answers, summaries, decisions: conclusion first, then full sentences. Keep hedges and evidence status (verified vs inferred). A yes/no gets one supporting sentence. When asking the user to decide: state the decision and its consequence before the options.\n" +
-  "Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n";
+  "Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n" +
+  "A message the human typed always gets an answer; `No response requested` is only for harness task notifications.\n";
+
+// The pre-plugin installer registered copies of the hooks in ~/.claude/settings.json;
+// when they are still there every event runs twice and the stale copy errors
+// (`recall --project`, "active session already exists"). Point at the fix once.
+function formatLegacyHooksWarning() {
+  const settingsFile = path.join(os.homedir(), ".claude", "settings.json");
+  let text;
+  try {
+    text = fs.readFileSync(settingsFile, "utf-8");
+  } catch (e) {
+    return null;
+  }
+  if (!/hooks[\\\/]+kratos[\\\/]/.test(text)) return null;
+  return "Kratos: legacy hook copies are still registered in ~/.claude/settings.json and run alongside the plugin's — run `kratos install` once to remove them.";
+}
 
 function ensureDir() {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
@@ -43,18 +65,92 @@ function ensureDir() {
 
 const findKratosBinary = resolveBinary;
 
-function runKratos(args) {
+// Per-call budgets (ms). Serial sum must stay under the 5000 ms hook timeout
+// with room for node startup.
+const VERSION_TIMEOUT_MS = 800;
+const MEMORY_LIST_TIMEOUT_MS = 1500;
+const INIT_TIMEOUT_MS = 500;
+const SESSION_START_TIMEOUT_MS = 800;
+
+// Runs the kratos binary with an argv array; stdout on success, null otherwise.
+function runKratos(args, timeoutMs) {
   const kratosCmd = findKratosBinary();
   if (!kratosCmd) return null;
   try {
-    return execSync(`"${kratosCmd}" ${args}`, {
+    const r = spawnSync(kratosCmd, args, {
       encoding: "utf-8",
       env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
       stdio: ["ignore", "pipe", "ignore"],
+      timeout: timeoutMs,
     });
+    if (r.error || r.status !== 0) return null;
+    return r.stdout;
   } catch (e) {
     return null;
   }
+}
+
+function firstLine(text) {
+  const line = String(text || "").split(/\r?\n/).find((l) => l.trim()) || "";
+  return line.trim().slice(0, 160);
+}
+
+// Like runKratos, but keeps stderr so a failure can name its cause.
+// Returns { out, err }; out is null on any failure.
+function runKratosCapture(args, timeoutMs) {
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return { out: null, err: "kratos binary not found" };
+  try {
+    const r = spawnSync(kratosCmd, args, {
+      encoding: "utf-8",
+      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: timeoutMs,
+    });
+    if (r.error || r.status !== 0 || !r.stdout) {
+      return { out: null, err: firstLine(r.stderr) || firstLine(r.error && r.error.message) || `exit ${r.status}` };
+    }
+    return { out: r.stdout, err: firstLine(r.stderr) };
+  } catch (e) {
+    return { out: null, err: firstLine(e && e.message) };
+  }
+}
+
+// plugin.json version without a leading "v", or null when unreadable.
+function pluginVersion() {
+  try {
+    const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, "..");
+    const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, ".claude-plugin", "plugin.json"), "utf-8"));
+    return manifest.version ? String(manifest.version).replace(/^v/, "") : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// `<bin> --version` prints "kratos version v2.108.0"; returns "2.108.0" or null.
+function binaryVersion(bin) {
+  try {
+    const out = execFileSync(bin, ["--version"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: VERSION_TIMEOUT_MS,
+    });
+    const match = out.match(/v?(\d+\.\d+\.\d+)/);
+    return match ? match[1] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// A stale binary silently lacks flags newer agents call (2026-09 review: a
+// v2.1.0 binary under a v2.108.0 plugin). One line; ensureBinary already
+// spawned the refresh when the binary is a release download.
+function formatVersionMismatch(bin, refreshing) {
+  const have = binaryVersion(bin);
+  const want = pluginVersion();
+  if (!have || !want || have === want) return null;
+  const action = refreshing ? "refreshing in background" : "rebuild: cd kratos-dev/go && make build";
+  return `Kratos: binary v${have} ≠ plugin v${want} — ${action}`;
 }
 
 // Initialize database if needed
@@ -68,7 +164,7 @@ function initDb() {
     );
     return false;
   }
-  return runKratos("init") !== null;
+  return runKratos(["init"], INIT_TIMEOUT_MS) !== null;
 }
 
 function toSlashes(p) {
@@ -87,11 +183,20 @@ function normalizeProject(p) {
 // preferences / habits / weak spots, then global context; other projects'
 // scoped facts are never shown. The old newest-15-of-everything injection put
 // the same list in every project and 0-2 of 15 items were relevant (2026-09).
+//
+// A failed list with an existing DB returns one "memory unavailable" line
+// instead of nothing: silent null hid a broken binary for weeks (2026-09).
 function formatMemories(cwd) {
-  const raw = runKratos("memory list --limit 80");
-  if (!raw) return null;
+  const { out, err } = runKratosCapture(["memory", "list", "--limit", "80"], MEMORY_LIST_TIMEOUT_MS);
+  const unavailable = (reason) => (fs.existsSync(DB_PATH) ? `Kratos: memory unavailable (${reason})` : null);
+  if (!out) return unavailable(err || "no output");
+  let data;
   try {
-    const data = JSON.parse(raw);
+    data = JSON.parse(out);
+  } catch (e) {
+    return unavailable(err || "unreadable output");
+  }
+  try {
     if (!data.memories || data.memories.length === 0) return null;
     const total = typeof data.total === "number" ? data.total : data.memories.length;
     const here = normalizeProject(cwd);
@@ -249,7 +354,11 @@ function formatTimeAgo(timestampMs) {
   return `${Math.floor(diffDay / 7)} weeks ago`;
 }
 
-// Copy kratos binary to ~/.kratos/bin/ so agents use a single fixed path
+// Keep ~/.kratos/bin/ in sync with the plugin binary so agents use a single
+// fixed path. Returns { refreshing, copy }: refreshing is true when a background
+// release download was spawned; copy is a function performing the plugin-bin →
+// ~/.kratos/bin copy, or null when the target is already current. The caller
+// runs copy() last so a slow ~10MB copy never starves the CLI calls.
 function ensureBinary() {
   const targetDir = path.join(KRATOS_HOME, "bin");
   const isWin = process.platform === "win32";
@@ -270,18 +379,22 @@ function ensureBinary() {
     } catch (e) {
       // best-effort
     }
-    return;
+    return { refreshing: true, copy: null };
   }
 
   let needsCopy = !fs.existsSync(targetPath);
   if (!needsCopy) {
     needsCopy = fs.statSync(srcPath).mtimeMs > fs.statSync(targetPath).mtimeMs;
   }
-  if (needsCopy) {
-    fs.mkdirSync(targetDir, { recursive: true });
-    fs.copyFileSync(srcPath, targetPath);
-    if (!isWin) fs.chmodSync(targetPath, 0o755);
-  }
+  if (!needsCopy) return { refreshing: false, copy: null };
+  return {
+    refreshing: false,
+    copy: () => {
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.copyFileSync(srcPath, targetPath);
+      if (!isWin) fs.chmodSync(targetPath, 0o755);
+    },
+  };
 }
 
 // Remove per-session state files older than 7 days, plus the legacy shared
@@ -333,7 +446,7 @@ function registerSession(sessionId, cwd, source) {
   if (!sessionId) return;
   if (!initDb()) return;
 
-  const raw = runKratos(`session start "${cwd}" --session-id "${sessionId}"`);
+  const raw = runKratos(["session", "start", cwd, "--session-id", sessionId], SESSION_START_TIMEOUT_MS);
   let created = false;
   if (raw) {
     try {
@@ -388,7 +501,15 @@ function main(payload) {
   const source = payload && payload.source ? String(payload.source) : "";
 
   ensureDir();
-  ensureBinary();
+  let refreshing = false;
+  let pendingCopy = null;
+  try {
+    const bin = ensureBinary();
+    refreshing = bin.refreshing;
+    pendingCopy = bin.copy;
+  } catch (e) {
+    // a failed binary check must not block session start
+  }
   pruneSessionFiles();
 
   // Always inject the output constraint, regardless of session source.
@@ -397,6 +518,8 @@ function main(payload) {
   const kratosBin = findKratosBinary();
   if (kratosBin) {
     console.log(`KRATOS_BIN: ${kratosBin}`);
+    const mismatch = formatVersionMismatch(kratosBin, refreshing);
+    if (mismatch) console.log(mismatch);
   }
   const memoriesMsg = formatMemories(cwd);
   if (memoriesMsg) {
@@ -404,11 +527,21 @@ function main(payload) {
   }
 
   const handoffLine = source === "compact" ? formatHandoffHead(cwd) || formatHandoffNotice(cwd) : formatHandoffNotice(cwd);
-  for (const line of [handoffLine, formatPendingSpecDeltas(cwd), formatDraftPlans(cwd)]) {
+  for (const line of [handoffLine, formatPendingSpecDeltas(cwd), formatDraftPlans(cwd), formatLegacyHooksWarning()]) {
     if (line) console.log(line);
   }
 
   registerSession(sessionId, cwd, source);
+
+  // Copy last: resolveBinary() prefers the plugin-local binary, so nothing
+  // above depends on the ~/.kratos/bin copy being fresh.
+  if (pendingCopy) {
+    try {
+      pendingCopy();
+    } catch (e) {
+      // a failed copy must not block session start
+    }
+  }
 }
 
 // Read the hook payload from stdin (session_id, cwd, source). Older harnesses

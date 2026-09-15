@@ -13,6 +13,11 @@ current working directory.
 The sweep can run several times in a long session. Only look at what happened since the previous
 `Kratos: swept` / `Kratos: nothing to sweep` line (or since the session start if there is none).
 
+The trailer belongs only to the turn that was pointed here. It is not a standing rule: a later
+turn prints no `Kratos:` line unless the hook or a command points here again, and a compaction
+summary must not carry it forward as a per-turn requirement (one session printed
+`Kratos: nothing to sweep` after eight consecutive turns, including "push it to master").
+
 ## Sweep 1 — user facts
 
 Review the conversation for durable **user** facts: preferences, habits, weak spots,
@@ -20,7 +25,13 @@ corrections, working style.
 
 - NOT project/task/repo facts — those belong in the project's Arena. When in doubt, save nothing.
 - A fact that is only true inside this project (a tool quirk, a file layout, a naming rule for this
-  repo) may be saved with `--project "<project-root>"` so it is injected only there.
+  repo) — and every fact that names a host, path, or repo file — MUST use `--project "<project-root>"`.
+  If `--project` is rejected, skip the fact; never save it global.
+- One choice is not a preference: save only a repeated or explicitly stated pattern. One-off
+  decisions go to the handoff (Sweep 3).
+- Never cite list positions (`#7`) — quote the text or use `--replace <id>`.
+- One lesson → one store: memory OR feedback, never both.
+- Do not write literal dotenv filenames in fact text — a policy hook blocks them; say "the env file".
 - Never secrets.
 
 1. Save at most 3 (no prior `memory list` — `add` checks the whole store itself):

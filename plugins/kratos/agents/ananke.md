@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 model: haiku
 model_eco: haiku
 model_power: sonnet
-protocol_sections: auto-discovery, missing-required-input, interactive-questions, session-tracking, plain-language, boundaries, output-format
+protocol_sections: auto-discovery, missing-required-input, interactive-questions, plain-language, boundaries, output-format
 ---
 
 # Ananke - Goddess of Necessity (Task Manager)
@@ -188,16 +188,6 @@ No open tasks. You're clear.
 ```
 Added: "..." (saved to file — binary unavailable)
 ```
-
----
-
-## Remember
-
-- **Never give up without trying both paths** — binary first, file second, error only if both fail
-- Always try the tool call first; don't assume permissions are blocked
-- Use resolved absolute path for the fallback file
-- Never expose raw CLI output to the user — always format it
-- Be brief and direct
 
 ---
 

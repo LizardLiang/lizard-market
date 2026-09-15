@@ -80,7 +80,8 @@ var gateAbsPathRE = regexp.MustCompile(`^(?:/|[A-Za-z]:/)`)
 // sed/head/tail/wc and `git -C <path> <read-only>` were added when this logic
 // moved into Go: the JS guard denied all five during the 2026-09-11 planning
 // session, and a guard that denies the agent's own inspection commands teaches
-// the agent to route around it.
+// the agent to route around it. which/command -v/stat/file came from the JS
+// guard's own allowlist fix (v2.110), merged into this port.
 var gateReadOnlyCommands = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:status|diff|show|log|rev-parse|ls-files)\b`),
 	// `git branch` is its own entry because most of its surface mutates:
@@ -94,6 +95,8 @@ var gateReadOnlyCommands = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^(?:cat|type)\b`),
 	regexp.MustCompile(`(?i)^(?:find|grep|rg)\b`),
 	regexp.MustCompile(`(?i)^(?:sed|head|tail|wc)\b`),
+	regexp.MustCompile(`(?i)^(?:which|stat|file)\b`),
+	regexp.MustCompile(`(?i)^command\s+-v\b`),
 	regexp.MustCompile(`(?i)^Get-(?:ChildItem|Content|Location)\b`),
 	regexp.MustCompile(`(?i)^Select-String\b`),
 	regexp.MustCompile(`(?i)^Test-Path\b`),
@@ -507,6 +510,9 @@ func isSpecDeltaGatePath(filePath, cwd string) bool {
 // isGateProjectFile reports whether the file is project work: under cwd and
 // outside bookkeeping dirs. Ported from hooks/tool-use.cjs isProjectFile —
 // TestGateProjectFileMatchesJS runs both over one fixture so they cannot drift.
+// One difference is deliberate: the recorder logs .claude/feature/ and
+// .claude/.Arena/ writes as project work, but no .claude/ path spends Iris's
+// source-file budget.
 func isGateProjectFile(filePath, cwd string) bool {
 	file := normalizeLedgerPath(filePath)
 	root := normalizeLedgerPath(cwd)

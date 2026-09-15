@@ -72,29 +72,87 @@ var directRouteGods = map[string]string{
 }
 
 // addressedGodRE returns a pattern matching the user addressing god by name
-// with an action verb: "pass it to ares", "have ares fix it", "ask hermes",
-// "ares, look at this", "get odysseus to plan it", "plan it with odysseus"
-// (the last form fell through to the full kratos:auto block in the 2026-09
-// review and cost four tool calls before reaching the same god).
+// with an action verb: "pass it to ares", "send to ares", "have ares fix it",
+// "ask hermes", "ares, look at this", "get odysseus to plan it", "plan it with
+// odysseus" (the last form fell through to the full kratos:auto block in the
+// 2026-09 review and cost four tool calls before reaching the same god).
 func addressedGodRE(god string) *regexp.Regexp {
 	g := regexp.QuoteMeta(god)
-	return regexp.MustCompile(`(?i)(?:\b(?:pass|hand|send|give|forward)\s+(?:it|this|that|these|those|the\s+\w+)\s+to\s+` + g +
+	return regexp.MustCompile(`(?i)(?:\b(?:pass|hand|send|give|forward)(?:\s+(?:it|this|that|these|those|the\s+\w+))?\s+to\s+` + g +
 		`\b|\b(?:have|let|get|ask|tell|use|run|spawn|launch|call|summon)\s+` + g +
 		`\b|\b(?:plan|design|debug|review|fix|implement|build|discuss|research)\b[^.!?]{0,40}\bwith\s+` + g +
 		`\b|^\s*` + g + `\s*[,:]|\b` + g + `\s*[,:]\s)`)
 }
 
-// buildKeywordContext decides what a keyword match injects. When the user
-// addressed exactly one direct-route god by name, a one-line routing hint is
-// enough — loading kratos:auto first only added a skill load and a banner
-// before routing to that same god (4 of 5 fires in the 2026-09 review).
-// Everything else keeps the full activation block.
+// The complaint patterns match a prompt that questions earlier work: it opens with
+// "why" ("why did you…", "why didn't…") or says the work ran "without having
+// <god>". Such a prompt names a god but is not a request for one — the full
+// "Do NOT respond" block made the model route instead of answering (2026-09
+// review).
+var (
+	complaintWhyRE     = regexp.MustCompile(`(?i)^\s*why\b`)
+	complaintWithoutRE = regexp.MustCompile(`(?i)\bwithout\s+(?:having|asking|using)\s+(\w+)\b`)
+)
+
+// isComplaint reports whether cleaned questions earlier work. The "without
+// having <X>" form counts only when <X> is one of the matched keywords.
+func isComplaint(matched []string, cleaned string) bool {
+	if complaintWhyRE.MatchString(cleaned) {
+		return true
+	}
+	for _, m := range complaintWithoutRE.FindAllStringSubmatch(cleaned, -1) {
+		for _, kw := range matched {
+			if strings.EqualFold(m[1], kw) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// modelOverrideRE captures a model the user pairs with the request: "using
+// fable", "with opus", "on sonnet".
+var modelOverrideRE = regexp.MustCompile(`(?i)\b(?:using|with|on)\s+(opus|sonnet|haiku|fable)\b`)
+
+func titleCase(name string) string {
+	return strings.ToUpper(name[:1]) + name[1:]
+}
+
+// modelRoute is the direct route for god when the user picked a model. The
+// Skill route cannot take a model, so every god — Odysseus included — is
+// spawned through the Agent tool.
+func modelRoute(god, model string) string {
+	if god == "odysseus" {
+		return fmt.Sprintf("Agent(subagent_type: \"kratos:odysseus\", model: \"%s\") instead of the inline kratos:plan skill — tell Odysseus to return his blocking questions in his final message, then ask the user those questions", model)
+	}
+	return strings.Replace(directRouteGods[god], `")`, fmt.Sprintf(`", model: "%s")`, model), 1)
+}
+
+// buildKeywordContext decides what a keyword match injects:
+//   - A complaint about earlier work gets a soft one-line note: answer first.
+//   - Exactly one direct-route god addressed by name gets a one-line routing
+//     hint — loading kratos:auto first only added a skill load and a banner
+//     before routing to that same god (4 of 5 fires in the 2026-09 review).
+//     A model named with it ("using fable") switches the route to an Agent
+//     spawn with that model.
+//   - Everything else keeps the full activation block.
 func buildKeywordContext(matched []string, cleaned string) string {
+	if isComplaint(matched, cleaned) {
+		var gods []string
+		for _, kw := range matched {
+			gods = append(gods, titleCase(kw))
+		}
+		name := strings.Join(gods, "/")
+		return fmt.Sprintf("[KRATOS NOTE] The user mentions %s while questioning earlier work — answer them first; route to %s only if they ask.", name, name)
+	}
 	if len(matched) == 1 {
 		god := matched[0]
 		if route, ok := directRouteGods[god]; ok && addressedGodRE(god).MatchString(cleaned) {
+			if mm := modelOverrideRE.FindStringSubmatch(cleaned); mm != nil {
+				route = modelRoute(god, strings.ToLower(mm[1]))
+			}
 			return fmt.Sprintf("[KRATOS ROUTE] The user addressed %s directly. Route straight to that god — %s — and skip the kratos:auto router.",
-				strings.ToUpper(god[:1])+god[1:], route)
+				titleCase(god), route)
 		}
 	}
 	return buildInjectionContext(matched)

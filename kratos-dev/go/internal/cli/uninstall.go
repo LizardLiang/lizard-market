@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -15,7 +14,7 @@ func UninstallCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "uninstall",
 		Short: "Uninstall Kratos hooks",
-		Long:  "Removes hook files and settings (preserves database)",
+		Long:  "Removes legacy hook files and settings entries (preserves database)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return uninstallHooks()
 		},
@@ -35,7 +34,8 @@ func uninstallHooks() error {
 	hooksDir := filepath.Join(claudeDir, "hooks", "kratos")
 	settingsFile := filepath.Join(claudeDir, "settings.json")
 
-	// Remove hooks from settings.json
+	// Remove kratos entries from settings.json — only ours; other tools' hooks
+	// on the same events stay (the old code deleted whole event lists).
 	fmt.Println("Updating settings.json...")
 	if err := removeHooksFromSettings(settingsFile); err != nil {
 		fmt.Printf("  ⚠ Failed to update settings: %v\n", err)
@@ -63,8 +63,10 @@ func uninstallHooks() error {
 	return nil
 }
 
+// removeHooksFromSettings strips every kratos-authored entry: the legacy
+// ~/.claude/hooks/kratos/ commands and the permission rules the old installer
+// added for the plugin cache and the ~/.kratos binary.
 func removeHooksFromSettings(settingsFile string) error {
-	// Read existing settings
 	data, err := os.ReadFile(settingsFile)
 	if err != nil {
 		return err
@@ -75,27 +77,15 @@ func removeHooksFromSettings(settingsFile string) error {
 		return err
 	}
 
-	// Remove kratos hooks
-	if hooks, ok := settings["hooks"].(map[string]interface{}); ok {
-		delete(hooks, "SessionStart")
-		delete(hooks, "PostToolUse")
-		delete(hooks, "Stop")
+	removeLegacyHookEntries(settings)
 
-		// Remove empty hooks object
-		if len(hooks) == 0 {
-			delete(settings, "hooks")
-		}
-	}
-
-	// Remove kratos permission rules
 	if perms, ok := settings["permissions"].(map[string]interface{}); ok {
 		if allowList, ok := perms["allow"].([]interface{}); ok {
 			filtered := make([]interface{}, 0, len(allowList))
 			for _, rule := range allowList {
 				s, _ := rule.(string)
 				isKratos := s == "Read(~/.claude/plugins/cache/lizard-plugins/kratos/**)" ||
-					s == "Bash(~/.kratos/bin/kratos:*)" ||
-					strings.Contains(s, "hooks/kratos/kratos:")
+					s == "Bash(~/.kratos/bin/kratos:*)"
 				if !isKratos {
 					filtered = append(filtered, rule)
 				}
@@ -111,11 +101,33 @@ func removeHooksFromSettings(settingsFile string) error {
 		}
 	}
 
-	// Write settings
-	data, err = json.MarshalIndent(settings, "", "  ")
-	if err != nil {
-		return err
-	}
+	return writeSettings(settingsFile, settings)
+}
 
-	return os.WriteFile(settingsFile, data, 0644)
+// hasLegacyHooks reports whether settingsFile still registers any legacy
+// ~/.claude/hooks/kratos/ hook. A missing or unreadable file counts as none.
+func hasLegacyHooks(settingsFile string) bool {
+	data, err := os.ReadFile(settingsFile)
+	if err != nil {
+		return false
+	}
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return false
+	}
+	hooks, _ := settings["hooks"].(map[string]interface{})
+	for _, groups := range hooks {
+		list, _ := groups.([]interface{})
+		for _, g := range list {
+			group, _ := g.(map[string]interface{})
+			entries, _ := group["hooks"].([]interface{})
+			for _, e := range entries {
+				entry, _ := e.(map[string]interface{})
+				if command, _ := entry["command"].(string); isLegacyKratosCommand(command) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

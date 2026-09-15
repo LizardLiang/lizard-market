@@ -28,9 +28,7 @@ You are an orchestrator, not a worker. You MUST:
 
 ---
 
-## Execution Modes
-
-Default: **normal**. If eco/power keywords are present (`eco`, `budget`, `cheap` / `power`, `max`, `full-power`), read `<KRATOS_ROOT>/modes/modes.md` for the full model matrix.
+Models: see `<KRATOS_ROOT>/modes/modes.md` (default normal; eco/power keywords switch).
 
 ---
 
@@ -46,7 +44,7 @@ Determine the source of requirements:
 
 **If user provides raw text** (no existing feature):
 - Ask for a feature name via AskUserQuestion (if not obvious from the text)
-- Create minimal feature structure: `.claude/feature/<name>/`. If `.claude/feature/<name>/` does not exist, create it along with an initial status.json. See `<KRATOS_ROOT>/references/status-json-schema.md` for schema.
+- If `.claude/feature/<name>/` does not exist, initialize it: `<kratos-bin> pipeline init --feature <name> --description "<one sentence>"` (creates the folder and status.json with real timestamps). Fallback without the binary: create the folder and a minimal status.json per `<KRATOS_ROOT>/references/status-json-schema.md`.
 - Daedalus will work from the raw text directly
 
 **If user provides a reference** (e.g., "decompose the auth system"):

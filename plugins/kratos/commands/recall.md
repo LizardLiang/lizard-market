@@ -19,35 +19,6 @@ When the user invokes `/kratos:recall`, you:
 
 ---
 
-## How to Query
-
-Use the Go binary (preferred) or status.json fallback to get session info:
-
-```bash
-# Go binary (primary method) — pass the project root path as argument
-<kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
-
-# Global recall (all projects)
-<kratos-bin> recall --global --limit 5
-
-# Incomplete features only
-<kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) --incomplete
-
-# Fallback: scan status.json files directly (if Go binary unavailable)
-# Use Glob to find .claude/feature/*/status.json and Read to parse them
-```
-
-### Options
-
-| Flag | Effect |
-|------|--------|
-| `[project]` | Project root path (required unless `--global`) |
-| `--global` | Show sessions across all projects |
-| `--incomplete` | Show only incomplete features |
-| `--limit N` | Number of recent sessions for `--global` (default: 5) |
-
----
-
 ## Response Format
 
 ### Project-Specific Mode (Default)
@@ -91,22 +62,7 @@ Recent sessions across all projects:
 Use /kratos:recall in the project directory for details.
 ```
 
----
-
-## Stage Reference
-
-| Stage | Name | Agent |
-|-------|------|-------|
-| 0 | Research (optional) | Metis |
-| 1 | PRD | Kratos gap analysis inline, then Athena |
-| 2 | PRD Review | Nemesis |
-| 3 | Decomposition (optional) | Daedalus |
-| 4 | Tech Spec | Themis discuss inline, then Hephaestus |
-| 5 | SA Spec Review | Apollo |
-| 6 | Test Plan | Artemis |
-| 7 | Implementation | Ares |
-| 8 | PRD Alignment | Hera |
-| 9 | Review | Hermes + Cassandra |
+Stage reference: 0 Research (Metis, optional) · 1 PRD (Kratos gap analysis inline, then Athena) · 2 PRD Review (Nemesis) · 3 Decomposition (Daedalus, optional) · 4 Tech Spec (Themis discuss inline, then Hephaestus) · 5 SA Spec Review (Apollo) · 6 Test Plan (Artemis) · 7 Implementation (Ares) · 8 PRD Alignment (Hera) · 9 Review (Hermes + Cassandra).
 
 ---
 
@@ -120,17 +76,19 @@ Check if user specified `--global`:
 
 ### Step 2: Query Memory
 
-Run the Go binary (preferred):
+Run the Go binary (preferred) — pass the project root path as argument:
 
 ```bash
 <kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
 ```
 
-Or for global:
+Add `--incomplete` to show only incomplete features. For global:
 
 ```bash
 <kratos-bin> recall --global --limit 5
 ```
+
+(`--limit N` sets the number of recent sessions for `--global`; default 5.)
 
 If the Go binary is unavailable, fall back to scanning `.claude/feature/*/status.json` files directly using Glob and Read tools.
 
@@ -140,7 +98,7 @@ Check whether `.claude/.Arena/handoff.md` exists and is less than 7 days old (sa
 
 - Use Glob/Read (or `test -f` via Bash) to check `.claude/.Arena/handoff.md` exists.
 - If it exists, check its modification time is within 7 days.
-- If fresh, Read the file and present its content alongside the recall summary (see Response Format below) — this is the explicit manual path to the same content the resume-phrase hook injects on demand.
+- If fresh, Read the file and present its content alongside the recall summary (see Response Format above) — this is the explicit manual path to the same content the resume-phrase hook injects on demand.
 - If missing or stale, skip silently — no mention of it in the output.
 
 ### Step 3b: Check for unfinished plan drafts
@@ -168,7 +126,7 @@ Parse the JSON response and format it according to the templates above. If Step 
 If there's an incomplete feature, offer to continue:
 
 > **Ready to continue?**
-> Say "continue" or "/kratos" to resume from Stage [X] with [Agent].
+> Say "continue" or "/kratos:main" to resume from Stage [X] with [Agent].
 
 ---
 
@@ -184,7 +142,7 @@ KRATOS RECALL
 No previous sessions found for this project.
 
 To start a new feature, use:
-  /kratos Build [your feature description]
+  /kratos:main Build [your feature description]
 
 Or for quick tasks:
   /kratos:quick [task description]
@@ -203,7 +161,7 @@ Status: COMPLETED
 Your last feature was successfully completed.
 
 To start a new feature, use:
-  /kratos Build [your feature description]
+  /kratos:main Build [your feature description]
 ```
 
 ### Go Binary Not Available
@@ -228,71 +186,5 @@ Showing current project only.
 ```
 
 ---
-
-## Examples
-
-**User**: `/kratos:recall`
-
-**Response**:
-```
-KRATOS RECALL
-
-Feature: user-authentication
-Stage: 5/9 (SA Spec Review)
-Status: in_progress
-Last active: 2 hours ago
-
-Last Actions:
-- Hephaestus: Created tech-spec.md
-- Nemesis: Approved the PRD
-- Updated status.json
-
-Pipeline:
-[1]OK -> [2]OK -> [3]skip -> [4]OK -> [5]>> -> [6].. -> [7].. -> [8].. -> [9]..
-
-Recommendation: Continue with Stage 5 (Apollo - SA Spec Review)?
-
-Ready to continue? Say "continue" or "/kratos" to resume.
-```
-
----
-
-**User**: `/kratos:recall --global`
-
-**Response**:
-```
-KRATOS RECALL (Global)
-
-Recent sessions across all projects:
-
-1. kratos/memory-recall-system - Stage 5/9 - 2 hours ago
-2. lizard-market/payment-integration - Stage 8/9 - 1 day ago
-3. my-app/user-dashboard - Completed - 3 days ago
-4. api-server/rate-limiting - Stage 2/9 - 5 days ago
-
-Use /kratos:recall in the project directory for details.
-```
-
----
-
-## Implementation
-
-When you receive `/kratos:recall`, execute these steps:
-
-1. **Run the query** (Go binary preferred, status.json fallback):
-```bash
-<kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) 2>/dev/null
-```
-If the binary is unavailable, use Glob to find `.claude/feature/*/status.json` and Read to parse them.
-
-2. **Parse the JSON output**
-
-3. **Check for a session handoff** — Glob/Read `.claude/.Arena/handoff.md`; if it exists and is <7 days old, Read its content for Step 4. Works with or without the binary.
-
-3b. **Check for unfinished plan drafts** — Glob `.claude/.Arena/tactical-plans/*.md`, Read frontmatter, collect any with `status: draft` (<7 days old) and their `## Locked Decisions` count. Works with or without the binary, and is the only recall surface that sees plan-only sessions.
-
-4. **Format and display** according to the templates above, including the handoff content (if found in Step 3) under a `## Session Handoff` heading and any drafts (Step 3b) under `## Unfinished Plans`
-
-5. **Offer continuation** if there's an incomplete feature
 
 **Now execute the recall query and present the results.**

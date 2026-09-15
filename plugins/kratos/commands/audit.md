@@ -24,9 +24,7 @@ Spawn Cassandra and report her findings.
 
 ---
 
-## Execution Modes
-
-Default: **normal**. If eco/power keywords are present (`eco`, `budget`, `cheap` / `power`, `max`, `full-power`), read `<KRATOS_ROOT>/modes/modes.md` for the full model matrix.
+Models: see `<KRATOS_ROOT>/modes/modes.md` (default normal; eco/power keywords switch).
 
 ---
 
@@ -62,7 +60,7 @@ Cover all five areas:
 Output findings severity-rated (CRITICAL / HIGH / MEDIUM / LOW) with file:line references.
 Render the full report in chat — do NOT create any files.
 
-End with a clear verdict: CLEAR / SHIP WITH CAUTION / DO NOT SHIP",
+End with your standard verdict: Clear / Caution / Blocked",
   description: "cassandra - standalone audit"
 )
 ```
@@ -86,9 +84,9 @@ Summoning: Cassandra (Risk Analyst)
 
 Present her findings directly. Then:
 
-- If **CRITICAL** findings: warn that these must be fixed before shipping
-- If **HIGH** findings: recommend addressing before ship
-- If **CLEAR**: confirm the codebase passed risk review
+- Verdict **Blocked** (any CRITICAL finding, or 4+ HIGH): warn that these must be fixed before shipping
+- Verdict **Caution** (1-3 HIGH, or 3+ MEDIUM): recommend addressing the HIGH findings before ship
+- Verdict **Clear**: confirm the codebase passed risk review
 
 ---
 

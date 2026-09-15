@@ -9,11 +9,14 @@
  * so the old wiring ended the session on turn one, deleted the shared state
  * file, and then printed "Kratos: No active session to end" plus the pending
  * spec-delta list on every later turn (9× in one session). SessionEnd is
- * fire-and-forget with a ~1.5 s budget — keep this to two quick CLI calls and
- * print nothing.
+ * fire-and-forget with a 1.5 s budget (hooks.json) — keep this to two quick
+ * CLI calls of 600 ms each and print nothing.
+ *
+ * Kratos calls use spawnSync with an argv array, so the summary text (feature
+ * names, cwd basename) never reaches a shell.
  */
 
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -23,14 +26,19 @@ const KRATOS_HOME = path.join(os.homedir(), '.kratos');
 const DB_PATH = path.join(KRATOS_HOME, 'memory.db');
 const SESSIONS_DIR = path.join(KRATOS_HOME, 'sessions');
 
+// Two calls must fit the 1500 ms SessionEnd budget with node startup — 600 ms each.
+const CALL_TIMEOUT_MS = 600;
+
 function runKratos(kratosCmd, args) {
   try {
-    return execSync(`"${kratosCmd}" ${args}`, {
+    const r = spawnSync(kratosCmd, args, {
       encoding: 'utf-8',
       env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
       stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 1000,
+      timeout: CALL_TIMEOUT_MS,
     });
+    if (r.error || r.status !== 0) return null;
+    return r.stdout;
   } catch (e) {
     return null;
   }
@@ -66,9 +74,10 @@ function findActiveFeature(cwd) {
   return mostRecent;
 }
 
-function escapeShell(str) {
+// Single-line, length-capped summary text (argv-safe; no shell quoting involved).
+function clip(str, max) {
   if (!str) return '';
-  return str.replace(/"/g, '\\"').replace(/\n/g, ' ').substring(0, 500);
+  return String(str).replace(/\r?\n/g, ' ').substring(0, max);
 }
 
 function formatDuration(ms) {
@@ -94,7 +103,7 @@ function endSession(payload) {
   const kratosCmd = resolveBinary();
   if (kratosCmd) {
     let stepsSummary = '';
-    const stepsRaw = runKratos(kratosCmd, `step list "${sessionId}"`);
+    const stepsRaw = runKratos(kratosCmd, ['step', 'list', sessionId]);
     if (stepsRaw) {
       try {
         const steps = JSON.parse(stepsRaw).steps || [];
@@ -110,7 +119,7 @@ function endSession(payload) {
     const feature = findActiveFeature(cwd);
     if (feature) parts.push(`Feature: ${feature.name} (stage ${feature.stage})`);
     parts.push(`ended: ${reason}`);
-    runKratos(kratosCmd, `session end "${sessionId}" "${escapeShell(parts.join('; '))}"`);
+    runKratos(kratosCmd, ['session', 'end', sessionId, clip(parts.join('; '), 500)]);
   }
 
   try {

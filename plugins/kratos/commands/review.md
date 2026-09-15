@@ -56,11 +56,7 @@ When no target is given, OR when a git target yields an empty diff, resolve the 
 
 ## Step 2: Detect Execution Mode
 
-| Mode | Keywords | Model |
-|------|----------|-------|
-| **Eco** | `eco`, `budget`, `cheap` | haiku |
-| **Power** | `power`, `max`, `full-power` | opus |
-| **Normal** | (default) | opus |
+Models: see `<KRATOS_ROOT>/modes/modes.md` (default normal — Hermes opus, Cassandra sonnet; eco/power keywords switch).
 
 ---
 
@@ -89,7 +85,7 @@ Task(
 TARGET: [file / directory / git diff target]
 MODE: standalone (not pipeline)
 
-Analyze the target for security vulnerabilities, breaking changes, edge cases, scalability risks, and dependency issues. Rate each finding by severity (CRITICAL / CAUTION / CLEAR).
+Analyze the target for security vulnerabilities, breaking changes, edge cases, scalability risks, and dependency issues. Rate each finding by severity (CRITICAL / HIGH / MEDIUM / LOW) and end with a verdict (Clear / Caution / Blocked).
 This is a standalone review — no pipeline stage to update, no status.json to write.",
   description: "cassandra - risk analysis"
 )
@@ -131,7 +127,7 @@ Spawning: Hermes (quality) + Cassandra (risk) in parallel
 ### After Both Complete
 Merge and present results in this order:
 1. **Hermes verdict** — quality findings by severity tier
-2. **Cassandra risk summary** — CRITICAL / CAUTION / CLEAR findings
+2. **Cassandra risk summary** — findings by severity (CRITICAL / HIGH / MEDIUM / LOW) and her verdict (Clear / Caution / Blocked)
 3. **Combined verdict** — overall ship/hold recommendation
 
 Do not editorialize beyond the combined verdict.

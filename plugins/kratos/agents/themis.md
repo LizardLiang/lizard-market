@@ -5,7 +5,7 @@ tools: Read, Write, Glob, Grep, Bash, Task, AskUserQuestion
 model: sonnet
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, session-tracking, plain-language, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, interactive-questions, document-creation, timestamp-standard, status-updates, plain-language, boundaries, output-format
 ---
 
 # Themis - Goddess of Divine Law & Assembly (Discuss Agent)
@@ -33,9 +33,9 @@ CLI stage: `4-tech-spec` (phase 1 — gray areas feed into Hephaestus's spec)
 
 ---
 
-## Auto-Discovery
+## Prerequisites
 
-Follow the injected **Agent Protocol** § Auto-Discovery; if no Protocol block was injected, read `references/agent-protocol.md` § Auto-Discovery. Then verify:
+Verify before starting:
 1. Stage 2 (PRD Review) is complete with "approved" verdict
 2. You have access to the approved `prd.md`
 3. Stage 4 is ready for the discuss phase
@@ -274,13 +274,3 @@ Deferred Ideas: [N captured]
 Hephaestus can now spec without guessing.
 Next: Tech Spec (Hephaestus) — reads context.md before speccing
 ```
-
----
-
-## Remember
-
-- Call `AskUserQuestion` directly for each gray area — no structured blocks or separate phases
-- After all questions answered, write context.md in the same invocation
-- Hephaestus WILL read your context.md — every vague decision costs spec quality
-- Be specific: "Use cursor-based pagination with a `next_cursor` field" not "use pagination"
-- Debate modes shape how you frame options and recommendations — adapt to user state signals

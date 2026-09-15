@@ -700,3 +700,40 @@ func hasSeverity(issues []validateIssue, sev string) bool {
 	}
 	return false
 }
+
+// TestSpecBackfillIn_AcceptsAlignmentVerdict covers the status.json shapes the
+// backfill must recognise as aligned: Hera's alignment_verdict (what pipeline
+// update files) and the generic verdict field (older/hand-edited files). A
+// feature with neither is skipped.
+func TestSpecBackfillIn_AcceptsAlignmentVerdict(t *testing.T) {
+	root := t.TempDir()
+	prd := "| FR-001 | Users can log in | P0 |\n"
+	write := func(feature, statusJSON string) {
+		dir := filepath.Join(root, ".claude", "feature", feature)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "status.json"), []byte(statusJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "prd.md"), []byte(prd), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("feat-specific", `{"feature":"feat-specific","pipeline":{"8-prd-alignment":{"status":"complete","alignment_verdict":"aligned"}}}`)
+	write("feat-generic", `{"feature":"feat-generic","pipeline":{"8-prd-alignment":{"status":"complete","verdict":"aligned"}}}`)
+	write("feat-gaps", `{"feature":"feat-gaps","pipeline":{"8-prd-alignment":{"status":"complete","alignment_verdict":"gaps"}}}`)
+
+	summary, err := specBackfillIn(root)
+	if err != nil {
+		t.Fatalf("specBackfillIn: %v", err)
+	}
+	for _, want := range []string{"feat-specific", "feat-generic"} {
+		if _, err := os.Stat(specShardPathIn(root, want)); err != nil {
+			t.Errorf("expected living spec for %s (summary: %s): %v", want, summary, err)
+		}
+	}
+	if _, err := os.Stat(specShardPathIn(root, "feat-gaps")); err == nil {
+		t.Error("feature with verdict gaps must not be backfilled")
+	}
+}

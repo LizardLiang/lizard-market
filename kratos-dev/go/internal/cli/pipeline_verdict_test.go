@@ -80,3 +80,33 @@ func TestPipelineUpdateUpsertsStageAndRoutesVerdicts(t *testing.T) {
 	err = pipelineUpdate("test-feat", "9", "complete", "", "lgtm", "", "")
 	assert.Error(t, err)
 }
+
+// TestApplyStageUpdateMirrorsGenericVerdict checks which stages keep the generic
+// "verdict" field in sync with their stage-specific one. spec backfill and
+// pipeline next read the generic field as a fallback, so 8-prd-alignment must
+// mirror; 9-review must not (Hermes and Cassandra share that stage map).
+func TestApplyStageUpdateMirrorsGenericVerdict(t *testing.T) {
+	cases := []struct {
+		stage, verdict, specific string
+		mirror                   bool
+	}{
+		{"2-prd-review", "approved", "nemesis_verdict", true},
+		{"5-spec-review-sa", "sound", "verdict", true},
+		{"8-prd-alignment", "aligned", "alignment_verdict", true},
+		{"9-review", "approved", "code_review_verdict", false},
+	}
+	for _, c := range cases {
+		statusJSON := map[string]interface{}{
+			"pipeline": map[string]interface{}{},
+			"history":  []interface{}{},
+		}
+		require.NoError(t, applyStageUpdate(statusJSON, c.stage, "complete", "", c.verdict, "", "", now()), c.stage)
+		stage := statusJSON["pipeline"].(map[string]interface{})[c.stage].(map[string]interface{})
+		assert.Equal(t, c.verdict, stage[c.specific], "%s specific field", c.stage)
+		if c.mirror {
+			assert.Equal(t, c.verdict, stage["verdict"], "%s generic verdict mirror", c.stage)
+		} else {
+			assert.Nil(t, stage["verdict"], "%s must not mirror", c.stage)
+		}
+	}
+}

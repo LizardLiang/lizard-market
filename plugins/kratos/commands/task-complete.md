@@ -70,11 +70,7 @@ When the CLI returns `all_complete: true` (status.json stages already advanced w
    )
    ```
 
-    If Hera returns **aligned**, first check for a pending spec delta and offer to archive it (same procedure as Ares Mode — see `<KRATOS_ROOT>/pipeline/stages.md` Stage 8 section: "After Hera Returns: Spec Archive Offer"):
-   ```bash
-   <kratos-bin> spec list --changes
-   ```
-   If this feature has a pending delta, ask the user to confirm archiving before continuing. Then immediately spawn Hermes + Cassandra in parallel (stage 9):
+   If Hera returns **aligned**, first run the spec archive offer in `<KRATOS_ROOT>/commands/spec-archive.md` § "Offer after implementation" (same procedure as Ares Mode). Then immediately spawn Hermes + Cassandra in parallel (stage 9):
    ```
    Task(
      subagent_type: "kratos:hermes",
@@ -178,10 +174,10 @@ All 10 implementation tasks have been marked complete.
 
 Progress: [████████████████████] 100% (10/10 tasks)
 
-Advancing to Stage 9: PRD Alignment Check
+Advancing to Stage 8: PRD Alignment Check
 Summoning: HERA (model: sonnet)
 
-[TASK TOOL INVOCATION FOR HERMES]
+[TASK TOOL INVOCATION FOR HERA — Task(subagent_type: "kratos:hera", ...) per Step 3]
 ```
 
 ### Error: Task Not Found
