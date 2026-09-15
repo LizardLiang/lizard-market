@@ -1,6 +1,6 @@
 # Kratos User Guide
 
-Reference for Kratos v2.110. For installation, see `INSTALL.md`. For the overview and pipeline walkthrough, see `README.md`.
+Reference for Kratos v2.112. For installation, see `INSTALL.md`. For the overview and pipeline walkthrough, see `README.md`.
 
 ---
 
