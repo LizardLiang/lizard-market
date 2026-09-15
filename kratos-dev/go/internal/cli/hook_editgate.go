@@ -321,7 +321,7 @@ func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResu
 		target := strings.TrimSpace(input.ToolInput.SubagentType)
 		res := editGateResult{}
 		if gateResetAgents.MatchString(target) {
-			if len(ledgerStrings(ledger, ledgerKeyEditedFiles)) > 0 {
+			if len(ledgerStrings(ledger)) > 0 {
 				res.Files = []string{}
 			}
 			if god == "odysseus" {
@@ -338,7 +338,7 @@ func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResu
 	}
 
 	// 5. The user told the model to do the work itself.
-	if ledgerBool(ledger, ledgerKeyGateBypass) {
+	if ledgerBool(ledger) {
 		return editGateResult{}
 	}
 
@@ -381,7 +381,15 @@ func odysseusGate(input preToolUseInput, ledger map[string]any) editGateResult {
 			return editGateResult{}
 		}
 		return editGateResult{Decision: "deny", Reason: odysseusWriteDenyReason}
-	case "Bash":
+	case "Bash", "PowerShell":
+		// PowerShell's tool input carries the script under the same "command"
+		// key Bash uses (see subagentStopCmd's transcript scan, which reads
+		// both tools' Command field identically), and the read-only allowlist
+		// above already has PowerShell verbs (Get-ChildItem, Test-Path, …) for
+		// exactly this reason. Routing it through the same classification
+		// closes the hole a PowerShell-only matcher left: hooks.json used to
+		// gate Bash but not PowerShell, so Set-Content/Remove-Item/etc. — all
+		// already in the mutation patterns above — ran ungated.
 		c := input.ToolInput.Command
 		if isReadOnlyKratosCommand(c) || isReadOnlyShellCommand(c) {
 			return editGateResult{}
@@ -414,7 +422,7 @@ func irisGate(input preToolUseInput, ledger map[string]any) editGateResult {
 	}
 
 	norm := normalizeLedgerPath(filePath)
-	files := ledgerStrings(ledger, ledgerKeyEditedFiles)
+	files := ledgerStrings(ledger)
 	for _, f := range files {
 		if normalizeLedgerPath(f) == norm {
 			// Repeat edits to one file are one file.
@@ -606,7 +614,7 @@ func maskQuoted(s string) string {
 		}
 		j := i + 1
 		for j < len(out) && out[j] != q {
-			// Only double quotes honour a backslash escape; inside single
+			// Only double quotes honor a backslash escape; inside single
 			// quotes a backslash is an ordinary character in every shell.
 			if q == '"' && out[j] == '\\' {
 				j += 2
@@ -639,7 +647,7 @@ func survivesDoubleQuotes(b byte) bool {
 	return false
 }
 
-// splitShellSegments cuts a command on the separators a shell honours (`&&`,
+// splitShellSegments cuts a command on the separators a shell honors (`&&`,
 // `||`, `;`, `|`, `&`, and a newline), using the quote mask so a separator
 // inside an argument does not split.
 func splitShellSegments(command string) []shellSegment {

@@ -702,7 +702,7 @@ func hasSeverity(issues []validateIssue, sev string) bool {
 }
 
 // TestSpecBackfillIn_AcceptsAlignmentVerdict covers the status.json shapes the
-// backfill must recognise as aligned: Hera's alignment_verdict (what pipeline
+// backfill must recognize as aligned: Hera's alignment_verdict (what pipeline
 // update files) and the generic verdict field (older/hand-edited files). A
 // feature with neither is skipped.
 func TestSpecBackfillIn_AcceptsAlignmentVerdict(t *testing.T) {

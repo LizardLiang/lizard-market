@@ -117,18 +117,23 @@ func ledgerString(m map[string]any, key string) string {
 	return ""
 }
 
-// ledgerBool reads a bool key, false when absent or of another type.
-func ledgerBool(m map[string]any, key string) bool {
-	if b, ok := m[key].(bool); ok {
+// ledgerBool reads the gate_bypass key, false when absent or of another type.
+// The key is fixed rather than a parameter: every caller passes
+// ledgerKeyGateBypass, and a parameter no call site varies is dead
+// flexibility (unparam).
+func ledgerBool(m map[string]any) bool {
+	if b, ok := m[ledgerKeyGateBypass].(bool); ok {
 		return b
 	}
 	return false
 }
 
-// ledgerStrings reads a string-array key, dropping non-string members. JSON
-// round-trips arrays as []any, so both shapes are accepted.
-func ledgerStrings(m map[string]any, key string) []string {
-	switch v := m[key].(type) {
+// ledgerStrings reads the inline_edited_files key, dropping non-string
+// members. JSON round-trips arrays as []any, so both shapes are accepted.
+// The key is fixed rather than a parameter: every caller passes
+// ledgerKeyEditedFiles (see ledgerBool).
+func ledgerStrings(m map[string]any) []string {
+	switch v := m[ledgerKeyEditedFiles].(type) {
 	case []string:
 		return v
 	case []any:

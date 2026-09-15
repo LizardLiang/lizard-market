@@ -193,6 +193,33 @@ func TestEditGateDecisions(t *testing.T) {
 			payload: odysseusPayload("Bash", map[string]any{"command": "git status"}),
 			want:    "",
 		},
+		// ---- PowerShell: same classification as Bash, not a separate hole ----
+		{
+			name:    "PowerShell read-only Get-Content allowed",
+			payload: odysseusPayload("PowerShell", map[string]any{"command": "Get-Content main.go"}),
+			want:    "",
+		},
+		{
+			name:    "PowerShell read-only Test-Path allowed",
+			payload: odysseusPayload("PowerShell", map[string]any{"command": "Test-Path build"}),
+			want:    "",
+		},
+		{
+			name:           "PowerShell Remove-Item denied",
+			payload:        odysseusPayload("PowerShell", map[string]any{"command": "Remove-Item -Recurse -Force build"}),
+			want:           "deny",
+			reasonContains: []string{"read-only inspection"},
+		},
+		{
+			name:    "PowerShell Set-Content denied",
+			payload: odysseusPayload("PowerShell", map[string]any{"command": "Set-Content -Path out.txt -Value 'x'"}),
+			want:    "deny",
+		},
+		{
+			name:    "PowerShell Move-Item denied",
+			payload: odysseusPayload("PowerShell", map[string]any{"command": "Move-Item a.txt b.txt"}),
+			want:    "deny",
+		},
 		{
 			name:    "non-odysseus agents unaffected",
 			payload: payloadJSON(map[string]any{"agent_type": "kratos:ares", "tool_name": "Write", "tool_input": map[string]any{"file_path": "src/index.ts"}}),
@@ -407,7 +434,7 @@ func TestEditGateDecisions(t *testing.T) {
 		},
 		{
 			// A top-level subagent_type is NOT part of a spawned payload
-			// (agent_type/agent_id are). Honouring it would let anything that
+			// (agent_type/agent_id are). Honoring it would let anything that
 			// sets the key opt out of the gate, so the inline rule still runs.
 			name: "top-level subagent_type is not a spawn marker",
 			payload: payloadJSON(map[string]any{
@@ -734,7 +761,7 @@ func TestEditGateWritesLedger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read ledger: %v", err)
 	}
-	files := ledgerStrings(m, ledgerKeyEditedFiles)
+	files := ledgerStrings(m)
 	if len(files) != 2 {
 		t.Fatalf("inline_edited_files = %v, want 2 entries", files)
 	}
@@ -773,8 +800,8 @@ func TestHooksJSONRegistersEditGate(t *testing.T) {
 	if !strings.Contains(body, "hook edit-gate") {
 		t.Error("hooks.json does not register `hook edit-gate`")
 	}
-	if !strings.Contains(body, `"Write|Edit|MultiEdit|NotebookEdit|Bash|Agent|Task"`) {
-		t.Error("edit-gate matcher must cover Write|Edit|MultiEdit|NotebookEdit|Bash|Agent|Task")
+	if !strings.Contains(body, `"Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task"`) {
+		t.Error("edit-gate matcher must cover Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task")
 	}
 	if strings.Contains(body, "plan-mode-guard") {
 		t.Error("hooks.json still references the retired plan-mode-guard.cjs")
@@ -1087,7 +1114,7 @@ func TestLaunchCjsDropsStaleBinaryHelp(t *testing.T) {
 	if err != nil {
 		t.Skip("node not available")
 	}
-	const groupHelp = "Hook handlers for Claude Code events\n\nUsage:\n  kratos hook [command]\n\nAvailable Commands:\n  fix-pm      Rewrite npm\n"
+	const groupHelp = "Hook handlers for Claude Code events\n\nUsage:\n  kratos hook [command]\n\nAvailable Commands:\n  edit-gate   Handle PreToolUse\n"
 	const unknown = "Error: unknown command \"edit-gate\" for \"kratos hook\"\n"
 	const realOutput = "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"}}\n"
 	fixture, err := json.Marshal([]string{groupHelp, unknown, realOutput, "", "Usage: kratos hook\n"})

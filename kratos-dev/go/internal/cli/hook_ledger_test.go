@@ -95,13 +95,13 @@ func TestPromptSubmitRecordsInlineGod(t *testing.T) {
 		recordInlineGod(testLedgerSession, "C:/repo", irisBody)
 
 		m := mustReadLedger(t)
-		if ledgerBool(m, ledgerKeyGateBypass) {
+		if ledgerBool(m) {
 			t.Error("gate_bypass set from a launcher body")
 		}
 		if got := ledgerString(m, ledgerKeyInlineSince); got != oldStamp {
 			t.Errorf("inline_god_since = %q, want it unchanged for the same god", got)
 		}
-		if got := ledgerStrings(m, ledgerKeyEditedFiles); len(got) != 2 {
+		if got := ledgerStrings(m); len(got) != 2 {
 			t.Errorf("relaunching the same god refilled the budget: %v", got)
 		}
 	})
@@ -120,7 +120,7 @@ func TestPromptSubmitRecordsInlineGod(t *testing.T) {
 		if got := ledgerString(m, ledgerKeyInlineSince); got == oldStamp {
 			t.Error("inline_god_since not refreshed on a god change")
 		}
-		if got := ledgerStrings(m, ledgerKeyEditedFiles); len(got) != 0 {
+		if got := ledgerStrings(m); len(got) != 0 {
 			t.Errorf("inline_edited_files = %v, want empty on a god change", got)
 		}
 	})
@@ -165,10 +165,10 @@ func TestPromptSubmitRecordsInlineGod(t *testing.T) {
 		recordInlineGod(testLedgerSession, "C:/repo", "now fix the other thing too")
 
 		m := mustReadLedger(t)
-		if got := ledgerStrings(m, ledgerKeyEditedFiles); len(got) != 0 {
+		if got := ledgerStrings(m); len(got) != 0 {
 			t.Errorf("inline_edited_files = %v, want empty on a new turn", got)
 		}
-		if ledgerBool(m, ledgerKeyGateBypass) {
+		if ledgerBool(m) {
 			t.Error("gate_bypass survived a turn that did not ask for it")
 		}
 	})
@@ -179,7 +179,7 @@ func TestPromptSubmitRecordsInlineGod(t *testing.T) {
 
 		recordInlineGod(testLedgerSession, "C:/repo", "you do the html part")
 
-		if !ledgerBool(mustReadLedger(t), ledgerKeyGateBypass) {
+		if !ledgerBool(mustReadLedger(t)) {
 			t.Error("gate_bypass not set from an explicit instruction")
 		}
 	})
@@ -190,7 +190,7 @@ func TestPromptSubmitRecordsInlineGod(t *testing.T) {
 
 		recordInlineGod(testLedgerSession, "C:/repo", "the inline gate is broken, look into it")
 
-		if ledgerBool(mustReadLedger(t), ledgerKeyGateBypass) {
+		if ledgerBool(mustReadLedger(t)) {
 			t.Error("a bare mention of 'inline' granted a bypass")
 		}
 	})
@@ -202,10 +202,10 @@ func TestPromptSubmitRecordsInlineGod(t *testing.T) {
 		recordInlineGod(testLedgerSession, "C:/repo", "<task-notification>\n<task-id>abc</task-id>\nyou do not touch this\n</task-notification>")
 
 		m := mustReadLedger(t)
-		if got := ledgerStrings(m, ledgerKeyEditedFiles); len(got) != 2 {
+		if got := ledgerStrings(m); len(got) != 2 {
 			t.Errorf("inline_edited_files = %v, want unchanged by a harness notification", got)
 		}
-		if !ledgerBool(m, ledgerKeyGateBypass) {
+		if !ledgerBool(m) {
 			t.Error("a harness notification cleared the user's bypass")
 		}
 	})
@@ -284,10 +284,10 @@ func TestPromptSubmitRecordsInlineGod(t *testing.T) {
 		recordInlineGod(testLedgerSession, "C:/repo", "<br> renders wrong in the header, fix it")
 
 		m := mustReadLedger(t)
-		if got := ledgerStrings(m, ledgerKeyEditedFiles); len(got) != 0 {
+		if got := ledgerStrings(m); len(got) != 0 {
 			t.Errorf("inline_edited_files = %v, want empty on a user turn", got)
 		}
-		if ledgerBool(m, ledgerKeyGateBypass) {
+		if ledgerBool(m) {
 			t.Error("gate_bypass survived a user turn that did not ask for it")
 		}
 	})

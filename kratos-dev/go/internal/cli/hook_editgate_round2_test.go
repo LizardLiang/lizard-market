@@ -20,7 +20,7 @@ type gateShellCase struct {
 // every shape that reached the shell while the classifier called the line a
 // read. Three of them were live holes in the shipped gate (process
 // substitution, backslash-escaped quotes, unspaced redirects); the rest are the
-// neighbours of those holes, kept here so narrowing the classifier again cannot
+// neighbors of those holes, kept here so narrowing the classifier again cannot
 // quietly re-open one.
 var gateDenyCommands = []gateShellCase{
 	// ---- B1: process substitution, invisible to a `$(`-only pattern ----
@@ -343,7 +343,7 @@ func TestDenyReasonCannotStandTheGateDown(t *testing.T) {
 func TestDocsCannotStandTheGateDown(t *testing.T) {
 	pluginDir := filepath.Join("..", "..", "..", "..", "plugins", "kratos")
 	for _, rel := range []string{
-		filepath.Join("README.md"),
+		"README.md",
 		filepath.Join("hooks", "README.md"),
 		filepath.Join("agents", "iris.md"),
 		filepath.Join("agents", "odysseus.md"),

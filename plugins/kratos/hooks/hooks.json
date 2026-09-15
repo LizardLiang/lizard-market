@@ -50,21 +50,11 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|Agent|Task",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task",
         "hooks": [
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook edit-gate",
-            "timeout": 3000
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook fix-pm",
             "timeout": 3000
           }
         ]
