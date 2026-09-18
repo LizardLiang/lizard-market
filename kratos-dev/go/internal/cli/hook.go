@@ -1421,6 +1421,11 @@ func outputSubagentBlock(reason string) error {
 type gateBlockState struct {
 	AgentID    string `json:"agent_id"`
 	BlockCount int    `json:"block_count"`
+	// Progress is a gate-defined measure of forward motion since the last
+	// denial (the handback gate uses the count of finished children). Zero
+	// value for every gate that does not set it, so it is safely ignored by
+	// the rest of this file's gates.
+	Progress int `json:"progress,omitempty"`
 }
 
 // gateMaxBlocks bounds every content gate below at the same cap handleHermesStop already uses
