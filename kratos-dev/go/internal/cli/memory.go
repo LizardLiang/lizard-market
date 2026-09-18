@@ -157,11 +157,15 @@ func parseSince(s string) (time.Duration, error) {
 	return time.Duration(n * float64(unit)), nil
 }
 
+// rulesCaptureLimit bounds the extra "rules" list --with-rules attaches: a
+// standing order is rare, so 20 covers the real store with room to spare.
+const rulesCaptureLimit = 20
+
 // MemoryListCmd lists user memories
 func MemoryListCmd() *cobra.Command {
 	var category, project, since string
 	var limit int
-	var idsOnly bool
+	var idsOnly, withRules bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -170,7 +174,13 @@ func MemoryListCmd() *cobra.Command {
 
 Without flags every row is returned. Callers that only need to dedupe or to
 inject a few facts should pass --limit (and --project) so the output stays
-small; "total" in the result reports how many rows matched before the limit.`,
+small; "total" in the result reports how many rows matched before the limit.
+
+--with-rules adds a "rules" key: every category=rule row, newest first,
+capped at 20, across every project, ignoring --limit/--category/--project/
+--since on the main list. A caller that injects a standing-rule tier can
+make one call instead of two, and a rule older than the main list's --limit
+window still comes back.`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			conn, err := db.GetConnection()
@@ -217,13 +227,21 @@ small; "total" in the result reports how many rows matched before the limit.`,
 				})
 			}
 
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]interface{}{
+			result := map[string]interface{}{
 				"category": category,
 				"project":  opts.Project,
 				"memories": memories,
 				"count":    len(memories),
 				"total":    total,
-			})
+			}
+			if withRules {
+				rules, err := db.ListMemoriesOpts(conn, db.MemoryListOpts{Category: "rule", Limit: rulesCaptureLimit})
+				if err != nil {
+					return err
+				}
+				result["rules"] = rules
+			}
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(result)
 		},
 	}
 
@@ -232,6 +250,7 @@ small; "total" in the result reports how many rows matched before the limit.`,
 	cmd.Flags().StringVar(&since, "since", "", "Only memories newer than this age: 7d, 36h, 30m, or days as a number")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Return at most N memories (0 = all)")
 	cmd.Flags().BoolVar(&idsOnly, "ids-only", false, "Return only ids (for dedupe checks)")
+	cmd.Flags().BoolVar(&withRules, "with-rules", false, "Add a \"rules\" key: every category=rule row, newest first, capped at 20, across every project")
 	return cmd
 }
 

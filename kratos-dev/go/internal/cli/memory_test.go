@@ -185,6 +185,58 @@ func TestMemoryAddAcceptsRuleCategory(t *testing.T) {
 	assert.Equal(t, "never touch his credentials", first["text"])
 }
 
+// TestMemoryListWithRulesFlag covers `--with-rules`: the JSON output gains a
+// "rules" key holding every category=rule row, newest first, regardless of
+// the main list's --limit. Without the flag the "rules" key is absent.
+func TestMemoryListWithRulesFlag(t *testing.T) {
+	setupMemoryTestDB(t)
+
+	add := func(text, category string) {
+		cmd := MemoryAddCmd()
+		cmd.SetArgs([]string{text, "--category", category})
+		var out bytes.Buffer
+		cmd.SetOut(&out)
+		require.NoError(t, cmd.Execute())
+	}
+
+	// The rule is saved first, so it is older than the 3 facts that follow —
+	// a --limit 2 main list would otherwise push it out of the window.
+	add("old rule predates the window", "rule")
+	add("uses lizmeter tickets as the system of record", "context")
+	add("runs stock checks mid-session before the close", "context")
+	add("diagram cards drop the outer container when named", "context")
+
+	withoutFlag := MemoryListCmd()
+	withoutFlag.SetArgs([]string{"--limit", "2"})
+	var out bytes.Buffer
+	withoutFlag.SetOut(&out)
+	require.NoError(t, withoutFlag.Execute())
+	var result map[string]interface{}
+	require.NoError(t, json.Unmarshal(out.Bytes(), &result))
+	_, hasRules := result["rules"]
+	assert.False(t, hasRules, "rules key must be absent without --with-rules")
+
+	withFlag := MemoryListCmd()
+	withFlag.SetArgs([]string{"--limit", "2", "--with-rules"})
+	var out2 bytes.Buffer
+	withFlag.SetOut(&out2)
+	require.NoError(t, withFlag.Execute())
+	var result2 map[string]interface{}
+	require.NoError(t, json.Unmarshal(out2.Bytes(), &result2))
+
+	rulesRaw, ok := result2["rules"]
+	require.True(t, ok, "rules key must be present with --with-rules")
+	rules := rulesRaw.([]interface{})
+	require.Len(t, rules, 1, "rules must hold only the category=rule row")
+	first := rules[0].(map[string]interface{})
+	assert.Equal(t, "old rule predates the window", first["text"])
+	assert.Equal(t, "rule", first["category"])
+
+	// The main list is unaffected: still capped at --limit 2.
+	memories := result2["memories"].([]interface{})
+	assert.Len(t, memories, 2)
+}
+
 func TestMemoryRemoveNonExistentID(t *testing.T) {
 	setupMemoryTestDB(t)
 

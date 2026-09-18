@@ -16,8 +16,8 @@
  *
  * Budget: hooks.json gives SessionStart 5 s (5000 ms). Every spawn below carries a
  * timeout and the serial sum stays under ~4000 ms (version 800 + memory list
- * 1300 + rule list 400 + init 500 + session start 800); the plugin-bin → ~/.kratos/bin
- * copy runs last so it can never starve the calls. Every kratos call uses spawnSync
+ * 1500 + init 500 + session start 800); the plugin-bin → ~/.kratos/bin copy
+ * runs last so it can never starve the calls. Every kratos call uses spawnSync
  * with an argv array — payload text never reaches a shell.
  */
 
@@ -70,8 +70,7 @@ const findKratosBinary = resolveBinary;
 // Per-call budgets (ms). Serial sum must stay under the 5 s (5000 ms) hook timeout
 // with room for node startup.
 const VERSION_TIMEOUT_MS = 800;
-const MEMORY_LIST_TIMEOUT_MS = 1300;
-const RULE_LIST_TIMEOUT_MS = 400; // small category-filtered slice, so a short budget is enough
+const MEMORY_LIST_TIMEOUT_MS = 1500;
 const INIT_TIMEOUT_MS = 500;
 const SESSION_START_TIMEOUT_MS = 800;
 
@@ -241,17 +240,20 @@ function buildMemoryReport(data, ruleMemories, cwd) {
 // Stored user memories — read-side of the memory sweep. The old newest-15-
 // of-everything injection put the same list in every project and 0-2 of 15
 // items were relevant (2026-09); buildMemoryReport ranks the newest-80
-// window for THIS project. A second, category-filtered capture protects
-// standing rules from that window: a project with many scoped facts fills
-// every slot with them, and a rule saved weeks ago would otherwise never
-// surface (2026-09 review: memory #345 "never touch his credentials"
-// appeared in 0 of 8 sessions where it mattered).
+// window for THIS project. The `--with-rules` flag on the same call adds
+// the standing-rule tier: a project with many scoped facts fills every
+// slot with them, and a rule saved weeks ago would otherwise never surface.
 //
 // A failed list with an existing DB returns one "memory unavailable" line
 // instead of nothing: silent null hid a broken binary for weeks (2026-09).
-// A failed or empty rule capture fails open — the ordinary facts still show.
+// An older binary that predates --with-rules fails fast on the unknown
+// flag; the retry below drops it and shows the ordinary facts with no
+// rules tier, so one old binary in the field cannot lose the whole list.
 function formatMemories(cwd) {
-  const { out, err } = runKratosCapture(["memory", "list", "--limit", "80"], MEMORY_LIST_TIMEOUT_MS);
+  let { out, err } = runKratosCapture(["memory", "list", "--limit", "80", "--with-rules"], MEMORY_LIST_TIMEOUT_MS);
+  if (!out && /unknown flag/i.test(err || "")) {
+    ({ out, err } = runKratosCapture(["memory", "list", "--limit", "80"], MEMORY_LIST_TIMEOUT_MS));
+  }
   const unavailable = (reason) => (fs.existsSync(DB_PATH) ? `Kratos: memory unavailable (${reason})` : null);
   if (!out) return unavailable(err || "no output");
   let data;
@@ -261,19 +263,8 @@ function formatMemories(cwd) {
     return unavailable(err || "unreadable output");
   }
 
-  let ruleMemories = [];
-  const ruleResult = runKratosCapture(["memory", "list", "--category", "rule", "--limit", "20"], RULE_LIST_TIMEOUT_MS);
-  if (ruleResult.out) {
-    try {
-      const ruleData = JSON.parse(ruleResult.out);
-      if (Array.isArray(ruleData.memories)) ruleMemories = ruleData.memories;
-    } catch (e) {
-      // fail open — no rules shown this session, ordinary facts still do
-    }
-  }
-
   try {
-    return buildMemoryReport(data, ruleMemories, cwd);
+    return buildMemoryReport(data, data.rules || [], cwd);
   } catch (e) {
     return null;
   }
