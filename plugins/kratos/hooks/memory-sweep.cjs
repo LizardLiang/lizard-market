@@ -132,11 +132,19 @@ function countMessages(text) {
 }
 
 // True for user-role lines the harness generated on the human's behalf.
+// `[SYSTEM NOTIFICATION`, `<agent-message`, and the hand-back wrapper text
+// are the same markers hook_route.go's isHarnessPseudoPrompt checks (Claude
+// Code 2.1.276 started prepending the preamble to a bare <task-notification>,
+// and a subagent hand-back opens with the wrapper before its own
+// <agent-message> tag) — without them here, both counted as human turns.
 function isSystemPrompt(line) {
   return line.includes('<task-notification>')
     || line.includes('"kind":"task-notification"')
     || line.includes('"promptSource":"system"')
-    || line.includes('<local-command-caveat>');
+    || line.includes('<local-command-caveat>')
+    || line.includes('[SYSTEM NOTIFICATION')
+    || line.includes('<agent-message')
+    || line.includes('Another Claude session sent a message');
 }
 
 // Returns the sweep instruction, or null when the protocol file is missing
@@ -169,82 +177,90 @@ function quietSweep(instruction) {
   }));
 }
 
-let raw = '';
-process.stdin.setEncoding('utf-8');
-process.stdin.on('data', (chunk) => raw += chunk);
-process.stdin.on('end', () => {
-  if (!raw.trim()) return;
+// Only read stdin when run as a hook. Required as a module (the node-exec
+// test pattern session_start_memory_test.go established), this file exposes
+// countMessages/isSystemPrompt so a test can drive the counting logic with
+// fixture transcript text instead of a real Stop payload and transcript file.
+if (require.main === module) {
+  let raw = '';
+  process.stdin.setEncoding('utf-8');
+  process.stdin.on('data', (chunk) => raw += chunk);
+  process.stdin.on('end', () => {
+    if (!raw.trim()) return;
 
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch (e) {
-    return;
-  }
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      return;
+    }
 
-  // Loop guard: never re-emit on a Stop that already fired because of us.
-  if (data.stop_hook_active === true) return;
+    // Loop guard: never re-emit on a Stop that already fired because of us.
+    if (data.stop_hook_active === true) return;
 
-  // Opt-out.
-  if (process.env.KRATOS_MEMORY_SWEEP === 'off') return;
+    // Opt-out.
+    if (process.env.KRATOS_MEMORY_SWEEP === 'off') return;
 
-  const sessionId = data.session_id;
-  const transcriptPath = data.transcript_path;
-  if (!sessionId || !transcriptPath) return;
+    const sessionId = data.session_id;
+    const transcriptPath = data.transcript_path;
+    if (!sessionId || !transcriptPath) return;
 
-  let size;
-  try {
-    size = fs.statSync(transcriptPath).size;
-  } catch (e) {
-    return; // fail open
-  }
+    let size;
+    try {
+      size = fs.statSync(transcriptPath).size;
+    } catch (e) {
+      return; // fail open
+    }
 
-  const marker = readMarker(sessionId, size);
-  const tail = readTail(transcriptPath, marker.offset);
-  if (tail === null) return;
+    const marker = readMarker(sessionId, size);
+    const tail = readTail(transcriptPath, marker.offset);
+    if (tail === null) return;
 
-  const counts = countMessages(tail.text);
-  marker.offset = tail.size;
-  marker.human += counts.human;
-  marker.assistant += counts.assistant;
+    const counts = countMessages(tail.text);
+    marker.offset = tail.size;
+    marker.human += counts.human;
+    marker.assistant += counts.assistant;
 
-  // An inline sweep ran in this stretch (Iris mission, /kratos:wrap): the
-  // counters restart from here.
-  if (tail.text.includes('IRIS COMPLETE') || tail.text.includes('KRATOS WRAP COMPLETE')) {
+    // An inline sweep ran in this stretch (Iris mission, /kratos:wrap): the
+    // counters restart from here.
+    if (tail.text.includes('IRIS COMPLETE') || tail.text.includes('KRATOS WRAP COMPLETE')) {
+      marker.human = 0;
+      marker.assistant = 0;
+    }
+
+    const armed = marker.human >= MIN_HUMAN_MESSAGES
+      && marker.assistant >= MIN_ASSISTANT_TURNS
+      && marker.sweeps < MAX_SWEEPS_PER_SESSION;
+
+    if (!armed) {
+      try { writeMarker(sessionId, marker); } catch (e) { /* fail open */ }
+      return;
+    }
+
+    const kratosBin = resolveBinary();
+    const instruction = kratosBin ? buildInstruction(kratosBin, data.cwd) : null;
+    if (!instruction) {
+      try { writeMarker(sessionId, marker); } catch (e) { /* fail open */ }
+      return;
+    }
+
     marker.human = 0;
     marker.assistant = 0;
-  }
+    marker.sweeps += 1;
+    try {
+      writeMarker(sessionId, marker);
+    } catch (e) {
+      // If we can't persist the marker, don't risk an unguarded repeat emission.
+      return;
+    }
+    pruneOldMarkers();
 
-  const armed = marker.human >= MIN_HUMAN_MESSAGES
-    && marker.assistant >= MIN_ASSISTANT_TURNS
-    && marker.sweeps < MAX_SWEEPS_PER_SESSION;
+    quietSweep(instruction);
+  });
 
-  if (!armed) {
-    try { writeMarker(sessionId, marker); } catch (e) { /* fail open */ }
-    return;
-  }
-
-  const kratosBin = resolveBinary();
-  const instruction = kratosBin ? buildInstruction(kratosBin, data.cwd) : null;
-  if (!instruction) {
-    try { writeMarker(sessionId, marker); } catch (e) { /* fail open */ }
-    return;
-  }
-
-  marker.human = 0;
-  marker.assistant = 0;
-  marker.sweeps += 1;
-  try {
-    writeMarker(sessionId, marker);
-  } catch (e) {
-    // If we can't persist the marker, don't risk an unguarded repeat emission.
-    return;
-  }
-  pruneOldMarkers();
-
-  quietSweep(instruction);
-});
-
-setTimeout(() => {
-  if (!raw) process.exit(0);
-}, 100);
+  setTimeout(() => {
+    if (!raw) process.exit(0);
+  }, 100);
+} else {
+  module.exports = { countMessages, isSystemPrompt };
+}
