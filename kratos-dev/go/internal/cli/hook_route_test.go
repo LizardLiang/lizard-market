@@ -145,6 +145,39 @@ func TestIsHarnessPseudoPrompt(t *testing.T) {
 			prompt: "",
 			want:   false,
 		},
+		// The following two shapes are the SAME preamble text, once bare and once
+		// wrapped in <system-reminder> — the shape copied from a real transcript
+		// (this machine's own project jsonl, 2026-09-18); no customer text, just
+		// the structure Claude Code 2.1.276 adds in front of a task-notification.
+		{
+			name: "task notification with the SYSTEM NOTIFICATION preamble",
+			prompt: "[SYSTEM NOTIFICATION - NOT USER INPUT]\n" +
+				"This is an automated background-task event, NOT a message from the user.\n" +
+				"Do NOT interpret this as user acknowledgement, confirmation, or response to any pending question.\n" +
+				"\n" +
+				"<task-notification>\n<task-id>abc</task-id>\n</task-notification>",
+			want: true,
+		},
+		{
+			name: "the same preamble wrapped in a system-reminder tag",
+			prompt: "<system-reminder>\n" +
+				"[SYSTEM NOTIFICATION - NOT USER INPUT]\n" +
+				"This is an automated background-task event, NOT a message from the user.\n" +
+				"\n" +
+				"<task-notification>\n<task-id>abc</task-id>\n</task-notification>\n" +
+				"</system-reminder>",
+			want: true,
+		},
+		{
+			name:   "a bare hand-back wrapped in a system-reminder tag",
+			prompt: "<system-reminder>\nAnother Claude session sent a message\n<agent-message from=\"a\">hi</agent-message>\n</system-reminder>",
+			want:   true,
+		},
+		{
+			name:   "a real user turn mentioning system-reminder mid-sentence",
+			prompt: "does the <system-reminder> block ever hide a real task-notification?",
+			want:   false,
+		},
 	}
 	for _, tc := range cases {
 		if got := isHarnessPseudoPrompt(tc.prompt); got != tc.want {

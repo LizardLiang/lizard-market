@@ -35,21 +35,36 @@ func isExpandedLauncherBody(prompt string) bool {
 
 // harnessPseudoPromptRE matches a UserPromptSubmit payload that is a harness
 // event rather than user text: Claude Code's own <task-notification> (posted
-// when a spawned subagent finishes), and a subagent hand-back, which arrives
-// as "Another Claude session sent a message" followed by an
-// <agent-message from="..."> block carrying the report body. Anchored to the
-// start of the (trimmed) prompt — a real user turn that merely mentions
-// "another Claude session" mid-sentence must still count as a user turn.
-var harnessPseudoPromptRE = regexp.MustCompile(`(?i)^(?:<task-notification|<agent-message|Another Claude session sent a message)`)
+// when a spawned subagent finishes) — bare, or opening with the
+// "[SYSTEM NOTIFICATION" preamble Claude Code 2.1.276 started prepending to
+// it (measured on this machine: 704 bare, 49 with the preamble) — and a
+// subagent hand-back, which arrives as "Another Claude session sent a
+// message" followed by an <agent-message from="..."> block carrying the
+// report body. Anchored to the start of the (trimmed) prompt — a real user
+// turn that merely mentions "another Claude session" mid-sentence must still
+// count as a user turn.
+var harnessPseudoPromptRE = regexp.MustCompile(`(?i)^(?:\[SYSTEM NOTIFICATION|<task-notification|<agent-message|Another Claude session sent a message)`)
+
+// harnessSystemReminderWrapperRE strips a leading <system-reminder> tag: the
+// harness wraps a task-notification or hand-back in one before it reaches the
+// model, and harnessPseudoPromptRE must see the same marker whether or not
+// the wrapper is present. Anchored, same reasoning as harnessPseudoPromptRE
+// itself — a real user turn that opens by quoting the tag is not stripped.
+var harnessSystemReminderWrapperRE = regexp.MustCompile(`(?is)^<system-reminder>\s*`)
 
 // isHarnessPseudoPrompt reports whether prompt is a harness event, not
 // something the user typed. A hand-back's own report body is model output: it
 // must not refill the inline edit-gate's file budget, grant or clear
 // gate_bypass (gateBypassRE would otherwise run against a report line opening
 // with "you do …"), or reach keyword detection (a report naming "ares,
-// hermes" fired the Kratos keyword injection in the 2026-09-18 review).
+// hermes" fired the Kratos keyword injection in the 2026-09-18 review). Before
+// the preamble and wrapper fixes, a harness event misread as a user turn did
+// exactly that — the default shape of a task-notification on Claude Code
+// 2.1.276.
 func isHarnessPseudoPrompt(prompt string) bool {
-	return harnessPseudoPromptRE.MatchString(strings.TrimSpace(prompt))
+	p := strings.TrimSpace(prompt)
+	p = harnessSystemReminderWrapperRE.ReplaceAllString(p, "")
+	return harnessPseudoPromptRE.MatchString(strings.TrimSpace(p))
 }
 
 // slashGodRE matches the launcher invocation as the user types it.

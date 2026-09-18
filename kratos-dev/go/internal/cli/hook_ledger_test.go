@@ -210,6 +210,44 @@ func TestPromptSubmitRecordsInlineGod(t *testing.T) {
 		}
 	})
 
+	t.Run("a task notification with the SYSTEM NOTIFICATION preamble is not a user turn", func(t *testing.T) {
+		setHomeEnv(t, t.TempDir())
+		seedLedger(t, map[string]any{"inline_god": "iris", "inline_edited_files": []any{"a.ts", "b.ts"}, "gate_bypass": true})
+
+		recordInlineGod(testLedgerSession, "C:/repo", "[SYSTEM NOTIFICATION - NOT USER INPUT]\n"+
+			"This is an automated background-task event, NOT a message from the user.\n"+
+			"\n"+
+			"<task-notification>\n<task-id>abc</task-id>\nyou do not touch this\n</task-notification>")
+
+		m := mustReadLedger(t)
+		if got := ledgerStrings(m); len(got) != 2 {
+			t.Errorf("inline_edited_files = %v, want unchanged by a preamble-wrapped notification", got)
+		}
+		if !ledgerBool(m) {
+			t.Error("a preamble-wrapped notification cleared the user's bypass")
+		}
+	})
+
+	t.Run("the same preamble wrapped in a system-reminder tag is not a user turn", func(t *testing.T) {
+		setHomeEnv(t, t.TempDir())
+		seedLedger(t, map[string]any{"inline_god": "iris", "inline_edited_files": []any{"a.ts", "b.ts"}, "gate_bypass": true})
+
+		recordInlineGod(testLedgerSession, "C:/repo", "<system-reminder>\n"+
+			"[SYSTEM NOTIFICATION - NOT USER INPUT]\n"+
+			"This is an automated background-task event, NOT a message from the user.\n"+
+			"\n"+
+			"<task-notification>\n<task-id>abc</task-id>\nyou do not touch this\n</task-notification>\n"+
+			"</system-reminder>")
+
+		m := mustReadLedger(t)
+		if got := ledgerStrings(m); len(got) != 2 {
+			t.Errorf("inline_edited_files = %v, want unchanged by a system-reminder-wrapped notification", got)
+		}
+		if !ledgerBool(m) {
+			t.Error("a system-reminder-wrapped notification cleared the user's bypass")
+		}
+	})
+
 	t.Run("a hand-back does not refill a spent budget", func(t *testing.T) {
 		setHomeEnv(t, t.TempDir())
 		seedLedger(t, map[string]any{"inline_god": "iris", "inline_edited_files": []any{"a.ts", "b.ts"}, "gate_bypass": false})
