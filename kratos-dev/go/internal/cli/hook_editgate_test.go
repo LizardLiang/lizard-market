@@ -71,7 +71,8 @@ func TestEditGateDecisions(t *testing.T) {
 		want           string   // "deny", "ask", or "" for no decision (permitted or fail open)
 		wantFiles      []string // expected inline_edited_files write, nil for no write
 		wantWrite      bool
-		wantClear      bool // expected inline_god clear
+		wantClear      bool   // expected inline_god clear
+		wantSetGod     string // expected god a Skill load bound, "" for none
 		reasonContains []string
 	}{
 		// ---- Odysseus writes (spawned — ported from hook_planguard_test.go) ----
@@ -778,6 +779,46 @@ sqlcmd -S "$SRV" -d "$DB" -U "$UID_" -P "$PW" -C -l 30 -W -i "$TMPDIR/verify.sql
 			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "kratos pipeline get --compact --feature x"}}),
 			want:    "",
 		},
+		// ---- skill load arms the gate (Fix 4) ----
+		{
+			name:       "skill load addresses iris by name",
+			payload:    payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Skill", "tool_input": map[string]any{"skill": "kratos:iris"}}),
+			ledger:     map[string]any{"session_id": "sess-1", "cwd": "C:/repo"},
+			want:       "",
+			wantSetGod: "iris",
+		},
+		{
+			// kratos:plan resolves through inlineGodAliases to odysseus, same as
+			// the slash-command route.
+			name:       "skill load for plan resolves to odysseus",
+			payload:    payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Skill", "tool_input": map[string]any{"skill": "kratos:plan"}}),
+			ledger:     map[string]any{"session_id": "sess-1", "cwd": "C:/repo"},
+			want:       "",
+			wantSetGod: "odysseus",
+		},
+		{
+			name:       "skill load for auto changes nothing",
+			payload:    payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Skill", "tool_input": map[string]any{"skill": "kratos:auto"}}),
+			ledger:     map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "iris"},
+			want:       "",
+			wantSetGod: "",
+		},
+		{
+			name:       "skill load for status changes nothing",
+			payload:    payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Skill", "tool_input": map[string]any{"skill": "kratos:status"}}),
+			ledger:     map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "iris"},
+			want:       "",
+			wantSetGod: "",
+		},
+		{
+			// A spawned subagent's own Skill call never rebinds the session — the
+			// spawned-subagent branch (step 1) returns before the Skill check.
+			name:       "spawned agent's skill load is ignored",
+			payload:    payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "agent_type": "kratos:ares", "tool_name": "Skill", "tool_input": map[string]any{"skill": "kratos:iris"}}),
+			ledger:     map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "odysseus"},
+			want:       "",
+			wantSetGod: "",
+		},
 	}
 
 	for _, tc := range cases {
@@ -801,6 +842,9 @@ sqlcmd -S "$SRV" -d "$DB" -U "$UID_" -P "$PW" -C -l 30 -W -i "$TMPDIR/verify.sql
 			}
 			if got.ClearGod != tc.wantClear {
 				t.Fatalf("ClearGod = %v, want %v", got.ClearGod, tc.wantClear)
+			}
+			if got.SetGod != tc.wantSetGod {
+				t.Fatalf("SetGod = %q, want %q", got.SetGod, tc.wantSetGod)
 			}
 			if !tc.wantWrite {
 				return
@@ -894,8 +938,8 @@ func TestHooksJSONRegistersEditGate(t *testing.T) {
 	if !strings.Contains(body, "hook edit-gate") {
 		t.Error("hooks.json does not register `hook edit-gate`")
 	}
-	if !strings.Contains(body, `"Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task"`) {
-		t.Error("edit-gate matcher must cover Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task")
+	if !strings.Contains(body, `"Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task|Skill"`) {
+		t.Error("edit-gate matcher must cover Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task|Skill")
 	}
 	if strings.Contains(body, "plan-mode-guard") {
 		t.Error("hooks.json still references the retired plan-mode-guard.cjs")
@@ -1001,6 +1045,91 @@ func TestEditGateMultiTurnOdysseusHandoff(t *testing.T) {
 	// Turn 3 — the main context can edit again.
 	if writeDenied("C:/repo/src/b.ts") {
 		t.Fatal("a main-context write is still denied by the odysseus rule after the hand-off")
+	}
+}
+
+// TestEditGateSkillLoadArmsInlineGod walks the route 0 of 19 real ledgers ever
+// recorded: a user addressing a god by name routes through Skill(kratos:iris)
+// rather than a typed slash command, so inlineGodFromPrompt never fires and
+// inline_god was never written. This exercises the fix end to end, on disk.
+func TestEditGateSkillLoadArmsInlineGod(t *testing.T) {
+	setHomeEnv(t, t.TempDir())
+	const sessionID = "sess-skillload"
+	const cwd = "C:/repo"
+
+	skillCall := func(skill string, extra map[string]any) {
+		payload := map[string]any{
+			"session_id": sessionID, "cwd": cwd, "tool_name": "Skill",
+			"tool_input": map[string]any{"skill": skill},
+		}
+		for k, v := range extra {
+			payload[k] = v
+		}
+		captureStdout(func() { handleEditGate([]byte(payloadJSON(payload))) })
+	}
+	write := func(file string) {
+		captureStdout(func() {
+			handleEditGate([]byte(payloadJSON(map[string]any{
+				"session_id": sessionID, "cwd": cwd, "tool_name": "Write",
+				"tool_input": map[string]any{"file_path": file},
+			})))
+		})
+	}
+
+	// Seed the ledger the way session-start.cjs would, with no inline_god yet.
+	if err := writeInlineLedger(sessionID, map[string]any{"session_id": sessionID, "cwd": cwd}); err != nil {
+		t.Fatal(err)
+	}
+
+	// "iris, ..." routes Skill(kratos:auto) then Skill(kratos:iris). auto has
+	// no agent definition and changes nothing; iris arms the gate.
+	skillCall("kratos:auto", nil)
+	if got := ledgerString(readLedgerFor(t, sessionID), ledgerKeyInlineGod); got != "" {
+		t.Fatalf("kratos:auto set inline_god = %q, want unset", got)
+	}
+	skillCall("kratos:iris", nil)
+	if got := ledgerString(readLedgerFor(t, sessionID), ledgerKeyInlineGod); got != "iris" {
+		t.Fatalf("inline_god = %q after Skill(kratos:iris), want iris", got)
+	}
+
+	// Iris edits two files — the budget fills exactly as it would for the
+	// slash-command route.
+	write("C:/repo/src/a.ts")
+	write("C:/repo/src/b.ts")
+	if got := ledgerStrings(readLedgerFor(t, sessionID)); len(got) != 2 {
+		t.Fatalf("inline_edited_files = %v, want 2 entries", got)
+	}
+
+	// Relaunching the same god (the user says "iris, ..." again) must not
+	// refill the budget — a third file stays denied.
+	skillCall("kratos:iris", nil)
+	if got := ledgerStrings(readLedgerFor(t, sessionID)); len(got) != 2 {
+		t.Fatalf("inline_edited_files = %v after relaunching iris, want unchanged", got)
+	}
+	out := captureStdout(func() {
+		handleEditGate([]byte(payloadJSON(map[string]any{
+			"session_id": sessionID, "cwd": cwd, "tool_name": "Write",
+			"tool_input": map[string]any{"file_path": "C:/repo/src/c.ts"},
+		})))
+	})
+	if !strings.Contains(out, `"deny"`) {
+		t.Fatal("a third file was not denied after relaunching the same god via Skill")
+	}
+
+	// A spawned agent's own Skill call never rebinds the session.
+	skillCall("kratos:iris", map[string]any{"agent_type": "kratos:ares"})
+	if got := ledgerString(readLedgerFor(t, sessionID), ledgerKeyInlineGod); got != "iris" {
+		t.Fatalf("inline_god = %q after a spawned agent's Skill call, want unchanged (iris)", got)
+	}
+
+	// "plan the sidebar" routes Skill(kratos:plan), which resolves to odysseus
+	// and refills the budget — a new god is a new turn.
+	skillCall("kratos:plan", nil)
+	if got := ledgerString(readLedgerFor(t, sessionID), ledgerKeyInlineGod); got != "odysseus" {
+		t.Fatalf("inline_god = %q after Skill(kratos:plan), want odysseus", got)
+	}
+	if got := ledgerStrings(readLedgerFor(t, sessionID)); len(got) != 0 {
+		t.Fatalf("inline_edited_files = %v after a god change, want empty", got)
 	}
 }
 

@@ -266,6 +266,10 @@ type editGateResult struct {
 	// ClearGod drops inline_god: the inline god handed the work to a spawned
 	// agent, so his claim on this session ends with that dispatch.
 	ClearGod bool
+	// SetGod names the god a Skill load just bound to the session, applied
+	// through setInlineGod so relaunching the same god never refills the file
+	// budget. "" means no Skill load worth recording.
+	SetGod string
 }
 
 func editGateCmd() *cobra.Command {
@@ -305,16 +309,24 @@ func handleEditGate(raw []byte) {
 
 	res := editGateDecision(input, ledger)
 
-	if ledger != nil && input.SessionID != "" && (res.Files != nil || res.ClearGod) {
+	if ledger != nil && input.SessionID != "" {
+		changed := false
 		if res.Files != nil {
 			ledger[ledgerKeyEditedFiles] = res.Files
+			changed = true
 		}
 		if res.ClearGod {
 			ledger[ledgerKeyInlineGod] = ""
+			changed = true
 		}
-		if err := writeInlineLedger(input.SessionID, ledger); err != nil {
-			// Counting is best effort: never turn a failed write into a deny.
-			debugLog("edit-gate: ledger write failed: %v", err)
+		if res.SetGod != "" && setInlineGod(ledger, res.SetGod) {
+			changed = true
+		}
+		if changed {
+			if err := writeInlineLedger(input.SessionID, ledger); err != nil {
+				// Counting is best effort: never turn a failed write into a deny.
+				debugLog("edit-gate: ledger write failed: %v", err)
+			}
 		}
 	}
 
@@ -395,7 +407,15 @@ func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResu
 
 	god := strings.ToLower(strings.TrimSpace(ledgerString(ledger, ledgerKeyInlineGod)))
 
-	// 3. Dispatch. Read the target from this payload rather than from the
+	// 3. Skill load. A user addressing a god by name ("iris, …") routes through
+	//    Skill(kratos:iris) rather than a typed slash command, so this is the
+	//    only place that arms the gate for that route. Never a decision — the
+	//    Skill call always proceeds; only the ledger gains inline_god.
+	if input.ToolName == "Skill" {
+		return skillLoadResult(input.ToolInput.Skill)
+	}
+
+	// 4. Dispatch. Read the target from this payload rather than from the
 	//    agent_spawn table: it is synchronous, ordered, and keeps the DB out of
 	//    a per-edit hot path. Only a dispatch to a builder counts — it refills
 	//    Iris's budget, and it ends an inline Odysseus's turn. A research or
@@ -415,18 +435,18 @@ func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResu
 		return res
 	}
 
-	// 4. No recorded god: a plain Claude Code session, or one whose inline god
+	// 5. No recorded god: a plain Claude Code session, or one whose inline god
 	//    already handed off.
 	if god == "" {
 		return editGateResult{}
 	}
 
-	// 5. The user told the model to do the work itself.
+	// 6. The user told the model to do the work itself.
 	if ledgerBool(ledger) {
 		return editGateResult{}
 	}
 
-	// 6. The per-god rules. Any other god has none: fail open.
+	// 7. The per-god rules. Any other god has none: fail open.
 	switch god {
 	case "odysseus":
 		return odysseusGate(input, ledger)
@@ -434,6 +454,24 @@ func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResu
 		return irisGate(input, ledger)
 	}
 	return editGateResult{}
+}
+
+// skillLoadResult arms the gate from a Skill(kratos:<god>) call — the route a
+// user addressing a god by name takes ("iris, …") since v2.112.0. That route
+// never sends a typed slash command, so inlineGodFromPrompt never sees it and
+// 0 of 19 real ledgers ever carried inline_god. kratos:auto, kratos:status,
+// kratos:main and any non-Kratos skill have no agent definition and change
+// nothing; kratos:plan resolves through inlineGodAliases to odysseus, same as
+// the slash-command route.
+func skillLoadResult(skill string) editGateResult {
+	name := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(skill, "kratos:")))
+	if alias, ok := inlineGodAliases[name]; ok {
+		name = alias
+	}
+	if !isEmbeddedGod(name) {
+		return editGateResult{}
+	}
+	return editGateResult{SetGod: name}
 }
 
 // odysseusGate keeps the planner on planning artifacts and read-only shell.

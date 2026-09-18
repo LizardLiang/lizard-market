@@ -279,6 +279,11 @@ func TestGateNeedsLedger(t *testing.T) {
 		{"spawned ares", preToolUseInput{SessionID: "sess-1", AgentType: "kratos:ares"}, false},
 		{"spawned general-purpose by id", preToolUseInput{SessionID: "sess-1", AgentID: "agent-7"}, false},
 		{"spawned odysseus", preToolUseInput{SessionID: "sess-1", AgentType: "kratos:odysseus"}, true},
+		// A main-context Skill(kratos:iris) call must read the ledger — it is
+		// the only place that arms the gate for the "iris, …" route — while a
+		// spawned agent's own Skill call stays on the ledger-free hot path.
+		{"main context skill load", preToolUseInput{SessionID: "sess-1", ToolName: "Skill"}, true},
+		{"spawned agent's skill load", preToolUseInput{SessionID: "sess-1", AgentType: "kratos:ares", ToolName: "Skill"}, false},
 	}
 	for _, tc := range cases {
 		if got := gateNeedsLedger(tc.input); got != tc.want {

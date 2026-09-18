@@ -359,3 +359,46 @@ func TestInlineGodFromPrompt(t *testing.T) {
 		}
 	}
 }
+
+// TestSetInlineGod pins the shared helper both writers call: recordInlineGod
+// from a slash command, editGateDecision's skillLoadResult from a Skill load.
+// A god change resets inline_god_since and empties inline_edited_files; the
+// same god relaunched must not refill the budget.
+func TestSetInlineGod(t *testing.T) {
+	t.Run("a god change resets since and the file list", func(t *testing.T) {
+		m := map[string]any{
+			"inline_god":          "iris",
+			"inline_god_since":    "2020-01-01T00:00:00Z",
+			"inline_edited_files": []any{"a.ts", "b.ts"},
+		}
+		if changed := setInlineGod(m, "odysseus"); !changed {
+			t.Fatal("setInlineGod reported no change on a god change")
+		}
+		if got := ledgerString(m, ledgerKeyInlineGod); got != "odysseus" {
+			t.Errorf("inline_god = %q, want odysseus", got)
+		}
+		if got := ledgerString(m, ledgerKeyInlineSince); got == "2020-01-01T00:00:00Z" {
+			t.Error("inline_god_since not refreshed on a god change")
+		}
+		if got := ledgerStrings(m); len(got) != 0 {
+			t.Errorf("inline_edited_files = %v, want empty on a god change", got)
+		}
+	})
+
+	t.Run("relaunching the same god does not refill the budget", func(t *testing.T) {
+		m := map[string]any{
+			"inline_god":          "iris",
+			"inline_god_since":    "2020-01-01T00:00:00Z",
+			"inline_edited_files": []any{"a.ts", "b.ts"},
+		}
+		if changed := setInlineGod(m, "iris"); changed {
+			t.Error("setInlineGod reported a change for the same god")
+		}
+		if got := ledgerString(m, ledgerKeyInlineSince); got != "2020-01-01T00:00:00Z" {
+			t.Errorf("inline_god_since = %q, want it unchanged", got)
+		}
+		if got := ledgerStrings(m); len(got) != 2 {
+			t.Errorf("inline_edited_files = %v, relaunching the same god refilled the budget", got)
+		}
+	})
+}

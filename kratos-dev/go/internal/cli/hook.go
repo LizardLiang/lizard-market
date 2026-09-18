@@ -189,6 +189,10 @@ type preToolUseToolInput struct {
 	NotebookPath string `json:"notebook_path"`
 	// Agent/Task spawn target, e.g. "kratos:ares".
 	SubagentType string `json:"subagent_type"`
+	// Skill load target, e.g. "kratos:iris" (verified on a real Skill
+	// PreToolUse payload, 2026-09-18: a project-level skill sends its bare
+	// name; a plugin skill is namespaced "plugin:skill").
+	Skill string `json:"skill"`
 }
 
 // targetPath is the file an edit tool is about to change, whichever key the

@@ -68,6 +68,23 @@ func initialRequestText(prompt string) string {
 	return p
 }
 
+// setInlineGod writes god as the ledger's inline_god, resetting the since
+// timestamp and the edited-files list, but only when god differs from the one
+// already recorded. Relaunching the same god must not refill the file budget.
+// Returns whether the ledger changed. The two writers are a slash command
+// (recordInlineGod, from UserPromptSubmit) and a Skill load addressed by name
+// (editGateDecision, from PreToolUse) — both call this rather than duplicate
+// the god-change branch.
+func setInlineGod(m map[string]any, god string) bool {
+	if ledgerString(m, ledgerKeyInlineGod) == god {
+		return false
+	}
+	m[ledgerKeyInlineGod] = god
+	m[ledgerKeyInlineSince] = now()
+	m[ledgerKeyEditedFiles] = []string{}
+	return true
+}
+
 // recordInlineGod keeps the session ledger's edit-gate fields current from the
 // UserPromptSubmit payload. It is the only writer of inline_god and
 // gate_bypass. Every failure is swallowed: a session with no readable ledger
@@ -103,12 +120,7 @@ func recordInlineGod(sessionID, cwd, prompt string) {
 		changed = true
 	}
 
-	if god != "" && ledgerString(m, ledgerKeyInlineGod) != god {
-		// Relaunching the same god is not a way to refill the budget: only a
-		// change of god resets the timestamp and the file list here.
-		m[ledgerKeyInlineGod] = god
-		m[ledgerKeyInlineSince] = now()
-		m[ledgerKeyEditedFiles] = []string{}
+	if god != "" && setInlineGod(m, god) {
 		changed = true
 	}
 	if userTurn {
