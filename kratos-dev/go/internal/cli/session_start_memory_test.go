@@ -138,6 +138,117 @@ func TestBuildMemoryReportUnusedScopedSlotsGoToPreferences(t *testing.T) {
 	}
 }
 
+// TestFormatMemoriesRetryUsesItsOwnShortTimeout covers Fix 2's own budget
+// bug: the unknown-flag retry (an older binary rejecting --with-rules) used
+// to reuse the 1500 ms memory-list timeout, pushing the worst-case serial sum
+// to 5100 ms — over the 5000 ms SessionStart hook timeout the file's own
+// comment states as an invariant. formatMemories takes an injectable capture
+// function precisely so this can be asserted without spawning a real binary.
+func TestFormatMemoriesRetryUsesItsOwnShortTimeout(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available")
+	}
+	hook, err := filepath.Abs(filepath.Join(hooksDirPath(), "session-start.cjs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "const { formatMemories } = require(" + strconv.Quote(filepath.ToSlash(hook)) + ");\n" +
+		"const calls = [];\n" +
+		"function stubCapture(args, timeoutMs) {\n" +
+		"  calls.push({ args, timeoutMs });\n" +
+		"  if (args.includes('--with-rules')) return { out: null, err: 'unknown flag: --with-rules' };\n" +
+		"  return { out: JSON.stringify({ memories: [], total: 0 }), err: '' };\n" +
+		"}\n" +
+		"formatMemories('/work/x', stubCapture);\n" +
+		"process.stdout.write(JSON.stringify(calls));\n"
+	out, err := exec.Command(node, "-e", script).Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			t.Fatalf("node run failed: %v (%s)", err, ee.Stderr)
+		}
+		t.Fatalf("node run failed: %v", err)
+	}
+
+	var calls []struct {
+		Args      []string `json:"args"`
+		TimeoutMs int      `json:"timeoutMs"`
+	}
+	if err := json.Unmarshal(out, &calls); err != nil {
+		t.Fatalf("cannot parse node output %q: %v", out, err)
+	}
+	if len(calls) != 2 {
+		t.Fatalf("expected 2 capture calls (the first call, then the retry), got %d: %v", len(calls), calls)
+	}
+	if calls[0].TimeoutMs != 1500 {
+		t.Errorf("first call timeout = %d, want 1500", calls[0].TimeoutMs)
+	}
+	if calls[1].TimeoutMs != 600 {
+		t.Errorf("retry call timeout = %d, want its own 600 ms budget, not the 1500 ms memory-list timeout", calls[1].TimeoutMs)
+	}
+}
+
+// TestBuildMemoryReportAllUnusedSlotsGoToScopedFacts covers the direction
+// Fix 2's own test left unpinned: with NO global memories at all (not even a
+// few), every one of the MAX_MEMORIES slots must return to scoped facts
+// rather than sit empty. TestBuildMemoryReportUnusedScopedSlotsGoToPreferences
+// passes identically on the pre-fix code (10 global preferences already fill
+// every leftover slot on their own), so it does not exercise this path.
+func TestBuildMemoryReportAllUnusedSlotsGoToScopedFacts(t *testing.T) {
+	here := "/work/big-project"
+	var memories []memoryFixtureItem
+	for i := 1; i <= 12; i++ {
+		memories = append(memories, memoryFixtureItem{ID: i, Text: fmt.Sprintf("scoped fact %d", i), Category: "context", Project: here})
+	}
+	total := len(memories)
+
+	got := runBuildMemoryReport(t, memories, total, nil, here)
+
+	scopedCount := strings.Count(got, "context · this project")
+	if scopedCount != 8 {
+		t.Errorf("expected all 8 slots to go to scoped facts with no global memories at all, got %d in:\n%s", scopedCount, got)
+	}
+	if strings.Count(got, "[preference]") != 0 {
+		t.Errorf("expected no preference lines when none are stored:\n%s", got)
+	}
+	// total(12) - shownFacts(8) - shownRules(0) = 4
+	if !strings.Contains(got, "+4 more") {
+		t.Errorf("expected the '+N more' count to reflect the unshown rows:\n%s", got)
+	}
+}
+
+// TestBuildMemoryReportPartialGlobalsLeaveRestToScopedFacts covers the
+// partial case between the two above: a FEW global preferences (not enough
+// to fill every leftover slot on their own) must not stop the remaining
+// slots from returning to scoped facts.
+func TestBuildMemoryReportPartialGlobalsLeaveRestToScopedFacts(t *testing.T) {
+	here := "/work/big-project"
+	var memories []memoryFixtureItem
+	for i := 1; i <= 12; i++ {
+		memories = append(memories, memoryFixtureItem{ID: i, Text: fmt.Sprintf("scoped fact %d", i), Category: "context", Project: here})
+	}
+	memories = append(memories,
+		memoryFixtureItem{ID: 101, Text: "global pref 1", Category: "preference"},
+		memoryFixtureItem{ID: 102, Text: "global pref 2", Category: "preference"},
+	)
+	total := len(memories)
+
+	got := runBuildMemoryReport(t, memories, total, nil, here)
+
+	scopedCount := strings.Count(got, "context · this project")
+	if scopedCount != 6 {
+		t.Errorf("expected 4 (SCOPED_CAP) + 2 leftover-slot scoped facts = 6, got %d in:\n%s", scopedCount, got)
+	}
+	prefCount := strings.Count(got, "[preference]")
+	if prefCount != 2 {
+		t.Errorf("expected both preferences to show, got %d in:\n%s", prefCount, got)
+	}
+	// total(14) - shownFacts(8) - shownRules(0) = 6
+	if !strings.Contains(got, "+6 more") {
+		t.Errorf("expected the '+N more' count to reflect the unshown rows:\n%s", got)
+	}
+}
+
 // TestBuildMemoryReportExcludesOtherProjectsRules covers the "never another
 // project's" rule scoping: a rule saved for a different project must not
 // leak into this session even though the dedicated rule capture returned it.

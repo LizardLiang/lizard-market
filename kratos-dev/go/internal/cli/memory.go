@@ -183,6 +183,13 @@ make one call instead of two, and a rule older than the main list's --limit
 window still comes back.`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if idsOnly && withRules {
+				// idsOnly returns before the rules capture ever runs (see
+				// below), so --with-rules silently vanished — a caller
+				// combining the two flags got no error and no rules key.
+				return fmt.Errorf("--ids-only and --with-rules cannot be combined: --ids-only returns before rules are computed")
+			}
+
 			conn, err := db.GetConnection()
 			if err != nil {
 				return err

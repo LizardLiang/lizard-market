@@ -15,10 +15,14 @@
  * failed with FOREIGN KEY errors (2026-09 transcript review).
  *
  * Budget: hooks.json gives SessionStart 5 s (5000 ms). Every spawn below carries a
- * timeout and the serial sum stays under ~4000 ms (version 800 + memory list
- * 1500 + init 500 + session start 800); the plugin-bin → ~/.kratos/bin copy
- * runs last so it can never starve the calls. Every kratos call uses spawnSync
- * with an argv array — payload text never reaches a shell.
+ * timeout and the worst-case serial sum stays under ~4200 ms (version 800 + memory
+ * list 1500 + its unknown-flag retry 600 + init 500 + session start 800); the
+ * plugin-bin → ~/.kratos/bin copy runs last so it can never starve the calls. The
+ * retry has its own short timeout rather than reusing the 1500 ms memory-list
+ * budget — a flag-parse failure returns in about 250 ms, so 600 ms covers it with
+ * room to spare, and reusing 1500 ms there pushed the worst case to 5100 ms, over
+ * budget. Every kratos call uses spawnSync with an argv array — payload text never
+ * reaches a shell.
  */
 
 const { execFileSync, spawn, spawnSync } = require("child_process");
@@ -71,6 +75,10 @@ const findKratosBinary = resolveBinary;
 // with room for node startup.
 const VERSION_TIMEOUT_MS = 800;
 const MEMORY_LIST_TIMEOUT_MS = 1500;
+// A flag-parse failure (an older binary rejecting --with-rules) returns in
+// about 250 ms — this is its own budget, not MEMORY_LIST_TIMEOUT_MS, so the
+// retry cannot push the worst-case serial sum over the hook's 5000 ms limit.
+const MEMORY_LIST_RETRY_TIMEOUT_MS = 600;
 const INIT_TIMEOUT_MS = 500;
 const SESSION_START_TIMEOUT_MS = 800;
 
@@ -217,7 +225,12 @@ function buildMemoryReport(data, ruleMemories, cwd) {
   const prefsShown = globalPrefs.slice(0, remaining);
   remaining -= prefsShown.length;
   const contextShown = globalContext.slice(0, remaining);
-  const shownFacts = [...scopedShown, ...prefsShown, ...contextShown];
+  remaining -= contextShown.length;
+  // A slot neither global bucket used goes back to the remaining scoped
+  // facts, so a project with few global preferences (or none at all) does
+  // not leave MAX_MEMORIES slots half-empty while more scoped facts wait.
+  const extraScoped = remaining > 0 ? scoped.slice(scopedShown.length, scopedShown.length + remaining) : [];
+  const shownFacts = [...scopedShown, ...prefsShown, ...contextShown, ...extraScoped];
 
   if (shownRules.length === 0 && shownFacts.length === 0) return null;
 
@@ -249,10 +262,14 @@ function buildMemoryReport(data, ruleMemories, cwd) {
 // An older binary that predates --with-rules fails fast on the unknown
 // flag; the retry below drops it and shows the ordinary facts with no
 // rules tier, so one old binary in the field cannot lose the whole list.
-function formatMemories(cwd) {
-  let { out, err } = runKratosCapture(["memory", "list", "--limit", "80", "--with-rules"], MEMORY_LIST_TIMEOUT_MS);
+//
+// capture defaults to runKratosCapture; a test passes a stub instead, so it
+// can assert the retry's own timeout without spawning a real binary.
+function formatMemories(cwd, capture) {
+  capture = capture || runKratosCapture;
+  let { out, err } = capture(["memory", "list", "--limit", "80", "--with-rules"], MEMORY_LIST_TIMEOUT_MS);
   if (!out && /unknown flag/i.test(err || "")) {
-    ({ out, err } = runKratosCapture(["memory", "list", "--limit", "80"], MEMORY_LIST_TIMEOUT_MS));
+    ({ out, err } = capture(["memory", "list", "--limit", "80"], MEMORY_LIST_RETRY_TIMEOUT_MS));
   }
   const unavailable = (reason) => (fs.existsSync(DB_PATH) ? `Kratos: memory unavailable (${reason})` : null);
   if (!out) return unavailable(err || "no output");

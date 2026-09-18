@@ -237,6 +237,25 @@ func TestMemoryListWithRulesFlag(t *testing.T) {
 	assert.Len(t, memories, 2)
 }
 
+// TestMemoryListRejectsIDsOnlyWithRules covers the flag combination that used
+// to silently drop "rules": --ids-only returns before the rules capture ever
+// runs, so a caller passing both flags got no error and no rules key. The
+// combination must now fail with a clear message instead.
+func TestMemoryListRejectsIDsOnlyWithRules(t *testing.T) {
+	setupMemoryTestDB(t)
+
+	cmd := MemoryListCmd()
+	cmd.SetArgs([]string{"--ids-only", "--with-rules"})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--ids-only")
+	assert.Contains(t, err.Error(), "--with-rules")
+}
+
 func TestMemoryRemoveNonExistentID(t *testing.T) {
 	setupMemoryTestDB(t)
 
