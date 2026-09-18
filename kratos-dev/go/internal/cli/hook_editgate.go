@@ -25,14 +25,16 @@ import (
 // with no ledger, an unparseable ledger, no recorded god, a god with no rule, a
 // user who stood the gate down, or any error on any path.
 //
-// The gate emits "deny" or nothing at all — never "allow". A permitted command
-// or edit produces no decision and follows Claude Code's normal permission
-// flow. That is the whole safety margin of the shell classifier: it is a
-// pattern matcher over shell text, and the 2026-09-11 review found three
+// The gate emits "deny", "ask", or nothing at all — never "allow". A permitted
+// command or edit produces no decision and follows Claude Code's normal
+// permission flow. That is the whole safety margin of the shell classifier: it
+// is a pattern matcher over shell text, and the 2026-09-11 review found three
 // separate ways past it (process substitution, backslash-escaped quotes,
 // unspaced redirects). Under an explicit "allow" each of those ran `rm -rf`
 // with the user's permission prompt skipped; with no "allow" the same miss
-// degrades to the prompt the user would have seen anyway.
+// degrades to the prompt the user would have seen anyway. "ask" carries the
+// same margin: the user still sees the exact command and decides, the gate
+// only surfaces the prompt it would otherwise skip past.
 
 // irisFileBudget is the number of distinct project source files Iris may edit
 // herself in one user turn before the work belongs to Ares. Three documents
@@ -180,12 +182,83 @@ const odysseusWriteDenyReason = "Odysseus plans, Ares builds — save the plan, 
 
 const odysseusBashDenyReason = "Odysseus plan mode may only run read-only inspection commands. Write the command into the plan for Ares to run instead of running it now."
 
+// credentialGuardReason is the "ask" text for the credential guard (see
+// credentialGuardDecision). The user sees the exact command and decides — the
+// guard never denies outright, because the command may be exactly what the
+// user asked for.
+const credentialGuardReason = "This command reads or uses stored credentials. The user decides. Alternative: ask him to run the query, or use the mssql MCP."
+
+// credentialSecretKeywordRE matches a connection-string or URI key whose value
+// is a credential: Password/Pwd (ADO.NET), AccountKey/SharedAccessKey (Azure
+// storage), client_secret (OAuth). This is the target of the 2026-09-15 KPIM
+// incident's own pipeline, `grep -o 'Password=[^;]*' | cut -d= -f2`.
+var credentialSecretKeywordRE = regexp.MustCompile(`(?i)\b(?:password|pwd|accountkey|sharedaccesskey|client_secret)\b\s*=`)
+
+// credentialGrepOnlyFlagRE matches grep's only-matching flag, alone or
+// combined with others (-o, -oP, -ro), or its long form. A grep without it —
+// `grep -n "Password" file` — only names the line a secret sits on and never
+// extracts the value, so it is not covered.
+var credentialGrepOnlyFlagRE = regexp.MustCompile(`(?i)(?:^|\s)-[a-z]*o[a-z]*(?:\s|$)|--only-matching\b`)
+
+// credentialExtractionHeads are segment heads whose entire job is pulling a
+// value out of text, once grep's -o flag (checked separately above) is set
+// aside: cut, sed and awk on a shell, Select-String in PowerShell.
+var credentialExtractionHeads = map[string]bool{"cut": true, "sed": true, "awk": true, "select-string": true}
+
+// credentialClientPasswordRE matches a database or cloud CLI invoked with a
+// credential directly in reach: sqlcmd/bcp's uppercase -P, psql/pg_dump's
+// PGPASSWORD variable, mysql's lowercase -p or --password (mysql's own -P sets
+// the port, not a credential, so the case split is deliberate), a mongo URI
+// carrying user:pass@, redis-cli's -a, and PowerShell's Invoke-Sqlcmd
+// -Password.
+var credentialClientPasswordRE = regexp.MustCompile(
+	`(?i:\b(?:sqlcmd|bcp)(?:\.exe)?\b).*(?:^|\s)-P(?:\s|$)` +
+		`|(?i:\bPGPASSWORD\s*=)` +
+		`|(?i:\bmysql(?:dump)?(?:\.exe)?\b).*(?:(?:^|\s)-p\S|--password\b)` +
+		`|(?i:\b(?:mongosh|mongo)\b).*://[^:@/\s]+:[^@/\s]+@` +
+		`|(?i:\bredis-cli\b).*(?:^|\s)-a(?:\s|$)` +
+		`|(?i:\bInvoke-Sqlcmd\b).*-Password\b`,
+)
+
+// credentialGuardDecision inspects one Bash/PowerShell command for a database
+// or cloud client run with a credential already in reach, or a pipeline that
+// pulls one out of a config file — the shape of the KPIM incident, where
+// inline Iris grepped a password out of Web.config and ran sqlcmd against a
+// production host on the user's behalf, unasked. ok is false when neither
+// pattern matches; the caller falls through to the rest of the gate.
+//
+// Splits on the same segment boundaries isReadOnlyShellCommand uses (;, &&,
+// |, newline) so the guard reads what a shell would actually run as one unit:
+// the incident's own `grep -o 'Password=[^;]*' | cut -d= -f2` puts the
+// extraction verb and the keyword in the same segment.
+func credentialGuardDecision(command string) (editGateResult, bool) {
+	trimmed := strings.TrimSpace(gateInertRedirectRE.ReplaceAllString(command, " "))
+	if trimmed == "" {
+		return editGateResult{}, false
+	}
+	for _, seg := range splitShellSegments(trimmed) {
+		raw := strings.TrimSpace(seg.raw)
+		if raw == "" {
+			continue
+		}
+		if credentialClientPasswordRE.MatchString(raw) {
+			return editGateResult{Decision: "ask", Reason: credentialGuardReason}, true
+		}
+		head := gateSegmentHead(raw)
+		extracts := credentialExtractionHeads[head] || (head == "grep" && credentialGrepOnlyFlagRE.MatchString(raw))
+		if extracts && credentialSecretKeywordRE.MatchString(raw) {
+			return editGateResult{Decision: "ask", Reason: credentialGuardReason}, true
+		}
+	}
+	return editGateResult{}, false
+}
+
 // editGateResult is one gate verdict. Decision "" means no output at all: the
 // tool call goes through Claude Code's normal permission flow untouched, which
-// is what every non-deny verdict produces. "allow" is not a value this gate
-// ever sets — see the contract note at the top of the file.
+// is what every non-deny, non-ask verdict produces. "allow" is not a value
+// this gate ever sets — see the contract note at the top of the file.
 type editGateResult struct {
-	Decision string // "" (no decision) or "deny"
+	Decision string // "" (no decision), "deny", or "ask"
 	Reason   string
 	// Files is the new inline_edited_files value. nil means "do not write";
 	// an empty non-nil slice clears the list.
@@ -290,6 +363,17 @@ func gateIsSpawnedOdysseus(input preToolUseInput) bool {
 // editGateDecision is the whole policy, as a pure function of the payload and
 // the ledger, so the table test can exercise every branch in process.
 func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResult {
+	// 0. Credential guard. Runs before the spawned-subagent return and before
+	//    any ledger check: a command that reads a stored credential and runs a
+	//    database client with it, or pulls the value out with a text-extraction
+	//    tool, is dangerous in every context — main, an inline god, or a
+	//    spawned Ares — so no ledger is involved.
+	if input.ToolName == "Bash" || input.ToolName == "PowerShell" {
+		if res, ok := credentialGuardDecision(input.ToolInput.Command); ok {
+			return res
+		}
+	}
+
 	// 1. Spawned subagent: only Odysseus is gated. Ares, Hades and everyone
 	//    else must never be counted against the inline god's budget — gating
 	//    them would break the dispatch this gate exists to create. The marker

@@ -68,7 +68,7 @@ func TestEditGateDecisions(t *testing.T) {
 		name           string
 		payload        string
 		ledger         map[string]any
-		want           string   // "deny", or "" for no decision (permitted or fail open)
+		want           string   // "deny", "ask", or "" for no decision (permitted or fail open)
 		wantFiles      []string // expected inline_edited_files write, nil for no write
 		wantWrite      bool
 		wantClear      bool // expected inline_god clear
@@ -682,6 +682,100 @@ func TestEditGateDecisions(t *testing.T) {
 			name:    "iris write with no file path fails open",
 			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Write", "tool_input": map[string]any{}}),
 			ledger:  irisLedger("C:/repo/src/a.ts", "C:/repo/src/b.ts"),
+			want:    "",
+		},
+		// ---- credential guard (Fix 3) ----
+		{
+			// Case 1: the 2026-09-15 KPIM incident's own command, shape verbatim
+			// with host, database, user name and file paths replaced by
+			// placeholders. Two independent matches: the grep -o | cut pipeline
+			// extracting Password=, and the sqlcmd -P invocation.
+			name: "incident command asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `CFG=app/Web.config && CS=$(sed -n '104p' "$CFG") && SRV=$(echo "$CS" | grep -o 'Server=tcp:[^,;]*' | cut -d: -f2) && DB=$(echo "$CS" | grep -o 'Initial Catalog=[^;]*' | cut -d= -f2) && UID_=$(echo "$CS" | grep -o 'User ID=[^;]*' | cut -d= -f2) && PW=$(echo "$CS" | grep -o 'Password=[^;]*' | cut -d= -f2) && echo "server=$SRV db=$DB user=$UID_" && cat > "$TMPDIR/verify.sql" <<'EOF'
+SELECT 1;
+EOF
+sqlcmd -S "$SRV" -d "$DB" -U "$UID_" -P "$PW" -C -l 30 -W -i "$TMPDIR/verify.sql"`}}),
+			want:           "ask",
+			reasonContains: []string{"stored credentials", "mssql MCP"},
+		},
+		{
+			// A spawned Ares runs through the same guard, before the
+			// spawned-subagent branch — this is the whole reason step 0 sits
+			// ahead of it in editGateDecision.
+			name:    "incident command asks even from a spawned ares",
+			payload: payloadJSON(map[string]any{"agent_type": "kratos:ares", "tool_name": "Bash", "tool_input": map[string]any{"command": `grep -o 'Password=[^;]*' Web.config | cut -d= -f2`}}),
+			want:    "ask",
+		},
+		{
+			name:    "mysql lowercase -p attached asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "mysql -uroot -pSecret123 -e 'select 1'"}}),
+			want:    "ask",
+		},
+		{
+			name:    "mysql --password asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "mysqldump --password=hunter2 mydb > out.sql"}}),
+			want:    "ask",
+		},
+		{
+			// mysql's own -P sets the port, not a credential — case matters.
+			name:    "mysql uppercase -P for the port stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "mysql -uroot -P 3306 -e 'select 1'"}}),
+			want:    "",
+		},
+		{
+			name:    "PGPASSWORD env var before psql asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `PGPASSWORD=hunter2 psql -h localhost -U app -d appdb -c "select 1"`}}),
+			want:    "ask",
+		},
+		{
+			name:    "mongo URI with embedded user:pass asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `mongosh "mongodb://app:hunter2@localhost:27017/appdb"`}}),
+			want:    "ask",
+		},
+		{
+			name:    "redis-cli -a asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "redis-cli -a hunter2 ping"}}),
+			want:    "ask",
+		},
+		{
+			name:    "PowerShell Invoke-Sqlcmd -Password asks",
+			payload: payloadJSON(map[string]any{"tool_name": "PowerShell", "tool_input": map[string]any{"command": `Invoke-Sqlcmd -ServerInstance srv -Database db -Username app -Password hunter2 -Query "select 1"`}}),
+			want:    "ask",
+		},
+		{
+			name:    "grep -rn for a config key name stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `grep -rn "connectionString" --include=*.cs .`}}),
+			want:    "",
+		},
+		{
+			// Reports the line a secret sits on, never the value: -n has no 'o'.
+			name:    "grep -n Password without -o stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `grep -n "Password" src/Login.tsx`}}),
+			want:    "",
+		},
+		{
+			name:    "dotnet ef database update stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "dotnet ef database update"}}),
+			want:    "",
+		},
+		{
+			name:    "git log -p stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "git log -p"}}),
+			want:    "",
+		},
+		{
+			name:    "sqlcmd help flag stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "sqlcmd -?"}}),
+			want:    "",
+		},
+		{
+			name:    "psql --version stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "psql --version"}}),
+			want:    "",
+		},
+		{
+			name:    "a kratos command stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "kratos pipeline get --compact --feature x"}}),
 			want:    "",
 		},
 	}
