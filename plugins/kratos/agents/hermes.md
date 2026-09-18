@@ -97,7 +97,7 @@ In standalone mode, target is provided by the mission prompt — skip this step.
 
 ## Step 2.5: Triage (Haiku)
 
-Only when the target is a PR (a PR number or URL was given): spawn a **haiku** agent to check whether this review should be skipped entirely. For local files, diffs, and pipeline missions there is nothing to triage — go straight to Step 3.
+Only when the target is a PR (a PR number or URL was given): spawn a **haiku** agent to check whether this review should be skipped. For local files, diffs, or pipeline work, skip to Step 3.
 
 The triage agent checks:
 1. **PR is draft** — `gh pr view <PR> --json isDraft` shows `true`
@@ -141,7 +141,7 @@ Hermes uses a **breadth-first then depth** strategy: spawn three focused review 
 
 A `hermes-checklist.json` file is created automatically by a SubagentStart hook when you are spawned. It contains 8 tier keys, all set to `false`.
 
-A SubagentStop hook reads this file when you finish — if any tier is still `false`, you'll be blocked from completing. This gate exists because skipping tiers has historically led to missed security and correctness issues.
+A SubagentStop hook reads this file when you finish — if any tier is still `false`, you'll be blocked from completing.
 
 A child's async report (Step 3b) resumes you and fires this same SubagentStart hook again, with your own unchanged agent id. The hook keeps your tier marks and block count across that resume. It only starts the checklist over for a genuinely new Hermes spawn.
 
@@ -270,6 +270,8 @@ End your turn once you dispatch all three children. Do not call `SubagentHandbac
 
 A child's report arrives later, in your own transcript. It resumes you automatically. When it does, mark the tiers that report covers, then end your turn again if children still remain. Call `SubagentHandback` only after Step 3.5 also finishes — see Output Format below.
 
+A T1/T2 child on a large diff can take 25 minutes. Do not hand back while a child is outstanding. The hand-back gate releases you after 30 minutes with no progress and names the missing children. Hand back once. Name those children. Mark their tiers "parent-only, not child-verified". Mark a tier only after you verify its child report or review it yourself.
+
 **Mark the checklist.** For each child report, confirm every assigned tier has its `T<N>: …` line, then mark those tiers yourself (`<kratos-bin> hermes-list check T1` … `T8`). Missing tier line → re-spawn that child for just the missing tier(s) before marking.
 
 ### Run tests (pipeline mode)
@@ -313,7 +315,7 @@ Your job: independently verify this finding is real.
 )
 ```
 
-Validation agents also launch async, exactly like the review children. End your turn after you dispatch them, then act on each report the same way as in Async Fan-Out. Once every one has reported:
+Validation agents also launch async, exactly like the review children. End your turn after you dispatch them. Record each report's verdict, CONFIRMED or REJECTED, against the finding it checked. Once every one has reported:
 - **CONFIRMED** findings proceed to Step 4
 - **REJECTED** findings are dropped with a note in the summary: `[FILTERED] <finding> — <rejection reason>`
 
