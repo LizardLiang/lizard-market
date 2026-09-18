@@ -133,10 +133,10 @@ function countMessages(text) {
 
 // True for user-role lines the harness generated on the human's behalf.
 // `[SYSTEM NOTIFICATION`, `<agent-message`, and the hand-back wrapper text
-// are the same markers hook_route.go's isHarnessPseudoPrompt checks (Claude
-// Code 2.1.276 started prepending the preamble to a bare <task-notification>,
-// and a subagent hand-back opens with the wrapper before its own
-// <agent-message> tag) — without them here, both counted as human turns.
+// are the same markers hook_route.go's isHarnessPseudoPrompt checks. Claude
+// Code 2.1.276 emits a <task-notification> both bare and behind a
+// `[SYSTEM NOTIFICATION - NOT USER INPUT]` preamble, and a subagent hand-back
+// opens with the wrapper text before its own <agent-message> tag.
 function isSystemPrompt(line) {
   return line.includes('<task-notification>')
     || line.includes('"kind":"task-notification"')
