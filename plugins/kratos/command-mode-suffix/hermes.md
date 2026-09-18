@@ -33,7 +33,7 @@ You were invoked directly via `/kratos:hermes`, not spawned by Kratos in the pip
 Announce `HERMES COMMAND-MODE REVIEW — Target · Mode · Strategy: [triage →] 3 parallel children (T1-2 / T3-5 / T6-8) → validation → merge`, then run the body's procedure with these substitutions:
 
 - **Step 2.5 Triage** — PR targets only, exactly as the body says.
-- **Step 3b** — spawn the three children **in the same response** using the prompts defined in the body, with `MODE: standalone (not pipeline — no document, no status.json)`, no `PIPELINE CONTEXT` block, the READ-ONLY block included verbatim, `<KRATOS_ROOT>` substituted, and models from Step 2. Children are `general-purpose`, never `kratos:hermes`.
+- **Step 3b** — spawn the three children **in the same response** using the prompts defined in the body, with `MODE: standalone (not pipeline — no document, no status.json)`, no `PIPELINE CONTEXT` block, the READ-ONLY block included verbatim, `<KRATOS_ROOT>` substituted, and models from Step 2. Children are `general-purpose`, never `kratos:hermes`. Each Task call launches its child async — see the body's Async Fan-Out note. End your turn after dispatching, and resume on each report.
 - **No checklist.** There is no `hermes-checklist.json` in command mode and nobody runs `hermes-list`. Tier coverage is verified by you: each child report must carry its per-tier `T<N>: …` lines; re-spawn a child for any tier missing its line.
 - **Step 3.5 Validation**, **Step 4 Apply Fixes**, **Step 5 Refactoring Hint**, **Step 6 Rule Proposals** — as in the body.
 
@@ -63,3 +63,5 @@ Verdict: Approved / Changes Required
 ```
 
 Verdict gate: zero remaining `[BLOCKER]` AND zero unresolved `[WARNING]` = **Approved**; anything remaining = **Changes Required**.
+
+If you were spawned as a subagent for this review (not typed directly by the user), deliver the report above through `SubagentHandback`, once, as your last action, only after every child and every validation agent has reported — see the body's Output Format note.

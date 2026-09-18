@@ -143,6 +143,8 @@ A `hermes-checklist.json` file is created automatically by a SubagentStart hook 
 
 A SubagentStop hook reads this file when you finish — if any tier is still `false`, you'll be blocked from completing. This gate exists because skipping tiers has historically led to missed security and correctness issues.
 
+A child's async report (Step 3b) resumes you and fires this same SubagentStart hook again, with your own unchanged agent id. The hook keeps your tier marks and block count across that resume. It only starts the checklist over for a genuinely new Hermes spawn.
+
 **You (the parent) own the checklist — children never touch it.** After each child returns, verify its report actually covers every tier in its assignment (findings or an explicit "T<N>: no findings" line per tier), then mark those tiers yourself:
 ```
 <kratos-bin> hermes-list check T<N>
@@ -260,7 +262,13 @@ Use multi-line format for BLOCKER findings requiring architectural explanation."
 )
 ```
 
-Wait for **all three** to complete before proceeding.
+### Async Fan-Out
+
+Each Task call above returns at once. Its result confirms only that the child launched — it is not the child's review.
+
+End your turn once you dispatch all three children. Do not call `SubagentHandback` here.
+
+A child's report arrives later, in your own transcript. It resumes you automatically. When it does, mark the tiers that report covers, then end your turn again if children still remain. Call `SubagentHandback` only after Step 3.5 also finishes — see Output Format below.
 
 **Mark the checklist.** For each child report, confirm every assigned tier has its `T<N>: …` line, then mark those tiers yourself (`<kratos-bin> hermes-list check T1` … `T8`). Missing tier line → re-spawn that child for just the missing tier(s) before marking.
 
@@ -274,7 +282,7 @@ Run project tests to verify review findings. If tests fail due to issues unrelat
 
 ## Step 3.5: Validation Pass
 
-After all three children return, collect their findings. For every **BLOCKER** and **WARNING** finding, spawn parallel validation agents to re-check each finding independently.
+Once all three children have reported (each one resumes you — see Async Fan-Out above), collect their findings. For every **BLOCKER** and **WARNING** finding, spawn parallel validation agents to re-check each finding independently.
 
 **Purpose:** Reduce false positives. A finding that two independent agents agree on is high-signal. A finding only one agent sees may be a misread.
 
@@ -305,7 +313,7 @@ Your job: independently verify this finding is real.
 )
 ```
 
-After all validation agents return:
+Validation agents also launch async, exactly like the review children. End your turn after you dispatch them, then act on each report the same way as in Async Fan-Out. Once every one has reported:
 - **CONFIRMED** findings proceed to Step 4
 - **REJECTED** findings are dropped with a note in the summary: `[FILTERED] <finding> — <rejection reason>`
 
@@ -488,6 +496,8 @@ If your proposed fix would duplicate core cleanup/teardown logic across multiple
 
 **Finding format:** `<file>:<line>: [T<tier>][<rule>] <problem> — <fix>` (one line per finding).
 Body prose only for BLOCKER findings requiring architectural explanation.
+
+**Final hand-back.** Deliver the report below through `SubagentHandback`, once, as your last action. Send the full report text as the message — never a pointer to a file or another agent. Call it only after every review child (Step 3b) and every validation agent (Step 3.5) has reported. A second `SubagentHandback` call delivers nothing — Iris will never see it.
 
 ### Standalone Mode
 ```

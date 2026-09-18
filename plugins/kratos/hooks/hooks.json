@@ -58,6 +58,16 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "matcher": "SubagentHandback",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook handback-gate",
+            "timeout": 3
+          }
+        ]
       }
     ],
     "PostToolUse": [

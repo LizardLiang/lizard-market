@@ -170,6 +170,12 @@ type preToolUseInput struct {
 	Cwd       string              `json:"cwd"`
 	AgentType string              `json:"agent_type"`
 	AgentID   string              `json:"agent_id"`
+	// TranscriptPath is the calling session's own transcript file — the main
+	// session's when the caller is inline, or the spawning parent's when the
+	// caller is a subagent. handback-gate (hook_handback.go) derives a
+	// subagent's own transcript from it: <dir>/<session_id>/subagents/
+	// agent-<agent_id>.jsonl.
+	TranscriptPath string `json:"transcript_path"`
 }
 
 type preToolUseToolInput struct {
@@ -219,6 +225,7 @@ func HookCmd() *cobra.Command {
 	cmd.AddCommand(subagentStopCmd())
 	cmd.AddCommand(editGateCmd())
 	cmd.AddCommand(specDeltaCheckCmd())
+	cmd.AddCommand(handbackGateCmd())
 	return cmd
 }
 
@@ -739,18 +746,34 @@ func handleHermesStart(input subagentStartInput) error {
 
 	checklistPath := filepath.Join(checklistDir, "hermes-checklist.json")
 
+	tiers := map[string]bool{
+		"T1_correct":      false,
+		"T2_safe":         false,
+		"T3_clear":        false,
+		"T4_minimal":      false,
+		"T5_consistent":   false,
+		"T6_resilient":    false,
+		"T7_performant":   false,
+		"T8_maintainable": false,
+	}
+	blockCount := 0
+
+	// A child's async report resumes Hermes and fires this hook again with
+	// Hermes's own, unchanged agent id (see hermes.md Step 3b). That resume
+	// must not look like a fresh spawn: it kept resetting every tier mark and
+	// the block-count guard on the NETZERO 09-17 review, so the guard never
+	// tripped and Hermes re-answered `for t in T1..T8; do hermes-list check
+	// $t; done` against a blank slate every time. Only a genuinely different
+	// agent id — an actual new Hermes spawn — starts the checklist over.
+	if existing, ok := readHermesChecklistState(checklistPath); ok && input.AgentID != "" && existing.AgentID == input.AgentID {
+		tiers = existing.Tiers
+		blockCount = existing.BlockCount
+	}
+
 	checklist := map[string]interface{}{
-		"agent_id": input.AgentID,
-		"tiers": map[string]bool{
-			"T1_correct":      false,
-			"T2_safe":         false,
-			"T3_clear":        false,
-			"T4_minimal":      false,
-			"T5_consistent":   false,
-			"T6_resilient":    false,
-			"T7_performant":   false,
-			"T8_maintainable": false,
-		},
+		"agent_id":    input.AgentID,
+		"block_count": blockCount,
+		"tiers":       tiers,
 	}
 
 	checklistData, err := json.MarshalIndent(checklist, "", "  ")
@@ -776,6 +799,31 @@ func handleHermesStart(input subagentStartInput) error {
 	)
 
 	return outputSubagentStartContext(additionalContext)
+}
+
+// hermesChecklistState is the persisted shape of hermes-checklist.json that
+// handleHermesStart needs to carry across a resume.
+type hermesChecklistState struct {
+	AgentID    string          `json:"agent_id"`
+	BlockCount int             `json:"block_count"`
+	Tiers      map[string]bool `json:"tiers"`
+}
+
+// readHermesChecklistState reads an existing checklist for the resume check
+// above. ok is false on any read or parse error, or when the file has no
+// tiers map — handleHermesStart then falls back to a fresh checklist, the
+// same fail-open behavior the rest of this file uses for a missing or
+// malformed checklist.
+func readHermesChecklistState(path string) (hermesChecklistState, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return hermesChecklistState{}, false
+	}
+	var s hermesChecklistState
+	if err := json.Unmarshal(data, &s); err != nil || s.Tiers == nil {
+		return hermesChecklistState{}, false
+	}
+	return s, true
 }
 
 // findActiveFeatureDir scans .claude/feature/*/status.json and returns the feature folder

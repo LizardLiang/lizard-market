@@ -827,6 +827,90 @@ func writeHermesChecklist(t *testing.T, path string, tiers map[string]bool) {
 	}
 }
 
+// TestHermesStartPreservesChecklistAcrossResume reproduces the 2026-09-18
+// review finding: a child's async report resumes Hermes, and that resume
+// fires SubagentStart again with Hermes's same agent id. Before the fix,
+// handleHermesStart overwrote the checklist unconditionally, so every tier
+// mark and the block-count guard reset to zero on every single resume —
+// NETZERO 7af128ab, 09-17. The fix must keep prior progress when the agent id
+// is unchanged, and only reset it for a genuinely new spawn.
+func TestHermesStartPreservesChecklistAcrossResume(t *testing.T) {
+	cwd := t.TempDir()
+	checklistPath := filepath.Join(cwd, ".claude", "tmp", "hermes-checklist.json")
+
+	if err := handleHermesStart(subagentStartInput{AgentID: "hermes-1", AgentType: "hermes", Cwd: cwd}); err != nil {
+		t.Fatalf("initial spawn: %v", err)
+	}
+
+	// Simulate progress made before the resume: two tiers marked and one
+	// blocked stop attempt already recorded.
+	progressed := map[string]any{
+		"agent_id":    "hermes-1",
+		"block_count": 1,
+		"tiers": map[string]bool{
+			"T1_correct": true, "T2_safe": true, "T3_clear": false, "T4_minimal": false,
+			"T5_consistent": false, "T6_resilient": false, "T7_performant": false, "T8_maintainable": false,
+		},
+	}
+	data, err := json.MarshalIndent(progressed, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(checklistPath, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Resume: a child's report arrived, so the harness fires SubagentStart
+	// again with the same agent id.
+	if err := handleHermesStart(subagentStartInput{AgentID: "hermes-1", AgentType: "hermes", Cwd: cwd}); err != nil {
+		t.Fatalf("resume with same agent id: %v", err)
+	}
+
+	var after struct {
+		AgentID    string          `json:"agent_id"`
+		BlockCount int             `json:"block_count"`
+		Tiers      map[string]bool `json:"tiers"`
+	}
+	raw, err := os.ReadFile(checklistPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &after); err != nil {
+		t.Fatal(err)
+	}
+	if after.BlockCount != 1 {
+		t.Errorf("resume with same agent id: block_count = %d, want 1 (preserved)", after.BlockCount)
+	}
+	if !after.Tiers["T1_correct"] || !after.Tiers["T2_safe"] {
+		t.Errorf("resume with same agent id: expected T1_correct and T2_safe to stay true, got %+v", after.Tiers)
+	}
+
+	// A genuinely new spawn (a different agent id) must still start over.
+	if err := handleHermesStart(subagentStartInput{AgentID: "hermes-2", AgentType: "hermes", Cwd: cwd}); err != nil {
+		t.Fatalf("new spawn with a different agent id: %v", err)
+	}
+	var fresh struct {
+		AgentID    string          `json:"agent_id"`
+		BlockCount int             `json:"block_count"`
+		Tiers      map[string]bool `json:"tiers"`
+	}
+	raw, err = os.ReadFile(checklistPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &fresh); err != nil {
+		t.Fatal(err)
+	}
+	if fresh.BlockCount != 0 {
+		t.Errorf("new agent id: block_count = %d, want 0 (reset)", fresh.BlockCount)
+	}
+	for tier, v := range fresh.Tiers {
+		if v {
+			t.Errorf("new agent id: tier %s = true, want false (reset)", tier)
+		}
+	}
+}
+
 // runSubagentStop pipes payload through the real subagent-stop handler and
 // decodes its response.
 func runSubagentStop(t *testing.T, payload string) subagentStopOutput {
