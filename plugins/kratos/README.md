@@ -2,7 +2,7 @@
 
 > *"I am what the gods have made me."* — now the gods serve **you**.
 
-![version](https://img.shields.io/badge/version-2.112.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-2.113.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **Stop shipping AI slop.** Kratos runs your feature through a real pipeline: a PM drafts the PRD, a devil's advocate (**Nemesis**) tears it apart, an architect specs it, and an alignment gate (**Hera**) proves the implementation matches what you *actually* asked for. Named agents, review gates enforced by hooks, persistent memory across sessions — not another pile of subagents.
 
@@ -162,7 +162,8 @@ Kratos ships Claude Code hooks that enforce workflow discipline automatically �
 | `SessionStart` | all sessions | `session-start.cjs` | Registers the session ledger, prints `KRATOS_BIN:`, memories, handoff and pending spec deltas, auto-downloads the binary |
 | `SessionEnd` | all sessions | `session-end.cjs` | Closes the session ledger row with a one-line summary |
 | `PermissionRequest` | `Read` | `permission-read.cjs` | Auto-allows reads under the plugin root and `~/.kratos/` only |
-| `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|PowerShell\|Agent\|Task` | `launch.cjs hook edit-gate` | Inline edit gate: Odysseus plan-only lane, Iris source-file budget (section below) |
+| `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|PowerShell\|Agent\|Task\|Skill` | `launch.cjs hook edit-gate` | Inline edit gate: Odysseus plan-only lane, Iris source-file budget, credential guard (section below) |
+| `PreToolUse` | `SubagentHandback` | `launch.cjs hook handback-gate` | Hermes hand-back gate: denies until every spawned review child has reported, or 30 minutes of stall (section below) |
 | `PostToolUse` | `Agent\|Task\|Write\|Edit\|MultiEdit` | `tool-use.cjs` (async) | Records agent spawns and project file changes in memory |
 | `PostToolUse` | `Write\|Edit` | `launch.cjs hook spec-delta-check` | Validates a just-written spec delta immediately |
 | `SubagentStart` | `kratos:.*` | `path-inject.cjs` | Injects the resolved `<KRATOS_ROOT>` and `<kratos-bin>` paths |
@@ -198,7 +199,9 @@ When `stop_hook_active` is true (Claude Code re-invoking the hook after a prior 
 
 ### PreToolUse — Inline Edit Gate
 
-The edit gate (`kratos hook edit-gate`, v2.109) keeps the god running **inline in the main context** inside its lane, so work that belongs to a specialist is dispatched instead of absorbed. It reads the god from the per-session ledger `~/.kratos/sessions/<session_id>.json`, which the `UserPromptSubmit` hook writes when a launcher (`/kratos:iris`, `/kratos:plan`, …) runs.
+The edit gate (`kratos hook edit-gate`, v2.109) keeps the god running **inline in the main context** inside its lane, so work that belongs to a specialist is dispatched instead of absorbed. It reads the god from the per-session ledger `~/.kratos/sessions/<session_id>.json`, which has two writers: the `UserPromptSubmit` hook, when a launcher (`/kratos:iris`, `/kratos:plan`, …) runs, and the edit gate itself, when a user addresses a god by name ("iris, …") and the harness routes it through `Skill(kratos:iris)` instead of a typed slash command. Either route arms the same ledger field, so relaunching the same god never refills a spent budget.
+
+A harness pseudo-prompt — a `<task-notification>` (with or without the `[SYSTEM NOTIFICATION - NOT USER INPUT]` preamble Claude Code 2.1.276 started prepending to it) or a subagent hand-back (`Another Claude session sent a message` + `<agent-message>`), wrapped or not in a `<system-reminder>` tag — is never a user turn: it does not refill Iris's file budget, and it does not grant or clear the stand-down bypass.
 
 | Inline god | Rule |
 |------------|------|
@@ -213,6 +216,23 @@ Where the table says "only", it means "everything else is denied" — never "thi
 Iris's budget refills on every new user prompt and whenever she spawns `kratos:ares` or `kratos:hades`. Odysseus's rule ends at the hand-off instead: dispatching to one of those two builders clears the recorded god, because the work has left his hands. Nothing else clears it — not a plain user turn ("approve" is a plain turn, and the planner implementing his own approved plan is the failure this gate exists to stop), and not a research or review spawn such as `kratos:metis` for grounding, which would otherwise be a one-call escape from the lock. Stand-down phrases ("you do it", "do it yourself", "inline it") switch the gate off for that turn **only when one opens a line of the prompt**, so a question that merely contains the words — or a paste of this paragraph — does not.
 
 Fail-open means exactly that: a payload from a spawned subagent other than Odysseus (so **Ares is never gated**), a session with no ledger, an unreadable ledger, a session id that is not a safe file name, no recorded god, a god with no rule, a payload with no recognizable file path, or any error produces no output at all.
+
+**Credential guard.** Runs before every rule above, in every context — main session, an inline god, or a spawned subagent, Ares included — because a command that reads or uses a stored credential is dangerous no matter who runs it. It returns `ask`, never `deny`: you see the exact command and decide. It matches:
+
+- A database or cloud client with a credential already in reach: `sqlcmd`/`bcp -P`, `mysql -p`/`--password`, `redis-cli -a`, PowerShell's `Invoke-Sqlcmd -Password`, or a `PGPASSWORD`/`SQLCMDPASSWORD`/`MYSQL_PWD` environment variable set immediately before the client — anchored to the start of the command, so the same text quoted inside a commit message or a saved memory stays silent.
+- A `postgres(ql)`/`mysql`/`mssql`/`sqlserver`/`amqp`/`redis`/`mongodb` URI carrying `user:pass@`.
+- An Azure CLI credential fetch (`az … keys list`, `list-keys`, `show-connection-string`).
+- A grep-family command (`grep`, `egrep`, `fgrep`, `rg`, `findstr`, `Select-String`, `sls`, plus `cut`/`sed`/`awk`) whose own pattern names a secret assignment (`Password=`, `Pwd=`, `AccountKey=`, `SharedAccessKey=`, `client_secret=`) — a keyword with no `=` (a plain config-key search) stays silent. The check sees past `rtk` and other transparent wrappers (`env`, `sudo`, `time`, `winpty`, `command`), so `rtk grep -o 'Password=[^;]*' file` asks exactly like the unwrapped form.
+
+**Deny always wins over ask.** If the rest of the gate would deny the command outright — an inline Odysseus's own read-only-shell rule, for example — the credential guard never downgrades that to a permission prompt you could simply accept.
+
+### PreToolUse — Hermes Hand-Back Gate
+
+`kratos hook handback-gate` stops Hermes from calling `SubagentHandback` while a spawned review or validation child is still outstanding: every Task spawn returns "Async agent launched successfully" at once, not the child's findings, so nothing else stopped an early hand-back from shipping a verdict before a child's BLOCKER ever reached you. The gate is stateless — every call recomputes its verdict from Hermes's own subagent transcript and the current clock, with no state file to go stale or interfere across two concurrent reviews.
+
+It denies while a launched child has not reported, unless the transcript shows no launch or finish event for 30 minutes; then it releases the hand-back with a visible note naming the missing children, so the report can mark their tiers "parent-only, not child-verified" instead of silently treating them as reviewed.
+
+The tier checklist (`hermes-checklist.json`, created by the SubagentStart hook) survives every resume a child's report triggers: it keeps the same Hermes spawn's tier marks and block count across the resume, and only starts over for a genuinely new Hermes `agent_id`.
 
 ### PermissionRequest — Scoped Read Auto-Allow
 
@@ -335,6 +355,17 @@ Pipeline state is tracked in `.claude/feature/<name>/status.json`. When the Krat
 ## Persistent Memory
 
 All sessions, agent spawns, decisions, and file changes are recorded in a SQLite database. Use `/kratos:recall` to resume where you left off — context is automatically injected into new sessions.
+
+### Stored User Facts
+
+`kratos memory add "<text>" --category <category>` saves a durable fact about you: `preference`, `habit`, `weak-spot`, `context`, or `rule`. `rule` is a standing order you gave in imperative form — "never touch his credentials", "always spawn Ares for implementation" — as opposed to a one-off preference. `--project "<path>"` scopes a fact to one project; omit it for a global fact. `kratos memory list --with-rules` adds a `rules` key to the JSON output: every `rule` row, newest first, capped at 20, independent of the main list's own `--limit`/`--category`/`--project`/`--since` filters — a rule is rare enough that one call should never miss it. (`--ids-only` and `--with-rules` cannot be combined: `--ids-only` returns before the rules capture runs.)
+
+Every `SessionStart` injects up to 8 stored facts for the current project, ranked in tiers so a project with many scoped facts cannot bury every global preference:
+
+1. **Rules** — this project's and global standing orders, capped at 6, shown first and tagged `[rule]`.
+2. **Scoped facts** — up to 4 facts saved with `--project` matching the current project.
+3. **Global preferences**, then **global context** — fill whatever slots rules and scoped facts left empty.
+4. **Leftover slots return to scoped facts** — if there are no (or few) global preferences or context facts to show, the unused slots go back to this project's own scoped facts instead of sitting empty.
 
 ### Arena — Shared Project Knowledge
 
