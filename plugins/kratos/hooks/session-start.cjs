@@ -16,8 +16,8 @@
  *
  * Budget: hooks.json gives SessionStart 5 s (5000 ms). Every spawn below carries a
  * timeout and the serial sum stays under ~4000 ms (version 800 + memory list
- * 1500 + init 500 + session start 800); the plugin-bin → ~/.kratos/bin copy
- * runs last so it can never starve the calls. Every kratos call uses spawnSync
+ * 1300 + rule list 400 + init 500 + session start 800); the plugin-bin → ~/.kratos/bin
+ * copy runs last so it can never starve the calls. Every kratos call uses spawnSync
  * with an argv array — payload text never reaches a shell.
  */
 
@@ -35,6 +35,8 @@ const LEGACY_SESSION_FILE = path.join(KRATOS_HOME, "active-session.json");
 const SESSION_FILE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const REMINDER_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const MAX_MEMORIES = 8;
+const RULE_CAP = 6; // standing rules shown per session, on top of MAX_MEMORIES
+const SCOPED_CAP = 4; // project-scoped facts capped so a global preference always gets a slot
 
 // Output constraint injected into every session (verbatim from references/agent-protocol.md).
 const OUTPUT_CONSTRAINT =
@@ -68,7 +70,8 @@ const findKratosBinary = resolveBinary;
 // Per-call budgets (ms). Serial sum must stay under the 5 s (5000 ms) hook timeout
 // with room for node startup.
 const VERSION_TIMEOUT_MS = 800;
-const MEMORY_LIST_TIMEOUT_MS = 1500;
+const MEMORY_LIST_TIMEOUT_MS = 1300;
+const RULE_LIST_TIMEOUT_MS = 400; // small category-filtered slice, so a short budget is enough
 const INIT_TIMEOUT_MS = 500;
 const SESSION_START_TIMEOUT_MS = 800;
 
@@ -178,14 +181,75 @@ function normalizeProject(p) {
   return out;
 }
 
-// Stored user memories — read-side of the memory sweep, ranked for THIS
-// project: facts scoped to the current project first, then global
-// preferences / habits / weak spots, then global context; other projects'
-// scoped facts are never shown. The old newest-15-of-everything injection put
-// the same list in every project and 0-2 of 15 items were relevant (2026-09).
+// Ranks stored memories for THIS project into tiers: standing rules first
+// (this project's and global, never another project's, capped at RULE_CAP),
+// then up to SCOPED_CAP project-scoped facts, then global preferences /
+// habits / weak spots, then global context; a bucket's unused slots pass to
+// the next one. `memories` is the newest-80-window list; `ruleMemories` is
+// the separate `--category rule` capture, so a rule that has aged out of
+// that window still shows. Returns the formatted block, or null when there
+// is nothing to show. Pulled out of formatMemories so a test can call it
+// directly with fixture data instead of a real kratos binary and DB.
+function buildMemoryReport(data, ruleMemories, cwd) {
+  const memories = (data && data.memories) || [];
+  const rulePool = ruleMemories || [];
+  if (memories.length === 0 && rulePool.length === 0) return null;
+  const total = data && typeof data.total === "number" ? data.total : memories.length;
+  const here = normalizeProject(cwd);
+
+  const rules = rulePool.filter((m) => !m.project || normalizeProject(m.project) === here);
+  const shownRules = rules.slice(0, RULE_CAP);
+
+  const scoped = [];
+  const globalPrefs = [];
+  const globalContext = [];
+  for (const m of memories) {
+    if (m.category === "rule") continue; // shown from the dedicated rule tier only, never twice
+    if (m.project) {
+      if (normalizeProject(m.project) === here) scoped.push(m);
+      continue;
+    }
+    if (m.category === "context") globalContext.push(m);
+    else globalPrefs.push(m);
+  }
+
+  const scopedShown = scoped.slice(0, SCOPED_CAP);
+  let remaining = MAX_MEMORIES - scopedShown.length;
+  const prefsShown = globalPrefs.slice(0, remaining);
+  remaining -= prefsShown.length;
+  const contextShown = globalContext.slice(0, remaining);
+  const shownFacts = [...scopedShown, ...prefsShown, ...contextShown];
+
+  if (shownRules.length === 0 && shownFacts.length === 0) return null;
+
+  const lines = ["", "## Stored user preferences"];
+  for (const m of shownRules) {
+    lines.push(`- ${m.text} [rule]`);
+  }
+  for (const m of shownFacts) {
+    const tag = m.project ? ` [${m.category || "context"} · this project]` : m.category ? ` [${m.category}]` : "";
+    lines.push(`- ${m.text}${tag}`);
+  }
+  const more = total - shownFacts.length - shownRules.length;
+  if (more > 0) {
+    lines.push(`(+${more} more — \`kratos memory list --limit 50\` or \`--project "${toSlashes(cwd)}"\`)`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+// Stored user memories — read-side of the memory sweep. The old newest-15-
+// of-everything injection put the same list in every project and 0-2 of 15
+// items were relevant (2026-09); buildMemoryReport ranks the newest-80
+// window for THIS project. A second, category-filtered capture protects
+// standing rules from that window: a project with many scoped facts fills
+// every slot with them, and a rule saved weeks ago would otherwise never
+// surface (2026-09 review: memory #345 "never touch his credentials"
+// appeared in 0 of 8 sessions where it mattered).
 //
 // A failed list with an existing DB returns one "memory unavailable" line
 // instead of nothing: silent null hid a broken binary for weeks (2026-09).
+// A failed or empty rule capture fails open — the ordinary facts still show.
 function formatMemories(cwd) {
   const { out, err } = runKratosCapture(["memory", "list", "--limit", "80"], MEMORY_LIST_TIMEOUT_MS);
   const unavailable = (reason) => (fs.existsSync(DB_PATH) ? `Kratos: memory unavailable (${reason})` : null);
@@ -196,36 +260,20 @@ function formatMemories(cwd) {
   } catch (e) {
     return unavailable(err || "unreadable output");
   }
+
+  let ruleMemories = [];
+  const ruleResult = runKratosCapture(["memory", "list", "--category", "rule", "--limit", "20"], RULE_LIST_TIMEOUT_MS);
+  if (ruleResult.out) {
+    try {
+      const ruleData = JSON.parse(ruleResult.out);
+      if (Array.isArray(ruleData.memories)) ruleMemories = ruleData.memories;
+    } catch (e) {
+      // fail open — no rules shown this session, ordinary facts still do
+    }
+  }
+
   try {
-    if (!data.memories || data.memories.length === 0) return null;
-    const total = typeof data.total === "number" ? data.total : data.memories.length;
-    const here = normalizeProject(cwd);
-
-    const scoped = [];
-    const globalPrefs = [];
-    const globalContext = [];
-    for (const m of data.memories) {
-      if (m.project) {
-        if (normalizeProject(m.project) === here) scoped.push(m);
-        continue;
-      }
-      if (m.category === "context") globalContext.push(m);
-      else globalPrefs.push(m);
-    }
-    const shown = [...scoped, ...globalPrefs, ...globalContext].slice(0, MAX_MEMORIES);
-    if (shown.length === 0) return null;
-
-    const lines = ["", "## Stored user preferences"];
-    for (const m of shown) {
-      const tag = m.project ? ` [${m.category || "context"} · this project]` : m.category ? ` [${m.category}]` : "";
-      lines.push(`- ${m.text}${tag}`);
-    }
-    const more = total - shown.length;
-    if (more > 0) {
-      lines.push(`(+${more} more — \`kratos memory list --limit 50\` or \`--project "${toSlashes(cwd)}"\`)`);
-    }
-    lines.push("");
-    return lines.join("\n");
+    return buildMemoryReport(data, ruleMemories, cwd);
   } catch (e) {
     return null;
   }
@@ -544,25 +592,33 @@ function main(payload) {
   }
 }
 
-// Read the hook payload from stdin (session_id, cwd, source). Older harnesses
-// send nothing — fall back to process.cwd() and skip session registration.
-let raw = "";
-let done = false;
-function finish() {
-  if (done) return;
-  done = true;
-  let payload = null;
-  if (raw.trim()) {
-    try {
-      payload = JSON.parse(raw);
-    } catch (e) {
-      payload = null;
+// Only read stdin when run as a hook. Required as a module, this file
+// exposes buildMemoryReport so a test can drive the memory-ranking logic
+// with fixture data instead of a real kratos binary and DB.
+if (require.main === module) {
+  // Read the hook payload from stdin (session_id, cwd, source). Older
+  // harnesses send nothing — fall back to process.cwd() and skip session
+  // registration.
+  let raw = "";
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    let payload = null;
+    if (raw.trim()) {
+      try {
+        payload = JSON.parse(raw);
+      } catch (e) {
+        payload = null;
+      }
     }
-  }
-  main(payload);
+    main(payload);
+  };
+  process.stdin.setEncoding("utf-8");
+  process.stdin.on("data", (chunk) => (raw += chunk));
+  process.stdin.on("end", finish);
+  process.stdin.on("error", finish);
+  setTimeout(finish, 300).unref();
+} else {
+  module.exports = { buildMemoryReport, formatMemories, normalizeProject };
 }
-process.stdin.setEncoding("utf-8");
-process.stdin.on("data", (chunk) => (raw += chunk));
-process.stdin.on("end", finish);
-process.stdin.on("error", finish);
-setTimeout(finish, 300).unref();

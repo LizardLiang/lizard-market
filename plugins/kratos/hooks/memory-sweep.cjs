@@ -152,6 +152,7 @@ function buildInstruction(kratosBin, cwd) {
     + 'Save ≤3 memories and ≤2 lessons, each ≤200 chars. '
     + `A fact naming a host, path or repo file needs --project "${root}"; if --project is rejected, skip the fact. `
     + 'One choice is not a preference. '
+    + 'A standing order in imperative form ("never", "always") is category rule, not preference. '
     + 'Never cite list positions like #7. '
     + 'One lesson goes to memory OR feedback, not both. '
     + `Full procedure: "${protocol.replace(/\\/g, '/')}". `

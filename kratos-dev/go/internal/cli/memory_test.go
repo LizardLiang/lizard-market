@@ -147,6 +147,44 @@ func TestMemoryAddRejectsUnknownCategory(t *testing.T) {
 	assert.Contains(t, err.Error(), "kratos feedback add")
 }
 
+// TestMemoryAddAcceptsRuleCategory covers the new standing-rule category:
+// `memory add` must accept it, and `memory list --category rule` must return
+// only rows saved with it.
+func TestMemoryAddAcceptsRuleCategory(t *testing.T) {
+	setupMemoryTestDB(t)
+
+	addCmd := MemoryAddCmd()
+	addCmd.SetArgs([]string{"never touch his credentials", "--category", "rule"})
+	var addOutput bytes.Buffer
+	addCmd.SetOut(&addOutput)
+	require.NoError(t, addCmd.Execute())
+
+	var addResult map[string]interface{}
+	require.NoError(t, json.Unmarshal(addOutput.Bytes(), &addResult))
+	assert.Equal(t, "added", addResult["status"])
+	memory := addResult["memory"].(map[string]interface{})
+	assert.Equal(t, "rule", memory["category"])
+
+	otherCmd := MemoryAddCmd()
+	otherCmd.SetArgs([]string{"prefers terse output", "--category", "preference"})
+	var otherOutput bytes.Buffer
+	otherCmd.SetOut(&otherOutput)
+	require.NoError(t, otherCmd.Execute())
+
+	listCmd := MemoryListCmd()
+	listCmd.SetArgs([]string{"--category", "rule"})
+	var listOutput bytes.Buffer
+	listCmd.SetOut(&listOutput)
+	require.NoError(t, listCmd.Execute())
+
+	var listResult map[string]interface{}
+	require.NoError(t, json.Unmarshal(listOutput.Bytes(), &listResult))
+	memories := listResult["memories"].([]interface{})
+	require.Len(t, memories, 1)
+	first := memories[0].(map[string]interface{})
+	assert.Equal(t, "never touch his credentials", first["text"])
+}
+
 func TestMemoryRemoveNonExistentID(t *testing.T) {
 	setupMemoryTestDB(t)
 

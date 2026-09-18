@@ -37,10 +37,13 @@ corrections, working style.
 1. Save at most 3 (no prior `memory list` — `add` checks the whole store itself):
 
    ```bash
-   <kratos-bin> memory add "<fact>" --category <preference|habit|weak-spot|context> [--project "<project-root>"]
+   <kratos-bin> memory add "<fact>" --category <preference|habit|weak-spot|context|rule> [--project "<project-root>"]
    ```
 
-   - Only those four categories.
+   - `rule` is a standing order the user gave in imperative form ("never", "always",
+     "I keep telling you"). SessionStart injects it in its own guaranteed tier, ahead
+     of every other category.
+   - Only those five categories.
    - Each fact ≤200 characters — write it short the first time; the CLI rejects longer text and
      never truncates.
    - The CLI rejects a near-duplicate — same words (Jaccard) or the same content words in

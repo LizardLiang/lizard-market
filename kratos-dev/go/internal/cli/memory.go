@@ -19,11 +19,17 @@ const memoryTextMaxLen = 200
 // validMemoryCategories is the closed set `memory add` accepts. Anything else
 // (a 2026-09 sweep saved `--category feedback`) silently became an untyped row
 // the session-start ranking could not place.
+//
+// "rule" is a standing order the user gave in imperative form ("never",
+// "always", "I keep telling you"). session-start.cjs injects it in its own
+// guaranteed tier, ahead of every other category, so it cannot age out of the
+// newest-80 window the way a "preference" row can.
 var validMemoryCategories = map[string]bool{
 	"preference": true,
 	"habit":      true,
 	"weak-spot":  true,
 	"context":    true,
+	"rule":       true,
 }
 
 // MemoryCmd returns the 'memory' subcommand
@@ -70,7 +76,7 @@ in that project).`,
 				return fmt.Errorf("memory text exceeds %d characters (got %d) — cut %d; shorten the fact instead of truncating it", memoryTextMaxLen, n, n-memoryTextMaxLen)
 			}
 			if !validMemoryCategories[category] {
-				return fmt.Errorf("unknown category %q — use preference, habit, weak-spot, or context (agent lessons go to `kratos feedback add`)", category)
+				return fmt.Errorf("unknown category %q — use preference, habit, weak-spot, context, or rule (agent lessons go to `kratos feedback add`)", category)
 			}
 
 			conn, err := db.GetConnection()
@@ -119,7 +125,7 @@ in that project).`,
 		},
 	}
 
-	cmd.Flags().StringVar(&category, "category", "context", "Category: preference, habit, weak-spot, context")
+	cmd.Flags().StringVar(&category, "category", "context", "Category: preference, habit, weak-spot, context, rule")
 	cmd.Flags().StringVar(&project, "project", "", "Project root this fact belongs to (omit for a global fact)")
 	cmd.Flags().Int64Var(&replaceID, "replace", 0, "Supersede memory <id> in place instead of adding a new row")
 	cmd.Flags().BoolVar(&force, "force", false, "Add even when a near-duplicate exists")
@@ -221,7 +227,7 @@ small; "total" in the result reports how many rows matched before the limit.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&category, "category", "all", "Filter by category: preference, habit, weak-spot, context, all")
+	cmd.Flags().StringVar(&category, "category", "all", "Filter by category: preference, habit, weak-spot, context, rule, all")
 	cmd.Flags().StringVar(&project, "project", "", "Only memories scoped to this project root")
 	cmd.Flags().StringVar(&since, "since", "", "Only memories newer than this age: 7d, 36h, 30m, or days as a number")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Return at most N memories (0 = all)")

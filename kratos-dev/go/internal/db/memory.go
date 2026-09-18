@@ -13,7 +13,7 @@ import (
 type Memory struct {
 	ID        int64   `json:"id"`
 	Text      string  `json:"text"`
-	Category  string  `json:"category"` // preference, habit, weak-spot, context
+	Category  string  `json:"category"` // preference, habit, weak-spot, context, rule
 	Project   *string `json:"project,omitempty"`
 	CreatedAt int64   `json:"created_at"`
 }
