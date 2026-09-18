@@ -2,7 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -191,39 +190,126 @@ const credentialGuardReason = "This command reads or uses stored credentials. Th
 // credentialSecretKeywordRE matches a connection-string or URI key whose value
 // is a credential: Password/Pwd (ADO.NET), AccountKey/SharedAccessKey (Azure
 // storage), client_secret (OAuth). This is the target of the 2026-09-15 KPIM
-// incident's own pipeline, `grep -o 'Password=[^;]*' | cut -d= -f2`.
+// incident's own pipeline, `grep -o 'Password=[^;]*' | cut -d= -f2`. A keyword
+// with no trailing `=` (`grep -n "Password" file`, a config key search) never
+// matches — it names the line a secret sits on, not the value.
 var credentialSecretKeywordRE = regexp.MustCompile(`(?i)\b(?:password|pwd|accountkey|sharedaccesskey|client_secret)\b\s*=`)
 
-// credentialGrepOnlyFlagRE matches grep's only-matching flag, alone or
-// combined with others (-o, -oP, -ro), or its long form. A grep without it —
-// `grep -n "Password" file` — only names the line a secret sits on and never
-// extracts the value, so it is not covered.
-var credentialGrepOnlyFlagRE = regexp.MustCompile(`(?i)(?:^|\s)-[a-z]*o[a-z]*(?:\s|$)|--only-matching\b`)
-
 // credentialExtractionHeads are segment heads whose entire job is pulling a
-// value out of text, once grep's -o flag (checked separately above) is set
-// aside: cut, sed and awk on a shell, Select-String in PowerShell.
-var credentialExtractionHeads = map[string]bool{"cut": true, "sed": true, "awk": true, "select-string": true}
+// value out of text: cut, sed and awk on a shell, and the grep family on both
+// a POSIX shell and PowerShell (grep, egrep, fgrep, rg, findstr,
+// Select-String, sls). Every one of these prints the whole matching line —
+// or, with an only-matching flag, just the value — the moment its own
+// pattern names the secret assignment directly, so the flag no longer
+// discriminates: `grep "Password=" file` exposes the value exactly like
+// `grep -o 'Password=[^;]*' file` does, one line earlier. `find` is
+// deliberately absent: it searches file names and attributes, never file
+// content, so it can never expose a value the way the tools above do.
+var credentialExtractionHeads = map[string]bool{
+	"cut": true, "sed": true, "awk": true,
+	"grep": true, "egrep": true, "fgrep": true, "rg": true, "findstr": true,
+	"select-string": true, "sls": true,
+}
 
 // credentialClientPasswordRE matches a database or cloud CLI invoked with a
 // credential directly in reach: sqlcmd/bcp's uppercase -P — spaced ("-P
 // value") or attached with no space ("-PSecret", `-P"$PW"`), so only a
-// boundary before "-P" is required, none after — plus sqlcmd's own
-// SQLCMDPASSWORD env var; psql/pg_dump's PGPASSWORD variable; mysql's
-// lowercase -p, --password, or MYSQL_PWD env var (mysql's own -P sets the
-// port, not a credential, so the case split is deliberate); a mongo URI
-// carrying user:pass@; redis-cli's -a; and PowerShell's Invoke-Sqlcmd
-// -Password.
+// boundary before "-P" is required, none after — mysql's lowercase -p,
+// --password (mysql's own -P sets the port, not a credential, so the case
+// split is deliberate); a mongo URI carrying user:pass@; redis-cli's -a;
+// PowerShell's Invoke-Sqlcmd -Password; any of postgres/mysql/mssql/
+// sqlserver/amqp/redis/mongodb URI carrying user:pass@ (the 2026-09-15
+// incident's own `psql "postgresql://app:hunter2@host/db"` shape, and the
+// same shape under pg_dump); and an Azure CLI credential fetch (`az … keys
+// list`, `list-keys`, `show-connection-string`). The three credential
+// environment variables (PGPASSWORD, SQLCMDPASSWORD, MYSQL_PWD) are handled
+// separately below, anchored, so they can never fire on the same text quoted
+// inside an unrelated command's argument.
 var credentialClientPasswordRE = regexp.MustCompile(
 	`(?i:\b(?:sqlcmd|bcp)(?:\.exe)?\b).*(?:^|\s)-P` +
-		`|(?i:\bSQLCMDPASSWORD\s*=)` +
-		`|(?i:\bPGPASSWORD\s*=)` +
 		`|(?i:\bmysql(?:dump)?(?:\.exe)?\b).*(?:(?:^|\s)-p\S|--password\b)` +
-		`|(?i:\bMYSQL_PWD\s*=)` +
 		`|(?i:\b(?:mongosh|mongo)\b).*://[^:@/\s]+:[^@/\s]+@` +
 		`|(?i:\bredis-cli\b).*(?:^|\s)-a(?:\s|$)` +
-		`|(?i:\bInvoke-Sqlcmd\b).*-Password\b`,
+		`|(?i:\bInvoke-Sqlcmd\b).*-Password\b` +
+		`|(?i:(?:postgres(?:ql)?|mysql|mssql|sqlserver|amqp|redis|mongodb(?:\+srv)?)://[^:@/\s]+:[^@/\s]+@)` +
+		`|(?i:\baz\b.*\b(?:keys\s+list|list-keys|show-connection-string)\b)`,
 )
+
+// credentialLeadingEnvVarRE matches a credential environment variable set
+// immediately before the client program that reads it: PGPASSWORD (psql,
+// pg_dump), SQLCMDPASSWORD (sqlcmd), MYSQL_PWD (mysql). Anchored to the start
+// of the (wrapper-stripped) segment — see gateEffectiveSegmentText — so it
+// can never match the same text sitting inside an unrelated command's quoted
+// argument: `git commit -m "docs: set PGPASSWORD= in CI"` and
+// `kratos memory add "never set PGPASSWORD= by hand"` both stay silent,
+// because neither segment begins with the assignment.
+var credentialLeadingEnvVarRE = regexp.MustCompile(`(?i)^(?:PGPASSWORD|SQLCMDPASSWORD|MYSQL_PWD)\s*=`)
+
+// gateWrapperHeadRE matches one leading wrapper token — plus the whitespace
+// after it — that this gate must see past to find the command actually
+// running: `rtk` (this user's own shell prefix on every command, per his
+// global instructions — `rtk proxy` is the same wrapper, its `proxy`
+// subcommand only turns rtk's own output filtering off), a timing prefix,
+// `sudo`, Git Bash's `winpty` TTY wrapper, and `env` (its own VAR=value
+// arguments are peeled off one at a time by gateLeadingAssignmentRE below).
+var gateWrapperHeadRE = regexp.MustCompile(`(?i)^\s*(?:rtk(?:\s+proxy)?|time|sudo|winpty|env)\b\s*`)
+
+// gateCommandWrapperRE matches the `command` builtin, except `command -v`:
+// that form only checks whether a program exists and never runs it, so it is
+// its own read-only allowlist entry (gateReadOnlyCommands) rather than a
+// wrapper to see past.
+var gateCommandWrapperRE = regexp.MustCompile(`(?i)^\s*command\s+(?:-v\b)?`)
+
+// gateLeadingAssignmentRE matches one leading shell variable assignment
+// token — env's own arguments, or a bare assignment before the real command
+// (`PGPASSWORD=hunter2 psql …`) — so the head resolved below is the program
+// actually running, not the variable being set.
+var gateLeadingAssignmentRE = regexp.MustCompile(`^\s*[A-Za-z_][A-Za-z0-9_]*=\S*\s*`)
+
+// gateStripCommandWrappers strips only transparent wrapper tokens — rtk (and
+// rtk proxy), a timing prefix, sudo, winpty, env, and command (unless
+// "command -v") — never a bare VAR=value assignment. credentialLeadingEnvVarRE
+// runs against this form, so a credential env var stays visible at the front
+// of the text: stripping it the way gateEffectiveSegmentText does below would
+// erase the very thing that check anchors on.
+func gateStripCommandWrappers(raw string) string {
+	s := raw
+	for {
+		if m := gateCommandWrapperRE.FindString(s); m != "" && !strings.HasSuffix(strings.TrimSpace(m), "-v") {
+			s = s[len(m):]
+			continue
+		}
+		if m := gateWrapperHeadRE.FindString(s); m != "" {
+			s = s[len(m):]
+			continue
+		}
+		break
+	}
+	return s
+}
+
+// gateEffectiveSegmentText returns raw with every leading wrapper token AND
+// leading VAR=value assignment stripped, so gateSegmentHead — used by both
+// the credential guard's grep-family check and the read-only classifier —
+// resolves the program actually running, not a variable being set on its way
+// there. Without the wrapper half, the segment head of `rtk grep -o
+// 'Password=[^;]*' Web.config` was `rtk`, and the guard never looked past it
+// — the default shape of the incident on this machine, since the user's own
+// global instructions put `rtk` in front of every command.
+func gateEffectiveSegmentText(raw string) string {
+	s := gateStripCommandWrappers(raw)
+	for {
+		if m := gateLeadingAssignmentRE.FindString(s); m != "" {
+			s = s[len(m):]
+			if w := gateStripCommandWrappers(s); w != s {
+				s = w
+			}
+			continue
+		}
+		break
+	}
+	return s
+}
 
 // credentialGuardDecision inspects one Bash/PowerShell command for a database
 // or cloud client run with a credential already in reach, or a pipeline that
@@ -246,12 +332,11 @@ func credentialGuardDecision(command string) (editGateResult, bool) {
 		if raw == "" {
 			continue
 		}
-		if credentialClientPasswordRE.MatchString(raw) {
+		if credentialClientPasswordRE.MatchString(raw) || credentialLeadingEnvVarRE.MatchString(gateStripCommandWrappers(raw)) {
 			return editGateResult{Decision: "ask", Reason: credentialGuardReason}, true
 		}
 		head := gateSegmentHead(raw)
-		extracts := credentialExtractionHeads[head] || (head == "grep" && credentialGrepOnlyFlagRE.MatchString(raw))
-		if extracts && credentialSecretKeywordRE.MatchString(raw) {
+		if credentialExtractionHeads[head] && credentialSecretKeywordRE.MatchString(raw) {
 			return editGateResult{Decision: "ask", Reason: credentialGuardReason}, true
 		}
 	}
@@ -312,6 +397,19 @@ func handleEditGate(raw []byte) {
 		}
 	}
 
+	// A Skill(kratos:<god>) call is the only route that arms the gate from the
+	// Skill step (see skillLoadResult) — a session whose ledger is missing or
+	// unparseable would otherwise arm nothing at all: editGateDecisionRest
+	// returns at its own no-ledger step, before it ever reaches the Skill
+	// rule. recordInlineGod already creates a stub ledger in this situation
+	// for the slash-command route; a Skill load addressed by name gets the
+	// same stub, from the same constructor.
+	if ledger == nil && !gateIsSpawned(input) && input.ToolName == "Skill" && input.SessionID != "" {
+		if res := skillLoadResult(input.ToolInput.Skill); res.SetGod != "" {
+			ledger = newInlineLedger(input.SessionID, input.Cwd)
+		}
+	}
+
 	res := editGateDecision(input, ledger)
 
 	if ledger != nil && input.SessionID != "" {
@@ -335,20 +433,7 @@ func handleEditGate(raw []byte) {
 		}
 	}
 
-	if res.Decision == "" {
-		return
-	}
-	data, err := json.Marshal(preToolUseOutput{
-		HookSpecificOutput: preToolUseHookSpecific{
-			HookEventName:            "PreToolUse",
-			PermissionDecision:       res.Decision,
-			PermissionDecisionReason: res.Reason,
-		},
-	})
-	if err != nil {
-		return
-	}
-	fmt.Println(string(data))
+	emitPreToolUseDecision(res.Decision, res.Reason, "")
 }
 
 // gateIsSpawned reports whether the payload came from a spawned subagent.
@@ -379,18 +464,37 @@ func gateIsSpawnedOdysseus(input preToolUseInput) bool {
 
 // editGateDecision is the whole policy, as a pure function of the payload and
 // the ledger, so the table test can exercise every branch in process.
+//
+// The credential guard is computed first but never returned early: the rest
+// of the policy might hard-deny this same command outright (an inline
+// Odysseus's own read-only-shell rule denies any non-read command, credential
+// or not), and deny must always win over ask. Returning the guard's "ask"
+// before checking that downgraded a plan-mode hard deny to a permission
+// prompt the user could simply accept — the 2026-09-18 review's own
+// regression, found in the same pass that added the guard. The guard itself
+// never touches the ledger, so folding it in here changes no side effect: a
+// spawned agent's edits still never spend the inline god's budget.
 func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResult {
-	// 0. Credential guard. Runs before the spawned-subagent return and before
-	//    any ledger check: a command that reads a stored credential and runs a
-	//    database client with it, or pulls the value out with a text-extraction
-	//    tool, is dangerous in every context — main, an inline god, or a
-	//    spawned Ares — so no ledger is involved.
+	var credResult editGateResult
+	credAsks := false
 	if input.ToolName == "Bash" || input.ToolName == "PowerShell" {
-		if res, ok := credentialGuardDecision(input.ToolInput.Command); ok {
-			return res
-		}
+		credResult, credAsks = credentialGuardDecision(input.ToolInput.Command)
 	}
 
+	res := editGateDecisionRest(input, ledger)
+	if res.Decision == "deny" {
+		return res
+	}
+	if credAsks {
+		return credResult
+	}
+	return res
+}
+
+// editGateDecisionRest is every rule but the credential guard: the steps
+// editGateDecision used to run directly, before the guard's ask had to wait
+// on whichever of them fires.
+func editGateDecisionRest(input preToolUseInput, ledger map[string]any) editGateResult {
 	// 1. Spawned subagent: only Odysseus is gated. Ares, Hades and everyone
 	//    else must never be counted against the inline god's budget — gating
 	//    them would break the dispatch this gate exists to create. The marker
@@ -864,10 +968,11 @@ func isReadOnlySegment(seg shellSegment) bool {
 	return false
 }
 
-// gateSegmentHead is the lower-cased program name a segment starts with, with
-// its directory, quotes and .exe suffix stripped.
+// gateSegmentHead is the lower-cased program name a segment starts with, once
+// a leading wrapper (see gateEffectiveSegmentText) is stripped, with its
+// directory, quotes and .exe suffix removed.
 func gateSegmentHead(raw string) string {
-	fields := strings.Fields(raw)
+	fields := strings.Fields(gateEffectiveSegmentText(raw))
 	if len(fields) == 0 {
 		return ""
 	}

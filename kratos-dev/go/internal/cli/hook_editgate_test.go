@@ -812,6 +812,117 @@ sqlcmd -S "$SRV" -d "$DB" -U "$UID_" -P "$PW" -C -l 30 -W -i "$TMPDIR/verify.sql
 			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `mysql -P 3306 -h host -e "select 1"`}}),
 			want:    "",
 		},
+		// ---- credential guard round 2 (2026-09-18 review, Part 1) ----
+		{
+			name:           "rg -o Password asks",
+			payload:        payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `rg -o 'Password=[^;]*' Web.config`}}),
+			want:           "ask",
+			reasonContains: []string{"stored credentials"},
+		},
+		{
+			// The default shape of the incident on this machine: the user's own
+			// global instructions put `rtk` in front of every command, so the
+			// segment head was `rtk` and the guard never looked past it.
+			name:    "rtk-wrapped grep -o Password asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `rtk grep -o 'Password=[^;]*' Web.config`}}),
+			want:    "ask",
+		},
+		{
+			name:    "rtk-wrapped rg -o Password asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `rtk rg -o 'Password=[^;]*' Web.config`}}),
+			want:    "ask",
+		},
+		{
+			name:    "findstr Password= asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `findstr /R "Password=.*" Web.config`}}),
+			want:    "ask",
+		},
+		{
+			// No -o: grep still prints the whole matching line, exposing the
+			// value one line earlier than the -o form does.
+			name:    "grep Password= with no -o asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `grep "Password=" app/Web.config`}}),
+			want:    "ask",
+		},
+		{
+			name:    "psql postgresql URI with embedded credentials asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `psql "postgresql://app:hunter2@host:5432/db" -c "select 1"`}}),
+			want:    "ask",
+		},
+		{
+			name:    "psql postgres URI spelling asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `psql "postgres://app:hunter2@host:5432/db" -c "select 1"`}}),
+			want:    "ask",
+		},
+		{
+			name:    "pg_dump with the same URI asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `pg_dump "postgresql://app:hunter2@host:5432/db" > dump.sql`}}),
+			want:    "ask",
+		},
+		{
+			name:    "az storage account keys list asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `az storage account keys list -n acct -g rg`}}),
+			want:    "ask",
+		},
+		{
+			// A commit message that merely quotes the env-var shape must never
+			// ask: memory-sweep.cjs now tells the model to save credential
+			// rules, so the save prompt itself must not trip the guard either.
+			name:    "commit message quoting PGPASSWORD= stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `git commit -m "docs: set PGPASSWORD= in CI"`}}),
+			want:    "",
+		},
+		{
+			name:    "memory add quoting PGPASSWORD= stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `kratos memory add "never set PGPASSWORD= by hand" --category rule`}}),
+			want:    "",
+		},
+		{
+			name:    "rtk-wrapped grep for a bare keyword with no = stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `rtk grep -rn password src/`}}),
+			want:    "",
+		},
+		{
+			name:    "rg for a bare keyword with no = stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `rg -n Password src/Login.tsx`}}),
+			want:    "",
+		},
+		{
+			name:    "commit message about a password= parsing bug stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `git commit -m "fix password= parsing bug"`}}),
+			want:    "",
+		},
+		{
+			name:    "plain psql query with no credential stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `psql -h host -U app -c "select 1"`}}),
+			want:    "",
+		},
+		// ---- precedence: deny wins over ask (Part 1e) ----
+		{
+			// Inline Odysseus's own read-only-shell rule hard-denies this
+			// command (psql is not on the allowlist) regardless of the
+			// credential it also carries. Returning "ask" here would downgrade
+			// that hard deny to a permission prompt the user could accept.
+			name:    "credential command denied by inline odysseus stays a deny, not ask",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `PGPASSWORD=hunter2 psql -h host -U app -c "select 1"`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			// Same precedence for a spawned Odysseus (agent_type route).
+			name:    "credential command denied by spawned odysseus stays a deny, not ask",
+			payload: payloadJSON(map[string]any{"agent_type": "kratos:odysseus", "tool_name": "Bash", "tool_input": map[string]any{"command": `PGPASSWORD=hunter2 psql -h host -U app -c "select 1"`}}),
+			want:    "deny",
+		},
+		{
+			// The credential guard's own "spawned agents are never
+			// budget-gated" invariant: the ask verdict carries no ledger
+			// write, and the ledger passed in must come back unwritten.
+			name:    "incident command from a spawned ares still writes nothing",
+			payload: payloadJSON(map[string]any{"agent_type": "kratos:ares", "session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `grep -o 'Password=[^;]*' Web.config | cut -d= -f2`}}),
+			ledger:  irisLedger("C:/repo/src/a.ts"),
+			want:    "ask",
+		},
 		// ---- skill load arms the gate (Fix 4) ----
 		{
 			name:       "skill load addresses iris by name",
@@ -1163,6 +1274,59 @@ func TestEditGateSkillLoadArmsInlineGod(t *testing.T) {
 	}
 	if got := ledgerStrings(readLedgerFor(t, sessionID)); len(got) != 0 {
 		t.Fatalf("inline_edited_files = %v after a god change, want empty", got)
+	}
+}
+
+// TestEditGateSkillLoadCreatesLedgerWhenMissing covers Fix 4's own gap: a
+// Skill(kratos:iris) call in a session whose ledger is missing (session-start
+// never wrote one, or it is unparseable) used to arm nothing at all — the
+// write was guarded by `ledger != nil` and editGateDecisionRest returns at
+// its own no-ledger step before it ever reaches the Skill rule. This walks
+// the same route end to end, on disk, with no ledger seeded first.
+func TestEditGateSkillLoadCreatesLedgerWhenMissing(t *testing.T) {
+	setHomeEnv(t, t.TempDir())
+	const sessionID = "sess-skillload-noledger"
+	const cwd = "C:/repo"
+
+	// No writeInlineLedger call here — the session has no ledger file at all.
+	out := captureStdout(func() {
+		handleEditGate([]byte(payloadJSON(map[string]any{
+			"session_id": sessionID, "cwd": cwd, "tool_name": "Skill",
+			"tool_input": map[string]any{"skill": "kratos:iris"},
+		})))
+	})
+	if out != "" {
+		t.Fatalf("a Skill load must never itself produce a decision, got %q", out)
+	}
+
+	m, err := readInlineLedger(sessionID)
+	if err != nil {
+		t.Fatalf("expected a ledger to exist after the Skill load: %v", err)
+	}
+	if got := ledgerString(m, ledgerKeyInlineGod); got != "iris" {
+		t.Fatalf("inline_god = %q, want iris", got)
+	}
+	if got := ledgerString(m, ledgerKeyCwd); got != cwd {
+		t.Fatalf("cwd = %q, want %q", got, cwd)
+	}
+
+	// The budget behaves exactly as it does when session-start seeded the
+	// ledger first: two files allowed, a third denied.
+	write := func(file string) string {
+		return captureStdout(func() {
+			handleEditGate([]byte(payloadJSON(map[string]any{
+				"session_id": sessionID, "cwd": cwd, "tool_name": "Write",
+				"tool_input": map[string]any{"file_path": file},
+			})))
+		})
+	}
+	write("C:/repo/src/a.ts")
+	write("C:/repo/src/b.ts")
+	if got := ledgerStrings(readLedgerFor(t, sessionID)); len(got) != 2 {
+		t.Fatalf("inline_edited_files = %v, want 2 entries", got)
+	}
+	if out := write("C:/repo/src/c.ts"); !strings.Contains(out, `"deny"`) {
+		t.Fatal("a third file was not denied for a god armed from a Skill load with no prior ledger")
 	}
 }
 
