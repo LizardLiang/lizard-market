@@ -385,6 +385,14 @@ func promptSubmitIn(raw []byte) hookOutput {
 		return passthroughOutput()
 	}
 
+	// A subagent hand-back (or the harness's own <task-notification>) is model
+	// output, not user prose: a report naming "ares, hermes" fired the keyword
+	// injection in the 2026-09-18 review, steering a system-level instruction
+	// from text the user never wrote.
+	if isHarnessPseudoPrompt(prompt) {
+		return passthroughOutput()
+	}
+
 	// Sanitize: strip code blocks, URLs, paths, system reminders
 	cleaned := sanitizePrompt(prompt)
 

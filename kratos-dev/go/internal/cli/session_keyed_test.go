@@ -106,6 +106,7 @@ func TestInitialRequestText(t *testing.T) {
 		"!echo \"KRATOS_ROOT=x\"":             "",
 		"<command-name>/model</command-name>": "",
 		"You ARE Iris. KRATOS_ROOT=/x agent load iris": "",
+		"Another Claude session sent a message\n<agent-message from=\"agent-1\">\nDone.\n</agent-message>": "",
 		"": "",
 	}
 	for in, want := range cases {

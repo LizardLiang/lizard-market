@@ -779,6 +779,39 @@ sqlcmd -S "$SRV" -d "$DB" -U "$UID_" -P "$PW" -C -l 30 -W -i "$TMPDIR/verify.sql
 			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "kratos pipeline get --compact --feature x"}}),
 			want:    "",
 		},
+		{
+			// sqlcmd/bcp accept the password attached, no space before the value.
+			name:    "sqlcmd attached password with no space asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "sqlcmd -S host -U app -PSecret123 -C"}}),
+			want:    "ask",
+		},
+		{
+			name:    "sqlcmd attached quoted variable password asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `sqlcmd -S "$SRV" -U "$UID_" -P"$PW" -C`}}),
+			want:    "ask",
+		},
+		{
+			name:    "SQLCMDPASSWORD env var asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "SQLCMDPASSWORD=hunter2 sqlcmd -S host -U app -C"}}),
+			want:    "ask",
+		},
+		{
+			name:    "MYSQL_PWD env var asks",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "MYSQL_PWD=hunter2 mysql -uroot -e 'select 1'"}}),
+			want:    "ask",
+		},
+		{
+			// sqlcmd's lowercase -p prints statistics, not a credential.
+			name:    "sqlcmd lowercase -p statistics flag stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `sqlcmd -p -S host -E -Q "select 1"`}}),
+			want:    "",
+		},
+		{
+			// mysql's uppercase -P sets the port, not a credential.
+			name:    "mysql uppercase -P port with a host flag stays silent",
+			payload: payloadJSON(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": `mysql -P 3306 -h host -e "select 1"`}}),
+			want:    "",
+		},
 		// ---- skill load arms the gate (Fix 4) ----
 		{
 			name:       "skill load addresses iris by name",

@@ -33,6 +33,25 @@ func isExpandedLauncherBody(prompt string) bool {
 	return false
 }
 
+// harnessPseudoPromptRE matches a UserPromptSubmit payload that is a harness
+// event rather than user text: Claude Code's own <task-notification> (posted
+// when a spawned subagent finishes), and a subagent hand-back, which arrives
+// as "Another Claude session sent a message" followed by an
+// <agent-message from="..."> block carrying the report body. Anchored to the
+// start of the (trimmed) prompt — a real user turn that merely mentions
+// "another Claude session" mid-sentence must still count as a user turn.
+var harnessPseudoPromptRE = regexp.MustCompile(`(?i)^(?:<task-notification|<agent-message|Another Claude session sent a message)`)
+
+// isHarnessPseudoPrompt reports whether prompt is a harness event, not
+// something the user typed. A hand-back's own report body is model output: it
+// must not refill the inline edit-gate's file budget, grant or clear
+// gate_bypass (gateBypassRE would otherwise run against a report line opening
+// with "you do …"), or reach keyword detection (a report naming "ares,
+// hermes" fired the Kratos keyword injection in the 2026-09-18 review).
+func isHarnessPseudoPrompt(prompt string) bool {
+	return harnessPseudoPromptRE.MatchString(strings.TrimSpace(prompt))
+}
+
 // slashGodRE matches the launcher invocation as the user types it.
 var slashGodRE = regexp.MustCompile(`(?i)^\s*/kratos:([a-z-]+)\b`)
 

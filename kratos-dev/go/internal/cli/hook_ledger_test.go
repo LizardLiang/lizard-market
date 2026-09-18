@@ -210,6 +210,42 @@ func TestPromptSubmitRecordsInlineGod(t *testing.T) {
 		}
 	})
 
+	t.Run("a hand-back does not refill a spent budget", func(t *testing.T) {
+		setHomeEnv(t, t.TempDir())
+		seedLedger(t, map[string]any{"inline_god": "iris", "inline_edited_files": []any{"a.ts", "b.ts"}, "gate_bypass": false})
+
+		recordInlineGod(testLedgerSession, "C:/repo", "Another Claude session sent a message\n"+
+			"<agent-message from=\"agent-1\">\nDone. ares, hermes both signed off.\n</agent-message>")
+
+		if got := ledgerStrings(mustReadLedger(t)); len(got) != 2 {
+			t.Errorf("inline_edited_files = %v, a hand-back must not refill the budget", got)
+		}
+	})
+
+	t.Run("a hand-back's own 'you do it' line does not grant a bypass", func(t *testing.T) {
+		setHomeEnv(t, t.TempDir())
+		seedLedger(t, map[string]any{"inline_god": "iris", "gate_bypass": false, "inline_edited_files": []any{}})
+
+		recordInlineGod(testLedgerSession, "C:/repo", "Another Claude session sent a message\n"+
+			"<agent-message from=\"agent-1\">\nyou do it\n</agent-message>")
+
+		if ledgerBool(mustReadLedger(t)) {
+			t.Error("a hand-back's own report text granted gate_bypass")
+		}
+	})
+
+	t.Run("a hand-back after a real user bypass keeps it set", func(t *testing.T) {
+		setHomeEnv(t, t.TempDir())
+		seedLedger(t, map[string]any{"inline_god": "iris", "gate_bypass": true, "inline_edited_files": []any{"a.ts"}})
+
+		recordInlineGod(testLedgerSession, "C:/repo", "Another Claude session sent a message\n"+
+			"<agent-message from=\"agent-1\">\nReview complete, no issues found.\n</agent-message>")
+
+		if !ledgerBool(mustReadLedger(t)) {
+			t.Error("a hand-back cleared a bypass the user actually gave")
+		}
+	})
+
 	t.Run("missing ledger file is created", func(t *testing.T) {
 		setHomeEnv(t, t.TempDir())
 

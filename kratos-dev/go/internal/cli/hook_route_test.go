@@ -100,6 +100,73 @@ func TestIsExpandedLauncherBody(t *testing.T) {
 	}
 }
 
+// TestIsHarnessPseudoPrompt pins the shared predicate: a <task-notification>,
+// a subagent hand-back ("Another Claude session sent a message" plus an
+// <agent-message> block), or a bare <agent-message> all count; a real user
+// turn that merely mentions "another Claude session" mid-sentence does not.
+func TestIsHarnessPseudoPrompt(t *testing.T) {
+	cases := []struct {
+		name   string
+		prompt string
+		want   bool
+	}{
+		{
+			name:   "task notification",
+			prompt: "<task-notification>\n<task-id>abc</task-id>\n</task-notification>",
+			want:   true,
+		},
+		{
+			name:   "subagent hand-back wrapper",
+			prompt: "Another Claude session sent a message\n<agent-message from=\"agent-1\">\nDone. ares, hermes reviewed it.\n</agent-message>",
+			want:   true,
+		},
+		{
+			name:   "a bare agent-message block",
+			prompt: "<agent-message from=\"agent-1\">\nyou do it\n</agent-message>",
+			want:   true,
+		},
+		{
+			name:   "leading whitespace does not hide the marker",
+			prompt: "\n\n  Another Claude session sent a message\n<agent-message from=\"a\">hi</agent-message>",
+			want:   true,
+		},
+		{
+			name:   "a real user turn merely mentioning another Claude session",
+			prompt: "could another Claude session help review this diff?",
+			want:   false,
+		},
+		{
+			name:   "a real user turn asking about hand-backs",
+			prompt: "why does the hand-back message start with Another Claude session sent a message?",
+			want:   false,
+		},
+		{
+			name:   "empty prompt",
+			prompt: "",
+			want:   false,
+		},
+	}
+	for _, tc := range cases {
+		if got := isHarnessPseudoPrompt(tc.prompt); got != tc.want {
+			t.Errorf("%s: isHarnessPseudoPrompt(%q) = %v, want %v", tc.name, tc.prompt, got, tc.want)
+		}
+	}
+}
+
+// TestPromptSubmit_SkipsHandBackPseudoPrompt pins the keyword-injection gap: a
+// subagent hand-back is model output, and a report naming "ares, hermes" fired
+// the Kratos keyword injection in the 2026-09-18 review — steering a
+// system-level instruction from text the user never wrote.
+func TestPromptSubmit_SkipsHandBackPseudoPrompt(t *testing.T) {
+	handback := "Another Claude session sent a message\n" +
+		"<agent-message from=\"agent-1\">\n" +
+		"Review complete. ares, hermes both signed off on the change.\n" +
+		"</agent-message>"
+	if got := promptOut(t, handback); got != "" {
+		t.Errorf("a subagent hand-back must pass through untouched, got:\n%s", got)
+	}
+}
+
 // "pass this to ares" already names the god: the hook now hands the model a
 // one-line route instead of forcing a kratos:auto load that ends at the same
 // god (4 of 5 fires in the review did exactly that).

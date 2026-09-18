@@ -53,13 +53,19 @@ func recordPromptLedger(raw []byte) {
 
 // initialRequestText returns the prompt text worth storing as a session's
 // initial request, or "" for slash-command echoes, expanded launcher bodies,
-// and other non-request input.
+// harness pseudo-prompts, and other non-request input.
 func initialRequestText(prompt string) string {
 	p := strings.TrimSpace(prompt)
 	if p == "" {
 		return ""
 	}
 	if strings.HasPrefix(p, "/") || strings.HasPrefix(p, "!") || strings.HasPrefix(p, "<") {
+		return ""
+	}
+	if isHarnessPseudoPrompt(p) {
+		// Covers the "Another Claude session sent a message" hand-back wrapper,
+		// which does not open with "<" the way <task-notification> does — a
+		// subagent's report must never be stored as the session's own request.
 		return ""
 	}
 	if strings.Contains(p, "KRATOS_ROOT=") || strings.Contains(p, "agent load ") {
@@ -86,9 +92,11 @@ func setInlineGod(m map[string]any, god string) bool {
 }
 
 // recordInlineGod keeps the session ledger's edit-gate fields current from the
-// UserPromptSubmit payload. It is the only writer of inline_god and
-// gate_bypass. Every failure is swallowed: a session with no readable ledger
-// simply has no gate.
+// UserPromptSubmit payload. It is the sole writer of gate_bypass; inline_god
+// has a second writer, editGateDecision's Skill-load path, and both go through
+// the shared setInlineGod so relaunching the same god never refills the
+// budget. Every failure is swallowed: a session with no readable ledger simply
+// has no gate.
 //
 // Two prompt shapes matter:
 //
@@ -97,9 +105,10 @@ func setInlineGod(m map[string]any, god string) bool {
 //   - anything else the user typed is a new turn: the per-turn file budget
 //     refills and gate_bypass is re-evaluated from the user's own words.
 //
-// A `<task-notification>` pseudo-prompt (Claude Code posts one when a spawned
-// subagent finishes — verified on a real payload, 2026-09-11) is neither: it is
-// not user text, so it must not grant or clear a bypass.
+// A harness pseudo-prompt — `<task-notification>` (Claude Code posts one when
+// a spawned subagent finishes — verified on a real payload, 2026-09-11) or a
+// subagent hand-back (see isHarnessPseudoPrompt) — is neither: it is not user
+// text, so it must not grant or clear a bypass, or refill the budget.
 func recordInlineGod(sessionID, cwd, prompt string) {
 	if sessionID == "" {
 		return
@@ -198,18 +207,19 @@ func isEmbeddedGod(name string) bool {
 }
 
 // isUserTurnPrompt reports whether the prompt is text the user typed, as
-// opposed to an expanded launcher body or a harness notification.
+// opposed to an expanded launcher body or a harness pseudo-prompt.
 //
-// Only the <task-notification> pseudo-prompt is a harness event. Rejecting
-// every prompt that opens with "<" also rejected the user's own text — an XML
-// tag, a quoted snippet, "<br> renders wrong" — and such a turn silently kept
-// the previous turn's spent budget and bypass.
+// Only <task-notification> and a subagent hand-back (see
+// isHarnessPseudoPrompt) are harness events. Rejecting every prompt that opens
+// with "<" also rejected the user's own text — an XML tag, a quoted snippet,
+// "<br> renders wrong" — and such a turn silently kept the previous turn's
+// spent budget and bypass.
 func isUserTurnPrompt(prompt string) bool {
 	p := strings.TrimSpace(prompt)
 	if p == "" {
 		return false
 	}
-	if strings.HasPrefix(p, "<task-notification") {
+	if isHarnessPseudoPrompt(p) {
 		return false
 	}
 	return !isExpandedLauncherBody(p)

@@ -206,15 +206,20 @@ var credentialGrepOnlyFlagRE = regexp.MustCompile(`(?i)(?:^|\s)-[a-z]*o[a-z]*(?:
 var credentialExtractionHeads = map[string]bool{"cut": true, "sed": true, "awk": true, "select-string": true}
 
 // credentialClientPasswordRE matches a database or cloud CLI invoked with a
-// credential directly in reach: sqlcmd/bcp's uppercase -P, psql/pg_dump's
-// PGPASSWORD variable, mysql's lowercase -p or --password (mysql's own -P sets
-// the port, not a credential, so the case split is deliberate), a mongo URI
-// carrying user:pass@, redis-cli's -a, and PowerShell's Invoke-Sqlcmd
+// credential directly in reach: sqlcmd/bcp's uppercase -P — spaced ("-P
+// value") or attached with no space ("-PSecret", `-P"$PW"`), so only a
+// boundary before "-P" is required, none after — plus sqlcmd's own
+// SQLCMDPASSWORD env var; psql/pg_dump's PGPASSWORD variable; mysql's
+// lowercase -p, --password, or MYSQL_PWD env var (mysql's own -P sets the
+// port, not a credential, so the case split is deliberate); a mongo URI
+// carrying user:pass@; redis-cli's -a; and PowerShell's Invoke-Sqlcmd
 // -Password.
 var credentialClientPasswordRE = regexp.MustCompile(
-	`(?i:\b(?:sqlcmd|bcp)(?:\.exe)?\b).*(?:^|\s)-P(?:\s|$)` +
+	`(?i:\b(?:sqlcmd|bcp)(?:\.exe)?\b).*(?:^|\s)-P` +
+		`|(?i:\bSQLCMDPASSWORD\s*=)` +
 		`|(?i:\bPGPASSWORD\s*=)` +
 		`|(?i:\bmysql(?:dump)?(?:\.exe)?\b).*(?:(?:^|\s)-p\S|--password\b)` +
+		`|(?i:\bMYSQL_PWD\s*=)` +
 		`|(?i:\b(?:mongosh|mongo)\b).*://[^:@/\s]+:[^@/\s]+@` +
 		`|(?i:\bredis-cli\b).*(?:^|\s)-a(?:\s|$)` +
 		`|(?i:\bInvoke-Sqlcmd\b).*-Password\b`,
