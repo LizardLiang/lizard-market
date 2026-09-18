@@ -207,14 +207,41 @@ type preToolUseOutput struct {
 	HookSpecificOutput preToolUseHookSpecific `json:"hookSpecificOutput"`
 }
 
-// preToolUseHookSpecific carries a PreToolUse hook's decision: the edit gate
-// sets PermissionDecision/PermissionDecisionReason (only ever "deny" — see
-// the contract note in hook_editgate.go) and never AdditionalContext.
+// preToolUseHookSpecific carries a PreToolUse hook's decision.
+// PermissionDecision is one of three values: "deny", "ask", or absent (no
+// decision — Claude Code's normal permission flow). AdditionalContext carries
+// context with no decision attached, or alongside one — see the handback
+// gate's stall-timeout release in hook_handback.go, which sets
+// AdditionalContext with no PermissionDecision at all.
 type preToolUseHookSpecific struct {
 	HookEventName            string `json:"hookEventName"`
 	PermissionDecision       string `json:"permissionDecision,omitempty"`
 	PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
 	AdditionalContext        string `json:"additionalContext,omitempty"`
+}
+
+// emitPreToolUseDecision prints one PreToolUse hookSpecificOutput, shared by
+// handleEditGate and handleHandbackGate. It prints nothing when there is
+// nothing to say: no decision and no context is Claude Code's normal
+// permission flow, untouched. additionalContext with no decision is how the
+// handback gate's stall-timeout release stays visible without unblocking or
+// blocking the call itself.
+func emitPreToolUseDecision(decision, reason, additionalContext string) {
+	if decision == "" && additionalContext == "" {
+		return
+	}
+	data, err := json.Marshal(preToolUseOutput{
+		HookSpecificOutput: preToolUseHookSpecific{
+			HookEventName:            "PreToolUse",
+			PermissionDecision:       decision,
+			PermissionDecisionReason: reason,
+			AdditionalContext:        additionalContext,
+		},
+	})
+	if err != nil {
+		return
+	}
+	fmt.Println(string(data))
 }
 
 // HookCmd returns the 'hook' command group
@@ -782,10 +809,14 @@ func handleHermesStart(input subagentStartInput) error {
 		blockCount = existing.BlockCount
 	}
 
-	checklist := map[string]interface{}{
-		"agent_id":    input.AgentID,
-		"block_count": blockCount,
-		"tiers":       tiers,
+	// Marshal the same typed struct readHermesChecklistState reads back — a
+	// bare map here and a typed struct there is one rename away from the two
+	// silently drifting apart. JSON keys are unchanged (hermes-list reads
+	// them by name), so this is a type change only, not a format change.
+	checklist := hermesChecklistState{
+		AgentID:    input.AgentID,
+		BlockCount: blockCount,
+		Tiers:      tiers,
 	}
 
 	checklistData, err := json.MarshalIndent(checklist, "", "  ")
@@ -1433,11 +1464,6 @@ func outputSubagentBlock(reason string) error {
 type gateBlockState struct {
 	AgentID    string `json:"agent_id"`
 	BlockCount int    `json:"block_count"`
-	// Progress is a gate-defined measure of forward motion since the last
-	// denial (the handback gate uses the count of finished children). Zero
-	// value for every gate that does not set it, so it is safely ignored by
-	// the rest of this file's gates.
-	Progress int `json:"progress,omitempty"`
 }
 
 // gateMaxBlocks bounds every content gate below at the same cap handleHermesStop already uses

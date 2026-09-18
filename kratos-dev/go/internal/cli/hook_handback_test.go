@@ -6,7 +6,23 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+// rfc3339 formats a timestamp the way every real Claude Code transcript line
+// carries its own: RFC 3339 with fractional seconds, "Z" suffix.
+func rfc3339(t time.Time) string {
+	return t.UTC().Format(time.RFC3339Nano)
+}
+
+// fixHandbackClock points handbackNow at a fixed instant for the life of the
+// test, restoring the real clock on cleanup.
+func fixHandbackClock(t *testing.T, when time.Time) {
+	t.Helper()
+	prev := handbackNow
+	handbackNow = func() time.Time { return when }
+	t.Cleanup(func() { handbackNow = prev })
+}
 
 // --- Fixture line builders ------------------------------------------------
 //
@@ -32,10 +48,18 @@ func handbackAssistantToolUseLine(toolUseID, name string) string {
 // handbackLaunchResultLine builds the tool_result Claude Code returns for an
 // async Agent/Task spawn: the marker text plus the child's id, both in the
 // tool_result's own nested content and in the line's toolUseResult field —
-// exactly as the real transcript carries both.
+// exactly as the real transcript carries both. Timestamped "now": tests that
+// do not care about the stall clock stay well inside handbackStallTimeout.
 func handbackLaunchResultLine(toolUseID, agentID string) string {
+	return handbackLaunchResultLineAt(toolUseID, agentID, time.Now())
+}
+
+// handbackLaunchResultLineAt is handbackLaunchResultLine with an explicit
+// timestamp, for the stall-timeout tests that control the clock precisely.
+func handbackLaunchResultLineAt(toolUseID, agentID string, ts time.Time) string {
 	b, _ := json.Marshal(map[string]any{
-		"type": "user",
+		"type":      "user",
+		"timestamp": rfc3339(ts),
 		"message": map[string]any{
 			"content": []map[string]any{
 				{
@@ -76,10 +100,17 @@ func handbackReadResultLine(toolUseID string) string {
 
 // handbackReportLine builds the attachment entry a child's SubagentHandback
 // arrives as: attachment.prompt carries the literal <agent-message from="…">
-// tag, and attachment.origin names the same id structurally.
+// tag, and attachment.origin names the same id structurally. Timestamped
+// "now" — see handbackLaunchResultLine.
 func handbackReportLine(agentID string) string {
+	return handbackReportLineAt(agentID, time.Now())
+}
+
+// handbackReportLineAt is handbackReportLine with an explicit timestamp.
+func handbackReportLineAt(agentID string, ts time.Time) string {
 	b, _ := json.Marshal(map[string]any{
-		"type": "attachment",
+		"type":      "attachment",
+		"timestamp": rfc3339(ts),
 		"attachment": map[string]any{
 			"type":   "queued_command",
 			"prompt": `<agent-message from="` + agentID + `">child report</agent-message>`,
@@ -89,12 +120,60 @@ func handbackReportLine(agentID string) string {
 	return string(b)
 }
 
+// handbackUserOriginReportLine builds the OTHER real report shape: a
+// top-level `origin` on a type:"user" entry whose message content is a plain
+// string carrying the hand-back wrapper — 2 of 3 real reports in the 09-17
+// NETZERO transcript took this shape, not the attachment shape above. The
+// body text deliberately carries no `<agent-message from=` literal, so a
+// case using this fixture alone proves the structured origin path, not the
+// prose fallback, is what finishes the child.
+func handbackUserOriginReportLine(agentID string, ts time.Time) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":      "user",
+		"timestamp": rfc3339(ts),
+		"origin":    map[string]any{"kind": "peer", "from": agentID, "senderTaskId": agentID, "handback": true},
+		"message": map[string]any{
+			"content": "Another Claude session sent a message while you were working:\nchild report body, no literal tag here",
+		},
+	})
+	return string(b)
+}
+
+// handbackArrayPromptReportLine builds the same attachment report shape as
+// handbackReportLine, but with `prompt` encoded as a content-block array
+// instead of a plain string — a real shape a queued_command attachment can
+// carry. Before Prompt was typed json.RawMessage, a string-typed field made
+// the whole line fail json.Unmarshal, silently dropping this attachment's
+// origin.handback along with it.
+func handbackArrayPromptReportLine(agentID string, ts time.Time) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":      "attachment",
+		"timestamp": rfc3339(ts),
+		"attachment": map[string]any{
+			"type": "queued_command",
+			"prompt": []map[string]any{
+				{"type": "text", "text": `<agent-message from="` + agentID + `">child report</agent-message>`},
+			},
+			"origin": map[string]any{"kind": "peer", "from": agentID, "handback": true},
+		},
+	})
+	return string(b)
+}
+
 // handbackTaskNotificationLine builds the attachment entry Claude Code sends
 // when a child agent stops, for any status — completed, failed, or anything
-// else. A dead child never sends an <agent-message>, only this.
+// else. A dead child never sends an <agent-message>, only this. Timestamped
+// "now" — see handbackLaunchResultLine.
 func handbackTaskNotificationLine(taskID, status string) string {
+	return handbackTaskNotificationLineAt(taskID, status, time.Now())
+}
+
+// handbackTaskNotificationLineAt is handbackTaskNotificationLine with an
+// explicit timestamp.
+func handbackTaskNotificationLineAt(taskID, status string, ts time.Time) string {
 	b, _ := json.Marshal(map[string]any{
-		"type": "attachment",
+		"type":      "attachment",
+		"timestamp": rfc3339(ts),
 		"attachment": map[string]any{
 			"type":        "queued_command",
 			"commandMode": "task-notification",
@@ -141,13 +220,19 @@ func rewriteHandbackTranscript(t *testing.T, mainTranscript, sessionID, agentID 
 // threeLaunchLines builds the six lines a real Hermes fan-out writes for
 // three children: one assistant tool_use plus one tool_result per child.
 func threeLaunchLines(toolUseA, toolUseB, toolUseC, childA, childB, childC string) []string {
+	return threeLaunchLinesAt(time.Now(), toolUseA, toolUseB, toolUseC, childA, childB, childC)
+}
+
+// threeLaunchLinesAt is threeLaunchLines with every launch stamped at the
+// same explicit time, for the stall-timeout tests.
+func threeLaunchLinesAt(ts time.Time, toolUseA, toolUseB, toolUseC, childA, childB, childC string) []string {
 	return []string{
 		handbackAssistantToolUseLine(toolUseA, "Agent"),
-		handbackLaunchResultLine(toolUseA, childA),
+		handbackLaunchResultLineAt(toolUseA, childA, ts),
 		handbackAssistantToolUseLine(toolUseB, "Agent"),
-		handbackLaunchResultLine(toolUseB, childB),
+		handbackLaunchResultLineAt(toolUseB, childB, ts),
 		handbackAssistantToolUseLine(toolUseC, "Agent"),
-		handbackLaunchResultLine(toolUseC, childC),
+		handbackLaunchResultLineAt(toolUseC, childC, ts),
 	}
 }
 
@@ -321,72 +406,188 @@ func TestHandbackGateDecision(t *testing.T) {
 	})
 }
 
-func TestHandbackGateBound(t *testing.T) {
-	t.Run("3 launched, 1 reported: denies gateMaxBlocks times with no progress, then no decision", func(t *testing.T) {
-		lines := append(threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC"),
-			handbackReportLine("childA"),
+// TestHandbackGateStallTimeout covers the stateless redesign (Part 3a): no
+// state file, no denial counter — the gate denies while children are
+// outstanding unless the transcript itself shows no launch or finish event
+// for handbackStallTimeout, measured against the injected clock.
+func TestHandbackGateStallTimeout(t *testing.T) {
+	t.Run("3 launched, 0 finished, last progress 1 minute ago: deny on ten consecutive calls", func(t *testing.T) {
+		ref := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+		launchedAt := ref.Add(-1 * time.Minute)
+		mainTranscript := writeHandbackTranscript(t, "sess9", "hermesI",
+			threeLaunchLinesAt(launchedAt, "tu1", "tu2", "tu3", "childA", "childB", "childC")...,
 		)
-		mainTranscript := writeHandbackTranscript(t, "sess9", "hermesI", lines...)
-		cwd := filepath.Dir(mainTranscript)
+		fixHandbackClock(t, ref)
 		input := preToolUseInput{
 			ToolName:       "SubagentHandback",
 			AgentType:      "hermes",
 			AgentID:        "hermesI",
 			SessionID:      "sess9",
 			TranscriptPath: mainTranscript,
-			Cwd:            cwd,
+			Cwd:            filepath.Dir(mainTranscript),
 		}
 
-		for i := 1; i <= gateMaxBlocks; i++ {
+		for i := 1; i <= 10; i++ {
 			res := handbackGateDecision(input)
 			if res.Decision != "deny" {
-				t.Fatalf("call %d: expected deny (no progress since last denial), got %q", i, res.Decision)
+				t.Fatalf("call %d: expected deny (1 minute since last progress), got %q", i, res.Decision)
 			}
-		}
-		// One more call, still zero progress: the bound has been reached.
-		res := handbackGateDecision(input)
-		if res.Decision != "" {
-			t.Fatalf("call %d: expected no decision once the bound is reached, got %q", gateMaxBlocks+1, res.Decision)
 		}
 	})
 
-	t.Run("progress between denials restarts the counter — never trips the bound", func(t *testing.T) {
-		mainTranscript := writeHandbackTranscript(t, "sess10", "hermesJ",
-			threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC")...,
+	t.Run("same transcript, clock 31 minutes past last progress: no deny, additionalContext names the three ids", func(t *testing.T) {
+		ref := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+		launchedAt := ref.Add(-1 * time.Minute)
+		mainTranscript := writeHandbackTranscript(t, "sess9b", "hermesI2",
+			threeLaunchLinesAt(launchedAt, "tu1", "tu2", "tu3", "childA", "childB", "childC")...,
 		)
-		cwd := filepath.Dir(mainTranscript)
+		fixHandbackClock(t, launchedAt.Add(31*time.Minute))
 		input := preToolUseInput{
 			ToolName:       "SubagentHandback",
 			AgentType:      "hermes",
-			AgentID:        "hermesJ",
-			SessionID:      "sess10",
+			AgentID:        "hermesI2",
+			SessionID:      "sess9b",
 			TranscriptPath: mainTranscript,
-			Cwd:            cwd,
+			Cwd:            filepath.Dir(mainTranscript),
 		}
 
-		// Denial 1: 0 finished.
+		res := handbackGateDecision(input)
+		if res.Decision != "" {
+			t.Fatalf("expected no decision past the stall timeout, got %q: %s", res.Decision, res.Reason)
+		}
+		for _, id := range []string{"childA", "childB", "childC"} {
+			if !strings.Contains(res.AdditionalContext, id) {
+				t.Errorf("additionalContext should name %s as missing, got %q", id, res.AdditionalContext)
+			}
+		}
+		if !strings.Contains(res.AdditionalContext, "parent-only") {
+			t.Errorf("additionalContext should say the missing tiers are parent-only, got %q", res.AdditionalContext)
+		}
+	})
+
+	t.Run("3 launched, 1 finished 2 minutes ago: deny even when the launch was 40 minutes ago", func(t *testing.T) {
+		ref := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+		launchedAt := ref.Add(-40 * time.Minute)
+		finishedAt := ref.Add(-2 * time.Minute)
+		lines := append(threeLaunchLinesAt(launchedAt, "tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackReportLineAt("childA", finishedAt),
+		)
+		mainTranscript := writeHandbackTranscript(t, "sess9c", "hermesI3", lines...)
+		fixHandbackClock(t, ref)
+		input := preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesI3",
+			SessionID:      "sess9c",
+			TranscriptPath: mainTranscript,
+			Cwd:            filepath.Dir(mainTranscript),
+		}
+
 		res := handbackGateDecision(input)
 		if res.Decision != "deny" {
-			t.Fatalf("denial at 0 finished: expected deny, got %q", res.Decision)
+			t.Fatalf("expected deny — the finish 2 minutes ago is progress, not the 40-minute-old launch, got %q", res.Decision)
 		}
+		if strings.Contains(res.Reason, "childA") {
+			t.Errorf("reason should not name the child that already reported, got %q", res.Reason)
+		}
+		for _, id := range []string{"childB", "childC"} {
+			if !strings.Contains(res.Reason, id) {
+				t.Errorf("reason should name %s as missing, got %q", id, res.Reason)
+			}
+		}
+	})
 
-		// Denial 2: 1 finished — progress since the last denial, so the
-		// counter must restart rather than advance toward the bound.
-		lines := append(threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC"),
-			handbackReportLine("childA"),
+	t.Run("all finished: no output at all, regardless of how stale the launch is", func(t *testing.T) {
+		ref := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+		launchedAt := ref.Add(-90 * time.Minute)
+		lines := append(threeLaunchLinesAt(launchedAt, "tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackReportLineAt("childA", ref.Add(-70*time.Minute)),
+			handbackReportLineAt("childB", ref.Add(-60*time.Minute)),
+			handbackReportLineAt("childC", ref.Add(-50*time.Minute)),
 		)
-		rewriteHandbackTranscript(t, mainTranscript, "sess10", "hermesJ", lines...)
-		res = handbackGateDecision(input)
-		if res.Decision != "deny" {
-			t.Fatalf("denial at 1 finished: expected deny (progress resets the bound), got %q", res.Decision)
+		mainTranscript := writeHandbackTranscript(t, "sess9d", "hermesI4", lines...)
+		fixHandbackClock(t, ref)
+		input := preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesI4",
+			SessionID:      "sess9d",
+			TranscriptPath: mainTranscript,
+			Cwd:            filepath.Dir(mainTranscript),
 		}
 
-		// Denial 3: 2 finished — progress again.
-		lines = append(lines, handbackReportLine("childB"))
-		rewriteHandbackTranscript(t, mainTranscript, "sess10", "hermesJ", lines...)
-		res = handbackGateDecision(input)
-		if res.Decision != "deny" {
-			t.Fatalf("denial at 2 finished: expected deny (progress resets the bound), got %q", res.Decision)
+		res := handbackGateDecision(input)
+		if res.Decision != "" || res.AdditionalContext != "" {
+			t.Fatalf("expected no output at all once every child has reported, got decision %q, context %q", res.Decision, res.AdditionalContext)
+		}
+	})
+
+	t.Run("no usable timestamp anywhere: fails open", func(t *testing.T) {
+		mainTranscript := writeHandbackTranscript(t, "sess9e", "hermesI5",
+			handbackAssistantToolUseLine("tu1", "Agent"),
+			// A launch line with no timestamp field at all.
+			`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu1","content":[{"type":"text","text":"Async agent launched successfully.\nagentId: childA"}]}]},"toolUseResult":{"agentId":"childA"}}`,
+		)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesI5",
+			SessionID:      "sess9e",
+			TranscriptPath: mainTranscript,
+			Cwd:            filepath.Dir(mainTranscript),
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected fail-open with no usable timestamp, got %q", res.Decision)
+		}
+	})
+}
+
+// TestHandbackGateStructuredFinishShapes covers Part 3c and 3d: the
+// top-level `origin` shape on a type:"user" entry, and an attachment whose
+// `prompt` is a content-block array rather than a plain string.
+func TestHandbackGateStructuredFinishShapes(t *testing.T) {
+	t.Run("top-level origin on a user entry finishes the child, no <agent-message> literal needed", func(t *testing.T) {
+		now := time.Now()
+		lines := append(threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackUserOriginReportLine("childA", now),
+			handbackUserOriginReportLine("childB", now),
+			handbackUserOriginReportLine("childC", now),
+		)
+		for _, l := range lines {
+			if strings.Contains(l, `<agent-message from=`) {
+				t.Fatalf("fixture must carry no <agent-message from= literal, got line: %s", l)
+			}
+		}
+		mainTranscript := writeHandbackTranscript(t, "sess11", "hermesK", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesK",
+			SessionID:      "sess11",
+			TranscriptPath: mainTranscript,
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision — the structured origin alone finishes every child, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("an attachment with an array-shaped prompt still counts as finished", func(t *testing.T) {
+		now := time.Now()
+		lines := append(threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackArrayPromptReportLine("childA", now),
+			handbackReportLine("childB"),
+			handbackReportLine("childC"),
+		)
+		mainTranscript := writeHandbackTranscript(t, "sess12", "hermesL", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesL",
+			SessionID:      "sess12",
+			TranscriptPath: mainTranscript,
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision — an array-shaped prompt must not fail the whole line's unmarshal, got %q: %s", res.Decision, res.Reason)
 		}
 	})
 }

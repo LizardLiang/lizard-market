@@ -3,13 +3,13 @@ package cli
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -29,9 +29,15 @@ import (
 //
 // This gate reads Hermes's own subagent transcript, matches each launch to
 // its own report or terminal notification, and denies the hand-back while
-// any launched child is still outstanding. It never allows — a permitted
-// hand-back produces no decision and follows Claude Code's normal flow, the
-// same contract hook_editgate.go's gate keeps.
+// any launched child is still outstanding — UNLESS the transcript shows no
+// progress for handbackStallTimeout, in which case it releases the hand-back
+// (no decision) with a visible additionalContext naming who never reported.
+// It never allows outright, and it holds no state of its own: every call
+// recomputes its verdict from the transcript and the clock. The stateless
+// redesign replaced a denial counter that counted consecutive DENIALS, not
+// elapsed time — three retries of one denied tool call (routine for a model)
+// tripped it and reopened the gate with all three children still outstanding,
+// reproducing the 09-17 incident through the gate meant to stop it.
 //
 // Counting is scoped to JSON structure, not raw substring search. Hermes
 // itself, or one of its children, can Read or Grep this very file, this
@@ -41,6 +47,18 @@ import (
 // deny every hand-back forever. Scoping a launch to a tool_result whose
 // tool_use_id answers a real Agent/Task tool_use, and scoping a report to a
 // non-tool-result entry, keeps an unrelated Read/Grep result inert.
+
+// handbackStallTimeout bounds how long this gate keeps denying with no
+// forward motion. Real data for calibration (09-17 NETZERO transcript):
+// children finished 11 to 22 minutes after launch, and the longest gap
+// between two sibling finishes was 8 minutes — 30 minutes clears both with
+// room to spare before the gate lets a hand-back through with children still
+// missing.
+const handbackStallTimeout = 30 * time.Minute
+
+// handbackNow is the clock this gate reads, a package variable so a test can
+// inject a fixed time instead of racing the real one.
+var handbackNow = time.Now
 
 // handbackAsyncLaunchMarker is the literal text the harness returns as a tool
 // result when a subagent spawns a child asynchronously.
@@ -90,31 +108,25 @@ func handleHandbackGate(raw []byte) {
 	}
 
 	res := handbackGateDecision(input)
-	if res.Decision == "" {
-		return
-	}
-	data, err := json.Marshal(preToolUseOutput{
-		HookSpecificOutput: preToolUseHookSpecific{
-			HookEventName:            "PreToolUse",
-			PermissionDecision:       res.Decision,
-			PermissionDecisionReason: res.Reason,
-		},
-	})
-	if err != nil {
-		return
-	}
-	fmt.Println(string(data))
+	emitPreToolUseDecision(res.Decision, res.Reason, res.AdditionalContext)
 }
 
-// handbackGateResult is one gate verdict. Decision "" means no output at all.
+// handbackGateResult is one gate verdict. Decision "" means the tool call is
+// not blocked — either nothing to say at all, or the stall-timeout release
+// below, which still has something to say without blocking it.
 type handbackGateResult struct {
 	Decision string // "" (no decision) or "deny"
 	Reason   string
+	// AdditionalContext is set only on the stall-timeout release: Decision
+	// stays "" (the hand-back proceeds), but the missing children are named
+	// so Hermes's report can mark their tiers parent-only, not child-verified.
+	AdditionalContext string
 }
 
 // handbackGateDecision is the whole policy, as a pure function of the
-// payload, so the table test can exercise every branch without touching a
-// real transcript for the "no decision" cases.
+// payload and the clock (handbackNow), so the table test can exercise every
+// branch without touching a real transcript for the "no decision" cases, and
+// a time-based test can inject a fixed clock instead of racing the real one.
 func handbackGateDecision(input preToolUseInput) handbackGateResult {
 	if input.ToolName != "SubagentHandback" {
 		return handbackGateResult{}
@@ -128,7 +140,7 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 		return handbackGateResult{}
 	}
 
-	launchedIDs, finishedIDs, err := scanHandbackTranscript(path)
+	launchedIDs, finishedIDs, lastProgress, hasProgress, err := scanHandbackTranscript(path)
 	if err != nil {
 		debugLog("handback-gate: transcript read error for %s: %v", path, err)
 		return handbackGateResult{}
@@ -145,9 +157,17 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 	}
 	sort.Strings(missing)
 
-	if handbackBoundReached(input.Cwd, input.AgentID, len(finishedIDs)) {
-		debugLog("handback-gate: bound reached for agent %s, allowing hand-back with %d still missing", input.AgentID, len(missing))
+	if !hasProgress {
+		// No launch or finish event anywhere in the transcript carries a
+		// parseable timestamp, so the stall clock has nothing to measure
+		// against — this gate cannot tell a fresh launch from a genuine
+		// stall. Fail open, the same discipline an unreadable transcript
+		// gets above, rather than deny with no way to ever release.
+		debugLog("handback-gate: no usable timestamp in %s, failing open with %d missing", path, len(missing))
 		return handbackGateResult{}
+	}
+	if handbackNow().Sub(lastProgress) >= handbackStallTimeout {
+		return handbackGateResult{AdditionalContext: handbackStallContext(missing)}
 	}
 	return handbackGateResult{Decision: "deny", Reason: handbackDenyReason(missing)}
 }
@@ -179,13 +199,31 @@ type handbackBlock struct {
 }
 
 // handbackLine is the subset of one transcript JSONL entry this gate reads.
+//
+// Origin is Claude Code's own structured peer hand-back marker. Ground truth
+// from a real Hermes transcript (09-17 NETZERO, agent-ae8cddbbbfd689d03.jsonl
+// — shape only, never its text): it sits at the TOP LEVEL of a "user" entry
+// whose message content is a plain string in 2 of 3 real reports, and nested
+// under attachment.origin on a "queued_command" attachment in the third.
+// Reading only the attachment shape missed the first two entirely.
 type handbackLine struct {
-	Type    string `json:"type"`
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
+	Origin    *struct {
+		Kind     string `json:"kind"`
+		From     string `json:"from"`
+		Handback bool   `json:"handback"`
+	} `json:"origin"`
 	Message *struct {
 		Content json.RawMessage `json:"content"`
 	} `json:"message"`
 	Attachment *struct {
-		Prompt string `json:"prompt"`
+		// Prompt is json.RawMessage, not string: a real queued_command
+		// attachment can carry it as a content-block array rather than a
+		// plain string. A typed string field made json.Unmarshal fail on
+		// that shape, and this gate skips a line it cannot parse — silently
+		// dropping this attachment's own origin.handback along with it.
+		Prompt json.RawMessage `json:"prompt"`
 		Origin *struct {
 			From     string `json:"from"`
 			Handback bool   `json:"handback"`
@@ -199,16 +237,35 @@ type handbackLine struct {
 	} `json:"toolUseResult"`
 }
 
+// parseHandbackTimestamp parses a transcript entry's own timestamp field
+// (RFC 3339, e.g. "2026-09-17T02:51:32.741Z" — the shape every real Claude
+// Code transcript line carries). ok is false for an empty or unparseable
+// value, which scanHandbackTranscript treats as "no progress signal here",
+// not as a parse failure worth logging.
+func parseHandbackTimestamp(s string) (time.Time, bool) {
+	if s == "" {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
 // scanHandbackTranscript walks Hermes's own subagent transcript once and
-// returns which children it launched and which of those have finished —
-// either by reporting (<agent-message from="…">) or by a terminal
-// <task-notification> naming their id, whatever that notification's status.
-// A finish is only counted for an id this same transcript actually launched;
-// an unrelated id appearing in some other message never counts.
-func scanHandbackTranscript(path string) (launchedIDs, finishedIDs map[string]bool, err error) {
+// returns which children it launched, which of those have finished — either
+// by reporting (<agent-message from="…"> or the structured Origin marker) or
+// by a terminal <task-notification> naming their id, whatever that
+// notification's status — and the newest timestamp among the launch and
+// finish events themselves (hasProgress is false when none carried a
+// parseable one). A finish is only counted for an id this same transcript
+// actually launched; an unrelated id appearing in some other message never
+// counts.
+func scanHandbackTranscript(path string) (launchedIDs, finishedIDs map[string]bool, lastProgress time.Time, hasProgress bool, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, time.Time{}, false, err
 	}
 	defer f.Close()
 
@@ -231,6 +288,15 @@ func scanHandbackTranscript(path string) (launchedIDs, finishedIDs map[string]bo
 		if json.Unmarshal(line, &entry) != nil {
 			// One malformed line must not sink the whole scan — skip it.
 			continue
+		}
+
+		beforeLaunched, beforeFinished := len(launchedIDs), len(finishedIDs)
+
+		// The structured peer hand-back marker, read before the type switch
+		// so it applies whichever entry type carries it (see the struct
+		// comment above for the two real shapes).
+		if entry.Origin != nil && entry.Origin.Kind == "peer" && entry.Origin.Handback && entry.Origin.From != "" && launchedIDs[entry.Origin.From] {
+			finishedIDs[entry.Origin.From] = true
 		}
 
 		switch entry.Type {
@@ -283,13 +349,20 @@ func scanHandbackTranscript(path string) (launchedIDs, finishedIDs map[string]bo
 					finishedIDs[entry.Attachment.Origin.From] = true
 				}
 			}
-			handbackScanText(entry.Attachment.Prompt, launchedIDs, finishedIDs)
+			handbackScanText(handbackBlockText(entry.Attachment.Prompt), launchedIDs, finishedIDs)
+		}
+
+		if len(launchedIDs) != beforeLaunched || len(finishedIDs) != beforeFinished {
+			if ts, ok := parseHandbackTimestamp(entry.Timestamp); ok && (!hasProgress || ts.After(lastProgress)) {
+				lastProgress = ts
+				hasProgress = true
+			}
 		}
 	}
 	if scanErr := sc.Err(); scanErr != nil {
-		return nil, nil, scanErr
+		return nil, nil, time.Time{}, false, scanErr
 	}
-	return launchedIDs, finishedIDs, nil
+	return launchedIDs, finishedIDs, lastProgress, hasProgress, nil
 }
 
 // handbackScanText marks a launched id finished when text carries either
@@ -366,61 +439,12 @@ func handbackDenyReason(missing []string) string {
 	return base + " Still missing: " + strings.Join(missing, ", ") + "."
 }
 
-// handbackBlockStatePath resolves this gate's own bounded-denial state file.
-// There is no "feature" concept for a PreToolUse hook, so — like Hermes's own
-// checklist fallback — it always lives under cwd's .claude/tmp/.
-func handbackBlockStatePath(cwd string) string {
-	return gateStatePath(cwd, "", "hermes-handback-gate.json")
-}
-
-// handbackBoundReached reports whether Hermes has already been denied
-// gateMaxBlocks times in a row with no child finishing in between — the same
-// cap v2.112.0 gave every other content gate, so this one cannot force
-// continuations indefinitely either.
-//
-// A review whose children are simply slow must never trip this: any denial
-// whose finished count is higher than the one recorded at the last denial is
-// progress, and progress resets the counter to 1. finished is the count at
-// the moment of THIS decision, from the same scan that produced it.
-//
-// A state read failure resets to a fresh count (the same fail-open behavior
-// every other block-count guard in this file uses — see readGateBlockState).
-// A state WRITE failure is the one place this gate fails in the opposite
-// direction: if the counter cannot be persisted, every future call would
-// read a stale count and this gate would deny forever, so an unwritable
-// state file is itself treated as "bound reached."
-func handbackBoundReached(cwd, agentID string, finished int) bool {
-	path := handbackBlockStatePath(cwd)
-	state := readGateBlockState(path)
-	if agentID != "" && state.AgentID != "" && state.AgentID != agentID {
-		state = gateBlockState{}
-	}
-	if finished > state.Progress {
-		state.BlockCount = 0
-		state.Progress = finished
-	}
-	if state.BlockCount >= gateMaxBlocks {
-		return true
-	}
-	state.AgentID = agentID
-	state.BlockCount++
-	if err := writeHandbackBlockState(path, state); err != nil {
-		debugLog("handback-gate: bound state write failed for %s, failing toward bound reached: %v", path, err)
-		return true
-	}
-	return false
-}
-
-// writeHandbackBlockState persists this gate's bounded-denial state and
-// reports failure, unlike writeGateBlockState's best-effort, error-swallowing
-// write — see handbackBoundReached for why this one write must be checked.
-func writeHandbackBlockState(path string, state gateBlockState) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o644)
+// handbackStallContext is the visible trace the 30-minute stall release
+// leaves behind. The hand-back proceeds (handbackGateDecision sets no
+// Decision alongside it), but the missing children must be named in the
+// report, not silently dropped.
+func handbackStallContext(missing []string) string {
+	return "Stall timeout reached: no launch or finish for " + handbackStallTimeout.String() +
+		". Still missing: " + strings.Join(missing, ", ") +
+		". You may hand back now. State in your report that these children's tiers are parent-only, not child-verified."
 }
