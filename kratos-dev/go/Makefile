@@ -1,4 +1,4 @@
-.PHONY: build test test-coverage test-verbose clean install lint build-all release sync-assets gen gen-check
+.PHONY: build test test-coverage test-verbose clean install lint build-all release sync-assets gen gen-check ci ci-test ci-lint
 
 # Single-source the version from the plugin manifest so committed binaries can never
 # drift behind plugin.json (the drift that shipped a spec-less binary in v2.81-2.83).
@@ -69,16 +69,42 @@ gen:
 gen-check:
 	go run ./cmd/gencommands --check
 
-# CI targets
+# CI targets — pieces `ci` below calls individually
 ci-test:
 	go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
 ci-lint:
 	golangci-lint run --timeout=5m ./...
 
+# Local CI gate — replaces the GitHub Actions workflows (removed; GitHub
+# workspace storage was full). Runs everything kratos-ci.yml enforced, in
+# the same order, failing fast on the first red step:
+#   1. sync-assets   2. gen-check   3. test -race   4. lint
+#
+# Version gap: kratos-ci.yml ran Go 1.25 and golangci-lint 'latest' (which
+# resolved to 2.13.2 on its last run). This machine has Go 1.26.6 and
+# golangci-lint 2.12.2 — local lint may flag (or miss) different issues than
+# CI would have. Keep golangci-lint current to minimize drift:
+#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+#
+# What is genuinely lost by dropping Actions: the linux and macOS legs of
+# the 3-OS test matrix (ubuntu-latest, windows-latest, macos-latest). This
+# target only tests the host OS — Windows on this machine. There is no local
+# emulation of the other two; a real cross-platform gap is being accepted.
+#
+# Separately (found while wiring this up, not fixed here): golangci-lint's
+# gofmt formatter reports ~90 pre-existing files as unformatted on this
+# Windows checkout. That is a core.autocrlf=true artifact (CRLF working
+# tree vs LF-wanting gofmt) — git blobs are LF, so it never showed up on
+# CI's ubuntu-latest lint job and is not a real regression. Root-fixing it
+# (e.g. .gitattributes) is a separate, deliberate change, not part of this
+# target.
+ci: sync-assets gen-check ci-test ci-lint
+
 # Release helper
 release:
 	@echo "To create a release:"
-	@echo "1. git tag -a v1.0.0 -m 'Release v1.0.0'"
-	@echo "2. git push origin v1.0.0"
-	@echo "GitHub Actions will automatically build and release binaries"
+	@echo "1. git tag -a vX.Y.Z -m 'Release vX.Y.Z' (usually v<plugins/kratos/.claude-plugin/plugin.json version>)"
+	@echo "2. Run kratos-dev/release.sh [tag] from the repo root — it runs 'make ci',"
+	@echo "   builds all platform binaries, and creates/updates the GitHub release."
+	@echo "3. Run kratos-dev/publish.sh [tag] to mirror plugins/kratos/ to LizardLiang/kratos."

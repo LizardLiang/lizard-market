@@ -153,7 +153,7 @@ make clean
 3. **Golden files** - Store expected JSON outputs in `testdata/`
 4. **Fuzzing** - Use Go's built-in fuzzing for input validation
 5. **Integration suite** - End-to-end tests with real binary execution
-6. **CI Integration** - GitHub Actions workflow for automated testing
+6. **CI Integration** - Done via `make ci` (local gate; see `kratos-dev/CI.md`), not GitHub Actions
 7. **Benchmarking** - Performance regression tests
 8. **Race detection** - Regular `go test -race` in CI
 
