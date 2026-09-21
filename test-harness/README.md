@@ -103,7 +103,7 @@ Each test captures:
 ## Constraint Injection Audit
 
 Measures how many times the "Output constraint" block
-(`**Output constraint:** Two registers...`) gets injected into a
+(`**Output constraint:** One standard for every answer...`) gets injected into a
 Kratos session across its four known channels (SessionStart, UserPromptSubmit,
 SubagentStart, `kratos agent load --resolve`), and flags waste — the same
 ~140-token block repeated more times than the session actually needs.

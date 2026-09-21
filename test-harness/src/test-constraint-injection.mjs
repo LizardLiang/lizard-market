@@ -69,15 +69,18 @@ const WASTE_BUDGET = 0;
 // plugins/kratos/hooks/session-start.cjs:28-29, the same text embedded in
 // references/agent-protocol.md's "Output Format" section).
 const CONSTRAINT_TEXT =
-  "**Output constraint:** Two registers.\n" +
-  "- Status updates (mid-turn): terse. `[status] [what] [result]. [next].` Fragments OK. Never a bare `[what]:` — always carry the result. No arrow chains.\n" +
-  "- Answers, summaries, decisions: conclusion first, then full sentences. Keep hedges and evidence status (verified vs inferred). A yes/no gets one supporting sentence. When asking the user to decide: state the decision and its consequence before the options.\n" +
-  "Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.";
+  "**Output constraint:** One standard for every answer.\n" +
+  "- Lead with the point: the conclusion, or what is at stake. No preamble, no build-up.\n" +
+  "- Carry the mechanism in the smallest view that shows it — pseudocode for logic, call tree for runtime flow, file or component tree for structure, Mermaid for interaction, `diff` when only part changes, full block when most is new. The view sits next to the short text it supports, keeps only the nodes that answer this question, and replaces the prose it would have taken — it never doubles it. One or two views, never all.\n" +
+  "- Keep hedges and evidence status (verified vs inferred). Define a term at first use; never \"simply\", \"just\", \"obviously\". Name the misunderstanding the reader is likely to have.\n" +
+  "- Asking the user to decide: state the decision and its consequence before the options.\n" +
+  "- No filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n" +
+  "- A mid-turn progress line is the same standard in miniature: `[status] [what] [result]. [next].` Fragments OK; lead with the result, never a bare `[what]:`. No arrow chains.";
 
 // Distinctive, stable fragment used to count occurrences — matches the exact
 // block's first line even if surrounding whitespace/newlines differ between
-// channels (the two-register body always travels with its header line).
-const CONSTRAINT_MARKER_REGEX = /\*\*Output constraint:\*\*\s*Two registers\./g;
+// channels (the one-standard body always travels with its header line).
+const CONSTRAINT_MARKER_REGEX = /\*\*Output constraint:\*\*\s*One standard for every answer\./g;
 
 // Rough token-length estimate for the sentence. Method: chars / 4 (a common
 // English-text heuristic; not a real tokenizer call — avoids pulling in a

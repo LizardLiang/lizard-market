@@ -44,11 +44,14 @@ const SCOPED_CAP = 4; // project-scoped facts capped so a global preference alwa
 
 // Output constraint injected into every session (verbatim from references/agent-protocol.md).
 const OUTPUT_CONSTRAINT =
-  "\n**Output constraint:** Two registers.\n" +
-  "- Status updates (mid-turn): terse. `[status] [what] [result]. [next].` Fragments OK. Never a bare `[what]:` — always carry the result. No arrow chains.\n" +
-  "- Answers, summaries, decisions: conclusion first, then full sentences. Keep hedges and evidence status (verified vs inferred). A yes/no gets one supporting sentence. When asking the user to decide: state the decision and its consequence before the options.\n" +
-  "Both: no filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n" +
-  "A message the human typed always gets an answer; `No response requested` is only for harness task notifications.\n";
+  "\n**Output constraint:** One standard for every answer.\n" +
+  "- Lead with the point: the conclusion, or what is at stake. No preamble, no build-up.\n" +
+  "- Carry the mechanism in the smallest view that shows it — pseudocode for logic, call tree for runtime flow, file or component tree for structure, Mermaid for interaction, `diff` when only part changes, full block when most is new. The view sits next to the short text it supports, keeps only the nodes that answer this question, and replaces the prose it would have taken — it never doubles it. One or two views, never all.\n" +
+  "- Keep hedges and evidence status (verified vs inferred). Define a term at first use; never \"simply\", \"just\", \"obviously\". Name the misunderstanding the reader is likely to have.\n" +
+  "- Asking the user to decide: state the decision and its consequence before the options.\n" +
+  "- No filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n" +
+  "- A mid-turn progress line is the same standard in miniature: `[status] [what] [result]. [next].` Fragments OK; lead with the result, never a bare `[what]:`. No arrow chains.\n" +
+  "- A message the human typed always gets an answer; `No response requested` is only for harness task notifications.\n";
 
 // The pre-plugin installer registered copies of the hooks in ~/.claude/settings.json;
 // when they are still there every event runs twice and the stale copy errors
