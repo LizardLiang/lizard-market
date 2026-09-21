@@ -195,7 +195,7 @@ type handbackBlock struct {
 	Name      string          `json:"name"`        // tool_use
 	ToolUseID string          `json:"tool_use_id"` // tool_result
 	Text      string          `json:"text"`        // text
-	Content   json.RawMessage `json:"content"`      // tool_result's own nested content
+	Content   json.RawMessage `json:"content"`     // tool_result's own nested content
 }
 
 // handbackLine is the subset of one transcript JSONL entry this gate reads.

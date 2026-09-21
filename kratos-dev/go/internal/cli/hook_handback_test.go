@@ -206,17 +206,6 @@ func writeHandbackTranscript(t *testing.T, sessionID, agentID string, lines ...s
 	return mainTranscript
 }
 
-// rewriteHandbackTranscript overwrites an already-laid-out transcript file
-// (same path shape as writeHandbackTranscript) with new lines, for tests that
-// simulate the transcript growing between two handbackGateDecision calls.
-func rewriteHandbackTranscript(t *testing.T, mainTranscript, sessionID, agentID string, lines ...string) {
-	t.Helper()
-	agentPath := filepath.Join(filepath.Dir(mainTranscript), sessionID, "subagents", "agent-"+agentID+".jsonl")
-	if err := os.WriteFile(agentPath, []byte(strings.Join(lines, "\n")+"\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // threeLaunchLines builds the six lines a real Hermes fan-out writes for
 // three children: one assistant tool_use plus one tool_result per child.
 func threeLaunchLines(toolUseA, toolUseB, toolUseC, childA, childB, childC string) []string {
