@@ -102,6 +102,8 @@ Recommended next step:
 /kratos:plan [restated task]
 ```
 
+A report opening with `ARES NEEDS PLAN MODE` reaches Kratos without the completion checks (task list, files changed, Landed line, test evidence) — the mission changed no code.
+
 If the mission references `.claude/.Arena/tactical-plans/<slug>.md`, read that file before creating the task list. Treat it as the execution contract. If the plan is missing, stale, or contradicts the repo, stop and report the mismatch before editing.
 
 **Refuse `status: draft` plans.** A tactical plan whose frontmatter says `status: draft` is an unfinished interview, not a contract — the clarification loop never reached PLAN_READY, so facets are still `[open]` and implementing it means inventing the answers Odysseus was still asking about. Stop, name the file, and tell the user to finish it with `/kratos:plan` (which resumes the draft and keeps their existing answers). Only `status: ready` is implementable.
@@ -191,7 +193,7 @@ When asked to implement:
 
    1. **Every field must trace to evidence** — the user's words, code you read, or a project convention. Never guess. Triage each ambiguity you hit:
       - **Resolvable from the code** (e.g., "which error type?" → grep shows the project uses `AppError`): resolve it yourself and cite the evidence under `Resolved ambiguities`.
-      - **Genuine ambiguity** — two or more interpretations that produce different outcomes, and nothing in the code picks one (e.g., "should the fix also apply to the v2 endpoint?"): you are a spawned subagent, so `AskUserQuestion` will not reach the user — stop and return `ARES NEEDS CLARIFICATION` with only that specific question (plus your recommended default and why). Kratos asks the user and re-spawns you with the answer as `CLARIFICATION: [Q] → [A]`. Never guess through it, and never ask the user to approve the INTENTION block itself — surface only the question the code cannot answer.
+      - **Genuine ambiguity** — two or more interpretations that produce different outcomes, and nothing in the code picks one (e.g., "should the fix also apply to the v2 endpoint?"): you are a spawned subagent, so `AskUserQuestion` will not reach the user — stop and return `ARES NEEDS CLARIFICATION` with only that specific question (plus your recommended default and why). Kratos asks the user and re-spawns you with the answer as `CLARIFICATION: [Q] → [A]`. Never guess through it, and never ask the user to approve the INTENTION block itself — surface only the question the code cannot answer. A report opening with `ARES NEEDS CLARIFICATION` reaches Kratos without the completion checks — the mission changed no code.
 
    2. **Success criteria must sustain testing** — an executable check: a test that will pass, a command that will exit 0, or an observable behavior with exact reproduction steps. "Bug is fixed" or "code is cleaner" do not qualify. If you cannot write the check, you have not understood the task — that gap is an unresolved ambiguity; clarify it (code first, user only if the code cannot answer) before touching any file.
 

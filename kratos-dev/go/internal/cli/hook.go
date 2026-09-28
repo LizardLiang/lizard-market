@@ -1156,6 +1156,34 @@ var mentionsFilesRE = regexp.MustCompile(`(?i)(created|wrote|implemented|modifie
 // "Task list:"/"TODO:" recap text.
 var taskListHeadingRE = regexp.MustCompile(`(?i)##\s*(tasks|todo|plan)`)
 
+// nonCompletionReportMarkerRE matches the opening marker line of a compliant
+// Ares or Hephaestus report that asks for a plan or a decision instead of
+// reporting completed work: "ARES NEEDS PLAN MODE", "ARES NEEDS
+// CLARIFICATION", "HEPHAESTUS NEEDS DECISIONS". Anchored to the start of the
+// (already-trimmed) line, so a completion report that merely quotes one of
+// these phrases later in its body does not match.
+var nonCompletionReportMarkerRE = regexp.MustCompile(`(?i)^(ares needs |hephaestus needs )`)
+
+// isNonCompletionReport reports whether report opens with a no-work-done
+// stop marker rather than a completion report. The marker must be the first
+// non-blank line — the agent's own templates (agents/ares.md, ARES NEEDS
+// PLAN MODE and ARES NEEDS CLARIFICATION; agents/hephaestus.md, HEPHAESTUS
+// NEEDS DECISIONS) put it there. Both aresReportFailures and
+// hephaestusSectionFailures return nil for such a report: it asks for a plan
+// or a decision, changed no code, and carries none of the completion
+// evidence (task list, files changed, Landed line, spec sections) those
+// checks look for.
+func isNonCompletionReport(report string) bool {
+	for _, line := range strings.Split(report, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		return nonCompletionReportMarkerRE.MatchString(trimmed)
+	}
+	return false
+}
+
 // aresReportFailures runs every Ares completion check against report and
 // returns every unmet one as its own entry (nil when all pass). report is
 // whichever text actually carries Ares's final word: the delivered
@@ -1164,8 +1192,13 @@ var taskListHeadingRE = regexp.MustCompile(`(?i)##\s*(tasks|todo|plan)`)
 // checks. input still supplies Cwd (aresLandedGateFailure) and the transcript
 // paths (aresVerifyGateFailure), neither of which travels inside report
 // itself. Shared by the SubagentStop gate and the PreToolUse hand-back gate
-// so both apply the identical rule set.
+// so both apply the identical rule set. Returns nil without running any
+// check when isNonCompletionReport matches — ARES NEEDS PLAN MODE and ARES
+// NEEDS CLARIFICATION are legitimate stop reports, not incomplete ones.
 func aresReportFailures(report string, input subagentStopInput) []string {
+	if isNonCompletionReport(report) {
+		return nil
+	}
 	reportLower := strings.ToLower(report)
 	var failures []string
 
@@ -1212,8 +1245,13 @@ var hephaestusRequiredSections = []string{"architecture", "data model", "api", "
 // carries Hephaestus's final word — see aresReportFailures. Shared by the
 // SubagentStop gate and the PreToolUse hand-back gate; the disk check for
 // tech-spec.md / tech-spec-proposal.md stays SubagentStop-only, since it
-// needs a resolved feature directory, not report text.
+// needs a resolved feature directory, not report text. Returns nil without
+// running the check when isNonCompletionReport matches — HEPHAESTUS NEEDS
+// DECISIONS is a legitimate stop report, not an incomplete spec.
 func hephaestusSectionFailures(report string) []string {
+	if isNonCompletionReport(report) {
+		return nil
+	}
 	reportLower := strings.ToLower(report)
 	var found []string
 	for _, s := range hephaestusRequiredSections {

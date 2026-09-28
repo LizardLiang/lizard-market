@@ -438,6 +438,71 @@ func TestHandbackGateDecision(t *testing.T) {
 		}
 	})
 
+	// A compliant Ares/Hephaestus report asking for a plan or a decision
+	// changed no code and carries no Final Block — isNonCompletionReport
+	// exempts these three from every check aresReportFailures and
+	// hephaestusSectionFailures run, in both this gate and SubagentStop
+	// (TestAresReportFailuresAcceptsReportTemplates,
+	// TestHephaestusSectionFailuresAcceptsNeedsDecisionsReport in
+	// hook_test.go).
+	t.Run("ares ARES NEEDS PLAN MODE report: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback6",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "ARES NEEDS PLAN MODE\n\nReason: the mission names no target files and the request supports two different implementation approaches.\n\nRecommended next step:\n/kratos:plan restated task"},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a filled ARES NEEDS PLAN MODE report, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("ares ARES NEEDS CLARIFICATION report: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback7",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "ARES NEEDS CLARIFICATION\n\nQuestion: the fix could apply only to the v1 endpoint or to both v1 and v2 — the code gives no signal either way.\nRecommended default: apply it to both, because v1 and v2 share the same validator function."},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a filled ARES NEEDS CLARIFICATION report, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("hephaestus HEPHAESTUS NEEDS DECISIONS report: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:hephaestus",
+			AgentID:   "hephHandback3",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "HEPHAESTUS NEEDS DECISIONS\n\nFeature: payments\nProgress: wrote the schema section, stopped before the API section.\n\nQuestions:\n1. Two locked decisions conflict on retry behavior — should a failed charge retry automatically or surface to the caller?\n   Options: A — auto-retry / B — surface to caller / recommended: B because a silent retry can double-charge."},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a filled HEPHAESTUS NEEDS DECISIONS report, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	// The marker only exempts a report when it opens the message — a
+	// completion report that quotes the phrase mid-body still needs its
+	// Final Block, same as any other completion report.
+	t.Run("completion report quoting ARES NEEDS CLARIFICATION in its body but missing Landed: still denied", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback8",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "ARES COMPLETE\n\nEarlier in this spawn I considered returning ARES NEEDS CLARIFICATION but resolved the ambiguity from the code instead.\n\nTask list:\n1. [x] auth — done\nFiles created/modified: auth.go\nImplementation complete."},
+		})
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny — the marker only exempts a report that opens with it, got %q", res.Decision)
+		}
+		if !strings.Contains(res.Reason, "Landed:") {
+			t.Errorf("reason should name the missing Landed: line, got %q", res.Reason)
+		}
+	})
+
 	t.Run("missing session id: fails open before touching disk", func(t *testing.T) {
 		res := handbackGateDecision(preToolUseInput{
 			ToolName:       "SubagentHandback",

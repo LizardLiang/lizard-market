@@ -162,6 +162,8 @@ Questions:
 2. ...
 ```
 
+A report opening with `HEPHAESTUS NEEDS DECISIONS` reaches Kratos without the spec-section check — the spec is not yet complete.
+
 Return this block when:
 - An edge case has no clear answer from the PRD, context.md, or locked decisions
 - Two locked decisions create a tension that requires a trade-off choice

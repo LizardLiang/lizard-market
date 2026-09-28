@@ -1715,6 +1715,12 @@ func TestAresVerifyGateFailure(t *testing.T) {
 // template edit that drops a Final Block line would make the PreToolUse
 // hand-back gate deny a legitimate report, so this test guards the template
 // text itself, not just the gate logic.
+//
+// It also pins the two no-work-done stop reports from agents/ares.md —
+// "ARES NEEDS PLAN MODE" and "ARES NEEDS CLARIFICATION" — filled as Ares
+// would write them. Neither carries a Final Block (no code changed, nothing
+// landed); isNonCompletionReport exempts them from every check in
+// aresReportFailures because their marker line opens the report.
 func TestAresReportFailuresAcceptsReportTemplates(t *testing.T) {
 	templates := map[string]string{
 		"wave checkpoint": `ARES WAVE CHECKPOINT
@@ -1793,6 +1799,16 @@ Task list:
 Files created/modified: tasks/00-overview.md, tasks/01-payment-service.md
 LANDED-NOT-APPLICABLE: User Mode — the user commits
 Not run: none`,
+		"ares needs plan mode": `ARES NEEDS PLAN MODE
+
+Reason: the mission names no target files and the request supports two different implementation approaches.
+
+Recommended next step:
+/kratos:plan restated task`,
+		"ares needs clarification": `ARES NEEDS CLARIFICATION
+
+Question: the fix could apply only to the v1 endpoint or to both v1 and v2 — the code gives no signal either way.
+Recommended default: apply it to both, because v1 and v2 share the same validator function.`,
 	}
 
 	for name, report := range templates {
@@ -1802,5 +1818,28 @@ Not run: none`,
 				t.Fatalf("report template should satisfy every completion check, got failures: %v", failures)
 			}
 		})
+	}
+}
+
+// TestHephaestusSectionFailuresAcceptsNeedsDecisionsReport pins
+// agents/hephaestus.md's "HEPHAESTUS NEEDS DECISIONS" no-work-done stop
+// report, filled as Hephaestus would write it, against
+// hephaestusSectionFailures. The report names no spec sections at all —
+// isNonCompletionReport exempts it because its marker line opens the report,
+// the same way TestAresReportFailuresAcceptsReportTemplates pins Ares's two
+// NEEDS reports against aresReportFailures.
+func TestHephaestusSectionFailuresAcceptsNeedsDecisionsReport(t *testing.T) {
+	report := `HEPHAESTUS NEEDS DECISIONS
+
+Feature: payments
+Progress: wrote the schema section, stopped before the API section.
+
+Questions:
+1. Two locked decisions conflict on retry behavior — should a failed charge retry automatically or surface to the caller?
+   Options: A — auto-retry / B — surface to caller / recommended: B because a silent retry can double-charge.`
+
+	failures := hephaestusSectionFailures(report)
+	if len(failures) != 0 {
+		t.Fatalf("HEPHAESTUS NEEDS DECISIONS report should be exempt from the section check, got failures: %v", failures)
 	}
 }
