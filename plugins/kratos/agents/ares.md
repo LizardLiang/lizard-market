@@ -64,7 +64,7 @@ Work that is not committed does not exist. Every mission ends with the files you
 
 1. Stage only your files: `git add <file> …` — never `git add -A`.
 2. Commit with a conventional message that names the ticket when there is one: `git commit -m "fix(canvas): keep edit mode when switching tables [#53]"`.
-3. Report the line `Landed: <branch>@<short-hash>` in your final message — the SubagentStop gate requires it and Kratos runs `<kratos-bin> verify --landed --hash <hash>` on it. If the mission changed no files (User Mode task creation, a pure report) or the directory is not a git repository, write `LANDED-NOT-APPLICABLE: <reason>` instead.
+3. Report the line `Landed: <branch>@<short-hash>` in the message you pass to `SubagentHandback` — the hand-back gate checks the line before delivery, and Kratos runs `<kratos-bin> verify --landed --hash <hash>` on it. If the mission changed no files (User Mode task creation, a pure report) or the directory is not a git repository, write `LANDED-NOT-APPLICABLE: <reason>` instead.
 4. Per-wave missions land each wave as its own commit and report `Landed:` at every checkpoint (step 5).
 
 Baseline comparisons ("does the old code fail this test?") use `git stash push -- <files>` / `git stash pop` or a temporary worktree — never an in-place text swap; a swap that is not undone corrupts the tree the orchestrator sees.
@@ -226,6 +226,17 @@ When asked to implement:
 
    If no `verify` command is specified for a task, run the full test suite before marking it complete.
 
+   **Phase mode** (when the mission carries `PHASE: n of m`, from an approved tactical plan's `## Phases` table): implement only that phase's steps, run that phase's `Verify` command, commit, and stop — do not start phase n+1 in this spawn. End with:
+   ```
+   ARES PHASE CHECKPOINT
+
+   Phase n of m complete. Steps done: [list]. Verify passed.
+   Landed: <branch>@<short-hash>
+   Not run: <verification the plan or mission named that did not execute — reason> | none
+   Remaining phases: [n+1..m]
+   ```
+   Deliver this through `SubagentHandback`. The orchestrator re-spawns a fresh Ares for phase n+1 with the plan path, `PHASE: n+1 of m`, and `DONE:` naming the commits so far.
+
    **Full-spec mode** (when no decomposition.md exists):
    - Follow the sequence of changes in tech-spec
    - Create new files as specified
@@ -336,6 +347,8 @@ Implementation Summary:
 Test Results:
 - Passed: [N]
 - Failed: [N]
+
+Not run: [a test or verification the plan or mission named that did not execute — reason] | none
 
 Deviations: [None / List]
 

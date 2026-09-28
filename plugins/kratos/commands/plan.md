@@ -58,6 +58,8 @@ To implement this plan, run:
 
 Do not spawn Ares before the user approves. When the user approves a `status: ready` plan in this session, follow **On approval** in the agent definition: spawn `kratos:ares` with the plan path and any requirements added with the approval, then run the quick.md post-task. Never implement inline — no source edits from this command.
 
+A plan with a `## Phases` table hands off one fresh Ares per phase — each phase lands and reports an `ARES PHASE CHECKPOINT` before Odysseus auto-continues to the next phase; a failed verify or a checkpoint that contradicts the plan stops the chain and is reported instead of continuing.
+
 ---
 
 ## RULES

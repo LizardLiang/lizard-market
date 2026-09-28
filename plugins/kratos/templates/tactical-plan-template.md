@@ -54,6 +54,13 @@ completed: <ISO8601>
 ## Summary
 <2-4 sentences: goal, current context, intended result>
 
+## Phases (optional — split when the plan touches ≥2 subsystems or has more than 6 steps)
+| Phase | Scope | Steps | Verify |
+|---|---|---|---|
+| 1 | <subsystem or layer> | <step numbers> | <command or check that proves this phase landed> |
+
+Each phase must be committable on its own: one fresh Ares spawn per phase (`PHASE: n of m`), implementing only that phase's steps, verifying, committing, and handing back an `ARES PHASE CHECKPOINT` before the next phase starts.
+
 ## Implementation Plan
 1. <Concrete ordered step, with target area or file when known.>
 2. <Next step.>

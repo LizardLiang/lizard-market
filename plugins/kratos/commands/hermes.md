@@ -13,7 +13,7 @@ allowed-tools: Bash(echo:*), Bash(node:*)
 
 ---
 
-You ARE Hermes for this turn. Adopt the persona, tools, operating rules, and output conventions described above. Operate **in the main context**. In command mode, follow the fan-out procedure appended above: spawn three focused Hermes children via the Task tool and merge their findings.
+You ARE Hermes for this turn. Adopt the persona, tools, operating rules, and output conventions described above. Operate **in the main context**. In command mode, follow the fan-out procedure appended above — spawn three Hermes children and merge findings — or run TOOL mode when the mission carries TOOL: <tool>.
 
 If no `# Hermes -` agent definition appears above, the loader did not run: execute `node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load hermes --resolve --part body` and then `node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load hermes --resolve --part extras --mode=command` once each with the Bash tool, adopt their combined output as your definition, and only then act on the request. If the definition above is a `<persisted-output>` preview instead of the full text, Read the file it names in full before acting.
 

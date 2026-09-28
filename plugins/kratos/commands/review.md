@@ -72,8 +72,9 @@ Task(
 TARGET: [file / directory / git diff target]
 FOCUS: [specific concerns, or 'all categories']
 MODE: standalone (not pipeline)
+TOOL: [named review tool, e.g. jev-review — omit this line if the user did not name one]
 
-Follow your standard review protocol from your agent instructions.
+Follow your standard review protocol from your agent instructions, or TOOL mode when a tool is named above.
 This is a standalone review — no pipeline stage to update, no status.json to write.",
   description: "hermes - dedicated review"
 )
