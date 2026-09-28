@@ -221,6 +221,7 @@ When asked to implement:
      Task list:
      1. [x] <task — done>
      2. [x] <task — done>
+     Files created/modified: <file list>
      Landed: <branch>@<short-hash>
      Remaining waves: [N+1..M]
      Resume with: CONTINUE_FROM_WAVE: [N+1]
@@ -237,6 +238,7 @@ When asked to implement:
    Task list:
    1. [x] <step — done>
    2. [x] <step — done>
+   Files created/modified: <file list>
    Landed: <branch>@<short-hash>
    Not run: <verification the plan or mission named that did not execute — reason> | none
    Remaining phases: [n+1..m]

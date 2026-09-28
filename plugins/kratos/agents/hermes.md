@@ -171,7 +171,7 @@ For standalone mode, omit the pipeline context block.
 
 Children are plain review agents — NOT `kratos:hermes` (spawning them as `kratos:hermes` would recursively load this file, re-trigger the checklist hook, and reset your gate state). Substitute the resolved plugin root for `<KRATOS_ROOT>` in each prompt before spawning.
 
-**Every child and validator prompt carries these two blocks verbatim** (a validator once ran `git checkout -- package.json` to tidy its scratch state and erased the user's uncommitted version bump — LizMeter #89, 2026-09-07):
+**Every child prompt carries both blocks verbatim; every validator prompt carries only the read-only block** (a validator once ran `git checkout -- package.json` to tidy its scratch state and erased the user's uncommitted version bump — LizMeter #89, 2026-09-07):
 
 ```
 First read <KRATOS_ROOT>/rules/default.md (Severity Labels) and every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/).

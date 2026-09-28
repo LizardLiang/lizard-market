@@ -1703,13 +1703,14 @@ func TestAresVerifyGateFailure(t *testing.T) {
 }
 
 // TestAresReportFailuresAcceptsCheckpointTemplates pins agents/ares.md's
-// "ARES WAVE CHECKPOINT" and "ARES PHASE CHECKPOINT" templates against the
-// hasTaskList check inside aresReportFailures. Both templates now carry a
-// literal "Task list:" recap ahead of their "Landed:" line, matching the
-// literal text hasTaskList looks for — a template edit that drops that line
-// again would make the PreToolUse hand-back gate deny a legitimate
-// checkpoint, so this test guards the template text itself, not just the
-// gate logic.
+// "ARES WAVE CHECKPOINT" and "ARES PHASE CHECKPOINT" templates against every
+// check inside aresReportFailures: the task-list recap, the files-mentioned
+// line, the completion word, and the "Landed:" line. Both templates carry a
+// "Task list:" recap and a "Files created/modified:" line ahead of "Landed:",
+// matching the literal text those checks look for — a template edit that
+// drops either line would make the PreToolUse hand-back gate deny a
+// legitimate checkpoint, so this test guards the template text itself, not
+// just the gate logic.
 func TestAresReportFailuresAcceptsCheckpointTemplates(t *testing.T) {
 	templates := map[string]string{
 		"wave checkpoint": `ARES WAVE CHECKPOINT
@@ -1718,6 +1719,7 @@ Wave 2 complete. Tasks done: auth service, auth tests. All verify checks passed.
 Task list:
 1. [x] auth service — done
 2. [x] auth tests — done
+Files created/modified: auth.go, auth_test.go
 Landed: main@abc1234
 Remaining waves: 3..4
 Resume with: CONTINUE_FROM_WAVE: 3`,
@@ -1727,6 +1729,7 @@ Phase 1 of 3 complete. Steps done: scaffold, wire config. Verify passed.
 Task list:
 1. [x] scaffold — done
 2. [x] wire config — done
+Files created/modified: scaffold.go, config.go
 Landed: main@abc1234
 Not run: none
 Remaining phases: 2..3`,
@@ -1735,10 +1738,8 @@ Remaining phases: 2..3`,
 	for name, report := range templates {
 		t.Run(name, func(t *testing.T) {
 			failures := aresReportFailures(report, subagentStopInput{})
-			for _, f := range failures {
-				if strings.Contains(f, "task list") {
-					t.Errorf("checkpoint template should satisfy the task-list gate, got failure: %q", f)
-				}
+			if len(failures) != 0 {
+				t.Fatalf("checkpoint template should satisfy every completion check, got failures: %v", failures)
 			}
 		})
 	}
