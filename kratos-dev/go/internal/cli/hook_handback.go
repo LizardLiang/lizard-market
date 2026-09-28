@@ -142,8 +142,9 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 	// all.
 	if strings.Contains(agentType, "ares") {
 		failures := aresReportFailures(input.ToolInput.Message, subagentStopInput{
-			Cwd:            input.Cwd,
-			TranscriptPath: input.TranscriptPath,
+			Cwd:                 input.Cwd,
+			TranscriptPath:      input.TranscriptPath,
+			AgentTranscriptPath: handbackTranscriptPath(input),
 		})
 		return handbackContentGateDecision("ares", gateStatePath(input.Cwd, "", "ares-handback-state.json"), input.AgentID, failures)
 	}

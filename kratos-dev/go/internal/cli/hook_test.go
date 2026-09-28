@@ -240,6 +240,28 @@ func TestSubagentStopReadsHandbackMessage(t *testing.T) {
 			t.Fatalf("expected block — no hand-back transcript, and LastAssistantMessage alone names no task list or files, got allow")
 		}
 	})
+
+	t.Run("agent_transcript_path absent, session_id present: falls back to the derived sibling path", func(t *testing.T) {
+		root := t.TempDir()
+		mainTranscript := writeHandbackTranscript(t, "sessHB3", "aresHB3",
+			subagentHandbackToolUseLine("Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234"),
+		)
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":      "kratos:ares",
+			"agent_id":        "aresHB3",
+			"cwd":             root,
+			"session_id":      "sessHB3",
+			"transcript_path": mainTranscript,
+			// agent_transcript_path deliberately omitted — the fallback must
+			// derive <dir(transcript_path)>/sessHB3/subagents/agent-aresHB3.jsonl
+			// itself, the same layout writeHandbackTranscript lays out above.
+			"last_assistant_message": "Mission complete. Final report delivered via SubagentHandback.",
+		})
+		resp := runSubagentStop(t, string(b))
+		if !resp.allowed() {
+			t.Fatalf("expected allow reading the hand-back message via the session_id-derived fallback path, got block: %q", resp.Reason)
+		}
+	})
 }
 
 func TestSubagentStopGate(t *testing.T) {
@@ -1678,4 +1700,46 @@ func TestAresVerifyGateFailure(t *testing.T) {
 			t.Error("expected failure via agent_transcript_path without sidechain flag")
 		}
 	})
+}
+
+// TestAresReportFailuresAcceptsCheckpointTemplates pins agents/ares.md's
+// "ARES WAVE CHECKPOINT" and "ARES PHASE CHECKPOINT" templates against the
+// hasTaskList check inside aresReportFailures. Both templates now carry a
+// literal "Task list:" recap ahead of their "Landed:" line, matching the
+// literal text hasTaskList looks for — a template edit that drops that line
+// again would make the PreToolUse hand-back gate deny a legitimate
+// checkpoint, so this test guards the template text itself, not just the
+// gate logic.
+func TestAresReportFailuresAcceptsCheckpointTemplates(t *testing.T) {
+	templates := map[string]string{
+		"wave checkpoint": `ARES WAVE CHECKPOINT
+
+Wave 2 complete. Tasks done: auth service, auth tests. All verify checks passed.
+Task list:
+1. [x] auth service — done
+2. [x] auth tests — done
+Landed: main@abc1234
+Remaining waves: 3..4
+Resume with: CONTINUE_FROM_WAVE: 3`,
+		"phase checkpoint": `ARES PHASE CHECKPOINT
+
+Phase 1 of 3 complete. Steps done: scaffold, wire config. Verify passed.
+Task list:
+1. [x] scaffold — done
+2. [x] wire config — done
+Landed: main@abc1234
+Not run: none
+Remaining phases: 2..3`,
+	}
+
+	for name, report := range templates {
+		t.Run(name, func(t *testing.T) {
+			failures := aresReportFailures(report, subagentStopInput{})
+			for _, f := range failures {
+				if strings.Contains(f, "task list") {
+					t.Errorf("checkpoint template should satisfy the task-list gate, got failure: %q", f)
+				}
+			}
+		})
+	}
 }

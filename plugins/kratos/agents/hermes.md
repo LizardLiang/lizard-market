@@ -171,9 +171,11 @@ For standalone mode, omit the pipeline context block.
 
 Children are plain review agents — NOT `kratos:hermes` (spawning them as `kratos:hermes` would recursively load this file, re-trigger the checklist hook, and reset your gate state). Substitute the resolved plugin root for `<KRATOS_ROOT>` in each prompt before spawning.
 
-**Every child and validator prompt carries this block verbatim** (a validator once ran `git checkout -- package.json` to tidy its scratch state and erased the user's uncommitted version bump — LizMeter #89, 2026-09-07):
+**Every child and validator prompt carries these two blocks verbatim** (a validator once ran `git checkout -- package.json` to tidy its scratch state and erased the user's uncommitted version bump — LizMeter #89, 2026-09-07):
 
 ```
+First read <KRATOS_ROOT>/rules/default.md (Severity Labels) and every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/).
+
 WORKING TREE IS READ-ONLY. The tree may hold the user's uncommitted work. Never run git checkout/restore/stash/reset/clean, never edit, delete, or revert a tracked file, never install or upgrade packages. A scratch test goes under .claude/tmp/ (untracked) and is deleted when you finish. Run commands in the foreground only (no run_in_background) — a background job outlives the review and wakes the orchestrator with a stray notification.
 ```
 
@@ -188,8 +190,7 @@ MODE: [pipeline|standalone]
 [PIPELINE CONTEXT block if pipeline mode]
 TIER ASSIGNMENT: T1-T2 ONLY (Correct, Safe)
 
-First read <KRATOS_ROOT>/rules/default.md (Severity Labels) and every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/).
-[READ-ONLY block from 3b]
+[RULES + READ-ONLY blocks from 3b]
 
 Review ONLY Tier 1 (Correct) and Tier 2 (Safe). Skip Tiers 3-8 — sibling agents own those.
 
@@ -219,8 +220,7 @@ MODE: [pipeline|standalone]
 [PIPELINE CONTEXT block if pipeline mode]
 TIER ASSIGNMENT: T3-T5 ONLY (Clear, Minimal, Consistent)
 
-First read <KRATOS_ROOT>/rules/default.md (Severity Labels) and every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/).
-[READ-ONLY block from 3b]
+[RULES + READ-ONLY blocks from 3b]
 
 Review ONLY Tier 3 (Clear), Tier 4 (Minimal), and Tier 5 (Consistent). Skip Tiers 1-2 and 6-8 — sibling agents own those.
 
@@ -245,8 +245,7 @@ MODE: [pipeline|standalone]
 [PIPELINE CONTEXT block if pipeline mode]
 TIER ASSIGNMENT: T6-T8 ONLY (Resilient, Performant, Maintainable)
 
-First read <KRATOS_ROOT>/rules/default.md (Severity Labels) and every active rule in .claude/.Arena/review-rules/*.md (excluding proposals/).
-[READ-ONLY block from 3b]
+[RULES + READ-ONLY blocks from 3b]
 
 Review ONLY Tier 6 (Resilient), Tier 7 (Performant), and Tier 8 (Maintainable). Skip Tiers 1-5 — sibling agents own those.
 
@@ -494,7 +493,7 @@ Before proposing a fix, verify it does not introduce worse problems than the iss
 - Would the fix break an existing method-call chain that correctly reuses shared logic?
 - Does the "issue" only exist because you missed a data-flow detail (see FP-01)?
 
-A fix that duplicates cleanup/teardown logic across methods to solve a non-problem is worse than no fix.
+A fix that duplicates cleanup/teardown logic across methods to solve a non-problem is worse than no fix — re-examine whether the original code was actually correct before proposing it.
 
 ---
 
@@ -503,7 +502,7 @@ A fix that duplicates cleanup/teardown logic across methods to solve a non-probl
 **Finding format:** `<file>:<line>: [T<tier>][<rule>] <problem> — <fix>` (one line per finding).
 Body prose only for BLOCKER findings requiring architectural explanation.
 
-**Final hand-back.** Deliver the report below through `SubagentHandback`, once, as your last action, with the full report text as the message — never a file pointer. Call it only after every review child (Step 3b) and validation agent (Step 3.5) has reported; a second call delivers nothing.
+**Final hand-back.** Deliver the report below through `SubagentHandback`, once, as your last action, with the full report text as the message — never a pointer to a file or another agent. Call it only after every review child (Step 3b) and validation agent (Step 3.5) has reported; a second call delivers nothing.
 
 ### Standalone Mode
 ```

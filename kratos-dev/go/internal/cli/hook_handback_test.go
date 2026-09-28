@@ -339,6 +339,55 @@ func TestHandbackGateDecision(t *testing.T) {
 		}
 	})
 
+	// These two cases pin the fix for the PreToolUse hand-back gate's Ares
+	// branch building subagentStopInput without AgentTranscriptPath: before
+	// the fix, aresVerifyGateFailure fell back to TranscriptPath with
+	// sidechainOnly=true and scanned the parent session's transcript instead
+	// of Ares's own subagent transcript at
+	// <dir(TranscriptPath)>/<session_id>/subagents/agent-<agent_id>.jsonl.
+	t.Run("ares code edit with no test run, verify gate reads Ares's own transcript: deny naming the missing test run", func(t *testing.T) {
+		lines := []string{
+			userPromptLine("implement"),
+			toolUseLine(false, "Edit", map[string]any{"file_path": "src/auth.go"}),
+		}
+		mainTranscript := writeHandbackTranscript(t, "sess8", "aresHandback4", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "kratos:ares",
+			AgentID:        "aresHandback4",
+			SessionID:      "sess8",
+			TranscriptPath: mainTranscript,
+			Cwd:            t.TempDir(),
+			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234"},
+		})
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny for a code edit with no test command in Ares's own transcript, got %q", res.Decision)
+		}
+		if !strings.Contains(res.Reason, "test") {
+			t.Errorf("reason should name the missing test run, got %q", res.Reason)
+		}
+	})
+
+	t.Run("ares TESTS-NOT-APPLICABLE waives the verify gate on Ares's own transcript: no decision", func(t *testing.T) {
+		lines := []string{
+			userPromptLine("implement"),
+			toolUseLine(false, "Edit", map[string]any{"file_path": "src/auth.go"}),
+		}
+		mainTranscript := writeHandbackTranscript(t, "sess9", "aresHandback5", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "kratos:ares",
+			AgentID:        "aresHandback5",
+			SessionID:      "sess9",
+			TranscriptPath: mainTranscript,
+			Cwd:            t.TempDir(),
+			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] docs\ncreated doc.md\nImplementation complete.\nLanded: main@abc1234\nTESTS-NOT-APPLICABLE: docs only"},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision once TESTS-NOT-APPLICABLE waives the verify gate, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
 	t.Run("ares 4th call: no decision, cap reached", func(t *testing.T) {
 		cwd := t.TempDir()
 		badInput := preToolUseInput{
