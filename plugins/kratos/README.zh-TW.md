@@ -127,13 +127,14 @@ Kratos 內建 Claude Code Hooks，自動強制執行工作流程規範 — Hooks
 | `SessionEnd` | 所有 session | `session-end.cjs` | 以一行摘要關閉 session 帳本 |
 | `PermissionRequest` | `Read` | `permission-read.cjs` | 僅自動允許外掛根目錄與 `~/.kratos/` 下的讀取 |
 | `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|PowerShell\|Agent\|Task` | `launch.cjs hook edit-gate` | 內嵌編輯閘門：Odysseus 僅限計畫檔，Iris 的原始碼檔案額度 |
+| `PreToolUse` | `SubagentHandback` | `launch.cjs hook handback-gate` | 交付內容關卡：Ares（待辦清單、檔案、`Landed:` 行、測試證據）與 Hephaestus（規格章節）各有 3 次拒絕嘗試的上限，超過後放行；Hermes 則會封鎖，直到所有已產生的審查子代理人回報完成，或停滯 30 分鐘（見下方段落） |
 | `PostToolUse` | `Agent\|Task\|Write\|Edit\|MultiEdit` | `tool-use.cjs`（非同步） | 將代理人啟動與專案檔案變更記錄到記憶 |
 | `PostToolUse` | `Write\|Edit` | `launch.cjs hook spec-delta-check` | 立即驗證剛寫入的 spec delta |
 | `SubagentStart` | `kratos:.*` | `path-inject.cjs` | 注入解析後的 `<KRATOS_ROOT>` 與 `<kratos-bin>` 路徑 |
 | `SubagentStart` | ares、hephaestus、hermes | `launch.cjs hook subagent-start` | 待辦清單優先關卡；Hermes 層級檢查表 |
 | `SubagentStart` | athena | `launch.cjs check --init` | 依 `pending_stage` 注入交付成果要求 |
 | `SubagentStart` | apollo、artemis、hera、cassandra、daedalus | `launch.cjs check --init --stage <stage>` | 第 5、6、8、9、3 階段的交付成果要求 |
-| `SubagentStop` | nemesis、ares、hephaestus、hermes | `launch.cjs hook subagent-stop` | 交付成果與品質關卡（見下表） |
+| `SubagentStop` | nemesis、ares、hephaestus、hermes | `launch.cjs hook subagent-stop` | 交付成果與品質關卡，Ares／Hephaestus 的檢查會讀取其 transcript 中透過 `SubagentHandback` 交付的回報（若存在），否則讀取 `last_assistant_message`（見下表） |
 | `SubagentStop` | athena | `launch.cjs check --verify`，再 `hook subagent-stop` | `prd.md` 存在，再驗證 spec delta |
 | `SubagentStop` | apollo、artemis、hera、cassandra、daedalus | `launch.cjs check --verify --stage <stage>` | 確認該階段交付成果已寫入；重試耗盡時記錄 `check_failures[]` |
 | `Stop` | 每次助理回合 | `memory-sweep.cjs` | 定期記憶掃描提醒（持久事實、代理人回饋） |
@@ -146,11 +147,13 @@ Kratos 內建 Claude Code Hooks，自動強制執行工作流程規範 — Hooks
 
 在 **Ares**、**Hephaestus**、**Hermes**、**Nemesis** 或 **Athena** 嘗試完成工作時觸發。若未達標則封鎖完成並強制繼續：
 
+**Ares** 與 **Hephaestus** 的每一項檢查，都會讀取透過 `SubagentHandback` 交付的回報（該代理人自身 transcript 中最後一次 `SubagentHandback` 呼叫）；若不存在，則退回讀取 `last_assistant_message`。
+
 | 代理人 | 檢查項目 |
 |--------|---------|
 | **Ares** | 必須撰寫待辦清單、提及具體修改的檔案，並確認完成 |
 | **Hephaestus** | 規格文件必須涵蓋至少 2 項：架構、資料模型、API、實作、Schema、介面 |
-| **Hermes** | `hermes-checklist.json` 中所有層級皆已標記完成 |
+| **Hermes** | `hermes-checklist.json` 中所有層級皆已標記完成 — 若其產生的審查子代理人尚未回報，此關卡會放行讓回合結束（即扇出架構所需的非同步等待），只有在所有子代理人都已完成、仍有層級未標記時才會封鎖 |
 | **Nemesis** | `prd-challenge.md` 存在且含有判定結果 |
 | **Athena** | `prd.md` 存在（`check --verify`），且任何 spec delta 通過 `spec validate` |
 

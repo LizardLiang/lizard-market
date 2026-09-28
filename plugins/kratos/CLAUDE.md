@@ -74,7 +74,7 @@ Source lives at repo-root `kratos-dev/go/` — outside `plugins/kratos/` so plug
 3. For pipeline: reads `pipeline/stages.md` to spawn the correct agent at the current stage
 4. Each agent reads its definition from `agents/<name>.md`, reads relevant `references/`, fills `templates/`
 5. Agents write deliverables to `.claude/feature/<name>/` and update `status.json` via the Go binary (or direct file edit as fallback)
-6. Hooks in `hooks.json` enforce quality gates (TODO-first for Ares, deliverable verification on stop)
+6. Hooks in `hooks.json` enforce quality gates (TODO-first for Ares, deliverable verification on stop, and a PreToolUse hand-back gate that checks the Ares/Hephaestus report content and Hermes's outstanding review children before `SubagentHandback` delivers)
 
 ### Arena (`.claude/.Arena/`)
 Pull-model knowledge base in the target project. Agents read what they need; Metis bootstraps it. Sharded by domain (architecture, conventions, tech-stack, etc.). Each agent has specific read/write permissions defined in `references/arena-protocol.md`.

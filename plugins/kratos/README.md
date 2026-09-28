@@ -163,14 +163,14 @@ Kratos ships Claude Code hooks that enforce workflow discipline automatically â€
 | `SessionEnd` | all sessions | `session-end.cjs` | Closes the session ledger row with a one-line summary |
 | `PermissionRequest` | `Read` | `permission-read.cjs` | Auto-allows reads under the plugin root and `~/.kratos/` only |
 | `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|PowerShell\|Agent\|Task\|Skill` | `launch.cjs hook edit-gate` | Inline edit gate: Odysseus plan-only lane, Iris source-file budget, credential guard (section below) |
-| `PreToolUse` | `SubagentHandback` | `launch.cjs hook handback-gate` | Hermes hand-back gate: denies until every spawned review child has reported, or 30 minutes of stall (section below) |
+| `PreToolUse` | `SubagentHandback` | `launch.cjs hook handback-gate` | Hand-back content gate: Ares (task list, files, `Landed:` line, test evidence) and Hephaestus (spec sections) each get 3 denied attempts before the call is let through; Hermes denies until every spawned review child has reported, or 30 minutes of stall (section below) |
 | `PostToolUse` | `Agent\|Task\|Write\|Edit\|MultiEdit` | `tool-use.cjs` (async) | Records agent spawns and project file changes in memory |
 | `PostToolUse` | `Write\|Edit` | `launch.cjs hook spec-delta-check` | Validates a just-written spec delta immediately |
 | `SubagentStart` | `kratos:.*` | `path-inject.cjs` | Injects the resolved `<KRATOS_ROOT>` and `<kratos-bin>` paths |
 | `SubagentStart` | ares, hephaestus, hermes | `launch.cjs hook subagent-start` | TODO-first gate; Hermes tier checklist |
 | `SubagentStart` | athena | `launch.cjs check --init` | Deliverable expectations for the stage in `pending_stage` |
 | `SubagentStart` | apollo, artemis, hera, cassandra, daedalus | `launch.cjs check --init --stage <stage>` | Deliverable expectations for stages 5, 6, 8, 9, 3 |
-| `SubagentStop` | nemesis, ares, hephaestus, hermes | `launch.cjs hook subagent-stop` | Deliverable and quality gates (table below) |
+| `SubagentStop` | nemesis, ares, hephaestus, hermes | `launch.cjs hook subagent-stop` | Deliverable and quality gates, reading the report Ares/Hephaestus delivered via `SubagentHandback` when their transcript carries one, else `last_assistant_message` (table below) |
 | `SubagentStop` | athena | `launch.cjs check --verify`, then `hook subagent-stop` | `prd.md` exists, then spec-delta validation |
 | `SubagentStop` | apollo, artemis, hera, cassandra, daedalus | `launch.cjs check --verify --stage <stage>` | Confirms the stage deliverable was written; records `check_failures[]` when retries run out |
 | `Stop` | every assistant turn | `memory-sweep.cjs` | Periodic memory sweep reminder (durable facts, agent feedback) |
@@ -185,11 +185,13 @@ For **Hermes**, this hook creates a `hermes-checklist.json` that tracks tier-by-
 
 Fires when **Ares**, **Hephaestus**, **Hermes**, **Nemesis** or **Athena** attempt to finish. Blocks completion and forces continuation if:
 
+For **Ares** and **Hephaestus**, every check below reads the report delivered through `SubagentHandback` (the agent's own transcript's last `SubagentHandback` call) when one exists, and falls back to `last_assistant_message` when it does not.
+
 | Agent | Check |
 |-------|-------|
 | **Ares** | Must have written a TODO list, mentioned specific files modified, and declared completion |
 | **Hephaestus** | Spec must cover at least 2 of: architecture, data model, API, implementation, schema, interface |
-| **Hermes** | All tiers in `hermes-checklist.json` marked complete |
+| **Hermes** | All tiers in `hermes-checklist.json` marked complete â€” the stop allows the turn to end while a review child it launched has not finished yet (the fan-out's async wait) and blocks only once every launched child has finished |
 | **Nemesis** | `prd-challenge.md` exists and carries a verdict |
 | **Athena** | `prd.md` exists (`check --verify`) and any spec delta passes `spec validate` |
 
