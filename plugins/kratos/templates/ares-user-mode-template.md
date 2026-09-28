@@ -52,14 +52,12 @@ Then patch the task list into `status.json` under `pipeline["7-implementation"].
 
 ## Step 8: Output
 
+End with the Final Block (`agents/ares.md`, Output Format section) — the hand-back gate and the stop gate check its four lines directly: a `Task list:` recap, a `Files created/modified:` line naming the files with their extensions, a completion statement, and the `Landed:` line or its `LANDED-NOT-APPLICABLE:` waiver. User Mode never commits — the user does — so its Landed line is always the waiver below.
+
 ```
 ARES COMPLETE (User Mode)
 
 Mission: Create Implementation Tasks
-
-Task list:
-1. [x] <task — final status>
-[... every registered task, with its end state]
 
 Documents:
 - tasks/00-overview.md
@@ -77,4 +75,11 @@ User Instructions:
 3. Mark each complete with /kratos:task-complete <id>; when all done: /kratos:task-complete all
 
 Note: Each task file contains complete, copy-paste ready code.
+
+Task list:
+1. [x] <task — final status>
+[... every registered task, with its end state]
+Files created/modified: <file list, extensions included>
+LANDED-NOT-APPLICABLE: User Mode — the user commits
+Not run: <verification the plan or mission named that did not execute — reason> | none
 ```

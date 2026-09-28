@@ -213,34 +213,39 @@ When asked to implement:
      c. Implement the task
      d. Run the task's `verify` command again — if it fails, fix until it passes. Record the passing result (GREEN).
      e. Note the task as complete in implementation-notes.md, including the RED and GREEN one-liners (Fail-Then-Pass Evidence section)
-   - After all tasks in the wave are done (and more waves remain), **stop and return control to Kratos** — you are a spawned subagent and cannot wait on the user yourself. End your run with:
+   - After all tasks in the wave are done (and more waves remain), **stop and return control to Kratos** — you are a spawned subagent and cannot wait on the user yourself. End your run with the Final Block (see Output Format):
      ```
      ARES WAVE CHECKPOINT
 
      Wave [N] complete. Tasks done: [list]. All verify checks passed.
+
      Task list:
      1. [x] <task — done>
      2. [x] <task — done>
-     Files created/modified: <file list>
+     Files created/modified: <file list, extensions included>
      Landed: <branch>@<short-hash>
+     Not run: <verification the plan or mission named that did not execute — reason> | none
+
      Remaining waves: [N+1..M]
      Resume with: CONTINUE_FROM_WAVE: [N+1]
      ```
-     Commit the wave first (Landing Work) and put its `Landed:` line in the block. Do NOT proceed to the next wave — Kratos reports the checkpoint to the user and continues you.
+     Commit the wave first (Landing Work) and put its `Landed:` line in the Final Block. Do NOT proceed to the next wave — Kratos reports the checkpoint to the user and continues you.
 
    If no `verify` command is specified for a task, run the full test suite before marking it complete.
 
-   **Phase mode** (when the mission carries `PHASE: n of m`, from an approved tactical plan's `## Phases` table): implement only that phase's steps, run that phase's `Verify` command, commit, and stop — do not start phase n+1 in this spawn. End with:
+   **Phase mode** (when the mission carries `PHASE: n of m`, from an approved tactical plan's `## Phases` table): implement only that phase's steps, run that phase's `Verify` command, commit, and stop — do not start phase n+1 in this spawn. End with the Final Block (see Output Format):
    ```
    ARES PHASE CHECKPOINT
 
    Phase n of m complete. Steps done: [list]. Verify passed.
+
    Task list:
    1. [x] <step — done>
    2. [x] <step — done>
-   Files created/modified: <file list>
+   Files created/modified: <file list, extensions included>
    Landed: <branch>@<short-hash>
    Not run: <verification the plan or mission named that did not execute — reason> | none
+
    Remaining phases: [n+1..m]
    ```
    Deliver this through `SubagentHandback`. The orchestrator re-spawns a fresh Ares for phase n+1 with the plan path, `PHASE: n+1 of m`, and `DONE:` naming the commits so far.
@@ -332,36 +337,46 @@ If decomposition.md does not exist, implement in a logical order based on module
 
 ## Output Format
 
+### Final Block
+
+Every Ares report — `ARES COMPLETE`, `ARES WAVE CHECKPOINT`, `ARES PHASE CHECKPOINT`, `ARES COMPLETE (User Mode)` — ends with these lines, in this order:
+
+```
+Task list:
+1. [x] <item — end state>
+Files created/modified: <file list, extensions included>
+Landed: <branch>@<short-hash>          (or LANDED-NOT-APPLICABLE: <reason>)
+Not run: <verification the plan or mission named that did not execute — reason> | none
+```
+
+The hand-back gate and the stop gate check these lines directly: a `Task list:` recap, a `Files created/modified:` line naming the files with their extensions, a completion statement (the word "complete", "done", "finished", or "implemented" somewhere in the report), and the `Landed:` line or its `LANDED-NOT-APPLICABLE:` waiver. Every template below carries this block.
+
 When completing work:
 ```
 ARES COMPLETE
 
 Mission: Feature Implementation
 
-Task list:
-1. [x] <task — final status>
-2. [x] <task — final status>
-[... every registered task, with its end state]
-
 Documents:
 - implementation-notes.md
 - [list of created/modified files]
 
-Implementation Summary:
-- Files created: [N]
-- Files modified: [N]
-- Tests written: [N]
-
+Tests written: [N]
 Test Results:
 - Passed: [N]
 - Failed: [N]
 
-Not run: [a test or verification the plan or mission named that did not execute — reason] | none
-
 Deviations: [None / List]
 
 Ticket: [#N from the mission's TICKET line, or none]
+
+Task list:
+1. [x] <task — final status>
+2. [x] <task — final status>
+[... every registered task, with its end state]
+Files created/modified: <file list, extensions included>
 Landed: <branch>@<short-hash>
+Not run: <verification the plan or mission named that did not execute — reason> | none
 
 Next: PRD Alignment (Hera)
 ```

@@ -1702,44 +1702,104 @@ func TestAresVerifyGateFailure(t *testing.T) {
 	})
 }
 
-// TestAresReportFailuresAcceptsCheckpointTemplates pins agents/ares.md's
-// "ARES WAVE CHECKPOINT" and "ARES PHASE CHECKPOINT" templates against every
-// check inside aresReportFailures: the task-list recap, the files-mentioned
-// line, the completion word, and the "Landed:" line. Both templates carry a
-// "Task list:" recap and a "Files created/modified:" line ahead of "Landed:",
-// matching the literal text those checks look for — a template edit that
-// drops either line would make the PreToolUse hand-back gate deny a
-// legitimate checkpoint, so this test guards the template text itself, not
-// just the gate logic.
-func TestAresReportFailuresAcceptsCheckpointTemplates(t *testing.T) {
+// TestAresReportFailuresAcceptsReportTemplates pins all four of
+// agents/ares.md's report templates — "ARES WAVE CHECKPOINT",
+// "ARES PHASE CHECKPOINT", the main "ARES COMPLETE" Output Format block, and
+// "ARES COMPLETE (User Mode)" from templates/ares-user-mode-template.md —
+// against every check inside aresReportFailures: the task-list recap, the
+// files-mentioned line, the completion word, and the "Landed:" line (or its
+// "LANDED-NOT-APPLICABLE:" waiver, which the User Mode template always
+// carries since the user commits, not Ares). All four templates end with the
+// shared Final Block (a "Task list:" recap, a "Files created/modified:" line,
+// and a Landed line), matching the literal text those checks look for — a
+// template edit that drops a Final Block line would make the PreToolUse
+// hand-back gate deny a legitimate report, so this test guards the template
+// text itself, not just the gate logic.
+func TestAresReportFailuresAcceptsReportTemplates(t *testing.T) {
 	templates := map[string]string{
 		"wave checkpoint": `ARES WAVE CHECKPOINT
 
 Wave 2 complete. Tasks done: auth service, auth tests. All verify checks passed.
+
 Task list:
 1. [x] auth service — done
 2. [x] auth tests — done
 Files created/modified: auth.go, auth_test.go
 Landed: main@abc1234
+Not run: none
+
 Remaining waves: 3..4
 Resume with: CONTINUE_FROM_WAVE: 3`,
 		"phase checkpoint": `ARES PHASE CHECKPOINT
 
 Phase 1 of 3 complete. Steps done: scaffold, wire config. Verify passed.
+
 Task list:
 1. [x] scaffold — done
 2. [x] wire config — done
 Files created/modified: scaffold.go, config.go
 Landed: main@abc1234
 Not run: none
+
 Remaining phases: 2..3`,
+		"ares complete": `ARES COMPLETE
+
+Mission: Feature Implementation
+
+Documents:
+- implementation-notes.md
+- payment_service.go
+- payment_service_test.go
+
+Tests written: 12
+Test Results:
+- Passed: 12
+- Failed: 0
+
+Deviations: None
+
+Ticket: none
+
+Task list:
+1. [x] Implement PaymentService — done
+2. [x] Write PaymentService tests — done
+Files created/modified: payment_service.go, payment_service_test.go
+Landed: main@def5678
+Not run: none
+
+Next: PRD Alignment (Hera)`,
+		"ares complete user mode": `ARES COMPLETE (User Mode)
+
+Mission: Create Implementation Tasks
+
+Documents:
+- tasks/00-overview.md
+- tasks/01-payment-service.md
+
+Task Summary:
+- Total tasks: 3
+- Estimated effort: 4 hours
+- Dependencies: sequential
+
+User Instructions:
+1. Read .claude/feature/payment/tasks/00-overview.md
+2. Complete tasks in dependency order
+3. Mark each complete with /kratos:task-complete <id>; when all done: /kratos:task-complete all
+
+Note: Each task file contains complete, copy-paste ready code.
+
+Task list:
+1. [x] Write task files — done
+Files created/modified: tasks/00-overview.md, tasks/01-payment-service.md
+LANDED-NOT-APPLICABLE: User Mode — the user commits
+Not run: none`,
 	}
 
 	for name, report := range templates {
 		t.Run(name, func(t *testing.T) {
 			failures := aresReportFailures(report, subagentStopInput{})
 			if len(failures) != 0 {
-				t.Fatalf("checkpoint template should satisfy every completion check, got failures: %v", failures)
+				t.Fatalf("report template should satisfy every completion check, got failures: %v", failures)
 			}
 		})
 	}

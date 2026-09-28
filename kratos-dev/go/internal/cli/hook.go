@@ -1384,7 +1384,7 @@ func subagentStopCmd() *cobra.Command {
 					clearGateBlock(statePath)
 				} else {
 					return evaluateGateBlock("ares", statePath, input.AgentID, fmt.Sprintf(
-						"Ares quality gate failed: %s. Write a markdown task checklist (Task* tools are unavailable to subagents), implement all items, end with a 'Task list:' recap naming the files you created or modified, and land the work: commit your files on the current branch and report `Landed: <branch>@<hash>`.",
+						"Ares quality gate failed: %s. Write a markdown task checklist (Task* tools are unavailable to subagents), implement all items, then end the report with the Final Block: a 'Task list:' recap, a 'Files created/modified:' line naming the files with extensions, a completion statement, and `Landed: <branch>@<hash>` (or `LANDED-NOT-APPLICABLE: <reason>`).",
 						strings.Join(failures, "; "),
 					))
 				}
