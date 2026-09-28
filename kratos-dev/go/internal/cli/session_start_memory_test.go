@@ -58,7 +58,7 @@ func runBuildMemoryReport(t *testing.T, memories []memoryFixtureItem, total int,
 // used to fill every slot and hide every global preference (2026-09 review,
 // KPIM: 16 scoped facts, 0 global preferences ever shown). Rules must show
 // first regardless, then at most SCOPED_CAP (4) scoped facts, then global
-// preferences fill the rest of MAX_MEMORIES (8).
+// preferences fill the rest of MAX_MEMORIES (12).
 func TestBuildMemoryReportRulesFirstThenCappedScopedFacts(t *testing.T) {
 	here := "/work/kpim"
 	var memories []memoryFixtureItem
@@ -85,8 +85,8 @@ func TestBuildMemoryReportRulesFirstThenCappedScopedFacts(t *testing.T) {
 		t.Errorf("expected scoped facts capped at 4, got %d in:\n%s", scopedCount, got)
 	}
 	prefCount := strings.Count(got, "[preference]")
-	if prefCount != 4 {
-		t.Errorf("expected 4 preference lines filling the remaining slots, got %d in:\n%s", prefCount, got)
+	if prefCount != 8 {
+		t.Errorf("expected 8 preference lines filling the remaining slots, got %d in:\n%s", prefCount, got)
 	}
 
 	firstRule := strings.Index(got, "rule 1")
@@ -99,8 +99,8 @@ func TestBuildMemoryReportRulesFirstThenCappedScopedFacts(t *testing.T) {
 		t.Errorf("expected order rules, then scoped facts, then preferences:\n%s", got)
 	}
 
-	// total(25) - shownFacts(8) - shownRules(3) = 14
-	if !strings.Contains(got, "+14 more") {
+	// total(25) - shownFacts(12) - shownRules(3) = 10
+	if !strings.Contains(got, "+10 more") {
 		t.Errorf("expected the '+N more' count to account for both tiers:\n%s", got)
 	}
 }
@@ -128,13 +128,13 @@ func TestBuildMemoryReportUnusedScopedSlotsGoToPreferences(t *testing.T) {
 		t.Errorf("expected exactly the 1 available scoped fact, got %d in:\n%s", scopedCount, got)
 	}
 	prefCount := strings.Count(got, "[preference]")
-	if prefCount != 7 {
-		t.Errorf("expected the unused 3 scoped slots to pass to preferences (1+7=8), got %d in:\n%s", prefCount, got)
+	if prefCount != 10 {
+		t.Errorf("expected the unused 3 scoped slots to pass to preferences (1+10=11, all 10 available preferences shown), got %d in:\n%s", prefCount, got)
 	}
 
-	// total(11) - shownFacts(8) - shownRules(0) = 3
-	if !strings.Contains(got, "+3 more") {
-		t.Errorf("expected the '+N more' count to reflect the unshown rows:\n%s", got)
+	// total(11) - shownFacts(11) - shownRules(0) = 0: every row shown, no "more" line.
+	if strings.Contains(got, "more —") {
+		t.Errorf("expected no '+N more' line once every row is shown:\n%s", got)
 	}
 }
 
@@ -205,15 +205,15 @@ func TestBuildMemoryReportAllUnusedSlotsGoToScopedFacts(t *testing.T) {
 	got := runBuildMemoryReport(t, memories, total, nil, here)
 
 	scopedCount := strings.Count(got, "context · this project")
-	if scopedCount != 8 {
-		t.Errorf("expected all 8 slots to go to scoped facts with no global memories at all, got %d in:\n%s", scopedCount, got)
+	if scopedCount != 12 {
+		t.Errorf("expected all 12 slots to go to scoped facts with no global memories at all, got %d in:\n%s", scopedCount, got)
 	}
 	if strings.Count(got, "[preference]") != 0 {
 		t.Errorf("expected no preference lines when none are stored:\n%s", got)
 	}
-	// total(12) - shownFacts(8) - shownRules(0) = 4
-	if !strings.Contains(got, "+4 more") {
-		t.Errorf("expected the '+N more' count to reflect the unshown rows:\n%s", got)
+	// total(12) - shownFacts(12) - shownRules(0) = 0: every row shown, no "more" line.
+	if strings.Contains(got, "more —") {
+		t.Errorf("expected no '+N more' line once every row is shown:\n%s", got)
 	}
 }
 
@@ -236,16 +236,52 @@ func TestBuildMemoryReportPartialGlobalsLeaveRestToScopedFacts(t *testing.T) {
 	got := runBuildMemoryReport(t, memories, total, nil, here)
 
 	scopedCount := strings.Count(got, "context · this project")
-	if scopedCount != 6 {
-		t.Errorf("expected 4 (SCOPED_CAP) + 2 leftover-slot scoped facts = 6, got %d in:\n%s", scopedCount, got)
+	if scopedCount != 10 {
+		t.Errorf("expected 4 (SCOPED_CAP) + 6 leftover-slot scoped facts = 10, got %d in:\n%s", scopedCount, got)
 	}
 	prefCount := strings.Count(got, "[preference]")
 	if prefCount != 2 {
 		t.Errorf("expected both preferences to show, got %d in:\n%s", prefCount, got)
 	}
-	// total(14) - shownFacts(8) - shownRules(0) = 6
-	if !strings.Contains(got, "+6 more") {
+	// total(14) - shownFacts(12) - shownRules(0) = 2
+	if !strings.Contains(got, "+2 more") {
 		t.Errorf("expected the '+N more' count to reflect the unshown rows:\n%s", got)
+	}
+}
+
+// TestBuildMemoryReportGlobalPrefRankBeatsRecency pins the E2 ranking rule: a
+// global preference outranks a weak-spot regardless of recency. `memories`
+// arrives newest-first, so a preference appended after 15 weak-spots is the
+// OLDEST global fact in the list — under plain recency slicing it would be
+// the first one cut once the global facts exceed MAX_MEMORIES (12). The
+// category-rank sort moves it to the front instead, so it always shows, at
+// the cost of the newest weak-spots beyond the cap.
+func TestBuildMemoryReportGlobalPrefRankBeatsRecency(t *testing.T) {
+	here := "/work/rank-project"
+	var memories []memoryFixtureItem
+	for i := 1; i <= 15; i++ {
+		memories = append(memories, memoryFixtureItem{ID: i, Text: fmt.Sprintf("weak spot %d", i), Category: "weak-spot"})
+	}
+	memories = append(memories, memoryFixtureItem{ID: 100, Text: "the oldest preference", Category: "preference"})
+	total := len(memories)
+
+	got := runBuildMemoryReport(t, memories, total, nil, here)
+
+	if !strings.Contains(got, "the oldest preference") {
+		t.Fatalf("expected the oldest preference to still show by category rank, not get cut by recency:\n%s", got)
+	}
+	prefIdx := strings.Index(got, "the oldest preference")
+	firstSpotIdx := strings.Index(got, "weak spot 1 ")
+	if firstSpotIdx < 0 || prefIdx > firstSpotIdx {
+		t.Errorf("expected the preference to sort ahead of every weak-spot despite being the oldest global fact:\n%s", got)
+	}
+	prefCount := strings.Count(got, "[preference]")
+	if prefCount != 1 {
+		t.Errorf("expected exactly 1 preference line, got %d in:\n%s", prefCount, got)
+	}
+	spotCount := strings.Count(got, "[weak-spot]")
+	if spotCount != 11 {
+		t.Errorf("expected 11 weak-spot lines (12 global slots minus the 1 preference), got %d in:\n%s", spotCount, got)
 	}
 }
 

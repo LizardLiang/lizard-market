@@ -144,24 +144,21 @@ func TestAresLandedGateFailure(t *testing.T) {
 	dir, hash := gitRepo(t)
 
 	// Message rule: no Landed line, cwd unknown → blocked on the message alone.
-	f := aresLandedGateFailure(subagentStopInput{LastAssistantMessage: "Task list:\n1. [x] done\ncreated a.ts\nImplementation complete."})
+	f := aresLandedGateFailure("Task list:\n1. [x] done\ncreated a.ts\nImplementation complete.", "")
 	assert.Contains(t, f, "Landed:")
 
 	// Waiver.
-	assert.Equal(t, "", aresLandedGateFailure(subagentStopInput{LastAssistantMessage: "LANDED-NOT-APPLICABLE: User Mode task files only"}))
+	assert.Equal(t, "", aresLandedGateFailure("LANDED-NOT-APPLICABLE: User Mode task files only", ""))
 
 	// Real commit in the repo passes; a fake one is caught.
-	ok := subagentStopInput{Cwd: dir, LastAssistantMessage: "Implementation complete.\nLanded: main@" + hash}
-	assert.Equal(t, "", aresLandedGateFailure(ok))
-	bad := subagentStopInput{Cwd: dir, LastAssistantMessage: "Implementation complete.\nLanded: main@deadbeef"}
-	assert.Contains(t, aresLandedGateFailure(bad), "deadbeef")
+	assert.Equal(t, "", aresLandedGateFailure("Implementation complete.\nLanded: main@"+hash, dir))
+	assert.Contains(t, aresLandedGateFailure("Implementation complete.\nLanded: main@deadbeef", dir), "deadbeef")
 
 	// Bold markdown around the label still parses.
-	bold := subagentStopInput{Cwd: dir, LastAssistantMessage: "**Landed:** feat/x@" + hash}
-	assert.Equal(t, "", aresLandedGateFailure(bold))
+	assert.Equal(t, "", aresLandedGateFailure("**Landed:** feat/x@"+hash, dir))
 
 	// Outside any repository the message rule still applies (an explicit waiver
 	// is required), but a Landed line is not verified against git.
-	assert.Contains(t, aresLandedGateFailure(subagentStopInput{Cwd: t.TempDir(), LastAssistantMessage: "created a.ts. done"}), "Landed:")
-	assert.Equal(t, "", aresLandedGateFailure(subagentStopInput{Cwd: t.TempDir(), LastAssistantMessage: "created a.ts. done\nLanded: main@abcdef1"}))
+	assert.Contains(t, aresLandedGateFailure("created a.ts. done", t.TempDir()), "Landed:")
+	assert.Equal(t, "", aresLandedGateFailure("created a.ts. done\nLanded: main@abcdef1", t.TempDir()))
 }

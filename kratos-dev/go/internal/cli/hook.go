@@ -145,6 +145,11 @@ type subagentStopInput struct {
 	// the gate is inactive when neither resolves.
 	AgentTranscriptPath string `json:"agent_transcript_path"`
 	TranscriptPath      string `json:"transcript_path"`
+	// SessionID backs lastHandbackMessage's fallback path derivation when
+	// AgentTranscriptPath is absent: <dir(TranscriptPath)>/<session_id>/
+	// subagents/agent-<agent_id>.jsonl, the same sibling-directory shape
+	// handbackTranscriptPath derives for the PreToolUse hand-back gate.
+	SessionID string `json:"session_id"`
 }
 
 // subagentStopOutput is the SubagentStop/Stop hook response. Claude Code honors
@@ -193,6 +198,12 @@ type preToolUseToolInput struct {
 	// PreToolUse payload, 2026-09-18: a project-level skill sends its bare
 	// name; a plugin skill is namespaced "plugin:skill").
 	Skill string `json:"skill"`
+	// Message is the SubagentHandback tool's own payload field: the report
+	// text a spawned god delivers through SubagentHandback rather than as its
+	// last assistant message (verified on a real payload, transcript
+	// c57a9385/agent-a65821448acad4b44). The handback gate and the content
+	// checks it shares with the SubagentStop gate read this field directly.
+	Message string `json:"message"`
 }
 
 // targetPath is the file an edit tool is about to change, whichever key the
@@ -1110,8 +1121,11 @@ func transcriptTestEvidence(path string, sidechainOnly bool) (editedCode, ranTes
 // shows code edits with no test command since the last user prompt, it returns a
 // non-empty failure string. Every infra problem (missing path, unreadable file) fails
 // OPEN — this gate must never block on anything but genuine missing test evidence.
-func aresVerifyGateFailure(input subagentStopInput) string {
-	if strings.Contains(strings.ToLower(input.LastAssistantMessage), "tests-not-applicable:") {
+// report is checked for the TESTS-NOT-APPLICABLE escape phrase instead of
+// input.LastAssistantMessage, so the same check runs against the delivered
+// SubagentHandback message when Ares used one.
+func aresVerifyGateFailure(report string, input subagentStopInput) string {
+	if strings.Contains(strings.ToLower(report), "tests-not-applicable:") {
 		return ""
 	}
 	path := input.AgentTranscriptPath
@@ -1132,6 +1146,167 @@ func aresVerifyGateFailure(input subagentStopInput) string {
 		return "code files were edited but no test command was run (run the relevant tests and record fail-then-pass evidence, or state TESTS-NOT-APPLICABLE: <reason> if this change genuinely has no runtime surface)"
 	}
 	return ""
+}
+
+// mentionsFilesRE matches Ares naming a specific file it created or modified,
+// with a recognized source-file extension.
+var mentionsFilesRE = regexp.MustCompile(`(?i)(created|wrote|implemented|modified|updated).*\.(ts|js|py|go|rs|java|cs|rb|md)`)
+
+// taskListHeadingRE matches a markdown heading Ares uses in place of the
+// "Task list:"/"TODO:" recap text.
+var taskListHeadingRE = regexp.MustCompile(`(?i)##\s*(tasks|todo|plan)`)
+
+// aresReportFailures runs every Ares completion check against report and
+// returns every unmet one as its own entry (nil when all pass). report is
+// whichever text actually carries Ares's final word: the delivered
+// SubagentHandback message when lastHandbackMessage found one, otherwise
+// input.LastAssistantMessage — the caller resolves that, this function only
+// checks. input still supplies Cwd (aresLandedGateFailure) and the transcript
+// paths (aresVerifyGateFailure), neither of which travels inside report
+// itself. Shared by the SubagentStop gate and the PreToolUse hand-back gate
+// so both apply the identical rule set.
+func aresReportFailures(report string, input subagentStopInput) []string {
+	reportLower := strings.ToLower(report)
+	var failures []string
+
+	// Subagent Ares plans via a markdown checklist (Task* tools are not
+	// available to subagents); the gate matches the "Task list:" recap Ares is
+	// instructed to print at the end (text TODO still accepted).
+	hasTaskList := strings.Contains(reportLower, "task list:") ||
+		strings.Contains(reportLower, "todo:") ||
+		taskListHeadingRE.MatchString(report)
+	if !hasTaskList {
+		failures = append(failures, "no task list recap was written before starting work")
+	}
+
+	if !mentionsFilesRE.MatchString(report) {
+		failures = append(failures, "no specific files were mentioned as created or modified")
+	}
+
+	declaresComplete := strings.Contains(reportLower, "complete") ||
+		strings.Contains(reportLower, "done") ||
+		strings.Contains(reportLower, "finished") ||
+		strings.Contains(reportLower, "implemented")
+	if !declaresComplete {
+		failures = append(failures, "implementation completion was not confirmed")
+	}
+
+	if f := aresLandedGateFailure(report, input.Cwd); f != "" {
+		failures = append(failures, f)
+	}
+
+	if f := aresVerifyGateFailure(report, input); f != "" {
+		failures = append(failures, f)
+	}
+
+	return failures
+}
+
+// hephaestusRequiredSections are the spec topics a complete tech spec covers;
+// hephaestusSectionFailures requires at least two of them to appear in report.
+var hephaestusRequiredSections = []string{"architecture", "data model", "api", "implementation", "schema", "interface"}
+
+// hephaestusSectionFailures runs Hephaestus's spec-section check against
+// report and returns a single-entry slice naming which required sections
+// were found (nil once at least two are present). report is whichever text
+// carries Hephaestus's final word — see aresReportFailures. Shared by the
+// SubagentStop gate and the PreToolUse hand-back gate; the disk check for
+// tech-spec.md / tech-spec-proposal.md stays SubagentStop-only, since it
+// needs a resolved feature directory, not report text.
+func hephaestusSectionFailures(report string) []string {
+	reportLower := strings.ToLower(report)
+	var found []string
+	for _, s := range hephaestusRequiredSections {
+		if strings.Contains(reportLower, s) {
+			found = append(found, s)
+		}
+	}
+	if len(found) >= 2 {
+		return nil
+	}
+	foundText := "none"
+	if len(found) > 0 {
+		foundText = strings.Join(found, ", ")
+	}
+	return []string{fmt.Sprintf("technical spec appears incomplete (only found sections: %s)", foundText)}
+}
+
+// subagentHandbackTranscriptPath resolves the transcript lastHandbackMessage
+// should read for a SubagentStop payload: input.AgentTranscriptPath directly
+// when the harness supplies it, otherwise the same sibling-directory shape
+// handbackTranscriptPath derives for the PreToolUse hand-back gate
+// (<dir(TranscriptPath)>/<session_id>/subagents/agent-<agent_id>.jsonl).
+// Empty when neither the direct field nor the pieces needed to derive it are
+// present — the caller then falls back to LastAssistantMessage untouched.
+func subagentHandbackTranscriptPath(input subagentStopInput) string {
+	if input.AgentTranscriptPath != "" {
+		return input.AgentTranscriptPath
+	}
+	if input.TranscriptPath == "" || input.SessionID == "" || input.AgentID == "" {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(input.TranscriptPath), input.SessionID, "subagents", "agent-"+input.AgentID+".jsonl")
+}
+
+// handbackToolUseInput decodes a SubagentHandback tool_use block's own input
+// value for the one field lastHandbackMessage needs: the report text.
+type handbackToolUseInput struct {
+	Message string `json:"message"`
+}
+
+// lastHandbackMessage scans the transcript at path for the last assistant
+// SubagentHandback tool_use call and returns its input.message. Ares and
+// Hephaestus deliver their final report through SubagentHandback, not through
+// the SubagentStop payload's own LastAssistantMessage field, which still
+// carries whatever the model said immediately before that tool call — reading
+// it directly reads the wrong text once a hand-back exists (36 of 36 Ares
+// runs blocked in the 2026-09-27 review). ok is false when path is empty,
+// unreadable, or carries no SubagentHandback call, so the caller can fall
+// back to LastAssistantMessage.
+//
+// Reuses handbackParseBlocks and the bufio scanner pattern hook_handback.go's
+// scanHandbackTranscript already established for reading a subagent's own
+// transcript line by line.
+func lastHandbackMessage(path string) (string, bool) {
+	if path == "" {
+		return "", false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", false
+	}
+	defer f.Close()
+
+	var last string
+	found := false
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	for sc.Scan() {
+		line := sc.Bytes()
+		if len(strings.TrimSpace(string(line))) == 0 {
+			continue
+		}
+		var entry handbackLine
+		if json.Unmarshal(line, &entry) != nil {
+			continue
+		}
+		if entry.Type != "assistant" || entry.Message == nil {
+			continue
+		}
+		for _, b := range handbackParseBlocks(entry.Message.Content) {
+			if b.Type != "tool_use" || b.Name != "SubagentHandback" {
+				continue
+			}
+			var toolInput handbackToolUseInput
+			if json.Unmarshal(b.Input, &toolInput) == nil && toolInput.Message != "" {
+				last, found = toolInput.Message, true
+			}
+		}
+	}
+	if scanErr := sc.Err(); scanErr != nil {
+		return "", false
+	}
+	return last, found
 }
 
 // subagentStopCmd verifies that Ares and Hephaestus produced complete deliverables.
@@ -1186,44 +1361,23 @@ func subagentStopCmd() *cobra.Command {
 			// documented only for the plain Stop hook, not SubagentStop) — so
 			// none of them can force continuations indefinitely.
 			agentType := strings.ToLower(input.AgentType)
-			msg := input.LastAssistantMessage
-			msgLower := strings.ToLower(msg)
+
+			// report is the text every content check below reads: the report
+			// Ares/Hephaestus delivered through SubagentHandback when the
+			// transcript carries one, otherwise LastAssistantMessage
+			// unchanged. Claude Code's SubagentStop payload still carries
+			// whatever the model said immediately before that tool call in
+			// LastAssistantMessage — reading it directly once a hand-back
+			// exists checks the wrong text and blocked 36 of 36 real Ares
+			// runs (2026-09-27 review).
+			report := input.LastAssistantMessage
+			if m, ok := lastHandbackMessage(subagentHandbackTranscriptPath(input)); ok {
+				report = m
+			}
 
 			// Ares (implementation agent) quality checks
 			if strings.Contains(agentType, "ares") {
-				var failures []string
-
-				// Subagent Ares plans via a markdown checklist (Task* tools are not
-				// available to subagents); the SubagentStop hook can only see the
-				// final message, so it matches the "Task list:" recap Ares is
-				// instructed to print at the end (text TODO still accepted).
-				hasTaskList := strings.Contains(msgLower, "task list:") ||
-					strings.Contains(msgLower, "todo:") ||
-					regexp.MustCompile(`(?i)##\s*(tasks|todo|plan)`).MatchString(msg)
-				if !hasTaskList {
-					failures = append(failures, "no task list recap was written before starting work")
-				}
-
-				mentionsFiles := regexp.MustCompile(`(?i)(created|wrote|implemented|modified|updated).*\.(ts|js|py|go|rs|java|cs|rb|md)`).MatchString(msg)
-				if !mentionsFiles {
-					failures = append(failures, "no specific files were mentioned as created or modified")
-				}
-
-				declaresComplete := strings.Contains(msgLower, "complete") ||
-					strings.Contains(msgLower, "done") ||
-					strings.Contains(msgLower, "finished") ||
-					strings.Contains(msgLower, "implemented")
-				if !declaresComplete {
-					failures = append(failures, "implementation completion was not confirmed")
-				}
-
-				if f := aresLandedGateFailure(input); f != "" {
-					failures = append(failures, f)
-				}
-
-				if f := aresVerifyGateFailure(input); f != "" {
-					failures = append(failures, f)
-				}
+				failures := aresReportFailures(report, input)
 
 				statePath := gateStatePath(input.Cwd, "", "ares-stop-state.json")
 				if len(failures) == 0 {
@@ -1238,26 +1392,7 @@ func subagentStopCmd() *cobra.Command {
 
 			// Hephaestus (tech spec agent) quality checks
 			if strings.Contains(agentType, "hephaestus") {
-				var failures []string
-
-				specSections := []string{"architecture", "data model", "api", "implementation", "schema", "interface"}
-				var found []string
-				for _, s := range specSections {
-					if strings.Contains(msgLower, s) {
-						found = append(found, s)
-					}
-				}
-				if len(found) < 2 {
-					failures = append(failures, fmt.Sprintf(
-						"technical spec appears incomplete (only found sections: %s)",
-						func() string {
-							if len(found) == 0 {
-								return "none"
-							}
-							return strings.Join(found, ", ")
-						}(),
-					))
-				}
+				failures := hephaestusSectionFailures(report)
 
 				// Disk check: verify tech-spec-proposal.md or tech-spec.md was written to
 				// THIS Hephaestus's feature dir — the one whose pipeline has 4-tech-spec
@@ -1628,6 +1763,31 @@ func handleHermesStop(input subagentStopInput) error {
 	if err := json.Unmarshal(data, &checklist); err != nil {
 		debugLog("hermes-stop: failed to parse checklist: %v", err)
 		return outputSubagentOK()
+	}
+
+	// Async wait: Hermes's own children run through the Task tool
+	// asynchronously — the tool result is "Async agent launched successfully",
+	// not the child's findings, and a real report arrives later as the
+	// transcript resumes Hermes. The tier gate used to block that turn-end the
+	// instant the tiers were still unmarked, which stopped the harness from
+	// ever waking Hermes back up when a child reported (3 blocks per review,
+	// a zero-finding review on 09-21). Letting the stop through here, without
+	// touching block_count, keeps the turn open for the harness to resume;
+	// the tier gate below still runs, unchanged, once every launched child
+	// has finished.
+	if input.AgentTranscriptPath != "" {
+		if launched, finished, _, _, err := scanHandbackTranscript(input.AgentTranscriptPath); err == nil {
+			var outstanding int
+			for id := range launched {
+				if !finished[id] {
+					outstanding++
+				}
+			}
+			if outstanding > 0 {
+				debugLog("hermes-stop: async wait, %d children outstanding", outstanding)
+				return outputSubagentOK()
+			}
+		}
 	}
 
 	var incomplete []string

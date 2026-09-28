@@ -310,6 +310,85 @@ func TestHandbackGateDecision(t *testing.T) {
 		}
 	})
 
+	t.Run("ares missing Landed: deny naming it", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback1",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "Task list:\n1. [x] done\ncreated a.ts\nImplementation complete."},
+		})
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny for a report missing the Landed: line, got %q", res.Decision)
+		}
+		if !strings.Contains(res.Reason, "Landed:") {
+			t.Errorf("reason should name the missing Landed: line, got %q", res.Reason)
+		}
+	})
+
+	t.Run("ares complete report: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback2",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234"},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a complete report, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("ares 4th call: no decision, cap reached", func(t *testing.T) {
+		cwd := t.TempDir()
+		badInput := preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback3",
+			Cwd:       cwd,
+			ToolInput: preToolUseToolInput{Message: "I did some work."},
+		}
+		for i := 1; i <= gateMaxBlocks; i++ {
+			res := handbackGateDecision(badInput)
+			if res.Decision != "deny" {
+				t.Fatalf("call %d: expected deny (block_count %d < cap %d), got %q", i, i-1, gateMaxBlocks, res.Decision)
+			}
+		}
+		res := handbackGateDecision(badInput)
+		if res.Decision != "" {
+			t.Fatalf("call %d: expected no decision once the block-count cap (%d) is reached, got %q: %s", gateMaxBlocks+1, gateMaxBlocks, res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("hephaestus with 3 sections: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:hephaestus",
+			AgentID:   "hephHandback1",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "## Architecture\n...\n## API\n...\n## Data Model\n..."},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision with 3 recognized sections, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("hephaestus too few sections: deny", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:hephaestus",
+			AgentID:   "hephHandback2",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "This is a brief spec."},
+		})
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny with too few sections, got %q", res.Decision)
+		}
+		if !strings.Contains(res.Reason, "incomplete") {
+			t.Errorf("reason should say the spec is incomplete, got %q", res.Reason)
+		}
+	})
+
 	t.Run("missing session id: fails open before touching disk", func(t *testing.T) {
 		res := handbackGateDecision(preToolUseInput{
 			ToolName:       "SubagentHandback",

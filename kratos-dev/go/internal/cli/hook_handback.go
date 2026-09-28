@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -131,7 +132,27 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 	if input.ToolName != "SubagentHandback" {
 		return handbackGateResult{}
 	}
-	if !strings.Contains(strings.ToLower(input.AgentType), "hermes") {
+
+	agentType := strings.ToLower(input.AgentType)
+
+	// Ares and Hephaestus deliver their final report as this very tool call's
+	// own input.message — no transcript read needed, the content is right
+	// here before the call even completes. Denying here, not only at
+	// SubagentStop, catches a missing report before the agent's turn ends at
+	// all.
+	if strings.Contains(agentType, "ares") {
+		failures := aresReportFailures(input.ToolInput.Message, subagentStopInput{
+			Cwd:            input.Cwd,
+			TranscriptPath: input.TranscriptPath,
+		})
+		return handbackContentGateDecision("ares", gateStatePath(input.Cwd, "", "ares-handback-state.json"), input.AgentID, failures)
+	}
+	if strings.Contains(agentType, "hephaestus") {
+		failures := hephaestusSectionFailures(input.ToolInput.Message)
+		return handbackContentGateDecision("hephaestus", gateStatePath(input.Cwd, "", "hephaestus-handback-state.json"), input.AgentID, failures)
+	}
+
+	if !strings.Contains(agentType, "hermes") {
 		return handbackGateResult{}
 	}
 
@@ -172,6 +193,37 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 	return handbackGateResult{Decision: "deny", Reason: handbackDenyReason(missing)}
 }
 
+// handbackContentGateDecision applies the same capped block-count guard
+// evaluateGateBlock uses at SubagentStop, but shaped for the PreToolUse
+// hand-back gate's result type: deny while failures remain, up to
+// gateMaxBlocks attempts, then let the call through with a debug log instead
+// of denying forever. A hand-back that passes clears the counter, so a later,
+// unrelated failure in the same spawn starts counting from 0 rather than
+// picking up an already-resolved count.
+func handbackContentGateDecision(gateName, statePath, agentID string, failures []string) handbackGateResult {
+	if len(failures) == 0 {
+		clearGateBlock(statePath)
+		return handbackGateResult{}
+	}
+
+	state := readGateBlockState(statePath)
+	if agentID != "" && state.AgentID != "" && state.AgentID != agentID {
+		// A different spawn than the one that left this count — never carry it over.
+		state = gateBlockState{}
+	}
+	if state.BlockCount >= gateMaxBlocks {
+		debugLog("%s-handback: max block attempts reached (%d), allowing hand-back despite missing: %s", gateName, state.BlockCount, strings.Join(failures, "; "))
+		return handbackGateResult{}
+	}
+	state.AgentID = agentID
+	state.BlockCount++
+	writeGateBlockState(statePath, state)
+	return handbackGateResult{Decision: "deny", Reason: fmt.Sprintf(
+		"Hand-back missing: %s. Fix the report and call SubagentHandback again. (attempt %d/%d)",
+		strings.Join(failures, "; "), state.BlockCount, gateMaxBlocks,
+	)}
+}
+
 // handbackTranscriptPath resolves Hermes's own subagent transcript. The
 // payload's transcript_path names the calling session's transcript file;
 // Claude Code writes every spawned subagent's own transcript as a sibling
@@ -193,6 +245,7 @@ type handbackBlock struct {
 	Type      string          `json:"type"`
 	ID        string          `json:"id"`          // tool_use
 	Name      string          `json:"name"`        // tool_use
+	Input     json.RawMessage `json:"input"`       // tool_use's own call arguments
 	ToolUseID string          `json:"tool_use_id"` // tool_result
 	Text      string          `json:"text"`        // text
 	Content   json.RawMessage `json:"content"`     // tool_result's own nested content

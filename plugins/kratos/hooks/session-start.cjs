@@ -38,9 +38,21 @@ const SESSIONS_DIR = path.join(KRATOS_HOME, "sessions");
 const LEGACY_SESSION_FILE = path.join(KRATOS_HOME, "active-session.json");
 const SESSION_FILE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const REMINDER_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
-const MAX_MEMORIES = 8;
+const MAX_MEMORIES = 12;
 const RULE_CAP = 6; // standing rules shown per session, on top of MAX_MEMORIES
 const SCOPED_CAP = 4; // project-scoped facts capped so a global preference always gets a slot
+
+// Rank a global fact's category so a preference always outranks a weak-spot,
+// and a weak-spot always outranks a habit, regardless of recency — a
+// preference is the fact most likely to change how the session responds.
+// Categories outside this map (e.g. "context", handled separately) rank last.
+// A stable sort keeps newest-first ordering within one rank, since `memories`
+// itself already arrives newest-first.
+const GLOBAL_PREF_RANK = { preference: 0, "weak-spot": 1, habit: 2 };
+function globalPrefRank(m) {
+  const rank = GLOBAL_PREF_RANK[m.category];
+  return rank === undefined ? GLOBAL_PREF_RANK.habit + 1 : rank;
+}
 
 // Output constraint injected into every session (verbatim from references/agent-protocol.md).
 const OUTPUT_CONSTRAINT =
@@ -222,6 +234,9 @@ function buildMemoryReport(data, ruleMemories, cwd) {
     if (m.category === "context") globalContext.push(m);
     else globalPrefs.push(m);
   }
+  // Array.prototype.sort is stable (guaranteed since ES2019/Node 12), so this
+  // only reorders across ranks — newest-first survives within one rank.
+  globalPrefs.sort((a, b) => globalPrefRank(a) - globalPrefRank(b));
 
   const scopedShown = scoped.slice(0, SCOPED_CAP);
   let remaining = MAX_MEMORIES - scopedShown.length;

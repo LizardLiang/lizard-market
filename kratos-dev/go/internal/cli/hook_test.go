@@ -181,6 +181,67 @@ func TestBuildInjectionContext(t *testing.T) {
 // allowed reports whether a SubagentStop response lets the agent stop (no block decision).
 func (o subagentStopOutput) allowed() bool { return o.Decision != "block" }
 
+// subagentHandbackToolUseLine builds an assistant transcript entry whose
+// message carries one SubagentHandback tool_use call, its input.message set
+// to report — the shape lastHandbackMessage reads.
+func subagentHandbackToolUseLine(report string) string {
+	b, _ := json.Marshal(map[string]any{
+		"type": "assistant",
+		"message": map[string]any{
+			"content": []map[string]any{
+				{"type": "tool_use", "id": "toolu_handback", "name": "SubagentHandback", "input": map[string]any{"message": report}},
+			},
+		},
+	})
+	return string(b)
+}
+
+// TestSubagentStopReadsHandbackMessage pins the fix for the 2026-09-27
+// review's false-block finding: the SubagentStop gate used to read
+// LastAssistantMessage unconditionally, but Ares (and Hephaestus) deliver
+// their final report through the SubagentHandback tool — LastAssistantMessage
+// still carries whatever the model said immediately before that call, which
+// blocked 36 of 36 real Ares runs. The gate must read the delivered hand-back
+// message when the transcript carries one, and fall back to
+// LastAssistantMessage unchanged when it does not.
+func TestSubagentStopReadsHandbackMessage(t *testing.T) {
+	t.Run("hand-back present: gate reads its message, not LastAssistantMessage", func(t *testing.T) {
+		root := t.TempDir()
+		mainTranscript := writeHandbackTranscript(t, "sessHB1", "aresHB1",
+			subagentHandbackToolUseLine("Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234"),
+		)
+		agentTranscript := filepath.Join(filepath.Dir(mainTranscript), "sessHB1", "subagents", "agent-aresHB1.jsonl")
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":            "kratos:ares",
+			"agent_id":              "aresHB1",
+			"cwd":                   root,
+			"agent_transcript_path": agentTranscript,
+			// The pre-hand-back text the harness still carries here names no
+			// task list, no files, no completion — it would block on its own.
+			// The delivered hand-back message is what must gate the stop.
+			"last_assistant_message": "Mission complete. Final report delivered via SubagentHandback.",
+		})
+		resp := runSubagentStop(t, string(b))
+		if !resp.allowed() {
+			t.Fatalf("expected allow reading the hand-back message, got block: %q", resp.Reason)
+		}
+	})
+
+	t.Run("hand-back absent: falls back to LastAssistantMessage, today's rows unchanged", func(t *testing.T) {
+		root := t.TempDir()
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:ares",
+			"agent_id":               "aresHB2",
+			"cwd":                    root,
+			"last_assistant_message": "Mission complete. Final report delivered via SubagentHandback.",
+		})
+		resp := runSubagentStop(t, string(b))
+		if resp.allowed() {
+			t.Fatalf("expected block — no hand-back transcript, and LastAssistantMessage alone names no task list or files, got allow")
+		}
+	})
+}
+
 func TestSubagentStopGate(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -808,6 +869,103 @@ func TestHermesStopUsesStartResolution(t *testing.T) {
 	}
 	if resp.allowed() {
 		t.Error("stale a-old checklist must not satisfy the in-progress review — got allow (\"all 8 tiers complete\")")
+	}
+}
+
+// TestHermesStopAllowsAsyncWait pins the fix for the async-wait conflict
+// (2026-09-27 review, 3 blocks per review and a zero-finding review on
+// 09-21): Hermes's own review children launch through the Task tool
+// asynchronously, and the tier gate used to block the turn-end the moment the
+// tiers were still unmarked — stopping the harness from ever waking Hermes
+// back up when a child reported. The stop must allow through while a
+// launched child is still outstanding, and must not touch block_count while
+// doing so.
+func TestHermesStopAllowsAsyncWait(t *testing.T) {
+	root := t.TempDir()
+	tmpDir := filepath.Join(root, ".claude", "tmp")
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		t.Fatalf("MkdirAll tmp: %v", err)
+	}
+	checklistPath := filepath.Join(tmpDir, "hermes-checklist.json")
+	writeHermesChecklist(t, checklistPath, allTiersFalse())
+
+	mainTranscript := writeHandbackTranscript(t, "sessAsync1", "hermesAsync1",
+		handbackAssistantToolUseLine("tu1", "Agent"),
+		handbackLaunchResultLine("tu1", "childA"),
+	)
+	agentTranscript := filepath.Join(filepath.Dir(mainTranscript), "sessAsync1", "subagents", "agent-hermesAsync1.jsonl")
+
+	b, _ := json.Marshal(map[string]interface{}{
+		"agent_type":            "kratos:hermes",
+		"agent_id":              "hermesAsync1",
+		"cwd":                   root,
+		"agent_transcript_path": agentTranscript,
+	})
+	resp := runSubagentStop(t, string(b))
+	if !resp.allowed() {
+		t.Fatalf("expected allow while a launched child is still outstanding, got block: %q", resp.Reason)
+	}
+
+	raw, err := os.ReadFile(checklistPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var checklist struct {
+		BlockCount int `json:"block_count"`
+	}
+	if err := json.Unmarshal(raw, &checklist); err != nil {
+		t.Fatal(err)
+	}
+	if checklist.BlockCount != 0 {
+		t.Errorf("block_count = %d, want 0 (unchanged while a child is outstanding)", checklist.BlockCount)
+	}
+}
+
+// TestHermesStopBlocksWhenChildrenFinished proves the async wait above does
+// not weaken the existing tier gate: once every launched child has finished,
+// an incomplete tier still blocks and still increments block_count exactly
+// as before.
+func TestHermesStopBlocksWhenChildrenFinished(t *testing.T) {
+	root := t.TempDir()
+	tmpDir := filepath.Join(root, ".claude", "tmp")
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		t.Fatalf("MkdirAll tmp: %v", err)
+	}
+	checklistPath := filepath.Join(tmpDir, "hermes-checklist.json")
+	tiers := allTiersTrue()
+	tiers["T5_consistent"] = false
+	writeHermesChecklist(t, checklistPath, tiers)
+
+	mainTranscript := writeHandbackTranscript(t, "sessAsync2", "hermesAsync2",
+		handbackAssistantToolUseLine("tu1", "Agent"),
+		handbackLaunchResultLine("tu1", "childA"),
+		handbackReportLine("childA"),
+	)
+	agentTranscript := filepath.Join(filepath.Dir(mainTranscript), "sessAsync2", "subagents", "agent-hermesAsync2.jsonl")
+
+	b, _ := json.Marshal(map[string]interface{}{
+		"agent_type":            "kratos:hermes",
+		"agent_id":              "hermesAsync2",
+		"cwd":                   root,
+		"agent_transcript_path": agentTranscript,
+	})
+	resp := runSubagentStop(t, string(b))
+	if resp.allowed() {
+		t.Fatal("expected block — every child finished and a tier is still false")
+	}
+
+	raw, err := os.ReadFile(checklistPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var checklist struct {
+		BlockCount int `json:"block_count"`
+	}
+	if err := json.Unmarshal(raw, &checklist); err != nil {
+		t.Fatal(err)
+	}
+	if checklist.BlockCount != 1 {
+		t.Errorf("block_count = %d, want 1", checklist.BlockCount)
 	}
 }
 
@@ -1475,14 +1633,14 @@ func TestAresVerifyGateFailure(t *testing.T) {
 
 	t.Run("blocks on code edit without test", func(t *testing.T) {
 		input := subagentStopInput{TranscriptPath: writeTranscript(t, codeEditNoTest...)}
-		if f := aresVerifyGateFailure(input); f == "" {
+		if f := aresVerifyGateFailure(input.LastAssistantMessage, input); f == "" {
 			t.Error("expected a failure, got none")
 		}
 	})
 
 	t.Run("passes on code edit with test", func(t *testing.T) {
 		input := subagentStopInput{TranscriptPath: writeTranscript(t, codeEditWithTest...)}
-		if f := aresVerifyGateFailure(input); f != "" {
+		if f := aresVerifyGateFailure(input.LastAssistantMessage, input); f != "" {
 			t.Errorf("expected no failure, got %q", f)
 		}
 	})
@@ -1492,20 +1650,20 @@ func TestAresVerifyGateFailure(t *testing.T) {
 			TranscriptPath:       writeTranscript(t, codeEditNoTest...),
 			LastAssistantMessage: "Docs-only change. TESTS-NOT-APPLICABLE: no runtime surface.",
 		}
-		if f := aresVerifyGateFailure(input); f != "" {
+		if f := aresVerifyGateFailure(input.LastAssistantMessage, input); f != "" {
 			t.Errorf("expected escape phrase to waive gate, got %q", f)
 		}
 	})
 
 	t.Run("missing transcript fails open", func(t *testing.T) {
 		input := subagentStopInput{TranscriptPath: filepath.Join(t.TempDir(), "missing.jsonl")}
-		if f := aresVerifyGateFailure(input); f != "" {
+		if f := aresVerifyGateFailure(input.LastAssistantMessage, input); f != "" {
 			t.Errorf("expected fail-open on missing file, got %q", f)
 		}
 	})
 
 	t.Run("no transcript path means gate inactive", func(t *testing.T) {
-		if f := aresVerifyGateFailure(subagentStopInput{}); f != "" {
+		if f := aresVerifyGateFailure("", subagentStopInput{}); f != "" {
 			t.Errorf("expected inactive gate, got %q", f)
 		}
 	})
@@ -1516,7 +1674,7 @@ func TestAresVerifyGateFailure(t *testing.T) {
 			toolUseLine(false, "Edit", map[string]any{"file_path": "src/auth.go"}),
 		}
 		input := subagentStopInput{AgentTranscriptPath: writeTranscript(t, lines...)}
-		if f := aresVerifyGateFailure(input); f == "" {
+		if f := aresVerifyGateFailure(input.LastAssistantMessage, input); f == "" {
 			t.Error("expected failure via agent_transcript_path without sidechain flag")
 		}
 	})

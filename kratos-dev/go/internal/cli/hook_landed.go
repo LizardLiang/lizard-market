@@ -17,31 +17,35 @@ var landedLineRE = regexp.MustCompile(`(?im)^\s*\**landed\**\s*:\**\s*(?:([\w./-
 var landedWaiverRE = regexp.MustCompile(`(?i)landed-not-applicable:`)
 
 // aresLandedGateFailure enforces the landed-work rule at Ares's SubagentStop:
-// the final message must name the commit the work landed in (or waive with
+// the final report must name the commit the work landed in (or waive with
 // LANDED-NOT-APPLICABLE: <reason>), and when a cwd is known and is a git
 // repository, that commit must exist there. Uncommitted work "pending manual
 // check" lost an entire Ares+Hermes cycle on LizMeter #63 (2026-09 review).
+//
+// report is the text to check — LastAssistantMessage, or the delivered
+// SubagentHandback message when Ares used one — so both the SubagentStop gate
+// and the PreToolUse hand-back gate run the identical check against whichever
+// text actually carries the report.
 //
 // The message-level rule always applies: Ares must say where the work landed
 // or say explicitly why nothing could land. Infrastructure problems (no git on
 // PATH, cwd unknown or outside a work tree) fail OPEN only on the commit
 // verification.
-func aresLandedGateFailure(input subagentStopInput) string {
-	msg := input.LastAssistantMessage
-	if landedWaiverRE.MatchString(msg) {
+func aresLandedGateFailure(report, cwd string) string {
+	if landedWaiverRE.MatchString(report) {
 		return ""
 	}
 
-	m := landedLineRE.FindStringSubmatch(msg)
+	m := landedLineRE.FindStringSubmatch(report)
 	if m == nil {
 		return "no `Landed: <branch>@<hash>` line — stage exactly the files you created or modified (git add <files>), commit them on the current branch, and report the hash; or state LANDED-NOT-APPLICABLE: <reason> when the mission changed no files or the directory is not a git repository"
 	}
 	hash := m[2]
-	if input.Cwd == "" || !isGitWorkTree(input.Cwd) {
+	if cwd == "" || !isGitWorkTree(cwd) {
 		return ""
 	}
-	if err := gitCommitExists(input.Cwd, hash); err != nil {
-		return fmt.Sprintf("Landed: names commit %s but git cannot find it in %s (%v) — commit for real and report the new hash", hash, input.Cwd, err)
+	if err := gitCommitExists(cwd, hash); err != nil {
+		return fmt.Sprintf("Landed: names commit %s but git cannot find it in %s (%v) — commit for real and report the new hash", hash, cwd, err)
 	}
 	return ""
 }

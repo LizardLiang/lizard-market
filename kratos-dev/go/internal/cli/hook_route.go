@@ -93,8 +93,9 @@ var inlineGodAliases = map[string]string{"plan": "odysseus"}
 var gateBypassRE = regexp.MustCompile(`(?im)^\s*(?:you do\b|do it (?:yourself|inline)\b|do (?:this|that) inline\b|inline it\b)`)
 
 // directRouteGods are the gods a user can address by name and get directly,
-// without the kratos:auto router in between. Odysseus runs inline (plan
-// mode); the others are spawned with the quick.md template.
+// without the kratos:auto router in between. Odysseus and Iris run inline
+// (plan mode; the daily front door) so AskUserQuestion reaches the user; the
+// others are spawned with the quick.md template.
 var directRouteGods = map[string]string{
 	"ares":     "Agent(subagent_type: \"kratos:ares\") with the spawn template in commands/quick.md (ORIGINAL_USER_REQUEST verbatim, mode acceptEdits), then the quick.md post-task",
 	"hermes":   "Agent(subagent_type: \"kratos:hermes\") with the quick.md review template",
@@ -103,6 +104,7 @@ var directRouteGods = map[string]string{
 	"daedalus": "Agent(subagent_type: \"kratos:daedalus\") with the quick.md decomposition template",
 	"hades":    "Agent(subagent_type: \"kratos:hades\") with the quick.md debug template",
 	"odysseus": "Skill(skill: \"kratos:plan\") — Odysseus runs inline so his questions reach the user",
+	"iris":     "Skill(skill: \"kratos:iris\") — Iris runs inline so AskUserQuestion reaches the user",
 }
 
 // addressedGodRE returns a pattern matching the user addressing god by name
@@ -153,11 +155,16 @@ func titleCase(name string) string {
 }
 
 // modelRoute is the direct route for god when the user picked a model. The
-// Skill route cannot take a model, so every god — Odysseus included — is
-// spawned through the Agent tool.
+// Skill route cannot take a model, so every god that normally runs inline —
+// Odysseus, Iris — is spawned through the Agent tool instead, with the
+// instruction to return its blocking questions in the final message so the
+// caller can still put them to the user.
 func modelRoute(god, model string) string {
 	if god == "odysseus" {
 		return fmt.Sprintf("Agent(subagent_type: \"kratos:odysseus\", model: \"%s\") instead of the inline kratos:plan skill — tell Odysseus to return his blocking questions in his final message, then ask the user those questions", model)
+	}
+	if god == "iris" {
+		return fmt.Sprintf("Agent(subagent_type: \"kratos:iris\", model: \"%s\") instead of the inline kratos:iris skill — tell Iris to return her questions in her final message, then ask the user those questions", model)
 	}
 	return strings.Replace(directRouteGods[god], `")`, fmt.Sprintf(`", model: "%s")`, model), 1)
 }

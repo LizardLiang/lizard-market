@@ -314,3 +314,31 @@ func TestPromptSubmit_ModelOverrideSpawnsAgent(t *testing.T) {
 		t.Errorf("expected the inline kratos:plan route, got:\n%s", got)
 	}
 }
+
+// Iris was missing from directRouteGods, so a prompt addressing her by name
+// fell through to the full kratos:auto activation block instead of the
+// one-line direct-route hint every other addressable god gets.
+func TestPromptSubmit_DirectRouteForIris(t *testing.T) {
+	got := promptOut(t, "iris, start #842")
+	if !strings.Contains(got, "[KRATOS ROUTE]") {
+		t.Errorf("expected a direct-route hint, got:\n%s", got)
+	}
+	if !strings.Contains(got, `Skill(skill: "kratos:iris")`) {
+		t.Errorf("expected the inline kratos:iris skill route, got:\n%s", got)
+	}
+
+	got = promptOut(t, "iris, using opus review this")
+	if !strings.Contains(got, "[KRATOS ROUTE]") {
+		t.Errorf("expected a direct-route hint, got:\n%s", got)
+	}
+	want := `Agent(subagent_type: "kratos:iris", model: "opus")`
+	if !strings.Contains(got, want) {
+		t.Errorf("expected route with %s, got:\n%s", want, got)
+	}
+	if strings.Contains(got, `Skill(skill: "kratos:iris")`) {
+		t.Errorf("a model override must not use the inline Skill route, got:\n%s", got)
+	}
+	if !strings.Contains(got, "questions in her final message") {
+		t.Errorf("Iris spawn must ask for her questions in the final message, got:\n%s", got)
+	}
+}
