@@ -30,7 +30,7 @@ Each finding must carry one of these labels:
 
 | Label          | Meaning                                                                                                                      | Action Required                                  |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `[BLOCKER]`    | Prevents correctness or safety (Tier 1–2 failures), or severe Tier 8 anti-patterns (3+ copy-paste, sequential network calls) | Must be fixed. Cannot approve until resolved.    |
+| `[BLOCKER]`    | Prevents correctness or safety (Tier 1–2 failures), or severe Tier 8 anti-patterns (3+ copy-paste, sequential network calls, caveat in a comment, shared state re-read within one flow) | Must be fixed. Cannot approve until resolved.    |
 | `[WARNING]`    | Violates clarity, consistency, resilience, or maintainability (Tier 3–6, 8)                                                  | Should be fixed. Propose auto-fix. Bulk confirm. |
 | `[SUGGESTION]` | Tier 7 or style improvements                                                                                                 | Optional. Defer to end. User skips by default.   |
 
@@ -46,6 +46,7 @@ Each finding must carry one of these labels:
 - Boolean logic is not inverted or short-circuiting incorrectly
 - No unreachable code paths that should be reachable
 - Function contracts (inputs → outputs) are honored
+- Shared state set on a flow's entry (flag, selection, status, counter) is cleared on every exit — success and failure — by the same flow; a set with no clearing path is a BLOCKER
 
 ---
 
@@ -144,6 +145,12 @@ Long-term health anti-patterns. Only flag these in **new or modified code** — 
 - **TOCTOU checks**: Pre-checking file/resource existence before operating instead of operating directly and handling the error
 - **Unbounded growth**: Data structures that grow without bound (missing TTL, LRU eviction, size cap, or cleanup)
 
+### Shared State & Flows
+
+- **Re-read within one flow**: The same shared state (DB flag/selection, row set) queried more than once inside one job instead of fixed once up front and passed along — BLOCKER when the state is shared across jobs or members
+- **Multi-site writes**: A total, status, or progress counter written from more than one site in one flow — WARNING; BLOCKER when the sites can disagree at runtime
+- **Caveat in a comment**: A comment or docstring carrying a design concern or workaround ("deliberately NOT", "would overwrite", "for now", "known issue", "assumes") — BLOCKER; the concern becomes a question to the user or a `debt.md` entry with a ticket, and the comment goes
+
 ---
 
 ## Auto-Fix Rules
@@ -184,7 +191,7 @@ Date: <YYYY-MM-DD — when the rule was added>
 
 **Concreteness gate:** a rule must be checkable against code. "Domain constants come from the model's exported consts, not re-declared as magic strings" is a rule. "Good API design" is not — it has no checkable statement. If a finding can't be reduced to a one-sentence check, it stays a human design-taste judgment call, not a rule.
 
-**Boundary:** design-taste findings (naming philosophy, abstraction shape, "is this the right pattern") stay with human review. Only concrete, checkable violations become rules.
+**Boundary:** design-taste findings (naming philosophy, abstraction shape, "is this the right pattern") stay with human review. Only concrete, checkable violations become rules. The Shared State & Flows rules above are checkable conditions, not taste.
 
 ---
 

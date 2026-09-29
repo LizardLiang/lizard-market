@@ -2,7 +2,7 @@
 
 > *"I am what the gods have made me."* — now the gods serve **you**.
 
-![version](https://img.shields.io/badge/version-2.113.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-2.116.0-blue) ![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-8A2BE2) ![agents](https://img.shields.io/badge/agents-19-orange) ![pipeline](https://img.shields.io/badge/pipeline-9%20stages-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **Stop shipping AI slop.** Kratos runs your feature through a real pipeline: a PM drafts the PRD, a devil's advocate (**Nemesis**) tears it apart, an architect specs it, and an alignment gate (**Hera**) proves the implementation matches what you *actually* asked for. Named agents, review gates enforced by hooks, persistent memory across sessions — not another pile of subagents.
 
@@ -163,7 +163,7 @@ Kratos ships Claude Code hooks that enforce workflow discipline automatically �
 | `SessionEnd` | all sessions | `session-end.cjs` | Closes the session ledger row with a one-line summary |
 | `PermissionRequest` | `Read` | `permission-read.cjs` | Auto-allows reads under the plugin root and `~/.kratos/` only |
 | `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|PowerShell\|Agent\|Task\|Skill` | `launch.cjs hook edit-gate` | Inline edit gate: Odysseus plan-only lane, Iris source-file budget, credential guard (section below) |
-| `PreToolUse` | `SubagentHandback` | `launch.cjs hook handback-gate` | Hand-back content gate: Ares (task list, files, `Landed:` line, test evidence) and Hephaestus (spec sections) each get 3 denied attempts before the call is let through; Hermes denies until every spawned review child has reported, or 30 minutes of stall (section below) |
+| `PreToolUse` | `SubagentHandback` | `launch.cjs hook handback-gate` | Hand-back content gate: Ares (task list, files, `Landed:` line, test evidence, no caveat comments in the Landed commit) and Hephaestus (spec sections) each get 3 denied attempts before the call is let through; Hermes denies until every spawned review child has reported, or 30 minutes of stall (section below) |
 | `PostToolUse` | `Agent\|Task\|Write\|Edit\|MultiEdit` | `tool-use.cjs` (async) | Records agent spawns and project file changes in memory |
 | `PostToolUse` | `Write\|Edit` | `launch.cjs hook spec-delta-check` | Validates a just-written spec delta immediately |
 | `SubagentStart` | `kratos:.*` | `path-inject.cjs` | Injects the resolved `<KRATOS_ROOT>` and `<kratos-bin>` paths |
@@ -198,6 +198,8 @@ For **Ares** and **Hephaestus**, every check below reads the report delivered th
 When `stop_hook_active` is true (Claude Code re-invoking the hook after a prior block on the same stop attempt), the checks above still run exactly as they would otherwise — a fixed 2026-09 bug let this flag bypass the gate unconditionally, so a blocked agent's very next stop attempt passed with the deliverable still missing. Every gate's own bounded cap is what stops the loop instead: `check --verify`'s `MaxRetries`, Hermes's `block_count >= 3`, and (also fixed 2026-09, since these three previously had none) Ares/Hephaestus/Nemesis's own block-count guard, capped at 3 attempts and keyed to the current spawn's `agent_id` so a fresh spawn always starts at 0.
 
 **Ares verify gate (v2.87):** the same SubagentStop hook scans the session transcript and blocks Ares completion when code files were edited but no test command ran — fail-open on scan errors, and waived by stating `TESTS-NOT-APPLICABLE: <reason>` for changes with no runtime surface. The check is sidechain-scoped, so it only looks at the subagent's own activity. Ares also records fail-then-pass evidence per task in `implementation-notes.md` — a RED (failing) result before the fix and a GREEN (passing) result after — which Hera verifies at Stage 8.
+
+**Ares comment gate (v2.116):** both the SubagentStop gate and the hand-back gate run `git show` on the commit named by `Landed:` and block when an added comment or docstring line in a code file carries a design caveat ("deliberately NOT", "would overwrite", "workaround", "known issue", "for now", "hack", `FIXME`, `WARN:`). A concern about the flow is a question to the user (`ARES NEEDS DESIGN`), never a comment. Fail-open on infrastructure errors; the only waiver is `CAVEAT-COMMENT-KEPT: <file:line — why it is an external fact>`.
 
 ### PreToolUse — Inline Edit Gate
 

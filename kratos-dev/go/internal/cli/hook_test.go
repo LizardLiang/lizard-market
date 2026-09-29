@@ -1805,6 +1805,14 @@ Reason: the mission names no target files and the request supports two different
 
 Recommended next step:
 /kratos:plan restated task`,
+		"ares needs design": `ARES NEEDS DESIGN
+
+Flow: 1. register_job sets SelectState=1 — job_runner.py:register_job 2. shopee handler reads SelectState=1 — order.py:shopee_arrange_shipping_handler 3. finalize_job — job_runner.py:finalize_job
+State: | SelectState | set by register_job | cleared by nothing on failure | member |
+Concern: the fix would rely on "only this run's orders carry SelectState=1", but no writer clears the flag on every exit, so stale marks leak in.
+Poles: A) patch in place — filter the Shopee query by the clicked ids   B) restructure — fix the list once, process per platform, clear every mark in finally
+Recommended: B — the same leak exists in 確認接單 and init_logistic
+LANDED-NOT-APPLICABLE: no edits`,
 		"ares needs clarification": `ARES NEEDS CLARIFICATION
 
 Question: the fix could apply only to the v1 endpoint or to both v1 and v2 — the code gives no signal either way.

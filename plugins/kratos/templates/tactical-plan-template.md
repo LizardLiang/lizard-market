@@ -19,6 +19,9 @@ started: <ISO8601 — from `kratos now`>
 ## Request
 <the user's original request, verbatim>
 
+## Current Design
+_Filled by the Flow Trace when it triggers; else "n/a — no shared state or multi-step flow touched"._
+
 ## Locked Decisions
 <!-- one entry appended per answered question, oldest first -->
 _None yet._
@@ -53,6 +56,14 @@ completed: <ISO8601>
 
 ## Summary
 <2-4 sentences: goal, current context, intended result>
+
+## Current Design
+<"n/a — no shared state or multi-step flow touched", or:>
+Flow: 1. <step — file:function> → 2. … → n. <finalize>
+| State | Set by | Cleared by | Scope | Stale when |
+|-------|--------|------------|-------|------------|
+Invariants: <one per line + writer evidence>
+Fit or fight: A) patch in place — <consequence> · B) restructure — <consequence> → **chosen: <pole>** — <why / the user's answer>
 
 ## Phases (optional — split when the plan touches ≥2 subsystems or has more than 6 steps)
 | Phase | Scope | Steps | Verify |

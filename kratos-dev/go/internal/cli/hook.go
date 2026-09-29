@@ -1228,6 +1228,10 @@ func aresReportFailures(report string, input subagentStopInput) []string {
 		failures = append(failures, f)
 	}
 
+	if f := aresCommentGateFailure(report, input.Cwd); f != "" {
+		failures = append(failures, f)
+	}
+
 	if f := aresVerifyGateFailure(report, input); f != "" {
 		failures = append(failures, f)
 	}

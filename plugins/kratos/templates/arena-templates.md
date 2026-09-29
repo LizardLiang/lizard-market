@@ -261,6 +261,36 @@ project/
 
 ---
 
+## flows/<subsystem>.md
+
+```markdown
+Frontmatter: as above, plus `scope: <globs where this flow's code lives>`
+
+# Flow: <name in the user's terms — e.g. Order jobs (print, 安排出貨)>
+
+## Entry points
+| Trigger | Handler (file:function) |
+|---------|-------------------------|
+
+## Steps
+1. <step> — file:function
+
+## State
+| State | Set by | Cleared by | Scope | Stale when |
+|-------|--------|------------|-------|------------|
+
+## Invariants
+- <invariant> — evidence: <writer file:function>
+
+## Design rule
+[YYYY-MM-DD | user|<agent> | <ticket/plan>] <rule, verbatim when the user stated it>
+
+## Update History
+- **{TIMESTAMP}** (<agent>): <what changed>
+```
+
+---
+
 ## conventions/<domain>.md
 
 ```markdown

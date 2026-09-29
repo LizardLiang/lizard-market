@@ -109,6 +109,21 @@ Detail: `<KRATOS_ROOT>/references/artifact-edit-protocol.md`.
 
 ---
 
+## Flow Trace (shared state, multi-step flows)
+<!-- protocol: flow-trace -->
+
+**Trigger** — the change touches a DB column, flag, status, counter, cache, or global written from more than one place; a step of a multi-step job (register → process → finalize); or a function with 3+ callers. Unsure → it triggers. The trace is grep plus one end-to-end read of the flow, not an interview.
+
+Before designing, editing, or approving, write down:
+1. **Every reader and writer** of the state — found by `grep`, never the list the brief named. Read the whole flow, not the function next to the change.
+2. **Lifecycle table** — `state | set by | cleared by | scope (row / member / global) | stale when`. A state with no clearing path on every exit (success and failure) is a finding.
+3. **The invariant** the change relies on ("only this run's orders carry SelectState=1") plus the writer evidence (file:function) that keeps it true. No evidence → it is an assumption, and assumptions go to the user.
+4. **Fit or fight** — two poles, no middle: patch inside the current flow vs restructure it (fix the list and count up front → process platform by platform on that list → finalize and reset on every exit). A bug takes the cheapest pole; an architectural fork takes the complete end-state, and the user decides.
+
+**Hard rule:** a concern about the flow, an invariant, or a caveat ("deliberately NOT…", "would overwrite…", "for now") is a question to the user — never a comment, docstring, or implementation note. Ask it in the user's domain terms (checked orders, the Schedule row's Total), show the flow as numbered steps, offer the two poles. Spawned agents stop with their report kind (`ARES NEEDS DESIGN`); inline agents use AskUserQuestion.
+
+---
+
 ## Boundaries (all agents)
 <!-- protocol: boundaries -->
 

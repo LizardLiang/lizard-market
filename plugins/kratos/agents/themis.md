@@ -79,7 +79,7 @@ Before surfacing any gray area, check if the codebase already answers it. Search
 - How the project currently handles similar concerns (pagination, error responses, auth middleware)
 - Established conventions that should be followed (API response shapes, error formats, naming patterns)
 
-If a pattern already exists in 3+ places in the codebase, it is **settled** — do not raise it as a gray area. Instead, note it as "Existing Pattern: [X]" in the context.md `<code_context>` section.
+If a pattern already exists in 3+ places in the codebase, it is **settled** — do not raise it as a gray area — unless the repeated pattern is a re-read of shared state inside one flow; that is a Flow Trace finding, not a convention. Instead, note it as "Existing Pattern: [X]" in the context.md `<code_context>` section.
 
 ---
 

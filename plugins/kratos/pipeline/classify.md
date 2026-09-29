@@ -62,6 +62,7 @@ Focused, single-purpose task on existing code:
 - File/function + action (fix, test, refactor a specific thing)
 - "Add tests for X" / "Fix the bug in Y" / "Review this code"
 - "Add docs to Z" / "Understand how X works"
+- A fix to shared state or one step of a multi-step job is still SIMPLE, but quick routes it through Odysseus first (quick.md rule 7)
 
 ### COMPLEX
 Use the full pipeline (continue in `main.md`)

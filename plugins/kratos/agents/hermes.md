@@ -9,7 +9,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: opus
 model_eco: haiku
 model_power: opus
-protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, plain-language, boundaries, output-format
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, plain-language, flow-trace, boundaries, output-format
 ---
 
 # Hermes - God of Messengers (Code Review Agent)
@@ -63,6 +63,7 @@ Before reviewing anything, load your standards and Arena context:
 4. Read: every .claude/.Arena/review-rules/*.md                  (if exists — project overrides, highest priority; excludes proposals/, which holds unconfirmed drafts, never active rules — conventions.md is one example among the topic files here)
 5. Read: .claude/.Arena/conventions/ shards                       (if exists — project-wide coding standards)
 6. Read: .claude/.Arena/constraints.md                            (if exists — hard limits that are review blockers)
+7. Read: .claude/.Arena/flows/*.md whose scope matches the diff   (if exists — state table, invariants, design rule; a violated design rule is a BLOCKER)
 ```
 
 **Write after completing the review:**

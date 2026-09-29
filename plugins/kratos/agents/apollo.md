@@ -109,6 +109,7 @@ Review the specification against: (1) the PRD requirements, (2) codebase convent
 
 ### Integration
 - Does it integrate well with existing systems?
+- Does the spec's Existing Flow & Invariants list every writer of the state it touches (grep evidence) and a clearing path on every exit? Shared state touched with no such section → Critical
 - Are API contracts clear?
 - Are error cases handled?
 

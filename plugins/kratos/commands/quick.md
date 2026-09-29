@@ -26,7 +26,7 @@ The `KRATOS_ROOT` value echoed above is the plugin's absolute root (fallback: `p
 4. **SPAWN IMMEDIATELY** — Don't just announce, actually use Task tool
 5. **OFFER REVIEW** — After implementation tasks, offer code review
 6. **ESCALATE WHEN NEEDED** — Suggest full pipeline for complex tasks
-7. **PLAN BEFORE GUESSING** — If Ares would need to guess target files, approach, or acceptance criteria, route to Odysseus first
+7. **PLAN BEFORE GUESSING** — If Ares would need to guess target files, approach, or acceptance criteria, or the change touches shared state / a step of a multi-step job (agent-protocol § Flow Trace), route to Odysseus first — regardless of file count
 8. **NO LOOPS** — Re-spawn Ares at most once per review cycle; surface unresolved BLOCKERs to the user instead of looping
 9. **LAND OR IT DIDN'T HAPPEN** — Accept an Ares result only with a `Landed:` hash (or an explicit `LANDED-NOT-APPLICABLE:`); run `verify --landed`. Uncommitted work is a failure, not a deliverable
 10. **VERBATIM BRIEF** — Pass ORIGINAL_USER_REQUEST unchanged; print any narrowing before spawning
@@ -84,6 +84,7 @@ TARGET: [file/function/area]
 REQUIREMENTS: [user's specific requirements]
 ORIGINAL_USER_REQUEST: [the user's words, verbatim — the scope contract]
 TICKET: [#N when the request names a tracker ticket, else none]
+DESIGN_RULE: [verbatim rule from .claude/.Arena/flows/<subsystem>.md when one matches TARGET, else omit the line]
 
 [Mission emphasis from the agent table below]
 
@@ -144,6 +145,10 @@ Example — "Fix the null pointer exception in auth.js line 42" → Classificati
 ### Agent Clarification Relay
 
 Spawned agents cannot reach the user — `AskUserQuestion` only works from your top-level session. If an agent returns **`ARES NEEDS CLARIFICATION`** (or any agent returns a specific blocking question): ask the user via your own `AskUserQuestion`, then re-spawn the agent with the original prompt plus `CLARIFICATION: [Q] → [A]`. Never answer on the agent's behalf and never drop the question.
+
+### ARES NEEDS DESIGN
+
+Ares traced a flow and hit a fork or an invariant no writer guarantees. Ask the user **once** via `AskUserQuestion`, in their terms: the flow as numbered steps, then the two poles with their consequence (patch inside the current flow vs restructure it) — no middle option. "Restructure" → `Skill(skill: "kratos:plan")` with Ares's Flow/State/Concern pasted as `CURRENT_DESIGN:`. "Patch" → re-spawn Ares once with the original prompt plus `DECISION: <pole> — <user's words>`. Never re-spawn without the answer; never re-ask a "fix it now?" the user already declined.
 
 ---
 

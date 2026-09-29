@@ -154,7 +154,7 @@ func TestParseRealFile(t *testing.T) {
 		"document-selection", "auto-discovery",
 		"missing-required-input", "interactive-questions",
 		"document-creation", "timestamp-standard", "status-updates",
-		"plain-language", "artifact-edit", "boundaries",
+		"plain-language", "artifact-edit", "flow-trace", "boundaries",
 		"output-format",
 	}
 	if got := strings.Join(doc.Order, ","); got != strings.Join(want, ",") {

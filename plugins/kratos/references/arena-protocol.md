@@ -9,7 +9,7 @@ How Kratos agents read from and write to the Arena, the project's persistent kno
 ## Reading
 
 1. Read `.claude/.Arena/index.md` first — the registry of every shard. If it does not exist, Arena has not been bootstrapped: proceed without it and do not create Arena files unless your agent definition lists write responsibilities.
-2. Read only the shards your task needs. Layout: flat files `glossary.md`, `constraints.md`, `debt.md`; sharded directories `project/`, `architecture/`, `conventions/`, `tech-stack/`, `features/` (digests of completed features), `insights/` (Mimir's cached research, TTL-based), `review-rules/` (Hermes standards; `proposals/` holds unconfirmed drafts), `specs/` (living behavioral specs, see below).
+2. Read only the shards your task needs. Layout: flat files `glossary.md`, `constraints.md`, `debt.md`; sharded directories `project/`, `architecture/`, `conventions/`, `tech-stack/`, `features/` (digests of completed features), `insights/` (Mimir's cached research, TTL-based), `review-rules/` (Hermes standards; `proposals/` holds unconfirmed drafts), `specs/` (living behavioral specs, see below), `flows/` (one file per subsystem flow: entry points, numbered steps, state lifecycle table, invariants, design rules — written after a Flow Trace by Odysseus, Hephaestus, or Ares, or verbatim when the user states a rule; read by any agent touching files in its `scope`).
 3. Arena information is authoritative. A `conventions/` "never do X" is a rule; an `architecture/` decision is respected in your design; a `features/` precedent argues for consistency.
 
 ---
@@ -25,6 +25,7 @@ Only write to Arena if your agent definition lists explicit write responsibiliti
 3. **Remove entries whose source feature no longer exists.**
 4. **Consolidate above 80 lines.** If `## Entries` exceeds 80 lines, compress related entries before adding.
 5. **Never touch `## Permanent`** unless you are Metis (bootstrapping baseline), Athena (requirements/constraints), or Hephaestus (architecture decisions).
+6. **A `flows/` `## Design rule` entry sourced `user` is replaced only on the user's word** — agents append their own findings beside it, never over it.
 
 ### Entry format
 
