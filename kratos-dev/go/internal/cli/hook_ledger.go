@@ -24,6 +24,30 @@ func recordPromptLedger(raw []byte) {
 	// being reachable, because the edit gate reads it on every Write/Edit.
 	recordInlineGod(input.SessionID, input.Cwd, input.Prompt)
 
+	// The database half is bounded: each statement may wait busy_timeout
+	// (5000ms) on a lock held by another writer, which alone equals the hook's
+	// 5s timeout — Claude Code then kills the hook and discards the routing
+	// output. Past the budget the hook answers without the row; the process
+	// exit abandons the goroutine, and SQLite rolls back any open write.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		recordPromptSessionRow(input)
+	}()
+	select {
+	case <-done:
+	case <-time.After(promptLedgerBudget):
+		debugLog("ledger: database write exceeded %v, skipped", promptLedgerBudget)
+	}
+}
+
+// promptLedgerBudget caps the prompt-submit database write well below the
+// UserPromptSubmit hook timeout (5s in hooks/hooks.json), leaving room for
+// node and binary startup.
+const promptLedgerBudget = 2 * time.Second
+
+// recordPromptSessionRow ensures the session row and stores initial_request.
+func recordPromptSessionRow(input hookInput) {
 	conn, err := db.GetConnection()
 	if err != nil {
 		debugLog("ledger: db unavailable: %v", err)
