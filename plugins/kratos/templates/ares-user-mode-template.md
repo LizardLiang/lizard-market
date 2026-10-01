@@ -82,4 +82,5 @@ Task list:
 Files created/modified: <file list, extensions included>
 LANDED-NOT-APPLICABLE: User Mode — the user commits
 Not run: <verification the plan or mission named that did not execute — reason> | none
+Reach: not applicable — no code changed
 ```
