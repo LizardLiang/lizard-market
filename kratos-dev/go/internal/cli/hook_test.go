@@ -208,7 +208,8 @@ func TestSubagentStopReadsHandbackMessage(t *testing.T) {
 	t.Run("hand-back present: gate reads its message, not LastAssistantMessage", func(t *testing.T) {
 		root := t.TempDir()
 		mainTranscript := writeHandbackTranscript(t, "sessHB1", "aresHB1",
-			subagentHandbackToolUseLine("Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234"),
+			reachChildLine(),
+			subagentHandbackToolUseLine("Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"),
 		)
 		agentTranscript := filepath.Join(filepath.Dir(mainTranscript), "sessHB1", "subagents", "agent-aresHB1.jsonl")
 		b, _ := json.Marshal(map[string]interface{}{
@@ -244,7 +245,8 @@ func TestSubagentStopReadsHandbackMessage(t *testing.T) {
 	t.Run("agent_transcript_path absent, session_id present: falls back to the derived sibling path", func(t *testing.T) {
 		root := t.TempDir()
 		mainTranscript := writeHandbackTranscript(t, "sessHB3", "aresHB3",
-			subagentHandbackToolUseLine("Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234"),
+			reachChildLine(),
+			subagentHandbackToolUseLine("Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"),
 		)
 		b, _ := json.Marshal(map[string]interface{}{
 			"agent_type":      "kratos:ares",
@@ -275,7 +277,7 @@ func TestSubagentStopGate(t *testing.T) {
 			name: "ares passes with all checks",
 			input: subagentStopInput{
 				AgentType:            "kratos:ares",
-				LastAssistantMessage: "TODO:\n1. [ ] Implement auth\nTODO:\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234",
+				LastAssistantMessage: "TODO:\n1. [ ] Implement auth\nTODO:\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
 			},
 			wantOK: true,
 		},
@@ -283,7 +285,7 @@ func TestSubagentStopGate(t *testing.T) {
 			name: "ares passes with task list recap",
 			input: subagentStopInput{
 				AgentType:            "kratos:ares",
-				LastAssistantMessage: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234",
+				LastAssistantMessage: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
 			},
 			wantOK: true,
 		},
@@ -428,7 +430,7 @@ func TestSubagentStopOutputShape(t *testing.T) {
 			"agent_type":             "kratos:ares",
 			"cwd":                    dir,
 			"stop_hook_active":       true,
-			"last_assistant_message": "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234",
+			"last_assistant_message": "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
 		})
 		got := run(string(b))
 		if len(got) != 0 {
@@ -1301,7 +1303,7 @@ func TestAresBlockCountResetsOnPass(t *testing.T) {
 			"agent_type":             "kratos:ares",
 			"agent_id":               "ares-1",
 			"cwd":                    dir,
-			"last_assistant_message": "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234",
+			"last_assistant_message": "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
 		})
 		return string(b)
 	}
@@ -1733,6 +1735,8 @@ Task list:
 Files created/modified: auth.go, auth_test.go
 Landed: main@abc1234
 Not run: none
+Reach: none beyond the request
+Evidence: auth tests RED: TestAuth failed -> GREEN: TestAuth passed
 
 Remaining waves: 3..4
 Resume with: CONTINUE_FROM_WAVE: 3`,
@@ -1746,6 +1750,8 @@ Task list:
 Files created/modified: scaffold.go, config.go
 Landed: main@abc1234
 Not run: none
+Reach: none beyond the request
+Evidence: auth tests RED: TestAuth failed -> GREEN: TestAuth passed
 
 Remaining phases: 2..3`,
 		"ares complete": `ARES COMPLETE
@@ -1772,6 +1778,8 @@ Task list:
 Files created/modified: payment_service.go, payment_service_test.go
 Landed: main@def5678
 Not run: none
+Reach: none beyond the request
+Evidence: payment tests RED: TestPay failed -> GREEN: TestPay passed
 
 Next: PRD Alignment (Hera)`,
 		"ares complete user mode": `ARES COMPLETE (User Mode)

@@ -1236,6 +1236,8 @@ func aresReportFailures(report string, input subagentStopInput) []string {
 		failures = append(failures, f)
 	}
 
+	failures = append(failures, aresReachGateFailures(report, input)...)
+
 	return failures
 }
 
@@ -1426,7 +1428,7 @@ func subagentStopCmd() *cobra.Command {
 					clearGateBlock(statePath)
 				} else {
 					return evaluateGateBlock("ares", statePath, input.AgentID, fmt.Sprintf(
-						"Ares quality gate failed: %s. Write a markdown task checklist (Task* tools are unavailable to subagents), implement all items, then end the report with the Final Block: a 'Task list:' recap, a 'Files created/modified:' line naming the files with extensions, a completion statement, and `Landed: <branch>@<hash>` (or `LANDED-NOT-APPLICABLE: <reason>`).",
+						"Ares quality gate failed: %s. Write a markdown task checklist (Task* tools are unavailable to subagents), implement all items, then end the report with the Final Block: a 'Task list:' recap, a 'Files created/modified:' line naming the files with extensions, a completion statement, `Landed: <branch>@<hash>` (or `LANDED-NOT-APPLICABLE: <reason>`), and `Reach:` plus RED/GREEN evidence after running the Reach Review with a reach-check child agent.",
 						strings.Join(failures, "; "),
 					))
 				}

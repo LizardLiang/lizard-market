@@ -332,7 +332,7 @@ func TestHandbackGateDecision(t *testing.T) {
 			AgentType: "kratos:ares",
 			AgentID:   "aresHandback2",
 			Cwd:       t.TempDir(),
-			ToolInput: preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234"},
+			ToolInput: preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"},
 		})
 		if res.Decision != "" {
 			t.Fatalf("expected no decision for a complete report, got %q: %s", res.Decision, res.Reason)
@@ -358,7 +358,7 @@ func TestHandbackGateDecision(t *testing.T) {
 			SessionID:      "sess8",
 			TranscriptPath: mainTranscript,
 			Cwd:            t.TempDir(),
-			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234"},
+			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"},
 		})
 		if res.Decision != "deny" {
 			t.Fatalf("expected deny for a code edit with no test command in Ares's own transcript, got %q", res.Decision)
@@ -372,6 +372,7 @@ func TestHandbackGateDecision(t *testing.T) {
 		lines := []string{
 			userPromptLine("implement"),
 			toolUseLine(false, "Edit", map[string]any{"file_path": "src/auth.go"}),
+			reachChildLine(),
 		}
 		mainTranscript := writeHandbackTranscript(t, "sess9", "aresHandback5", lines...)
 		res := handbackGateDecision(preToolUseInput{
@@ -381,7 +382,7 @@ func TestHandbackGateDecision(t *testing.T) {
 			SessionID:      "sess9",
 			TranscriptPath: mainTranscript,
 			Cwd:            t.TempDir(),
-			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] docs\ncreated doc.md\nImplementation complete.\nLanded: main@abc1234\nTESTS-NOT-APPLICABLE: docs only"},
+			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] docs\ncreated doc.md\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nTESTS-NOT-APPLICABLE: docs only"},
 		})
 		if res.Decision != "" {
 			t.Fatalf("expected no decision once TESTS-NOT-APPLICABLE waives the verify gate, got %q: %s", res.Decision, res.Reason)
