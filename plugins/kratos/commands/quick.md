@@ -148,7 +148,7 @@ Spawned agents cannot reach the user — `AskUserQuestion` only works from your 
 
 ### ARES NEEDS DESIGN
 
-Ares traced a flow and hit a fork or an invariant no writer guarantees. Ask the user **once** via `AskUserQuestion`, in their terms: the flow as numbered steps, then the two poles with their consequence (patch inside the current flow vs restructure it) — no middle option. "Restructure" → `Skill(skill: "kratos:plan")` with Ares's Flow/State/Concern pasted as `CURRENT_DESIGN:`. "Patch" → re-spawn Ares once with the original prompt plus `DECISION: <pole> — <user's words>`. Never re-spawn without the answer; never re-ask a "fix it now?" the user already declined.
+Ares traced a flow and hit a fork or an invariant no writer guarantees. Ask the user **once** via `AskUserQuestion`, in their terms: the flow as an ASCII diagram, then the two poles with their consequence (patch inside the current flow vs restructure it) — no middle option. "Restructure" → `Skill(skill: "kratos:plan")` with Ares's Flow/State/Concern pasted as `CURRENT_DESIGN:`. "Patch" → re-spawn Ares once with the original prompt plus `DECISION: <pole> — <user's words>`. Never re-spawn without the answer; never re-ask a "fix it now?" the user already declined.
 
 ---
 

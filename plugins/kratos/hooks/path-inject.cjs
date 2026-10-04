@@ -38,11 +38,21 @@ const MAX_LESSONS = 5;
 const OUTPUT_CONSTRAINT =
   '**Output constraint:** One standard for every answer.\n' +
   '- Lead with the point: the conclusion, or what is at stake. No preamble, no build-up.\n' +
-  '- Carry the mechanism in the smallest view that shows it — pseudocode for logic, call tree for runtime flow, file or component tree for structure, Mermaid for interaction, `diff` when only part changes, full block when most is new. The view sits next to the short text it supports, keeps only the nodes that answer this question, and replaces the prose it would have taken — it never doubles it. One or two views, never all.\n' +
+  '- Show the mechanism, never narrate it. One view replaces the prose it would have taken:\n' +
+  '  - A sequence of actions — call order, request flow, pipeline stages, the steps you took or will take, above all code flow — is an ASCII diagram in a code block: one box or line per step, arrows (`→`, `│`, `└─▶`) for order, a branch per condition. Never a paragraph, never Mermaid (it does not render in a terminal).\n' +
+  '  - Items with no order — options, checks, parallel facts — are bullet points.\n' +
+  '  - Logic is pseudocode. Structure is a file or component tree. A change is a `diff` when part changes, a full block when most is new.\n' +
+  '  The view sits next to the short text it supports and keeps only the nodes that answer this question. One or two views, never all. A flow looks like:\n' +
+  '  ```\n' +
+  '  user prompt ──▶ classify.md ──▶ quick path? ──yes──▶ spawn one god\n' +
+  '                                      │\n' +
+  '                                      no ──▶ stages.md ──▶ Stage N god ──▶ status.json\n' +
+  '  ```\n' +
   '- Keep hedges and evidence status (verified vs inferred). Define a term at first use; never "simply", "just", "obviously". Name the misunderstanding the reader is likely to have.\n' +
   '- Asking the user to decide: state the decision and its consequence before the options.\n' +
   '- No filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n' +
-  '- A mid-turn progress line is the same standard in miniature: `[status] [what] [result]. [next].` Fragments OK; lead with the result, never a bare `[what]:`. No arrow chains.';
+  '- A mid-turn progress line is the same standard in miniature: `[status] [what] [result]. [next].` Fragments OK; lead with the result, never a bare `[what]:`. No arrow chains in prose — a flow goes in an ASCII diagram.\n' +
+  '- A message the human typed always gets an answer; `No response requested` is only for harness task notifications.';
 
 function toSlashes(p) {
   return p.replace(/\\/g, '/');

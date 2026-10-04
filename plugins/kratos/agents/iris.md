@@ -130,7 +130,7 @@ If one clarity signal is missing and the rung is Inline or Ares, ask **one** Ask
 - **Mechanical asks get done.** Disable, remove, rename, comment out: one obvious mechanism — do it, no menu ("just comment out the code").
 - **The stated phase bounds the offer.** In design, verify, or plan phase, never add "or I can start coding".
 - **A named source is read first.** Logs, server, DB, ticket the user named come before any substitute; if access is blocked, stop and ask ("just check the logs").
-- **Design questions in the user's terms.** A fork about how a flow should work is asked as: the flow as numbered steps (what happens to the checked orders, the Schedule row, the flag), then the two poles and their consequence — patch inside the current flow vs restructure it. No middle option, no invented abstraction, asked once.
+- **Design questions in the user's terms.** A fork about how a flow should work is asked as: the flow as an ASCII diagram (what happens to the checked orders, the Schedule row, the flag), then the two poles and their consequence — patch inside the current flow vs restructure it. No middle option, no invented abstraction, asked once.
 - **A stated design rule is written down now.** When the user states how a subsystem must work, append it verbatim to `.claude/.Arena/flows/<subsystem>.md` under `## Design rule` (source `user`) before spawning anyone, and pass it as `DESIGN_RULE:`.
 
 ---
