@@ -341,16 +341,37 @@ func evaluateLanded(repoDir, hash string) []string {
 	if err != nil {
 		return append(failures, fmt.Sprintf("git status failed: %s", strings.TrimSpace(string(out))))
 	}
+	// A tracked path counts only when its content differs once CR-at-EOL is
+	// ignored; git status alone also reports line-ending-only rewrites.
+	changed := map[string]bool{}
+	for _, args := range [][]string{
+		{"-C", repoDir, "diff", "--ignore-cr-at-eol", "--name-only"},
+		{"-C", repoDir, "diff", "--cached", "--ignore-cr-at-eol", "--name-only"},
+	} {
+		dout, derr := exec.Command(git, args...).Output()
+		if derr != nil {
+			return append(failures, fmt.Sprintf("git diff failed: %v", derr))
+		}
+		for _, name := range strings.Split(string(dout), "\n") {
+			if name = strings.Trim(strings.TrimSpace(name), `"`); name != "" {
+				changed[name] = true
+			}
+		}
+	}
 	var dirty []string
 	for _, line := range strings.Split(string(out), "\n") {
 		if len(line) < 4 {
 			continue
 		}
+		untracked := strings.HasPrefix(line, "??")
 		p := strings.TrimSpace(line[3:])
 		if i := strings.Index(p, " -> "); i >= 0 { // renames: keep the destination
 			p = p[i+4:]
 		}
 		p = strings.Trim(p, `"`)
+		if !untracked && !changed[p] {
+			continue
+		}
 		ignore := false
 		for _, pre := range landedIgnorePrefixes {
 			if strings.HasPrefix(p, pre) {

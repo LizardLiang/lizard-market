@@ -86,7 +86,8 @@ var resumePhraseREs = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\bresume\b`),
 	regexp.MustCompile(`(?i)\bkeep\s+going\b`),
 	regexp.MustCompile(`(?i)\bwhere\s+were\s+we\b`),
-	regexp.MustCompile(`(?i)\bwhere\s+did\s+we\s+stop\b`),
+	regexp.MustCompile(`(?i)\bwhere\s+(?:did|do)\s+we\s+(?:stop|leave\s+off|end)\b`),
+	regexp.MustCompile(`(?i)\blast\s+time\b`),
 	regexp.MustCompile(`(?i)\bpick\s+up\b`),
 }
 
@@ -1199,6 +1200,7 @@ func aresReportFailures(report string, input subagentStopInput) []string {
 	if isNonCompletionReport(report) {
 		return nil
 	}
+	report = foldHeaderLists(report)
 	reportLower := strings.ToLower(report)
 	var failures []string
 

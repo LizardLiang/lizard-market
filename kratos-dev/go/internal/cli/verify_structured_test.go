@@ -162,3 +162,45 @@ func TestAresLandedGateFailure(t *testing.T) {
 	assert.Contains(t, aresLandedGateFailure("created a.ts. done", t.TempDir()), "Landed:")
 	assert.Equal(t, "", aresLandedGateFailure("created a.ts. done\nLanded: main@abcdef1", t.TempDir()))
 }
+
+func TestEvaluateLandedIgnoresLineEndingOnlyChanges(t *testing.T) {
+	git, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git not on PATH")
+	}
+	dir := t.TempDir()
+	run := func(args ...string) {
+		cmd := exec.Command(git, append([]string{"-C", dir}, args...)...)
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "git %v: %s", args, out)
+	}
+	run("init", "-q")
+	run("config", "core.autocrlf", "true")
+	file := filepath.Join(dir, "crlf.txt")
+	require.NoError(t, os.WriteFile(file, []byte("one\r\ntwo\r\n"), 0o644))
+	run("add", "crlf.txt")
+	run("commit", "-q", "-m", "init")
+
+	require.NoError(t, os.WriteFile(file, []byte("one\ntwo\n"), 0o644))
+	status, err := exec.Command(git, "-C", dir, "status", "--porcelain").Output()
+	require.NoError(t, err)
+	if !strings.Contains(string(status), "crlf.txt") {
+		t.Skip("git does not report the LF rewrite as modified on this platform")
+	}
+
+	assert.Empty(t, evaluateLanded(dir, ""), "a line-ending-only rewrite is not uncommitted work")
+
+	require.NoError(t, os.WriteFile(file, []byte("one\nthree\n"), 0o644))
+	failures := evaluateLanded(dir, "")
+	require.Len(t, failures, 1)
+	assert.Contains(t, failures[0], "crlf.txt")
+
+	require.NoError(t, os.WriteFile(file, []byte("one\ntwo\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "new.txt"), []byte("x\n"), 0o644))
+	failures = evaluateLanded(dir, "")
+	require.Len(t, failures, 1)
+	assert.Contains(t, failures[0], "new.txt")
+	assert.NotContains(t, failures[0], "crlf.txt")
+}

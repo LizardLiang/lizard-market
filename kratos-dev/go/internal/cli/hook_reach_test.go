@@ -177,3 +177,62 @@ func TestAresReachTextPinned(t *testing.T) {
 		t.Error("User Mode template must carry the no-code Reach line")
 	}
 }
+
+const foldBase = `ARES COMPLETE
+
+Task list:
+1. [x] fix handler - done
+`
+
+const foldTail = "Landed: LANDED-NOT-APPLICABLE: test fixture\nNot run: none\n"
+
+// TestAresReportFoldedHeaderShapes pins the report shapes where a label sits
+// on its own line and the value follows on the next lines.
+func TestAresReportFoldedHeaderShapes(t *testing.T) {
+	cases := map[string]string{
+		"files header then bullets": foldBase + "Files created/modified:\n- src/handler.go\n- src/handler_test.go\n" + foldTail +
+			"Reach: not applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n",
+		"reach header then value lines": foldBase + "Files created/modified: src/handler.go\n" + foldTail +
+			"Reach:\n- handler.Serve - reached by empty input -> test\nEVIDENCE-SKIPPED for the docs item, RED and GREEN described in prose\n",
+		"waiver without colon": foldBase + "Files created/modified: src/handler.go\n" + foldTail +
+			"Reach: not applicable - no code changed\nTESTS-NOT-APPLICABLE for this mission, nothing to run\n",
+		"two reach lines, last is not applicable": foldBase + "Files created/modified: src/handler.go\n" + foldTail +
+			"Reach: not run\nReach: not applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n",
+	}
+	for name, report := range cases {
+		in := reachInput(t, "aresFold", reachChildLine())
+		if name == "two reach lines, last is not applicable" {
+			in = reachInput(t, "aresFold", userPromptLine("x")) // no child: the last Reach line skips it
+		}
+		if f := aresReportFailures(report, in); len(f) != 0 {
+			t.Errorf("%s must pass, got %v", name, f)
+		}
+	}
+}
+
+func TestAresReportFoldedHeaderStillDenies(t *testing.T) {
+	const files = "Files created/modified:\n- src/handler.go\n"
+
+	noGreen := foldBase + files + foldTail + "Reach: not applicable - no code changed\nEvidence: RED: it failed\n"
+	if got := reachFailureText(aresReportFailures(noGreen, subagentStopInput{})); !strings.Contains(got, "GREEN") {
+		t.Errorf("RED without GREEN and no waiver must fail, got %q", got)
+	}
+
+	onlyNotRun := foldBase + files + foldTail + "Reach: not run\nTESTS-NOT-APPLICABLE: fixture\n"
+	in := reachInput(t, "aresFold2", userPromptLine("x"))
+	if got := reachFailureText(aresReportFailures(onlyNotRun, in)); !strings.Contains(got, "child agent") {
+		t.Errorf("a lone `Reach: not run` must still require the child, got %q", got)
+	}
+
+	noFiles := foldBase + "Files created/modified:\n- nothing\n" + foldTail + "Reach: not applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n"
+	if got := reachFailureText(aresReportFailures(noFiles, subagentStopInput{})); !strings.Contains(got, "no specific files") {
+		t.Errorf("a file list without files must fail, got %q", got)
+	}
+}
+
+func TestFoldHeaderListsStopsAtNextField(t *testing.T) {
+	got := foldHeaderLists("Reach:\n- a\nLanded: x\n- b")
+	if got != "Reach: a\nLanded: x\n- b" {
+		t.Errorf("unexpected fold: %q", got)
+	}
+}

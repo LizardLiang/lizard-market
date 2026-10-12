@@ -26,8 +26,49 @@ var (
 	greenWordRE = regexp.MustCompile(`\bGREEN\b`)
 )
 
-// evidenceWaiverRE matches the two accepted waivers of the RED/GREEN evidence.
-var evidenceWaiverRE = regexp.MustCompile(`(?i)(evidence-skipped|tests-not-applicable):`)
+// evidenceWaiverRE matches the two accepted waivers of the RED/GREEN evidence,
+// with or without the colon after the keyword.
+var evidenceWaiverRE = regexp.MustCompile(`(?i)\b(evidence-skipped|tests-not-applicable)\b`)
+
+// foldedHeaderRE matches a report line that holds only the label of a field
+// whose value follows on the next lines: `Files created/modified:` or `Reach:`.
+var foldedHeaderRE = regexp.MustCompile(`(?i)^[ \t]*[-*]?[ \t]*\**(files created/modified|reach)\**[ \t]*:\**[ \t]*$`)
+
+// fieldLineRE matches the start of the next `<Label>:` field line of the Final
+// Block. A bullet or numbered line is never a field line.
+var fieldLineRE = regexp.MustCompile(`^[ \t]*\**[A-Z][A-Za-z-]*( [A-Za-z/-]+){0,3}\**[ \t]*:`)
+
+// maxFoldedLines bounds how many lines follow a header into its logical line.
+const maxFoldedLines = 8
+
+// foldHeaderLists joins each label-only `Files created/modified:` or `Reach:`
+// line with the non-blank lines after it, up to maxFoldedLines and up to the
+// next field line, into one logical line. Reports written as a header plus a
+// bullet list then match the single-line patterns the gate checks.
+func foldHeaderLists(report string) string {
+	lines := strings.Split(report, "\n")
+	out := make([]string, 0, len(lines))
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if !foldedHeaderRE.MatchString(strings.TrimRight(line, "\r")) {
+			out = append(out, line)
+			continue
+		}
+		folded := strings.TrimRight(line, " \t\r")
+		taken := 0
+		for taken < maxFoldedLines && i+1 < len(lines) {
+			next := strings.TrimSpace(lines[i+1])
+			if next == "" || fieldLineRE.MatchString(lines[i+1]) {
+				break
+			}
+			folded += " " + strings.TrimLeft(next, "-* \t")
+			i++
+			taken++
+		}
+		out = append(out, folded)
+	}
+	return strings.Join(out, "\n")
+}
 
 // isUserModeReport reports whether report is the User Mode report, which
 // writes task files and no code, so it has no diff to review.
@@ -49,9 +90,13 @@ func aresReachGateFailures(report string, input subagentStopInput) []string {
 	if isUserModeReport(report) {
 		return nil
 	}
+	report = foldHeaderLists(report)
 	var failures []string
 
-	m := reachLineRE.FindStringSubmatch(report)
+	var m []string
+	if all := reachLineRE.FindAllStringSubmatch(report, -1); len(all) > 0 {
+		m = all[len(all)-1] // the last Reach line is the report's final word
+	}
 	if m == nil {
 		failures = append(failures, "no `Reach: <entry point> — reached by <callers/inputs/states the request did not name> → <test | fix | NEEDS DESIGN>` line (or `Reach: none beyond the request`, or `Reach: not applicable — no code changed`) — run the Reach Review on `git diff <start>..HEAD` and report one line per changed entry point")
 	}

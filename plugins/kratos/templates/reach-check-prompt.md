@@ -1,4 +1,4 @@
-You review a code change you did not write. Run `git diff <start>..HEAD` in this repository and read the changed files.
+You review a code change you did not write. Run `git diff <start>..HEAD` in this repository and read the changed files. If the mission says the work must stay uncommitted, run `git diff HEAD -- <changed files>` instead.
 
 For each changed entry point (function, handler, hook, endpoint, catch path, or value kept between calls), find by grep and by reading:
 
