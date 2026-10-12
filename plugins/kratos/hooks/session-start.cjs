@@ -16,7 +16,8 @@
  *
  * Budget: hooks.json gives SessionStart 5 s (5000 ms). Every spawn below carries a
  * timeout and the worst-case serial sum stays under ~4200 ms (version 800 + memory
- * list 1500 + its unknown-flag retry 600 + init 500 + session start 800); the
+ * list 1500 + its unknown-flag retry 600 + init 500 + session start 800; a compact
+ * source adds the inline god's extras at 700); the
  * plugin-bin → ~/.kratos/bin copy runs last so it can never starve the calls. The
  * retry has its own short timeout rather than reusing the 1500 ms memory-list
  * budget — a flag-parse failure returns in about 250 ms, so 600 ms covers it with
@@ -105,6 +106,9 @@ const MEMORY_LIST_TIMEOUT_MS = 1500;
 const MEMORY_LIST_RETRY_TIMEOUT_MS = 600;
 const INIT_TIMEOUT_MS = 500;
 const SESSION_START_TIMEOUT_MS = 800;
+// Runs on source "compact" only; the extras print in about 200 ms. 700 ms keeps
+// the worst-case serial sum (4200 ms) plus this call under the 5000 ms limit.
+const GOD_EXTRAS_TIMEOUT_MS = 700;
 
 // Runs the kratos binary with an argv array; stdout on success, null otherwise.
 function runKratos(args, timeoutMs) {
@@ -578,6 +582,23 @@ function registerSession(sessionId, cwd, source) {
   }
 }
 
+// After /compact, Claude Code re-attaches an invoked skill cut at 20,000
+// characters, so a long inline god loses its lessons, protocol block and
+// command-mode suffix (the `--part extras` output). The session ledger names
+// the inline god; its extras are printed again. Returns "" on any failure.
+function formatInlineGodExtras(sessionId, source) {
+  if (source !== "compact" || !sessionId) return "";
+  try {
+    const ledger = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, `${sessionId}.json`), "utf-8"));
+    const god = ledger && typeof ledger.inline_god === "string" ? ledger.inline_god.trim() : "";
+    if (!/^[a-z][a-z0-9-]*$/.test(god)) return "";
+    const out = runKratos(["agent", "load", god, "--resolve", "--part", "extras"], GOD_EXTRAS_TIMEOUT_MS);
+    return out ? out.trim() : "";
+  } catch (e) {
+    return "";
+  }
+}
+
 function main(payload) {
   const cwd = (payload && payload.cwd) || process.cwd();
   const sessionId = payload && payload.session_id ? String(payload.session_id) : "";
@@ -610,7 +631,7 @@ function main(payload) {
   }
 
   const handoffLine = source === "compact" ? formatHandoffHead(cwd) || formatHandoffNotice(cwd) : formatHandoffNotice(cwd);
-  for (const line of [handoffLine, formatPendingSpecDeltas(cwd), formatDraftPlans(cwd), formatLegacyHooksWarning()]) {
+  for (const line of [handoffLine, formatPendingSpecDeltas(cwd), formatDraftPlans(cwd), formatLegacyHooksWarning(), formatInlineGodExtras(sessionId, source)]) {
     if (line) console.log(line);
   }
 

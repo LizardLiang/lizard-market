@@ -3,8 +3,10 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -305,5 +307,60 @@ func TestBuildMemoryReportExcludesOtherProjectsRules(t *testing.T) {
 	}
 	if strings.Contains(got, "other project rule") {
 		t.Errorf("another project's rule must never show:\n%s", got)
+	}
+}
+
+// runSessionStart drives session-start.cjs with a scratch HOME whose ledger
+// for session "sess-x" names inline_god "iris", and returns its stdout. It
+// skips when the plugin-local binary has not been built.
+func runSessionStart(t *testing.T, source string) string {
+	t.Helper()
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available")
+	}
+	root, err := filepath.Abs(filepath.Join(hooksDirPath(), ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(root, "bin", "kratos")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	if _, err := os.Stat(bin); err != nil {
+		t.Skip("plugin binary not built")
+	}
+	home := t.TempDir()
+	ledger := filepath.Join(home, ".kratos", "sessions", "sess-x.json")
+	if err := os.MkdirAll(filepath.Dir(ledger), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(ledger, []byte(`{"session_id":"sess-x","inline_god":"iris"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := json.Marshal(map[string]any{"session_id": "sess-x", "source": source, "cwd": t.TempDir()})
+	cmd := exec.Command(node, filepath.Join(root, "hooks", "session-start.cjs"))
+	cmd.Stdin = strings.NewReader(string(payload))
+	cmd.Env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home, "CLAUDE_PLUGIN_ROOT="+root)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("hook failed: %v", err)
+	}
+	return string(out)
+}
+
+const godExtrasMarker = "# Agent Protocol (injected)"
+
+func TestSessionStartCompactReinjectsInlineGodExtras(t *testing.T) {
+	if out := runSessionStart(t, "compact"); !strings.Contains(out, godExtrasMarker) {
+		t.Fatalf("compact output lacks the iris extras:\n%s", out)
+	}
+}
+
+func TestSessionStartOtherSourcesSkipInlineGodExtras(t *testing.T) {
+	for _, source := range []string{"startup", "resume", "clear"} {
+		if out := runSessionStart(t, source); strings.Contains(out, godExtrasMarker) {
+			t.Fatalf("%s output carries the extras:\n%s", source, out)
+		}
 	}
 }
