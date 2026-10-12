@@ -87,7 +87,6 @@ var resumePhraseREs = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\bkeep\s+going\b`),
 	regexp.MustCompile(`(?i)\bwhere\s+were\s+we\b`),
 	regexp.MustCompile(`(?i)\bwhere\s+(?:did|do)\s+we\s+(?:stop|leave\s+off|end)\b`),
-	regexp.MustCompile(`(?i)\blast\s+time\b`),
 	regexp.MustCompile(`(?i)\bpick\s+up\b`),
 }
 

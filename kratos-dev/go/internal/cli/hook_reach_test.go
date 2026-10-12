@@ -196,14 +196,9 @@ func TestAresReportFoldedHeaderShapes(t *testing.T) {
 			"Reach:\n- handler.Serve - reached by empty input -> test\nEVIDENCE-SKIPPED for the docs item, RED and GREEN described in prose\n",
 		"waiver without colon": foldBase + "Files created/modified: src/handler.go\n" + foldTail +
 			"Reach: not applicable - no code changed\nTESTS-NOT-APPLICABLE for this mission, nothing to run\n",
-		"two reach lines, last is not applicable": foldBase + "Files created/modified: src/handler.go\n" + foldTail +
-			"Reach: not run\nReach: not applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n",
 	}
 	for name, report := range cases {
 		in := reachInput(t, "aresFold", reachChildLine())
-		if name == "two reach lines, last is not applicable" {
-			in = reachInput(t, "aresFold", userPromptLine("x")) // no child: the last Reach line skips it
-		}
 		if f := aresReportFailures(report, in); len(f) != 0 {
 			t.Errorf("%s must pass, got %v", name, f)
 		}
@@ -241,5 +236,42 @@ func TestFoldHeaderListsStopsAtBoldField(t *testing.T) {
 	got := foldHeaderLists("Reach:\n- a\n**Landed:** main@abc1234\nVerify (cmd): go test")
 	if got != "Reach: a\n**Landed:** main@abc1234\nVerify (cmd): go test" {
 		t.Errorf("unexpected fold: %q", got)
+	}
+}
+
+func TestAresReachSkipRequiresEveryLineNotApplicable(t *testing.T) {
+	const files = "Files created/modified: src/handler.go\n"
+	childRequired := func(t *testing.T, report string) bool {
+		t.Helper()
+		in := reachInput(t, "aresSkip", userPromptLine("x"))
+		return strings.Contains(reachFailureText(aresReportFailures(report, in)), "child agent")
+	}
+	if !childRequired(t, foldBase+files+foldTail+"Reach: not run\nReach: not applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n") {
+		t.Error("a not-run Reach line followed by a not-applicable one must still require the child")
+	}
+	if childRequired(t, foldBase+files+foldTail+"Reach: not applicable - no code changed\nReach: not applicable - docs only\nTESTS-NOT-APPLICABLE: fixture\n") {
+		t.Error("all Reach lines not applicable must skip the child")
+	}
+	if childRequired(t, foldBase+files+foldTail+"Reach:\nnot applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n") {
+		t.Error("a folded single not-applicable Reach must skip the child")
+	}
+}
+
+func TestEvidenceWaiverColonless(t *testing.T) {
+	const files = "Files created/modified: src/handler.go\n"
+	const reach = "Reach: not applicable - no code changed\n"
+	for name, tail := range map[string]string{
+		"sentence start": "Checks passed after. EVIDENCE-SKIPPED for a separate pre-change check\n",
+		"line start":     "EVIDENCE-SKIPPED for the docs item\n",
+		"list item":      "- TESTS-NOT-APPLICABLE for this mission\n",
+		"colon in prose": "I note TESTS-NOT-APPLICABLE: docs only\n",
+	} {
+		if got := reachFailureText(aresReportFailures(foldBase+files+foldTail+reach+tail, subagentStopInput{})); strings.Contains(got, "RED") {
+			t.Errorf("%s must waive the evidence check, got %q", name, got)
+		}
+	}
+	prose := foldBase + files + foldTail + reach + "I did not use TESTS-NOT-APPLICABLE here\n"
+	if got := reachFailureText(aresReportFailures(prose, subagentStopInput{})); !strings.Contains(got, "RED") {
+		t.Errorf("a mid-sentence mention must not waive, got %q", got)
 	}
 }

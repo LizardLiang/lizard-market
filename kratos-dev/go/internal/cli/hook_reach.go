@@ -27,8 +27,9 @@ var (
 )
 
 // evidenceWaiverRE matches the two accepted waivers of the RED/GREEN evidence,
-// with or without the colon after the keyword.
-var evidenceWaiverRE = regexp.MustCompile(`(?i)\b(evidence-skipped|tests-not-applicable)\b`)
+// with the colon anywhere, or without it when the keyword starts a line, a
+// list item or a sentence.
+var evidenceWaiverRE = regexp.MustCompile(`(?im)(?:(?:evidence-skipped|tests-not-applicable)\b[ \t]*:|(?:^[ \t]*[-*]?[ \t]*\**|[.!?][ \t]+)(?:evidence-skipped|tests-not-applicable)\b)`)
 
 // foldedHeaderRE matches a report line that holds only the label of a field
 // whose value follows on the next lines: `Files created/modified:` or `Reach:`.
@@ -93,11 +94,14 @@ func aresReachGateFailures(report string, input subagentStopInput) []string {
 	report = foldHeaderLists(report)
 	var failures []string
 
-	var m []string
-	if all := reachLineRE.FindAllStringSubmatch(report, -1); len(all) > 0 {
-		m = all[len(all)-1] // the last Reach line is the report's final word
+	reachLines := reachLineRE.FindAllStringSubmatch(report, -1)
+	allNotApplicable := len(reachLines) > 0
+	for _, rl := range reachLines {
+		if !reachNotApplicableRE.MatchString(strings.TrimSpace(strings.Trim(rl[1], "*"))) {
+			allNotApplicable = false
+		}
 	}
-	if m == nil {
+	if len(reachLines) == 0 {
 		failures = append(failures, "no `Reach: <entry point> — reached by <callers/inputs/states the request did not name> → <test | fix | NEEDS DESIGN>` line (or `Reach: none beyond the request`, or `Reach: not applicable — no code changed`) — run the Reach Review on `git diff <start>..HEAD` and report one line per changed entry point")
 	}
 
@@ -105,7 +109,7 @@ func aresReachGateFailures(report string, input subagentStopInput) []string {
 		failures = append(failures, "no fail-then-pass evidence — report RED (the check failing before your change) and GREEN (passing after) for each testable item, or `EVIDENCE-SKIPPED: <reason>` / `TESTS-NOT-APPLICABLE: <reason>`")
 	}
 
-	if m != nil && reachNotApplicableRE.MatchString(strings.TrimSpace(strings.Trim(m[1], "*"))) {
+	if allNotApplicable {
 		return failures
 	}
 	if f := aresReachChildFailure(input); f != "" {
