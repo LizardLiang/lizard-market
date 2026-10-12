@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -274,4 +275,37 @@ func TestGateContainmentRootFallbacks(t *testing.T) {
 			t.Fatalf("files = %v, want the file above the launch directory counted", res.Files)
 		}
 	})
+}
+
+func writeIDTranscript(t *testing.T, dir, session, agent string, lines, ids int) string {
+	t.Helper()
+	sub := filepath.Join(dir, session, "subagents")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	for i := 0; i < lines; i++ {
+		b.WriteString(`{"type":"assistant","message":{"id":"msg_` + strconv.Itoa(i%ids) + `"}}` + "\n")
+	}
+	b.WriteString("unparsable line with \"type\":\"assistant\"\n")
+	if err := os.WriteFile(filepath.Join(sub, "agent-"+agent+".jsonl"), []byte(b.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return filepath.Join(dir, session+".jsonl")
+}
+
+func TestSendMessageBackstopCountsDistinctMessageIDs(t *testing.T) {
+	dir := t.TempDir()
+	send := func(tp string) preToolUseInput {
+		return preToolUseInput{ToolName: "SendMessage", SessionID: "sess-1", TranscriptPath: tp}
+	}
+	tp := writeIDTranscript(t, dir, "sess-1", "a", 120, 60)
+	if res := editGateDecisionWith(send(tp), gateToolExtra{To: "a"}, irisLedger()); res.Decision != "" {
+		t.Fatalf("120 lines / 60 ids: decision = %q, want none", res.Decision)
+	}
+	tp = writeIDTranscript(t, dir, "sess-1", "b", 122, 61)
+	res := editGateDecisionWith(send(tp), gateToolExtra{To: "b"}, irisLedger())
+	if res.Decision != "deny" || !strings.Contains(res.Reason, "61 turns") {
+		t.Fatalf("61 ids: got %q %q", res.Decision, res.Reason)
+	}
 }

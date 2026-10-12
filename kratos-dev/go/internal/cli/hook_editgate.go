@@ -1102,7 +1102,9 @@ func irisResumeReason(n int) string {
 	return "This agent holds " + strconv.Itoa(n) + " turns of context. Spawn a fresh agent with the results file."
 }
 
-// gateAgentTurns counts the assistant entries in a spawned agent's transcript,
+// gateAgentTurns counts the turns in a spawned agent's transcript: distinct
+// message ids across assistant entries (each content block of one API call is
+// its own line), or assistant lines when no entry carries an id. The file is
 // <dir(transcript_path)>/<session_id>/subagents/agent-<id>.jsonl. 0 means the
 // transcript is unknown or unreadable: the gate fails open.
 func gateAgentTurns(input preToolUseInput, to string) int {
@@ -1114,13 +1116,27 @@ func gateAgentTurns(input preToolUseInput, to string) int {
 	if err != nil {
 		return 0
 	}
-	n := 0
+	lines := 0
+	ids := map[string]bool{}
 	for _, line := range strings.Split(string(data), "\n") {
-		if strings.Contains(line, `"type":"assistant"`) {
-			n++
+		if !strings.Contains(line, `"type":"assistant"`) {
+			continue
+		}
+		lines++
+		var e struct {
+			Type    string `json:"type"`
+			Message struct {
+				ID string `json:"id"`
+			} `json:"message"`
+		}
+		if json.Unmarshal([]byte(line), &e) == nil && e.Type == "assistant" && e.Message.ID != "" {
+			ids[e.Message.ID] = true
 		}
 	}
-	return n
+	if len(ids) > 0 {
+		return len(ids)
+	}
+	return lines
 }
 
 // gateContainmentRoot is the directory a plan, spec-delta or project-file
