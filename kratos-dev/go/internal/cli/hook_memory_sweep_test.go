@@ -2,10 +2,14 @@ package cli
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 )
 
 // runCountMessages calls memory-sweep.cjs's countMessages(text) through node,
@@ -61,5 +65,113 @@ func TestMemorySweepCountMessagesSkipsHarnessPseudoPrompts(t *testing.T) {
 	}
 	if assistant != 1 {
 		t.Errorf("assistant = %d, want 1", assistant)
+	}
+}
+
+// runSweepStop drives memory-sweep.cjs with a Stop payload against a scratch
+// HOME holding the given marker and a transcript of 12 human and 30 assistant
+// lines. It returns the hook's stdout and the marker left behind.
+func runSweepStop(t *testing.T, marker map[string]any) (string, map[string]any) {
+	t.Helper()
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available")
+	}
+	hook, err := filepath.Abs(filepath.Join(hooksDirPath(), "memory-sweep.cjs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	root := t.TempDir()
+	binName := "kratos"
+	if runtime.GOOS == "windows" {
+		binName = "kratos.exe"
+	}
+	for path, body := range map[string]string{
+		filepath.Join(root, "bin", binName):                  "",
+		filepath.Join(root, "references", "memory-sweep.md"): "rules",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	transcript := filepath.Join(t.TempDir(), "t.jsonl")
+	var lines []string
+	for i := 0; i < 12; i++ {
+		lines = append(lines, `{"type":"user","message":{"content":"hi"}}`)
+	}
+	for i := 0; i < 30; i++ {
+		lines = append(lines, `{"type":"assistant","message":{"content":"ok"}}`)
+	}
+	if err := os.WriteFile(transcript, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	markerFile := filepath.Join(home, ".kratos", "sweeps", "sess-a.json")
+	if err := os.MkdirAll(filepath.Dir(markerFile), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := json.Marshal(marker)
+	if err := os.WriteFile(markerFile, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := json.Marshal(map[string]any{
+		"session_id": "sess-a", "transcript_path": transcript, "hook_event_name": "Stop",
+	})
+	cmd := exec.Command(node, hook)
+	cmd.Stdin = strings.NewReader(string(payload))
+	cmd.Env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home,
+		"CLAUDE_PLUGIN_ROOT="+root, "KRATOS_MEMORY_SWEEP=")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("hook failed: %v", err)
+	}
+	after := map[string]any{}
+	data, err := os.ReadFile(markerFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &after); err != nil {
+		t.Fatal(err)
+	}
+	return string(out), after
+}
+
+func sweepMarkerAt(sweeps int, age time.Duration) map[string]any {
+	return map[string]any{
+		"offset": 0, "human": 0, "assistant": 0, "sweeps": sweeps,
+		"last_sweep_at": time.Now().Add(-age).UnixMilli(),
+	}
+}
+
+// A session that outlives the per-window cap sweeps again once the last sweep
+// is more than six hours old, and the count restarts at one.
+func TestMemorySweepResumesAfterSixHoursPastCap(t *testing.T) {
+	out, after := runSweepStop(t, sweepMarkerAt(8, 7*time.Hour))
+	if !strings.Contains(out, "memory sweep") {
+		t.Fatalf("expected a sweep instruction, got %q", out)
+	}
+	if got := after["sweeps"]; got != float64(1) {
+		t.Fatalf("sweeps = %v, want 1", got)
+	}
+}
+
+func TestMemorySweepStaysCappedInsideSixHours(t *testing.T) {
+	out, after := runSweepStop(t, sweepMarkerAt(8, time.Hour))
+	if out != "" {
+		t.Fatalf("expected no sweep, got %q", out)
+	}
+	if got := after["sweeps"]; got != float64(8) {
+		t.Fatalf("sweeps = %v, want 8", got)
+	}
+}
+
+func TestMemorySweepLegacyMarkerWithoutTimestampStaysCapped(t *testing.T) {
+	m := sweepMarkerAt(8, 48*time.Hour)
+	delete(m, "last_sweep_at")
+	if out, _ := runSweepStop(t, m); out != "" {
+		t.Fatalf("expected no sweep, got %q", out)
 	}
 }

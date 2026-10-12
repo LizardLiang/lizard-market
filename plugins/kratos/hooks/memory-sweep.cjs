@@ -16,7 +16,10 @@
  * byte offset it has already scanned plus message counters. Each run reads
  * only the new tail, and a sweep is emitted once enough human messages AND
  * assistant turns have accumulated since the previous sweep — then the
- * counters reset and the next sweep arms again. The previous design swept
+ * counters reset and the next sweep arms again. The marker also stores
+ * `last_sweep_at` (epoch ms); once the thresholds are met and the last sweep
+ * is more than six hours old, the sweep count restarts at zero. A marker
+ * without `last_sweep_at` is capped at MAX_SWEEPS_PER_SESSION. The previous design swept
  * once, on the first Stop after six "user" lines (tool results included), so
  * every long session was swept ~5% in and never again; every later correction
  * was lost (2026-09 transcript review).
@@ -39,6 +42,10 @@ const MARKER_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MIN_HUMAN_MESSAGES = 10;
 const MIN_ASSISTANT_TURNS = 25;
 const MAX_SWEEPS_PER_SESSION = 8;
+// After this long since the last sweep the per-session count restarts, so a
+// session that spans days keeps sweeping; MAX_SWEEPS_PER_SESSION is then the
+// cap per window.
+const SWEEP_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 function markerPath(sessionId) {
   return path.join(SWEEP_DIR, `${sessionId}.json`);
@@ -228,9 +235,12 @@ if (require.main === module) {
       marker.assistant = 0;
     }
 
+    const now = Date.now();
+    const windowElapsed = typeof marker.last_sweep_at === 'number'
+      && now - marker.last_sweep_at > SWEEP_WINDOW_MS;
     const armed = marker.human >= MIN_HUMAN_MESSAGES
       && marker.assistant >= MIN_ASSISTANT_TURNS
-      && marker.sweeps < MAX_SWEEPS_PER_SESSION;
+      && (marker.sweeps < MAX_SWEEPS_PER_SESSION || windowElapsed);
 
     if (!armed) {
       try { writeMarker(sessionId, marker); } catch (e) { /* fail open */ }
@@ -246,7 +256,9 @@ if (require.main === module) {
 
     marker.human = 0;
     marker.assistant = 0;
+    if (windowElapsed) marker.sweeps = 0;
     marker.sweeps += 1;
+    marker.last_sweep_at = now;
     try {
       writeMarker(sessionId, marker);
     } catch (e) {
