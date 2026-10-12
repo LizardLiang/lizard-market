@@ -115,6 +115,8 @@ var gateLegitCommands = []gateShellCase{
 	{"cat with an operand", `cat x`},
 	{"uniq field skip argument", `uniq -f 1 in`},
 	{"sort reverse", `sort -r in`},
+	{"sort absolute path", `sort /etc/hosts`},
+	{"sort check", `sort --check in`},
 	{"ls long", `ls -la`},
 	{"pwd", `pwd`},
 	{"cat a source file", `cat main.go`},

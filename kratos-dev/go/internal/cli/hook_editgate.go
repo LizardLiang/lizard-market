@@ -1053,7 +1053,7 @@ func gateSegmentTokens(raw string) []string {
 }
 
 var (
-	gateSortWriteFlagRE = regexp.MustCompile(`^(?:-[A-Za-z]*o|--o|--c|/)`)
+	gateSortWriteFlagRE = regexp.MustCompile(`^(?:-[A-Za-z]*o|--o|--compress|/[Oo]$)`)
 	// uniq options that take their argument as the next token.
 	gateUniqArgFlags = map[string]bool{"-f": true, "-s": true, "-w": true, "--skip-fields": true, "--skip-chars": true, "--check-chars": true}
 )
@@ -1235,12 +1235,14 @@ func gateContainmentRoot(cwd string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, "git", "-C", cwd, "rev-parse", "--show-toplevel").Output()
-	if top := strings.TrimSpace(string(out)); err == nil && top != "" {
-		return gateSpellingOfRoot(cwd, top)
-	}
 	var homeInfo os.FileInfo
 	if home, err := os.UserHomeDir(); err == nil {
 		homeInfo, _ = os.Stat(home)
+	}
+	if top := strings.TrimSpace(string(out)); err == nil && top != "" {
+		if ti, terr := os.Stat(top); terr != nil || homeInfo == nil || !os.SameFile(ti, homeInfo) {
+			return gateSpellingOfRoot(cwd, top)
+		}
 	}
 	for dir := filepath.Clean(cwd); ; {
 		di, err := os.Stat(dir)

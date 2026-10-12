@@ -169,3 +169,12 @@ func TestEvaluateLandedDiffRelativeFromSubdirectory(t *testing.T) {
 	require.Len(t, failures, 1, "a change outside the subdirectory must still block")
 	assert.Contains(t, failures[0], "a.txt")
 }
+
+func TestGateContainmentRootGitRepoAtHomeIsNotARoot(t *testing.T) {
+	home := t.TempDir()
+	setHomeEnv(t, home)
+	gitInit(t, home)
+	sub := filepath.ToSlash(home) + "/proj"
+	require.NoError(t, os.MkdirAll(sub, 0o755))
+	assert.Equal(t, filepath.Clean(sub), filepath.Clean(gateContainmentRoot(sub)))
+}
