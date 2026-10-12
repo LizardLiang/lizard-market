@@ -236,3 +236,10 @@ func TestFoldHeaderListsStopsAtNextField(t *testing.T) {
 		t.Errorf("unexpected fold: %q", got)
 	}
 }
+
+func TestFoldHeaderListsStopsAtBoldField(t *testing.T) {
+	got := foldHeaderLists("Reach:\n- a\n**Landed:** main@abc1234\nVerify (cmd): go test")
+	if got != "Reach: a\n**Landed:** main@abc1234\nVerify (cmd): go test" {
+		t.Errorf("unexpected fold: %q", got)
+	}
+}

@@ -49,7 +49,7 @@ func TestMatchesResumePhrase(t *testing.T) {
 		{"where were we", "where were we?", true},
 		{"where did we stop", "where did we stop yesterday", true},
 		{"pick up", "pick up the linter changes", true},
-		{"where do we stop", "iris, where do we stop last time", true},
+		{"where do we stop", "iris, where do we stop", true},
 		{"where do we leave off", "where do we leave off", true},
 		{"last time", "what did we change last time", true},
 		{"negative: last timer not a word", "reset the last timer", false},

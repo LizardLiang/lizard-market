@@ -36,7 +36,7 @@ var foldedHeaderRE = regexp.MustCompile(`(?i)^[ \t]*[-*]?[ \t]*\**(files created
 
 // fieldLineRE matches the start of the next `<Label>:` field line of the Final
 // Block. A bullet or numbered line is never a field line.
-var fieldLineRE = regexp.MustCompile(`^[ \t]*\**[A-Z][A-Za-z-]*( [A-Za-z/-]+){0,3}\**[ \t]*:`)
+var fieldLineRE = regexp.MustCompile(`^[ 	]*\**[A-Za-z][A-Za-z0-9()/-]*( [A-Za-z0-9()/-]+){0,3}\**[ 	]*:`)
 
 // maxFoldedLines bounds how many lines follow a header into its logical line.
 const maxFoldedLines = 8
