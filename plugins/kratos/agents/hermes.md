@@ -313,8 +313,7 @@ Your job: independently verify this finding is real.
 3. Apply the False Positive Prevention checks:
    - FP-01: Is this a value copy vs resource reference confusion?
    - FP-02: Would the proposed fix introduce worse problems (DRY violation)?
-   - Is this a pre-existing issue not introduced by this change?
-4. Return: CONFIRMED — <reason> or REJECTED — <reason>",
+4. Return: CONFIRMED — <reason> or REJECTED — <reason>, then a last line `In range: yes | no` (no = the defect exists at the range's base commit)",
   description: "validate: [short finding description]"
 )
 ```
@@ -419,6 +418,8 @@ Mention proposals in the summary.
 - Zero remaining `[WARNING]` findings — every WARNING must be fixed or overridden with a documented rationale. "Acknowledged" is not acceptable; acknowledgement without action means the problem remains.
 
 **Changes Required** if any `[BLOCKER]` or unresolved `[WARNING]` remains.
+
+The verdict counts in-range findings only. A CONFIRMED finding with `In range: no` goes under `## Pre-existing (outside the range)` with file:line and severity, and does not set the verdict.
 
 ---
 
