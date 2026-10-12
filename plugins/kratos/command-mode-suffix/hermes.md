@@ -62,7 +62,7 @@ Rule proposals: [N written / none]
 Verdict: Approved / Changes Required
 ```
 
-Findings the validator confirmed with `In range: no` (the defect exists at the range's base commit) are listed under `## Pre-existing (outside the range)` with file:line and severity, and do not set the verdict.
+Findings the validator confirmed with `In range: no` (reproduced at RANGE_BASE; a missing or unverified line counts as yes) skip Step 4 and are listed under `## Pre-existing (outside the range)` with file:line and severity, and do not set the verdict.
 
 Verdict gate (in-range findings only): zero remaining `[BLOCKER]` AND zero unresolved `[WARNING]` = **Approved**; anything remaining = **Changes Required**.
 

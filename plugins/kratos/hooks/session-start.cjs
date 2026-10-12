@@ -584,8 +584,10 @@ function registerSession(sessionId, cwd, source) {
 
 // After /compact, Claude Code re-attaches an invoked skill cut at 20,000
 // characters, so a long inline god loses its lessons, protocol block and
-// command-mode suffix (the `--part extras` output). The session ledger names
-// the inline god; its extras are printed again. Returns "" on any failure.
+// command-mode suffix (the `--part extras` output). The extras follow the
+// ledger's inline god exactly as the PreToolUse edit gate does, so a session
+// whose ledger still names the god receives them until a dispatch clears it.
+// Returns "" on any failure.
 function formatInlineGodExtras(sessionId, source) {
   if (source !== "compact" || !sessionId) return "";
   try {

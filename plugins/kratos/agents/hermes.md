@@ -100,20 +100,14 @@ In standalone mode, target is provided by the mission prompt — skip this step.
 
 Only when the target is a PR (a PR number or URL was given): spawn a **haiku** agent to check whether this review should be skipped. For local files, diffs, or pipeline work, skip to Step 3.
 
-The triage agent checks:
-1. **PR is draft** — `gh pr view <PR> --json isDraft` shows `true`
-2. **PR is closed/merged** — already resolved
-3. **Trivial change** — only lockfiles, generated code, or version bumps with zero logic changes
-4. **Already reviewed** — `gh pr view <PR> --comments` shows a prior Hermes/Claude review comment
-
-If ANY condition is true, the triage agent returns `SKIP: <reason>`. If returned, output the reason and stop — do not proceed to Step 3.
+If ANY check is true, the triage agent returns `SKIP: <reason>`. If returned, output the reason and stop — do not proceed to Step 3.
 
 ```
 Task(
   model: "haiku",
   prompt: "Check whether this code review should be skipped.
 TARGET: [resolved target]
-Check: (1) PR is draft, (2) PR is closed/merged, (3) only lockfiles/generated/version bumps, (4) already reviewed by Claude.
+Check: (1) PR is draft (`gh pr view <PR> --json isDraft`), (2) PR is closed/merged, (3) only lockfiles, generated code or version bumps with zero logic changes, (4) already reviewed (`gh pr view <PR> --comments` shows a prior Hermes/Claude review).
 Return SKIP: <reason> if any is true. Return PROCEED if none apply.",
   description: "hermes triage — skip check"
 )
@@ -290,8 +284,6 @@ Run project tests to verify review findings. If tests fail due to issues unrelat
 
 Once all three children have reported (each one resumes you — see Async Fan-Out above), collect their findings. For every **BLOCKER** and **WARNING** finding, spawn parallel validation agents to re-check each finding independently.
 
-**Purpose:** Reduce false positives. A finding that two independent agents agree on is high-signal. A finding only one agent sees may be a misread.
-
 **Validation rules:**
 - BLOCKER findings → validated by an **Opus** agent
 - WARNING findings → validated by a **Sonnet** agent
@@ -305,6 +297,7 @@ Task(
 TARGET FILE: [file path]
 FINDING: [the finding text including file:line, tier, rule, problem, fix]
 PR CONTEXT: [PR title + description if available]
+RANGE_BASE: [left side of <base>..<head>, or the merge-base for --branch; none when the review has no range]
 [READ-ONLY block from 3b]
 
 Your job: independently verify this finding is real.
@@ -313,13 +306,13 @@ Your job: independently verify this finding is real.
 3. Apply the False Positive Prevention checks:
    - FP-01: Is this a value copy vs resource reference confusion?
    - FP-02: Would the proposed fix introduce worse problems (DRY violation)?
-4. Return: CONFIRMED — <reason> or REJECTED — <reason>, then a last line `In range: yes | no` (no = the defect exists at the range's base commit)",
+4. Return: CONFIRMED — <reason> or REJECTED — <reason>, then a last line `In range: yes | no`. Answer no only after you reproduce the defect at RANGE_BASE (read-only, e.g. `git show <base>:<path>`) and say how.",
   description: "validate: [short finding description]"
 )
 ```
 
 Validation agents also launch async, exactly like the review children. End your turn after you dispatch them. Record each report's verdict, CONFIRMED or REJECTED, against the finding it checked. Once every one has reported:
-- **CONFIRMED** findings proceed to Step 4
+- **CONFIRMED** findings proceed to Step 4, except those with a verified `In range: no`: no fix is applied outside the reviewed range, and they go straight to the Pre-existing section (Step 7)
 - **REJECTED** findings are dropped with a note in the summary: `[FILTERED] <finding> — <rejection reason>`
 
 Spawn validation agents in parallel — one per file.
@@ -419,7 +412,7 @@ Mention proposals in the summary.
 
 **Changes Required** if any `[BLOCKER]` or unresolved `[WARNING]` remains.
 
-The verdict counts in-range findings only. A CONFIRMED finding with `In range: no` goes under `## Pre-existing (outside the range)` with file:line and severity, and does not set the verdict.
+The verdict and the fixed/skipped accounting count in-range findings only. A missing or unverified `In range` line counts as yes. A CONFIRMED finding with `In range: no` goes under `## Pre-existing (outside the range)` with file:line and severity, and does not set the verdict.
 
 ---
 
