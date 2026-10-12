@@ -25,6 +25,9 @@ type gateShellCase struct {
 var gateDenyCommands = []gateShellCase{
 	{"cd then rm", `cd x && rm -rf y`},
 	{"echo redirect", `echo hi > out.txt`},
+	{"sort output flag", `sort -o plan.txt in.txt`},
+	{"sort long output flag", `sort --output=src/a.go in.txt`},
+	{"uniq output operand", `uniq in.txt src/a.go`},
 	// ---- B1: process substitution, invisible to a `$(`-only pattern ----
 	{"process substitution into cat", `cat <(rm -rf build)`},
 	{"process substitution into grep", `grep foo <(rm -rf build)`},

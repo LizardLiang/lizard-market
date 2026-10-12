@@ -181,6 +181,12 @@ var (
 	// gateFollowFlagRE matches `tail -f`/`-F`/`--follow`, which never returns
 	// and would hang the tool call until its timeout.
 	gateFollowFlagRE = regexp.MustCompile(`(?i)(?:^|\s)(?:-[a-z]*f[a-z]*|--follow)\b`)
+	// gateSortOutputRE matches sort's output flag, which writes a file with no
+	// shell redirect: `sort -o plan.txt in.txt`, `sort --output=a.go in.txt`.
+	gateSortOutputRE = regexp.MustCompile(`(?i)(?:^|\s)(?:-[a-z]*o(?:\s|$)|--output)`)
+	// gateUniqOutputRE matches uniq with two operands: the second is an output
+	// file, `uniq in.txt out.txt`.
+	gateUniqOutputRE = regexp.MustCompile(`(?i)^\s*uniq(?:\s+-\S+)*\s+[^-\s]\S*\s+[^-\s]`)
 	// gateSegmentSplitRE cuts a command where a shell would start a new one.
 	gateSegmentSplitRE = regexp.MustCompile("[;&|\r\n]+")
 )
@@ -1016,6 +1022,14 @@ func isReadOnlySegment(seg shellSegment) bool {
 		}
 	case "tail":
 		if gateFollowFlagRE.MatchString(masked) {
+			return false
+		}
+	case "sort":
+		if gateSortOutputRE.MatchString(masked) {
+			return false
+		}
+	case "uniq":
+		if gateUniqOutputRE.MatchString(masked) {
 			return false
 		}
 	}
