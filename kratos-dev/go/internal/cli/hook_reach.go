@@ -29,7 +29,15 @@ var (
 // evidenceWaiverRE matches the two accepted waivers of the RED/GREEN evidence,
 // with the colon anywhere, or without it when the keyword starts a line, a
 // list item or a sentence.
-var evidenceWaiverRE = regexp.MustCompile(`(?im)(?:(?:evidence-skipped|tests-not-applicable)\b[ \t]*:|(?:^[ \t]*[-*]?[ \t]*\**|[.!?][ \t]+)(?:evidence-skipped|tests-not-applicable)\b)`)
+var evidenceWaiverRE = waiverRE(`evidence-skipped|tests-not-applicable`)
+
+// testsNotApplicableRE is the same rule for the TESTS-NOT-APPLICABLE waiver
+// alone, which the verify gate accepts in place of a test run.
+var testsNotApplicableRE = waiverRE(`tests-not-applicable`)
+
+func waiverRE(words string) *regexp.Regexp {
+	return regexp.MustCompile(`(?im)(?:(?:` + words + `)\b[ \t]*:|(?:^[ \t]*[-*]?[ \t]*\**|[.!?][ \t]+)(?:` + words + `)\b)`)
+}
 
 // foldedHeaderRE matches a report line that holds only the label of a field
 // whose value follows on the next lines: `Files created/modified:` or `Reach:`.
@@ -37,36 +45,52 @@ var foldedHeaderRE = regexp.MustCompile(`(?i)^[ \t]*[-*]?[ \t]*\**(files created
 
 // fieldLineRE matches the start of the next `<Label>:` field line of the Final
 // Block. A bullet or numbered line is never a field line.
-var fieldLineRE = regexp.MustCompile(`^[ 	]*\**[A-Za-z][A-Za-z0-9()/-]*( [A-Za-z0-9()/-]+){0,3}\**[ 	]*:`)
+var fieldLineRE = regexp.MustCompile(`^[ \t]*\**[A-Za-z][A-Za-z0-9()/-]*( [A-Za-z0-9()/-]+){0,3}\**[ \t]*:`)
+
+// waiverLineRE matches a line that opens with a waiver word, with or without
+// the colon. A waiver is its own field and ends a folded list.
+var waiverLineRE = regexp.MustCompile(`(?i)^[ \t]*[-*]?[ \t]*\**(?:evidence-skipped|tests-not-applicable)\b`)
 
 // maxFoldedLines bounds how many lines follow a header into its logical line.
 const maxFoldedLines = 8
 
-// foldHeaderLists joins each label-only `Files created/modified:` or `Reach:`
-// line with the non-blank lines after it, up to maxFoldedLines and up to the
-// next field line, into one logical line. Reports written as a header plus a
-// bullet list then match the single-line patterns the gate checks.
+// foldHeaderLists rewrites a label-only `Files created/modified:` or `Reach:`
+// line together with the non-blank lines after it, up to maxFoldedLines and up
+// to the next field line or waiver line. `Files created/modified:` and its
+// list become one logical line. `Reach:` and its list become one
+// `Reach: <item>` line per list item, so the checks that run on every Reach
+// line run on every item. Reports written as a header plus a bullet list then
+// match the single-line patterns the gate checks.
 func foldHeaderLists(report string) string {
 	lines := strings.Split(report, "\n")
 	out := make([]string, 0, len(lines))
 	for i := 0; i < len(lines); i++ {
 		line := lines[i]
-		if !foldedHeaderRE.MatchString(strings.TrimRight(line, "\r")) {
+		m := foldedHeaderRE.FindStringSubmatch(strings.TrimRight(line, "\r"))
+		if m == nil {
 			out = append(out, line)
 			continue
 		}
-		folded := strings.TrimRight(line, " \t\r")
-		taken := 0
-		for taken < maxFoldedLines && i+1 < len(lines) {
+		header := strings.TrimRight(line, " \t\r")
+		var items []string
+		for len(items) < maxFoldedLines && i+1 < len(lines) {
 			next := strings.TrimSpace(lines[i+1])
-			if next == "" || fieldLineRE.MatchString(lines[i+1]) {
+			if next == "" || fieldLineRE.MatchString(lines[i+1]) || waiverLineRE.MatchString(lines[i+1]) {
 				break
 			}
-			folded += " " + strings.TrimLeft(next, "-* \t")
+			items = append(items, strings.TrimLeft(next, "-* \t"))
 			i++
-			taken++
 		}
-		out = append(out, folded)
+		switch {
+		case len(items) == 0:
+			out = append(out, header)
+		case strings.EqualFold(m[1], "reach"):
+			for _, item := range items {
+				out = append(out, "Reach: "+item)
+			}
+		default:
+			out = append(out, header+" "+strings.Join(items, " "))
+		}
 	}
 	return strings.Join(out, "\n")
 }

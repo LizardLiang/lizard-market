@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -343,14 +344,19 @@ func evaluateLanded(repoDir, hash string) []string {
 	}
 	// A tracked path counts only when its content differs once CR-at-EOL is
 	// ignored; git status alone also reports line-ending-only rewrites.
+	// --no-relative keeps the paths repo-root relative, as status prints them,
+	// whatever diff.relative says and whichever subdirectory repoDir is.
 	changed := map[string]bool{}
 	for _, args := range [][]string{
-		{"-C", repoDir, "diff", "--ignore-cr-at-eol", "--name-only"},
-		{"-C", repoDir, "diff", "--cached", "--ignore-cr-at-eol", "--name-only"},
+		{"-C", repoDir, "diff", "--no-relative", "--ignore-cr-at-eol", "--name-only"},
+		{"-C", repoDir, "diff", "--no-relative", "--cached", "--ignore-cr-at-eol", "--name-only"},
 	} {
-		dout, derr := exec.Command(git, args...).Output()
+		diffCmd := exec.Command(git, args...)
+		var diffErr bytes.Buffer
+		diffCmd.Stderr = &diffErr
+		dout, derr := diffCmd.Output()
 		if derr != nil {
-			return append(failures, fmt.Sprintf("git diff failed: %v", derr))
+			return append(failures, fmt.Sprintf("git diff failed: %v: %s", derr, strings.TrimSpace(diffErr.String())))
 		}
 		for _, name := range strings.Split(string(dout), "\n") {
 			if name = strings.Trim(strings.TrimSpace(name), `"`); name != "" {

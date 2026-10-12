@@ -18,8 +18,9 @@
  * assistant turns have accumulated since the previous sweep — then the
  * counters reset and the next sweep arms again. The marker also stores
  * `last_sweep_at` (epoch ms); once the thresholds are met and the last sweep
- * is more than six hours old, the sweep count restarts at zero. A marker
- * without `last_sweep_at` is capped at MAX_SWEEPS_PER_SESSION. The previous design swept
+ * is more than six hours old, the sweep count restarts at zero. A marker at
+ * MAX_SWEEPS_PER_SESSION without `last_sweep_at` (written before the stamp
+ * existed) counts as elapsed, so it arms again at once. The previous design swept
  * once, on the first Stop after six "user" lines (tool results included), so
  * every long session was swept ~5% in and never again; every later correction
  * was lost (2026-09 transcript review).
@@ -237,7 +238,8 @@ if (require.main === module) {
 
     const now = Date.now();
     const windowElapsed = typeof marker.last_sweep_at === 'number'
-      && now - marker.last_sweep_at > SWEEP_WINDOW_MS;
+      ? now - marker.last_sweep_at > SWEEP_WINDOW_MS
+      : marker.sweeps >= MAX_SWEEPS_PER_SESSION;
     const armed = marker.human >= MIN_HUMAN_MESSAGES
       && marker.assistant >= MIN_ASSISTANT_TURNS
       && (marker.sweeps < MAX_SWEEPS_PER_SESSION || windowElapsed);

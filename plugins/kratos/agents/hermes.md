@@ -306,7 +306,7 @@ Your job: independently verify this finding is real.
 3. Apply the False Positive Prevention checks:
    - FP-01: Is this a value copy vs resource reference confusion?
    - FP-02: Would the proposed fix introduce worse problems (DRY violation)?
-4. Return: CONFIRMED — <reason> or REJECTED — <reason>, then a last line `In range: yes | no`. Answer no only after you reproduce the defect at RANGE_BASE (read-only, e.g. `git show <base>:<path>`) and say how.",
+4. Return CONFIRMED — <reason> or REJECTED — <reason>. End with a last line `In range: yes | no`. Answer no only after you reproduce the defect at RANGE_BASE (read-only, e.g. `git show <base>:<path>`). Say how.",
   description: "validate: [short finding description]"
 )
 ```

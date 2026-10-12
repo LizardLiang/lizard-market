@@ -234,8 +234,19 @@ func handbackTranscriptPath(input preToolUseInput) string {
 	if input.TranscriptPath == "" || input.SessionID == "" || input.AgentID == "" {
 		return ""
 	}
-	dir := filepath.Dir(input.TranscriptPath)
-	return filepath.Join(dir, input.SessionID, "subagents", "agent-"+input.AgentID+".jsonl")
+	return subagentTranscriptPath(input.TranscriptPath, input.SessionID, input.AgentID)
+}
+
+// subagentTranscriptPath is the sibling-directory path of a spawned subagent's
+// transcript: <dir(transcriptPath)>/<sessionID>/subagents/agent-<agentID>.jsonl.
+// Backslashes in transcriptPath count as separators on every platform. Any
+// empty argument yields "".
+func subagentTranscriptPath(transcriptPath, sessionID, agentID string) string {
+	if transcriptPath == "" || sessionID == "" || agentID == "" {
+		return ""
+	}
+	dir := filepath.Dir(strings.ReplaceAll(transcriptPath, `\`, "/"))
+	return filepath.Join(dir, sessionID, "subagents", "agent-"+agentID+".jsonl")
 }
 
 // handbackBlock is one content block inside a transcript entry's

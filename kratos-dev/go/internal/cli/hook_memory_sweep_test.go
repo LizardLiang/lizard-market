@@ -168,10 +168,18 @@ func TestMemorySweepStaysCappedInsideSixHours(t *testing.T) {
 	}
 }
 
-func TestMemorySweepLegacyMarkerWithoutTimestampStaysCapped(t *testing.T) {
+// A marker capped before last_sweep_at existed counts as elapsed and arms.
+func TestMemorySweepCappedMarkerWithoutTimestampArms(t *testing.T) {
 	m := sweepMarkerAt(8, 48*time.Hour)
 	delete(m, "last_sweep_at")
-	if out, _ := runSweepStop(t, m); out != "" {
-		t.Fatalf("expected no sweep, got %q", out)
+	out, after := runSweepStop(t, m)
+	if !strings.Contains(out, "memory sweep") {
+		t.Fatalf("expected a sweep instruction, got %q", out)
+	}
+	if got := after["sweeps"]; got != float64(1) {
+		t.Fatalf("sweeps = %v, want 1", got)
+	}
+	if _, ok := after["last_sweep_at"].(float64); !ok {
+		t.Errorf("last_sweep_at not stamped: %v", after["last_sweep_at"])
 	}
 }

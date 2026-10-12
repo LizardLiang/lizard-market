@@ -35,9 +35,10 @@ func TestIrisSpawnCap(t *testing.T) {
 		{"first hermes allowed", "kratos:hermes", "", map[string]any{}, "iris", false},
 		{"second hermes denied", "kratos:hermes", "", map[string]any{"hermes": float64(1)}, "iris", true},
 		{"first ares allowed", "kratos:ares", "fix round 1", map[string]any{}, "iris", false},
-		{"second ares fix round denied", "kratos:ares", "MISSION: fix round for the BLOCKER", map[string]any{"ares": float64(1)}, "iris", true},
-		{"second ares naming hermes denied", "kratos:ares", "Hermes found a BLOCKER", map[string]any{"ares": float64(1)}, "iris", true},
-		{"second ares without fix round allowed", "kratos:ares", "MISSION: add the export button", map[string]any{"ares": float64(1)}, "iris", false},
+		{"fix ares after hermes allowed", "kratos:ares", "fix the BLOCKER", map[string]any{"hermes": float64(1)}, "iris", false},
+		{"second fix ares after hermes denied", "kratos:ares", "fix the BLOCKER", map[string]any{"hermes": float64(1), "ares": float64(1)}, "iris", true},
+		{"ares after ares without hermes allowed", "kratos:ares", "fix round", map[string]any{"ares": float64(1)}, "iris", false},
+		{"hermes word in an ares prompt is not a signal", "kratos:ares", "DONE: fix(hermes): x", map[string]any{"ares": float64(1)}, "iris", false},
 		{"no inline god untouched", "kratos:hermes", "", map[string]any{"hermes": float64(3)}, "", false},
 		{"other god untouched", "kratos:hermes", "", map[string]any{"hermes": float64(3)}, "odysseus", false},
 	}
@@ -59,6 +60,37 @@ func TestIrisSpawnCap(t *testing.T) {
 				t.Fatalf("decision = %q, want none", res.Decision)
 			}
 		})
+	}
+}
+
+// The ledger records only hermes and the post-hermes ares spawns, in the order
+// the hook runs: impl Ares, Hermes, one fix Ares pass; a second fix Ares denies.
+func TestIrisSpawnCapSequence(t *testing.T) {
+	ledger := irisLedger()
+	ledger["inline_god"] = "iris"
+	spawn := func(god string) bool {
+		res := editGateDecisionWith(spawnInput(god), gateToolExtra{Prompt: "x"}, ledger)
+		if res.Decision == "deny" {
+			return true
+		}
+		if res.TurnSpawns != nil {
+			ledger["turn_spawns"] = res.TurnSpawns
+		}
+		return false
+	}
+	for i, step := range []struct {
+		god  string
+		deny bool
+	}{
+		{"kratos:ares", false}, {"kratos:hermes", false}, {"kratos:ares", false}, {"kratos:ares", true}, {"kratos:hermes", true},
+	} {
+		if got := spawn(step.god); got != step.deny {
+			t.Fatalf("step %d (%s): deny = %v, want %v", i, step.god, got, step.deny)
+		}
+	}
+	spawn("kratos:metis")
+	if _, ok := ledgerTurnSpawns(ledger)["metis"]; ok {
+		t.Error("an unrelated subagent_type must not be written into the ledger")
 	}
 }
 
@@ -194,7 +226,7 @@ func subdirRepo(t *testing.T) (root, sub string) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(root+"/.claude", 0o755); err != nil {
+	if err := os.MkdirAll(root+"/.claude/.Arena", 0o755); err != nil {
 		t.Fatal(err)
 	}
 	return root, sub

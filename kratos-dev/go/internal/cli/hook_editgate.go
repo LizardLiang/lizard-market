@@ -97,14 +97,16 @@ var gateReadOnlyCommands = []*regexp.Regexp{
 	// is read-only but denied, an accepted false deny in exchange for a rule
 	// with no way through it.
 	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?branch(?:\s+(?:--list|--show-current|--all|--remotes|--verbose|--merged|--no-merged|-a|-r|-v|-vv|-av|-rv))*\s*$`),
-	regexp.MustCompile(`(?i)^(?:ls|dir|pwd)\b`),
-	regexp.MustCompile(`(?i)^(?:cat|type)\b`),
-	regexp.MustCompile(`(?i)^(?:find|grep|rg)\b`),
-	regexp.MustCompile(`(?i)^(?:sed|head|tail|wc)\b`),
-	regexp.MustCompile(`(?i)^(?:which|stat|file)\b`),
+	regexp.MustCompile(`(?i)^(?:ls|dir|pwd)(?:\.exe)?(?:\s|$)`),
+	regexp.MustCompile(`(?i)^(?:cat|type)(?:\.exe)?(?:\s|$)`),
+	regexp.MustCompile(`(?i)^(?:find|grep|rg)(?:\.exe)?(?:\s|$)`),
+	regexp.MustCompile(`(?i)^(?:sed|head|tail|wc)(?:\.exe)?(?:\s|$)`),
+	regexp.MustCompile(`(?i)^(?:which|stat|file)(?:\.exe)?(?:\s|$)`),
+	// Every program head ends at whitespace, end of text or .exe, so a
+	// hyphenated program (sort-package-json, cat-evil) is not a reader.
 	// Pure text and navigation heads. awk is absent on purpose: an awk
 	// program can write files from inside its script.
-	regexp.MustCompile(`(?i)^(?:cd|echo|printf|sort|uniq|cut|tr)\b`),
+	regexp.MustCompile(`(?i)^(?:cd|echo|printf|sort|uniq|cut|tr)(?:\.exe)?(?:\s|$)`),
 	regexp.MustCompile(`(?i)^command\s+-v\b`),
 	regexp.MustCompile(`(?i)^Get-(?:ChildItem|Content|Location)\b`),
 	regexp.MustCompile(`(?i)^Select-String\b`),
@@ -181,12 +183,6 @@ var (
 	// gateFollowFlagRE matches `tail -f`/`-F`/`--follow`, which never returns
 	// and would hang the tool call until its timeout.
 	gateFollowFlagRE = regexp.MustCompile(`(?i)(?:^|\s)(?:-[a-z]*f[a-z]*|--follow)\b`)
-	// gateSortOutputRE matches sort's output flag, which writes a file with no
-	// shell redirect: `sort -o plan.txt in.txt`, `sort --output=a.go in.txt`.
-	gateSortOutputRE = regexp.MustCompile(`(?i)(?:^|\s)(?:-[a-z]*o(?:\s|$)|--output)`)
-	// gateUniqOutputRE matches uniq with two operands: the second is an output
-	// file, `uniq in.txt out.txt`.
-	gateUniqOutputRE = regexp.MustCompile(`(?i)^\s*uniq(?:\s+-\S+)*\s+[^-\s]\S*\s+[^-\s]`)
 	// gateSegmentSplitRE cuts a command where a shell would start a new one.
 	gateSegmentSplitRE = regexp.MustCompile("[;&|\r\n]+")
 )
@@ -582,7 +578,7 @@ func editGateDecisionRest(input preToolUseInput, extra gateToolExtra, ledger map
 		target := strings.TrimSpace(input.ToolInput.SubagentType)
 		res := editGateResult{}
 		if god == "iris" {
-			deny, spawns := irisSpawnCap(ledger, target, extra.Prompt)
+			deny, spawns := irisSpawnCap(ledger, target)
 			if deny {
 				return editGateResult{Decision: "deny", Reason: irisSpawnCapReason}
 			}
@@ -1025,11 +1021,11 @@ func isReadOnlySegment(seg shellSegment) bool {
 			return false
 		}
 	case "sort":
-		if gateSortOutputRE.MatchString(masked) {
+		if gateSortWritesFile(gateSegmentTokens(raw)) {
 			return false
 		}
 	case "uniq":
-		if gateUniqOutputRE.MatchString(masked) {
+		if gateUniqWritesFile(gateSegmentTokens(raw)) {
 			return false
 		}
 	}
@@ -1042,6 +1038,53 @@ func isReadOnlySegment(seg shellSegment) bool {
 		}
 	}
 	return false
+}
+
+// gateSegmentTokens splits a segment's effective text on whitespace and
+// removes quote characters from every token, so `sort "-o" out` and
+// `sort -o"f" in` read as `sort -o out` and `sort -of in`. The first token is
+// the program.
+func gateSegmentTokens(raw string) []string {
+	fields := strings.Fields(gateEffectiveSegmentText(raw))
+	for i, f := range fields {
+		fields[i] = strings.NewReplacer(`"`, "", `'`, "").Replace(f)
+	}
+	return fields
+}
+
+var (
+	gateSortWriteFlagRE = regexp.MustCompile(`^(?:-[A-Za-z]*o|--o|--c|/)`)
+	// uniq options that take their argument as the next token.
+	gateUniqArgFlags = map[string]bool{"-f": true, "-s": true, "-w": true, "--skip-fields": true, "--skip-chars": true, "--check-chars": true}
+)
+
+// gateSortWritesFile reports a sort invocation that writes a file with no
+// shell redirect: the output flag in any spelling (-o, -ofile, --output=x),
+// --compress-program, which runs a program, and the Windows /O switch.
+func gateSortWritesFile(tokens []string) bool {
+	for _, t := range tokens[min(1, len(tokens)):] {
+		if gateSortWriteFlagRE.MatchString(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// gateUniqWritesFile reports a uniq invocation with two or more operands: the
+// second is an output file. The argument of -f, -s and -w is not an operand.
+func gateUniqWritesFile(tokens []string) bool {
+	operands := 0
+	for i := 1; i < len(tokens); i++ {
+		t := tokens[i]
+		switch {
+		case gateUniqArgFlags[t]:
+			i++
+		case strings.HasPrefix(t, "-"):
+		default:
+			operands++
+		}
+	}
+	return operands >= 2
 }
 
 // gateSegmentHead is the lower-cased program name a segment starts with, once
@@ -1070,23 +1113,33 @@ func firstNonEmpty(values ...string) string {
 // user turn.
 const irisSpawnCapReason = "One review and one fix round per user turn. Report the findings and ask: re-review, ticket, or stop."
 
-var gateFixRoundPromptRE = regexp.MustCompile(`(?i)fix round|hermes`)
-
-// irisSpawnCap counts an inline Iris's spawn of target in the ledger's
-// turn_spawns and reports whether the spawn is the second Hermes review, or
-// the second Ares spawn that is a fix round, in one user turn. The first spawn
-// of each is never a decision. A denied spawn is not counted.
-func irisSpawnCap(ledger map[string]any, target, prompt string) (bool, map[string]int) {
+// irisSpawnCap counts an inline Iris's Hermes spawns, and the Ares spawns
+// that follow a Hermes spawn, in the ledger's turn_spawns. It reports whether
+// the spawn is the second Hermes review, or the second Ares fix round after a
+// review, in one user turn. An Ares spawn before any Hermes spawn is the
+// implementation and is not counted; the order of the ledger writes is the
+// only signal, so the prompt text plays no part. Only "hermes" and "ares"
+// are written, never the raw subagent_type. A denied spawn is not counted.
+//
+// Hook processes do not lock the ledger, so two Hermes spawns issued in one
+// assistant message can both read a count of zero and both pass.
+func irisSpawnCap(ledger map[string]any, target string) (bool, map[string]int) {
 	name := strings.TrimPrefix(strings.ToLower(target), "kratos:")
-	if name == "" {
-		return false, nil
-	}
 	spawns := ledgerTurnSpawns(ledger)
-	switch {
-	case name == "hermes" && spawns["hermes"] >= 1:
-		return true, nil
-	case name == "ares" && spawns["ares"] >= 1 && gateFixRoundPromptRE.MatchString(prompt):
-		return true, nil
+	switch name {
+	case "hermes":
+		if spawns["hermes"] >= 1 {
+			return true, nil
+		}
+	case "ares":
+		if spawns["hermes"] < 1 {
+			return false, nil
+		}
+		if spawns["ares"] >= 1 {
+			return true, nil
+		}
+	default:
+		return false, nil
 	}
 	spawns[name]++
 	return false, spawns
@@ -1108,10 +1161,13 @@ func irisResumeReason(n int) string {
 // <dir(transcript_path)>/<session_id>/subagents/agent-<id>.jsonl. 0 means the
 // transcript is unknown or unreadable: the gate fails open.
 func gateAgentTurns(input preToolUseInput, to string) int {
-	if input.TranscriptPath == "" || input.SessionID == "" || !gateAgentIDRE.MatchString(to) {
+	if !gateAgentIDRE.MatchString(to) {
 		return 0
 	}
-	p := filepath.Join(filepath.Dir(input.TranscriptPath), input.SessionID, "subagents", "agent-"+to+".jsonl")
+	p := subagentTranscriptPath(input.TranscriptPath, input.SessionID, to)
+	if p == "" {
+		return 0
+	}
 	data, err := os.ReadFile(p)
 	if err != nil {
 		return 0
@@ -1139,10 +1195,34 @@ func gateAgentTurns(input preToolUseInput, to string) int {
 	return lines
 }
 
+// gateSpellingOfRoot returns the ancestor of cwd that is the directory top,
+// written the way cwd is written. Git prints the long form of a Windows path,
+// while a plan path in the same payload may use the 8.3 short form that cwd
+// uses; the comparison in isUnderGateCwd is textual. top itself is returned
+// when no ancestor of cwd is that directory.
+func gateSpellingOfRoot(cwd, top string) string {
+	topInfo, err := os.Stat(top)
+	if err != nil {
+		return top
+	}
+	for dir := filepath.Clean(cwd); ; {
+		if di, err := os.Stat(dir); err == nil && os.SameFile(di, topInfo) {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return top
+		}
+		dir = parent
+	}
+}
+
 // gateContainmentRoot is the directory a plan, spec-delta or project-file
-// path must sit under: the nearest ancestor of cwd holding a .claude
-// directory, else the git top level, else cwd itself. A session launched in a
-// subdirectory still owns the repo's .claude/ tree. The home directory is
+// path must sit under. Inside a git work tree it is the git top level.
+// Elsewhere it is the nearest ancestor of cwd whose .claude directory holds
+// .Arena or feature, searched upward until a .git entry or the home
+// directory; else cwd itself. A bare .claude/ does not count: Kratos creates
+// .claude/tmp under any cwd for its own gate state. The home directory is
 // never a root: its .claude/ is the user's global config, not a project.
 func gateContainmentRoot(cwd string) string {
 	if cwd == "" {
@@ -1152,27 +1232,34 @@ func gateContainmentRoot(cwd string) string {
 	if err != nil || !info.IsDir() {
 		return cwd
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "git", "-C", cwd, "rev-parse", "--show-toplevel").Output()
+	if top := strings.TrimSpace(string(out)); err == nil && top != "" {
+		return gateSpellingOfRoot(cwd, top)
+	}
 	var homeInfo os.FileInfo
 	if home, err := os.UserHomeDir(); err == nil {
 		homeInfo, _ = os.Stat(home)
 	}
 	for dir := filepath.Clean(cwd); ; {
-		if di, err := os.Stat(dir); err == nil && (homeInfo == nil || !os.SameFile(di, homeInfo)) {
-			if st, err := os.Stat(filepath.Join(dir, ".claude")); err == nil && st.IsDir() {
+		di, err := os.Stat(dir)
+		if err != nil || (homeInfo != nil && os.SameFile(di, homeInfo)) {
+			break
+		}
+		for _, marker := range []string{".Arena", "feature"} {
+			if st, err := os.Stat(filepath.Join(dir, ".claude", marker)); err == nil && st.IsDir() {
 				return dir
 			}
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			break
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			break
 		}
 		dir = parent
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, "git", "-C", cwd, "rev-parse", "--show-toplevel").Output()
-	if top := strings.TrimSpace(string(out)); err == nil && top != "" {
-		return top
 	}
 	return cwd
 }

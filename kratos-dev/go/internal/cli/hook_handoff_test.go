@@ -52,6 +52,7 @@ func TestMatchesResumePhrase(t *testing.T) {
 		{"where do we stop", "iris, where do we stop last time", true},
 		{"where do we leave off", "where do we leave off", true},
 		{"case insensitive", "CONTINUE", true},
+		{"negative: where do we end up", "so where do we end up with this design", false},
 		{"negative: continuec not a word", "the continuec token", false},
 		{"negative: unrelated text", "please fix the login bug", false},
 		{"negative: resumeable not a word", "the job is resumeable", false},

@@ -587,13 +587,15 @@ function registerSession(sessionId, cwd, source) {
 // command-mode suffix (the `--part extras` output). The extras follow the
 // ledger's inline god exactly as the PreToolUse edit gate does, so a session
 // whose ledger still names the god receives them until a dispatch clears it.
+// Only Iris and Odysseus run inline across turns; a command-mode god such as
+// Hermes ends with its own mission and gets no replay.
 // Returns "" on any failure.
 function formatInlineGodExtras(sessionId, source) {
   if (source !== "compact" || !sessionId) return "";
   try {
     const ledger = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, `${sessionId}.json`), "utf-8"));
     const god = ledger && typeof ledger.inline_god === "string" ? ledger.inline_god.trim() : "";
-    if (!/^[a-z][a-z0-9-]*$/.test(god)) return "";
+    if (god !== "iris" && god !== "odysseus") return "";
     const out = runKratos(["agent", "load", god, "--resolve", "--part", "extras"], GOD_EXTRAS_TIMEOUT_MS);
     return out ? out.trim() : "";
   } catch (e) {

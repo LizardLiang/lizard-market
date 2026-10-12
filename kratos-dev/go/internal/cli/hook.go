@@ -86,7 +86,7 @@ var resumePhraseREs = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\bresume\b`),
 	regexp.MustCompile(`(?i)\bkeep\s+going\b`),
 	regexp.MustCompile(`(?i)\bwhere\s+were\s+we\b`),
-	regexp.MustCompile(`(?i)\bwhere\s+(?:did|do)\s+we\s+(?:stop|leave\s+off|end)\b`),
+	regexp.MustCompile(`(?i)\bwhere\s+(?:did|do)\s+we\s+(?:stop|leave\s+off)\b`),
 	regexp.MustCompile(`(?i)\bpick\s+up\b`),
 }
 
@@ -1125,7 +1125,7 @@ func transcriptTestEvidence(path string, sidechainOnly bool) (editedCode, ranTes
 // input.LastAssistantMessage, so the same check runs against the delivered
 // SubagentHandback message when Ares used one.
 func aresVerifyGateFailure(report string, input subagentStopInput) string {
-	if strings.Contains(strings.ToLower(report), "tests-not-applicable:") {
+	if testsNotApplicableRE.MatchString(report) {
 		return ""
 	}
 	path := input.AgentTranscriptPath
@@ -1287,10 +1287,7 @@ func subagentHandbackTranscriptPath(input subagentStopInput) string {
 	if input.AgentTranscriptPath != "" {
 		return input.AgentTranscriptPath
 	}
-	if input.TranscriptPath == "" || input.SessionID == "" || input.AgentID == "" {
-		return ""
-	}
-	return filepath.Join(filepath.Dir(input.TranscriptPath), input.SessionID, "subagents", "agent-"+input.AgentID+".jsonl")
+	return subagentTranscriptPath(input.TranscriptPath, input.SessionID, input.AgentID)
 }
 
 // handbackToolUseInput decodes a SubagentHandback tool_use block's own input
