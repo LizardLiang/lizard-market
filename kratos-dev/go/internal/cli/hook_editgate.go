@@ -1,12 +1,17 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -97,6 +102,9 @@ var gateReadOnlyCommands = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^(?:find|grep|rg)\b`),
 	regexp.MustCompile(`(?i)^(?:sed|head|tail|wc)\b`),
 	regexp.MustCompile(`(?i)^(?:which|stat|file)\b`),
+	// Pure text and navigation heads. awk is absent on purpose: an awk
+	// program can write files from inside its script.
+	regexp.MustCompile(`(?i)^(?:cd|echo|printf|sort|uniq|cut|tr)\b`),
 	regexp.MustCompile(`(?i)^command\s+-v\b`),
 	regexp.MustCompile(`(?i)^Get-(?:ChildItem|Content|Location)\b`),
 	regexp.MustCompile(`(?i)^Select-String\b`),
@@ -360,6 +368,30 @@ type editGateResult struct {
 	// through setInlineGod so relaunching the same god never refills the file
 	// budget. "" means no Skill load worth recording.
 	SetGod string
+	// TurnSpawns is the new turn_spawns value (god -> spawns this user turn).
+	// nil means "do not write".
+	TurnSpawns map[string]int
+}
+
+// gateToolExtra carries tool_input fields that preToolUseToolInput does not
+// declare: the spawn prompt of an Agent/Task call and the recipient of a
+// SendMessage call.
+type gateToolExtra struct {
+	Prompt string
+	To     string
+}
+
+func parseGateToolExtra(raw []byte) gateToolExtra {
+	var p struct {
+		ToolInput struct {
+			Prompt string `json:"prompt"`
+			To     string `json:"to"`
+		} `json:"tool_input"`
+	}
+	if json.Unmarshal(raw, &p) != nil {
+		return gateToolExtra{}
+	}
+	return gateToolExtra{Prompt: p.ToolInput.Prompt, To: p.ToolInput.To}
 }
 
 func editGateCmd() *cobra.Command {
@@ -410,7 +442,7 @@ func handleEditGate(raw []byte) {
 		}
 	}
 
-	res := editGateDecision(input, ledger)
+	res := editGateDecisionWith(input, parseGateToolExtra(raw), ledger)
 
 	if ledger != nil && input.SessionID != "" {
 		changed := false
@@ -423,6 +455,10 @@ func handleEditGate(raw []byte) {
 			changed = true
 		}
 		if res.SetGod != "" && setInlineGod(ledger, res.SetGod) {
+			changed = true
+		}
+		if res.TurnSpawns != nil {
+			ledger[ledgerKeyTurnSpawns] = res.TurnSpawns
 			changed = true
 		}
 		if changed {
@@ -475,13 +511,19 @@ func gateIsSpawnedOdysseus(input preToolUseInput) bool {
 // never touches the ledger, so folding it in here changes no side effect: a
 // spawned agent's edits still never spend the inline god's budget.
 func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResult {
+	return editGateDecisionWith(input, gateToolExtra{}, ledger)
+}
+
+// editGateDecisionWith is editGateDecision plus the tool_input fields the
+// spawn cap and the SendMessage backstop read.
+func editGateDecisionWith(input preToolUseInput, extra gateToolExtra, ledger map[string]any) editGateResult {
 	var credResult editGateResult
 	credAsks := false
 	if input.ToolName == "Bash" || input.ToolName == "PowerShell" {
 		credResult, credAsks = credentialGuardDecision(input.ToolInput.Command)
 	}
 
-	res := editGateDecisionRest(input, ledger)
+	res := editGateDecisionRest(input, extra, ledger)
 	if res.Decision == "deny" {
 		return res
 	}
@@ -494,7 +536,7 @@ func editGateDecision(input preToolUseInput, ledger map[string]any) editGateResu
 // editGateDecisionRest is every rule but the credential guard: the steps
 // editGateDecision used to run directly, before the guard's ask had to wait
 // on whichever of them fires.
-func editGateDecisionRest(input preToolUseInput, ledger map[string]any) editGateResult {
+func editGateDecisionRest(input preToolUseInput, extra gateToolExtra, ledger map[string]any) editGateResult {
 	// 1. Spawned subagent: only Odysseus is gated. Ares, Hades and everyone
 	//    else must never be counted against the inline god's budget — gating
 	//    them would break the dispatch this gate exists to create. The marker
@@ -533,6 +575,13 @@ func editGateDecisionRest(input preToolUseInput, ledger map[string]any) editGate
 	if input.ToolName == "Agent" || input.ToolName == "Task" {
 		target := strings.TrimSpace(input.ToolInput.SubagentType)
 		res := editGateResult{}
+		if god == "iris" {
+			deny, spawns := irisSpawnCap(ledger, target, extra.Prompt)
+			if deny {
+				return editGateResult{Decision: "deny", Reason: irisSpawnCapReason}
+			}
+			res.TurnSpawns = spawns
+		}
 		if gateResetAgents.MatchString(target) {
 			if len(ledgerStrings(ledger)) > 0 {
 				res.Files = []string{}
@@ -542,6 +591,17 @@ func editGateDecisionRest(input preToolUseInput, ledger map[string]any) editGate
 			}
 		}
 		return res
+	}
+
+	// 4b. Resumed agent. An inline Iris resuming a long-lived agent through
+	//     SendMessage pays for that agent's whole context every round.
+	if input.ToolName == "SendMessage" {
+		if god == "iris" {
+			if n := gateAgentTurns(input, extra.To); n > gateMaxResumeTurns {
+				return editGateResult{Decision: "deny", Reason: irisResumeReason(n)}
+			}
+		}
+		return editGateResult{}
 	}
 
 	// 5. No recorded god: a plain Claude Code session, or one whose inline god
@@ -598,6 +658,7 @@ func odysseusGate(input preToolUseInput, ledger map[string]any) editGateResult {
 	if cwd == "" {
 		cwd = ledgerString(ledger, ledgerKeyCwd)
 	}
+	cwd = gateContainmentRoot(cwd)
 
 	switch input.ToolName {
 	case "Write", "Edit", "MultiEdit", "NotebookEdit":
@@ -648,6 +709,7 @@ func irisGate(input preToolUseInput, ledger map[string]any) editGateResult {
 	if cwd == "" {
 		cwd = ledgerString(ledger, ledgerKeyCwd)
 	}
+	cwd = gateContainmentRoot(cwd)
 	if !isGateProjectFile(filePath, cwd) || isGateDocument(filePath) {
 		return editGateResult{}
 	}
@@ -988,4 +1050,99 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// irisSpawnCapReason is the deny text for a second review or fix round in one
+// user turn.
+const irisSpawnCapReason = "One review and one fix round per user turn. Report the findings and ask: re-review, ticket, or stop."
+
+var gateFixRoundPromptRE = regexp.MustCompile(`(?i)fix round|hermes`)
+
+// irisSpawnCap counts an inline Iris's spawn of target in the ledger's
+// turn_spawns and reports whether the spawn is the second Hermes review, or
+// the second Ares spawn that is a fix round, in one user turn. The first spawn
+// of each is never a decision. A denied spawn is not counted.
+func irisSpawnCap(ledger map[string]any, target, prompt string) (bool, map[string]int) {
+	name := strings.TrimPrefix(strings.ToLower(target), "kratos:")
+	if name == "" {
+		return false, nil
+	}
+	spawns := ledgerTurnSpawns(ledger)
+	switch {
+	case name == "hermes" && spawns["hermes"] >= 1:
+		return true, nil
+	case name == "ares" && spawns["ares"] >= 1 && gateFixRoundPromptRE.MatchString(prompt):
+		return true, nil
+	}
+	spawns[name]++
+	return false, spawns
+}
+
+// gateMaxResumeTurns is the assistant-turn count above which a SendMessage
+// resume of a spawned agent is denied.
+const gateMaxResumeTurns = 60
+
+var gateAgentIDRE = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+func irisResumeReason(n int) string {
+	return "This agent holds " + strconv.Itoa(n) + " turns of context. Spawn a fresh agent with the results file."
+}
+
+// gateAgentTurns counts the assistant entries in a spawned agent's transcript,
+// <dir(transcript_path)>/<session_id>/subagents/agent-<id>.jsonl. 0 means the
+// transcript is unknown or unreadable: the gate fails open.
+func gateAgentTurns(input preToolUseInput, to string) int {
+	if input.TranscriptPath == "" || input.SessionID == "" || !gateAgentIDRE.MatchString(to) {
+		return 0
+	}
+	p := filepath.Join(filepath.Dir(input.TranscriptPath), input.SessionID, "subagents", "agent-"+to+".jsonl")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.Contains(line, `"type":"assistant"`) {
+			n++
+		}
+	}
+	return n
+}
+
+// gateContainmentRoot is the directory a plan, spec-delta or project-file
+// path must sit under: the nearest ancestor of cwd holding a .claude
+// directory, else the git top level, else cwd itself. A session launched in a
+// subdirectory still owns the repo's .claude/ tree. The home directory is
+// never a root: its .claude/ is the user's global config, not a project.
+func gateContainmentRoot(cwd string) string {
+	if cwd == "" {
+		return cwd
+	}
+	info, err := os.Stat(cwd)
+	if err != nil || !info.IsDir() {
+		return cwd
+	}
+	var homeInfo os.FileInfo
+	if home, err := os.UserHomeDir(); err == nil {
+		homeInfo, _ = os.Stat(home)
+	}
+	for dir := filepath.Clean(cwd); ; {
+		if di, err := os.Stat(dir); err == nil && (homeInfo == nil || !os.SameFile(di, homeInfo)) {
+			if st, err := os.Stat(filepath.Join(dir, ".claude")); err == nil && st.IsDir() {
+				return dir
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "git", "-C", cwd, "rev-parse", "--show-toplevel").Output()
+	if top := strings.TrimSpace(string(out)); err == nil && top != "" {
+		return top
+	}
+	return cwd
 }

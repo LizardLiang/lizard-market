@@ -23,6 +23,8 @@ type gateShellCase struct {
 // neighbors of those holes, kept here so narrowing the classifier again cannot
 // quietly re-open one.
 var gateDenyCommands = []gateShellCase{
+	{"cd then rm", `cd x && rm -rf y`},
+	{"echo redirect", `echo hi > out.txt`},
 	// ---- B1: process substitution, invisible to a `$(`-only pattern ----
 	{"process substitution into cat", `cat <(rm -rf build)`},
 	{"process substitution into grep", `grep foo <(rm -rf build)`},
@@ -76,6 +78,9 @@ var gateDenyCommands = []gateShellCase{
 // must still leave every one of these alone — a gate that denies the agent's
 // own inspection commands teaches the agent to route around it.
 var gateLegitCommands = []gateShellCase{
+	{"cd then ls", `cd /c/x && ls`},
+	{"echo then ls", `echo hi; ls`},
+	{"rg count sorted", `rg -c "x" e2e | sort -t: -k2 -nr | head -30`},
 	{"git status", `git status`},
 	{"git status short", `git status --short`},
 	{"git diff", `git diff`},

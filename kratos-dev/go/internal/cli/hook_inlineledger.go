@@ -9,12 +9,13 @@ import (
 )
 
 // The per-session ledger (~/.kratos/sessions/<session_id>.json) is written by
-// hooks/session-start.cjs. The inline edit gate stores four extra keys in it:
+// hooks/session-start.cjs. The inline edit gate stores five extra keys in it:
 //
 //	inline_god          the god currently running inline in the main context
 //	inline_god_since    RFC3339 timestamp of the last god change
 //	inline_edited_files normalized project source paths edited this turn
 //	gate_bypass         the user told the model to do the work itself
+//	turn_spawns         god -> spawn count this user turn
 //
 // Every read and write is best-effort. A missing, unreadable or corrupt ledger
 // means the gate emits no decision at all — the file is a discipline aid, never
@@ -24,6 +25,8 @@ const (
 	ledgerKeyInlineSince = "inline_god_since"
 	ledgerKeyEditedFiles = "inline_edited_files"
 	ledgerKeyGateBypass  = "gate_bypass"
+	// ledgerKeyTurnSpawns maps god -> spawn count for the current user turn.
+	ledgerKeyTurnSpawns = "turn_spawns"
 	// ledgerKeyCwd is session-start.cjs's own key, read here as the fallback
 	// project root when a payload carries no cwd.
 	ledgerKeyCwd = "cwd"
@@ -146,4 +149,23 @@ func ledgerStrings(m map[string]any) []string {
 		return out
 	}
 	return nil
+}
+
+// ledgerTurnSpawns reads turn_spawns as a fresh god -> count map; absent or
+// malformed members count as zero.
+func ledgerTurnSpawns(m map[string]any) map[string]int {
+	out := map[string]int{}
+	switch raw := m[ledgerKeyTurnSpawns].(type) {
+	case map[string]any:
+		for k, v := range raw {
+			if f, ok := v.(float64); ok {
+				out[k] = int(f)
+			}
+		}
+	case map[string]int:
+		for k, v := range raw {
+			out[k] = v
+		}
+	}
+	return out
 }

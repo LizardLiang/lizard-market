@@ -161,6 +161,10 @@ func recordInlineGod(sessionID, cwd, prompt string) {
 			m[ledgerKeyEditedFiles] = []string{}
 			changed = true
 		}
+		if len(ledgerTurnSpawns(m)) > 0 {
+			m[ledgerKeyTurnSpawns] = map[string]int{}
+			changed = true
+		}
 		bypass := gateBypassRE.MatchString(prompt)
 		if _, ok := m[ledgerKeyGateBypass]; !ok || ledgerBool(m) != bypass {
 			m[ledgerKeyGateBypass] = bypass

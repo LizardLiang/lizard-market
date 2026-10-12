@@ -1082,8 +1082,8 @@ func TestHooksJSONRegistersEditGate(t *testing.T) {
 	if !strings.Contains(body, "hook edit-gate") {
 		t.Error("hooks.json does not register `hook edit-gate`")
 	}
-	if !strings.Contains(body, `"Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task|Skill"`) {
-		t.Error("edit-gate matcher must cover Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task|Skill")
+	if !strings.Contains(body, `"Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task|Skill|SendMessage"`) {
+		t.Error("edit-gate matcher must cover Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Agent|Task|Skill|SendMessage")
 	}
 	if strings.Contains(body, "plan-mode-guard") {
 		t.Error("hooks.json still references the retired plan-mode-guard.cjs")
