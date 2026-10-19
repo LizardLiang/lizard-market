@@ -43,7 +43,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/permission-read.cjs\"",
-            "timeout": 3
+            "timeout": 10
           }
         ]
       }
@@ -55,7 +55,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook edit-gate",
-            "timeout": 3
+            "timeout": 10
           }
         ]
       },
@@ -65,7 +65,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook handback-gate",
-            "timeout": 3
+            "timeout": 10
           }
         ]
       }

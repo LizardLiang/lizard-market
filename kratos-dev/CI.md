@@ -59,6 +59,12 @@ to `LizardLiang/kratos`, the repo users install from. It checks that the
 `kratos-linux-amd64` release asset exists at the tag before publishing, so
 run `release.sh` first.
 
+## Weekly transcript review
+
+The weekly transcript review counts `hook_cancelled` attachments (`timedOut: true`) per hook.
+A timed-out hook fails open: the tool call runs with no gate decision.
+The target for `edit-gate` is zero.
+
 ## Local development commands
 
 ```bash

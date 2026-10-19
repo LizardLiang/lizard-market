@@ -447,10 +447,12 @@ func handleEditGate(raw []byte) {
 		}
 	}
 
+	rootBefore, rootCwdBefore := ledgerString(ledger, ledgerKeyRoot), ledgerString(ledger, ledgerKeyRootCwd)
 	res := editGateDecisionWith(input, parseGateToolExtra(raw), ledger)
 
 	if ledger != nil && input.SessionID != "" {
-		changed := false
+		// gateCachedRoot filled the containment root during the decision.
+		changed := ledgerString(ledger, ledgerKeyRoot) != rootBefore || ledgerString(ledger, ledgerKeyRootCwd) != rootCwdBefore
 		if res.Files != nil {
 			ledger[ledgerKeyEditedFiles] = res.Files
 			changed = true
@@ -669,7 +671,7 @@ func odysseusGate(input preToolUseInput, ledger map[string]any) editGateResult {
 	if cwd == "" {
 		cwd = ledgerString(ledger, ledgerKeyCwd)
 	}
-	cwd = gateContainmentRoot(cwd)
+	cwd = gateCachedRoot(ledger, cwd)
 
 	switch input.ToolName {
 	case "Write", "Edit", "MultiEdit", "NotebookEdit":
@@ -720,7 +722,7 @@ func irisGate(input preToolUseInput, ledger map[string]any) editGateResult {
 	if cwd == "" {
 		cwd = ledgerString(ledger, ledgerKeyCwd)
 	}
-	cwd = gateContainmentRoot(cwd)
+	cwd = gateCachedRoot(ledger, cwd)
 	if !isGateProjectFile(filePath, cwd) || isGateDocument(filePath) {
 		return editGateResult{}
 	}
@@ -1320,6 +1322,32 @@ func gateSpellingOfRoot(cwd, top string) string {
 		}
 		dir = parent
 	}
+}
+
+// gateRootLookup is the containment-root lookup, a variable so a test can
+// count the calls.
+var gateRootLookup = gateContainmentRoot
+
+// gateCachedRoot is gateContainmentRoot with the answer kept in the session
+// ledger beside the cwd it was computed for. The lookup runs `git rev-parse`,
+// and a hook that spent its 3 s budget on a loaded machine failed open. A
+// payload cwd that differs from the cached one recomputes; an empty result is
+// never stored. handleEditGate writes the ledger back when the pair changed.
+func gateCachedRoot(ledger map[string]any, cwd string) string {
+	if cwd == "" {
+		return cwd
+	}
+	if ledger != nil && ledgerString(ledger, ledgerKeyRootCwd) == cwd {
+		if root := ledgerString(ledger, ledgerKeyRoot); root != "" {
+			return root
+		}
+	}
+	root := gateRootLookup(cwd)
+	if ledger != nil && root != "" {
+		ledger[ledgerKeyRoot] = root
+		ledger[ledgerKeyRootCwd] = cwd
+	}
+	return root
 }
 
 // gateContainmentRoot is the directory a plan, spec-delta or project-file

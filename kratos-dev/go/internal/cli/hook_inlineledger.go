@@ -16,6 +16,7 @@ import (
 //	inline_edited_files normalized project source paths edited this turn
 //	gate_bypass         the user told the model to do the work itself
 //	turn_spawns         god -> spawn count this user turn
+//	containment_root    cached gateContainmentRoot answer (with containment_root_cwd)
 //
 // Every read and write is best-effort. A missing, unreadable or corrupt ledger
 // means the gate emits no decision at all — the file is a discipline aid, never
@@ -30,6 +31,10 @@ const (
 	// ledgerKeyCwd is session-start.cjs's own key, read here as the fallback
 	// project root when a payload carries no cwd.
 	ledgerKeyCwd = "cwd"
+	// ledgerKeyRoot is the containment root gateCachedRoot computed, and
+	// ledgerKeyRootCwd the payload cwd it was computed for.
+	ledgerKeyRoot    = "containment_root"
+	ledgerKeyRootCwd = "containment_root_cwd"
 )
 
 // sessionIDRE is the character set a Claude Code session id may use. It is
