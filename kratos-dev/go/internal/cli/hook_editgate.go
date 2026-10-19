@@ -452,7 +452,8 @@ func handleEditGate(raw []byte) {
 
 	if ledger != nil && input.SessionID != "" {
 		// gateCachedRoot filled the containment root during the decision.
-		changed := ledgerString(ledger, ledgerKeyRoot) != rootBefore || ledgerString(ledger, ledgerKeyRootCwd) != rootCwdBefore
+		rootChanged := ledgerString(ledger, ledgerKeyRoot) != rootBefore || ledgerString(ledger, ledgerKeyRootCwd) != rootCwdBefore
+		changed := false
 		if res.Files != nil {
 			ledger[ledgerKeyEditedFiles] = res.Files
 			changed = true
@@ -467,6 +468,15 @@ func handleEditGate(raw []byte) {
 		if res.TurnSpawns != nil {
 			ledger[ledgerKeyTurnSpawns] = res.TurnSpawns
 			changed = true
+		}
+		if !changed && rootChanged {
+			// Only the cache changed. Merge it into a fresh read so a hook that
+			// ran in parallel and wrote inline_god or the file list is not undone
+			// by this call's older copy.
+			if fresh, err := readInlineLedger(input.SessionID); err == nil {
+				fresh[ledgerKeyRoot], fresh[ledgerKeyRootCwd] = ledger[ledgerKeyRoot], ledger[ledgerKeyRootCwd]
+				ledger, changed = fresh, true
+			}
 		}
 		if changed {
 			if err := writeInlineLedger(input.SessionID, ledger); err != nil {
@@ -1071,11 +1081,31 @@ func isReadOnlySegment(seg shellSegment) bool {
 	return false
 }
 
-// gateDateSetsClock reports a date invocation that sets the system clock
-// (-s, --set) instead of printing it.
+// gateDateSetsClock reports a date invocation that could set the system
+// clock: -s or any abbreviation of --set (--s, --se, --set), or a positional
+// operand (POSIX `date MMDDhhmm`). Only options and a +FORMAT operand print.
+// -d, -r and -f (and their long forms) take an argument, which is skipped.
 func gateDateSetsClock(tokens []string) bool {
-	for _, t := range tokens[min(1, len(tokens)):] {
-		if strings.HasPrefix(t, "--set") || (strings.HasPrefix(t, "-s") && !strings.HasPrefix(t, "--")) {
+	for i := 1; i < len(tokens); i++ {
+		t := tokens[i]
+		switch {
+		case strings.HasPrefix(t, "+"):
+		case strings.HasPrefix(t, "--"):
+			name, _, _ := strings.Cut(t[2:], "=")
+			if name != "" && name[0] == 's' && len(name) <= 3 && "set"[:len(name)] == name {
+				return true
+			}
+			if !strings.Contains(t, "=") && (name == "date" || name == "reference" || name == "file") {
+				i++
+			}
+		case strings.HasPrefix(t, "-") && len(t) > 1:
+			if strings.ContainsRune(t[1:], 's') {
+				return true
+			}
+			if t == "-d" || t == "-r" || t == "-f" {
+				i++
+			}
+		default:
 			return true
 		}
 	}
@@ -1112,6 +1142,16 @@ func gateAwkIsFilter(raw string) bool {
 	return !gateAwkCallRE.MatchString(text) && gateAwkNoWriteChars(text)
 }
 
+// gateAwkShellQuoteBefore reports whether text[i] directly follows a single
+// quote that opens a shell word, as in `awk '/re/'`. A quote glued to a name
+// or an operator (`a='/'`) sits inside the program and is not such a quote.
+func gateAwkShellQuoteBefore(text string, i int) bool {
+	if i == 0 || text[i-1] != '\'' {
+		return false
+	}
+	return i == 1 || text[i-2] == ' ' || text[i-2] == '\t'
+}
+
 // gateAwkNoWriteChars scans awk text for `>`, `@` and `|`, skipping the body of
 // regex literals (where only `|` is legal). A `/` opens a regex when the last
 // non-space byte before it cannot end an operand; an unterminated literal
@@ -1123,7 +1163,7 @@ func gateAwkNoWriteChars(text string) bool {
 		switch {
 		case c == '>' || c == '@' || c == '|':
 			return false
-		case c == '/' && strings.IndexByte("\x00{};(,~!&|='\"", prev) >= 0:
+		case c == '/' && (strings.IndexByte("\x00{};(,~!&|=", prev) >= 0 || gateAwkShellQuoteBefore(text, i)):
 			j := i + 1
 			for j < len(text) && text[j] != '/' {
 				if text[j] == '\\' {
@@ -1326,13 +1366,14 @@ func gateSpellingOfRoot(cwd, top string) string {
 
 // gateRootLookup is the containment-root lookup, a variable so a test can
 // count the calls.
-var gateRootLookup = gateContainmentRoot
+var gateRootLookup = gateContainmentRootSource
 
 // gateCachedRoot is gateContainmentRoot with the answer kept in the session
 // ledger beside the cwd it was computed for. The lookup runs `git rev-parse`,
 // and a hook that spent its 3 s budget on a loaded machine failed open. A
-// payload cwd that differs from the cached one recomputes; an empty result is
-// never stored. handleEditGate writes the ledger back when the pair changed.
+// payload cwd that differs from the cached one recomputes. An empty result and
+// a filesystem-fallback result (git failed, timed out, or the directory is not
+// a work tree) are never stored. handleEditGate writes the ledger back when the pair changed.
 func gateCachedRoot(ledger map[string]any, cwd string) string {
 	if cwd == "" {
 		return cwd
@@ -1342,8 +1383,8 @@ func gateCachedRoot(ledger map[string]any, cwd string) string {
 			return root
 		}
 	}
-	root := gateRootLookup(cwd)
-	if ledger != nil && root != "" {
+	root, fromGit := gateRootLookup(cwd)
+	if ledger != nil && root != "" && fromGit {
 		ledger[ledgerKeyRoot] = root
 		ledger[ledgerKeyRootCwd] = cwd
 	}
@@ -1358,12 +1399,20 @@ func gateCachedRoot(ledger map[string]any, cwd string) string {
 // .claude/tmp under any cwd for its own gate state. The home directory is
 // never a root: its .claude/ is the user's global config, not a project.
 func gateContainmentRoot(cwd string) string {
+	root, _ := gateContainmentRootSource(cwd)
+	return root
+}
+
+// gateContainmentRootSource is gateContainmentRoot plus whether git answered.
+// Only a git answer is stable enough to cache: the filesystem fallback is also
+// what a timed-out or failed git call returns.
+func gateContainmentRootSource(cwd string) (string, bool) {
 	if cwd == "" {
-		return cwd
+		return cwd, false
 	}
 	info, err := os.Stat(cwd)
 	if err != nil || !info.IsDir() {
-		return cwd
+		return cwd, false
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -1374,7 +1423,7 @@ func gateContainmentRoot(cwd string) string {
 	}
 	if top := strings.TrimSpace(string(out)); err == nil && top != "" {
 		if ti, terr := os.Stat(top); terr != nil || homeInfo == nil || !os.SameFile(ti, homeInfo) {
-			return gateSpellingOfRoot(cwd, top)
+			return gateSpellingOfRoot(cwd, top), true
 		}
 	}
 	for dir := filepath.Clean(cwd); ; {
@@ -1384,7 +1433,7 @@ func gateContainmentRoot(cwd string) string {
 		}
 		for _, marker := range []string{".Arena", "feature"} {
 			if st, err := os.Stat(filepath.Join(dir, ".claude", marker)); err == nil && st.IsDir() {
-				return dir
+				return dir, false
 			}
 		}
 		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
@@ -1396,5 +1445,5 @@ func gateContainmentRoot(cwd string) string {
 		}
 		dir = parent
 	}
-	return cwd
+	return cwd, false
 }

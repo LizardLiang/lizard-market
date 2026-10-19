@@ -8,12 +8,13 @@ import (
 	"testing"
 )
 
-// countRootLookups swaps gateRootLookup for a counter that returns want.
+// countRootLookups swaps gateRootLookup for a counter that returns want as a
+// git answer.
 func countRootLookups(t *testing.T, want string) *int {
 	t.Helper()
 	n := 0
 	orig := gateRootLookup
-	gateRootLookup = func(string) string { n++; return want }
+	gateRootLookup = func(string) (string, bool) { n++; return want, true }
 	t.Cleanup(func() { gateRootLookup = orig })
 	return &n
 }
@@ -56,6 +57,21 @@ func TestGateCachedRoot(t *testing.T) {
 		}
 		if _, ok := ledger[ledgerKeyRoot]; ok {
 			t.Fatal("an empty root was stored")
+		}
+	})
+	t.Run("a filesystem fallback answer is never cached", func(t *testing.T) {
+		n := 0
+		orig := gateRootLookup
+		gateRootLookup = func(string) (string, bool) { n++; return "C:/repo/sub", false }
+		t.Cleanup(func() { gateRootLookup = orig })
+		ledger := map[string]any{}
+		gateCachedRoot(ledger, "C:/repo/sub")
+		gateCachedRoot(ledger, "C:/repo/sub")
+		if n != 2 {
+			t.Fatalf("lookups = %d, want 2", n)
+		}
+		if _, ok := ledger[ledgerKeyRoot]; ok {
+			t.Fatal("a fallback root was stored")
 		}
 	})
 	t.Run("no ledger still answers", func(t *testing.T) {
@@ -106,8 +122,8 @@ func TestEditGateRootCachedAcrossCalls(t *testing.T) {
 }
 
 // TestEditGateEmptyLedgerRunsNoLookup pins R5: with no inline god, no tool
-// except the Agent/Task/SendMessage/Skill ledger paths reaches the containment
-// lookup (a `git rev-parse`), and the credential guard still answers.
+// reaches the containment lookup (a `git rev-parse`), the credential guard
+// still answers, and the Agent and Skill ledger paths still run.
 func TestEditGateEmptyLedgerRunsNoLookup(t *testing.T) {
 	n := countRootLookups(t, "C:/repo")
 	empty := map[string]any{"session_id": "sess-1", "cwd": "C:/repo"}
