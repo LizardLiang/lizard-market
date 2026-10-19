@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // reachBase is a valid Ares completion report from before the Reach rule,
@@ -273,5 +274,26 @@ func TestEvidenceWaiverColonless(t *testing.T) {
 	prose := foldBase + files + foldTail + reach + "I did not use TESTS-NOT-APPLICABLE here\n"
 	if got := reachFailureText(aresReportFailures(prose, subagentStopInput{})); !strings.Contains(got, "RED") {
 		t.Errorf("a mid-sentence mention must not waive, got %q", got)
+	}
+}
+
+// TestAresReachChildFailedLine pins `Reach: child failed (<reason>)`, the line
+// Ares writes when the reach-check child died or never reported. It counts as
+// a Reach line, is not "not applicable" (so the child-spawned check still
+// runs), and passes in full when the transcript shows the launched diff-child.
+func TestAresReachChildFailedLine(t *testing.T) {
+	const failedLine = "Reach: child failed (API Error: ENOTFOUND)\n"
+	report := reachBase + reachEvidence + failedLine
+
+	if m := reachLineRE.FindStringSubmatch(report); m == nil || reachNotApplicableRE.MatchString(m[1]) {
+		t.Fatalf("`Reach: child failed (...)` must be a Reach line that is not not-applicable, got %v", m)
+	}
+	launched := reachInput(t, "aresRF1", append([]string{userPromptLine("implement")}, aresChildLaunchLines("tuF", "childF", time.Now())...)...)
+	if f := aresReportFailures(report, launched); len(f) != 0 {
+		t.Fatalf("a launched diff-child plus `Reach: child failed (...)` must pass, got %v", f)
+	}
+	notLaunched := reachInput(t, "aresRF2", userPromptLine("implement"))
+	if got := reachFailureText(aresReportFailures(report, notLaunched)); !strings.Contains(got, "child agent") {
+		t.Fatalf("`Reach: child failed (...)` without a launched child must still fail the child check, got %q", got)
 	}
 }

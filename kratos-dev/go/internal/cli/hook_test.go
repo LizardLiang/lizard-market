@@ -1859,3 +1859,73 @@ Questions:
 		t.Fatalf("HEPHAESTUS NEEDS DECISIONS report should be exempt from the section check, got failures: %v", failures)
 	}
 }
+
+// TestAresStopAllowsAsyncWait pins the Ares half of the async wait: before a
+// hand-back exists, a launched reach-check child that has not reported keeps
+// the stop open without touching ares-stop-state.json. With no child launched,
+// or with a hand-back present, the Final Block checks run unchanged.
+func TestAresStopAllowsAsyncWait(t *testing.T) {
+	payload := func(root, sess, agent, main string) string {
+		b, _ := json.Marshal(map[string]interface{}{
+			"agent_type":             "kratos:ares",
+			"agent_id":               agent,
+			"cwd":                    root,
+			"session_id":             sess,
+			"transcript_path":        main,
+			"last_assistant_message": "Waiting for the reach-check child.",
+		})
+		return string(b)
+	}
+	launch := aresChildLaunchLines("tuS", "childS", time.Now())
+
+	t.Run("child outstanding, no hand-back: allow and leave the state file alone", func(t *testing.T) {
+		root := t.TempDir()
+		main := writeHandbackTranscript(t, "sessAS1", "aresAS1", launch...)
+		resp := runSubagentStop(t, payload(root, "sessAS1", "aresAS1", main))
+		if !resp.allowed() {
+			t.Fatalf("expected allow while the reach-check child is outstanding, got block: %q", resp.Reason)
+		}
+		if _, err := os.Stat(gateStatePath(root, "", "ares-stop-state.json")); err == nil {
+			t.Error("the async wait must not write ares-stop-state.json")
+		}
+	})
+
+	t.Run("no child launched, report lacks the Final Block: still blocked", func(t *testing.T) {
+		root := t.TempDir()
+		main := writeHandbackTranscript(t, "sessAS2", "aresAS2", userPromptLine("implement"))
+		resp := runSubagentStop(t, payload(root, "sessAS2", "aresAS2", main))
+		if resp.allowed() {
+			t.Fatal("expected block with no child launched and no Final Block")
+		}
+	})
+
+	t.Run("denied early hand-back, child still outstanding: still allowed", func(t *testing.T) {
+		root := t.TempDir()
+		lines := append(append([]string{}, launch...), subagentHandbackToolUseLine("I did some work."))
+		main := writeHandbackTranscript(t, "sessAS3", "aresAS3", lines...)
+		resp := runSubagentStop(t, payload(root, "sessAS3", "aresAS3", main))
+		if !resp.allowed() {
+			t.Fatalf("a hand-back the gate denied must not end the wait, got block: %q", resp.Reason)
+		}
+	})
+
+	t.Run("child silent for over 30 minutes: wait ends, checks run", func(t *testing.T) {
+		root := t.TempDir()
+		old := aresChildLaunchLines("tuS", "childS", time.Now().Add(-45*time.Minute))
+		main := writeHandbackTranscript(t, "sessAS4", "aresAS4", old...)
+		resp := runSubagentStop(t, payload(root, "sessAS4", "aresAS4", main))
+		if resp.allowed() {
+			t.Fatal("expected block once the stall timeout passed")
+		}
+	})
+
+	t.Run("child died on an API error: not outstanding, checks run", func(t *testing.T) {
+		root := t.TempDir()
+		main := writeHandbackTranscript(t, "sessAS5", "aresAS5", launch...)
+		writeChildTranscript(t, main, "sessAS5", "childS", apiErrorLine("API Error: boom"))
+		resp := runSubagentStop(t, payload(root, "sessAS5", "aresAS5", main))
+		if resp.allowed() {
+			t.Fatal("expected block: a dead child is not a reason to wait")
+		}
+	})
+}

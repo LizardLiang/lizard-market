@@ -1419,6 +1419,23 @@ func subagentStopCmd() *cobra.Command {
 
 			// Ares (implementation agent) quality checks
 			if strings.Contains(agentType, "ares") {
+				// Async wait: Ares's reach-check child runs through the Agent
+				// tool asynchronously and its report wakes Ares later.
+				// Blocking this turn-end for a missing Final Block sent Ares
+				// to poll the child or hand back early (38 blocks in one
+				// week). Let the stop through without touching
+				// ares-stop-state.json while a launched child is outstanding.
+				// A hand-back the PreToolUse gate denied for that same wait is
+				// in the transcript too, so the wait ignores hand-backs. It
+				// ends after handbackStallTimeout without progress, and a
+				// child that died on an API error is not outstanding.
+				if p := subagentHandbackTranscriptPath(input); p != "" {
+					if st, err := scanOutstandingChildren(p, input.TranscriptPath, input.SessionID); err == nil && len(st.Missing) > 0 &&
+						(!st.HasProgress || handbackNow().Sub(st.LastProgress) < handbackStallTimeout) {
+						debugLog("ares-stop: async wait, %d children outstanding", len(st.Missing))
+						return outputSubagentOK()
+					}
+				}
 				failures := aresReportFailures(report, input)
 
 				statePath := gateStatePath(input.Cwd, "", "ares-stop-state.json")

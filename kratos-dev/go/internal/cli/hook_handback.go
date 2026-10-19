@@ -118,9 +118,10 @@ func handleHandbackGate(raw []byte) {
 type handbackGateResult struct {
 	Decision string // "" (no decision) or "deny"
 	Reason   string
-	// AdditionalContext is set only on the stall-timeout release: Decision
-	// stays "" (the hand-back proceeds), but the missing children are named
-	// so Hermes's report can mark their tiers parent-only, not child-verified.
+	// AdditionalContext is set only on a release: Decision stays "" (the
+	// hand-back proceeds), but the children that stalled or died are named so
+	// the report can mark them parent-only (Hermes) or write
+	// `Reach: child failed (...)` (Ares).
 	AdditionalContext string
 }
 
@@ -141,12 +142,25 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 	// SubagentStop, catches a missing report before the agent's turn ends at
 	// all.
 	if strings.Contains(agentType, "ares") {
+		//
+		// Ares's reach-check child runs async, like Hermes's review
+		// children: a hand-back that lands before the child reports leaves
+		// the report to arrive on a finished agent. Wait for the child first;
+		// the content gate below runs only once none is outstanding.
+		child, waited := outstandingChildDecision(handbackTranscriptPath(input), input, true)
+		if waited && child.Decision == "deny" {
+			return child
+		}
 		failures := aresReportFailures(input.ToolInput.Message, subagentStopInput{
 			Cwd:                 input.Cwd,
 			TranscriptPath:      input.TranscriptPath,
 			AgentTranscriptPath: handbackTranscriptPath(input),
 		})
-		return handbackContentGateDecision("ares", gateStatePath(input.Cwd, "", "ares-handback-state.json"), input.AgentID, failures)
+		res := handbackContentGateDecision("ares", gateStatePath(input.Cwd, "", "ares-handback-state.json"), input.AgentID, failures)
+		if waited && res.Decision == "" {
+			res.AdditionalContext = child.AdditionalContext
+		}
+		return res
 	}
 	if strings.Contains(agentType, "hephaestus") {
 		failures := hephaestusSectionFailures(input.ToolInput.Message)
@@ -157,41 +171,125 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 		return handbackGateResult{}
 	}
 
-	path := handbackTranscriptPath(input)
-	if path == "" {
-		return handbackGateResult{}
-	}
+	res, _ := outstandingChildDecision(handbackTranscriptPath(input), input, false)
+	return res
+}
 
-	launchedIDs, finishedIDs, lastProgress, hasProgress, err := scanHandbackTranscript(path)
+// handbackChildState is what one scan of an agent's own transcript says about
+// the children it launched. Missing holds the launched ids that neither
+// finished nor died, sorted. Dead maps a launched id to the error line its own
+// transcript ends in.
+type handbackChildState struct {
+	Missing      []string
+	Dead         map[string]string
+	LastProgress time.Time
+	HasProgress  bool
+}
+
+// scanOutstandingChildren reads the transcript at path and classifies every
+// launched child. A child counts as dead when its own transcript (resolved from
+// the main transcript path and session id the way gateAgentTurns does) ends in
+// an API error: Claude Code sends no report or notification for it, so nothing
+// else would release the parent. A missing or unreadable child transcript keeps
+// the child outstanding, because it may not exist yet right after the launch.
+func scanOutstandingChildren(path, transcriptPath, sessionID string) (handbackChildState, error) {
+	launched, finished, last, has, err := scanHandbackTranscript(path)
 	if err != nil {
-		debugLog("handback-gate: transcript read error for %s: %v", path, err)
-		return handbackGateResult{}
+		return handbackChildState{}, err
 	}
+	st := handbackChildState{Dead: map[string]string{}, LastProgress: last, HasProgress: has}
+	for id := range launched {
+		if finished[id] {
+			continue
+		}
+		if line, ok := childAPIError(subagentTranscriptPath(transcriptPath, sessionID, id)); ok {
+			st.Dead[id] = line
+			continue
+		}
+		st.Missing = append(st.Missing, id)
+	}
+	sort.Strings(st.Missing)
+	return st, nil
+}
 
-	var missing []string
-	for id := range launchedIDs {
-		if !finishedIDs[id] {
-			missing = append(missing, id)
+// childAPIError reports whether the last assistant entry of the child
+// transcript at path is an API error, and returns the first line of its text.
+// Claude Code marks that entry with "isApiErrorMessage":true.
+func childAPIError(path string) (string, bool) {
+	if path == "" {
+		return "", false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", false
+	}
+	defer f.Close()
+
+	line, isErr := "", false
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	for sc.Scan() {
+		raw := sc.Bytes()
+		if len(strings.TrimSpace(string(raw))) == 0 {
+			continue
+		}
+		var entry handbackLine
+		if json.Unmarshal(raw, &entry) != nil || entry.Type != "assistant" || entry.Message == nil {
+			continue
+		}
+		isErr, line = false, ""
+		if !entry.IsAPIError {
+			continue
+		}
+		for _, b := range handbackParseBlocks(entry.Message.Content) {
+			if b.Type == "text" && strings.HasPrefix(strings.TrimSpace(b.Text), "API Error") {
+				isErr = true
+				line = strings.TrimSpace(strings.SplitN(strings.TrimSpace(b.Text), "\n", 2)[0])
+				break
+			}
 		}
 	}
-	if len(missing) == 0 {
-		return handbackGateResult{}
-	}
-	sort.Strings(missing)
+	return line, isErr
+}
 
-	if !hasProgress {
+// outstandingChildDecision is the wait-for-children policy the Hermes and the
+// Ares hand-back gates share. done is false when the gate has nothing to say
+// (no path, unreadable transcript, no outstanding or dead child, or no usable
+// timestamp to measure a stall against) and the caller carries on. When done
+// is true the result is either a deny, or a release carrying an
+// AdditionalContext that names what never reported.
+func outstandingChildDecision(path string, input preToolUseInput, ares bool) (handbackGateResult, bool) {
+	if path == "" {
+		return handbackGateResult{}, false
+	}
+	st, err := scanOutstandingChildren(path, input.TranscriptPath, input.SessionID)
+	if err != nil {
+		debugLog("handback-gate: transcript read error for %s: %v", path, err)
+		return handbackGateResult{}, false
+	}
+	if len(st.Missing) == 0 {
+		if len(st.Dead) == 0 {
+			return handbackGateResult{}, false
+		}
+		return handbackGateResult{AdditionalContext: handbackDeadContext(st.Dead, ares)}, true
+	}
+	if !st.HasProgress {
 		// No launch or finish event anywhere in the transcript carries a
 		// parseable timestamp, so the stall clock has nothing to measure
 		// against — this gate cannot tell a fresh launch from a genuine
 		// stall. Fail open, the same discipline an unreadable transcript
 		// gets above, rather than deny with no way to ever release.
-		debugLog("handback-gate: no usable timestamp in %s, failing open with %d missing", path, len(missing))
-		return handbackGateResult{}
+		debugLog("handback-gate: no usable timestamp in %s, failing open with %d missing", path, len(st.Missing))
+		return handbackGateResult{}, false
 	}
-	if handbackNow().Sub(lastProgress) >= handbackStallTimeout {
-		return handbackGateResult{AdditionalContext: handbackStallContext(missing)}
+	if handbackNow().Sub(st.LastProgress) >= handbackStallTimeout {
+		ctx := handbackStallContext(st.Missing, ares)
+		if len(st.Dead) > 0 {
+			ctx += " " + handbackDeadContext(st.Dead, ares)
+		}
+		return handbackGateResult{AdditionalContext: ctx}, true
 	}
-	return handbackGateResult{Decision: "deny", Reason: handbackDenyReason(missing)}
+	return handbackGateResult{Decision: "deny", Reason: handbackDenyReason(st.Missing)}, true
 }
 
 // handbackContentGateDecision applies the same capped block-count guard
@@ -274,7 +372,10 @@ type handbackBlock struct {
 type handbackLine struct {
 	Type      string `json:"type"`
 	Timestamp string `json:"timestamp"`
-	Origin    *struct {
+	// IsAPIError marks the synthetic assistant entry Claude Code writes when
+	// the API call itself failed (its text starts with "API Error").
+	IsAPIError bool `json:"isApiErrorMessage"`
+	Origin     *struct {
 		Kind     string `json:"kind"`
 		From     string `json:"from"`
 		Handback bool   `json:"handback"`
@@ -508,8 +609,31 @@ func handbackDenyReason(missing []string) string {
 // leaves behind. The hand-back proceeds (handbackGateDecision sets no
 // Decision alongside it), but the missing children must be named in the
 // report, not silently dropped.
-func handbackStallContext(missing []string) string {
-	return "Stall timeout reached: no launch or finish for " + handbackStallTimeout.String() +
-		". Still missing: " + strings.Join(missing, ", ") +
-		". You may hand back now. State in your report that these children's tiers are parent-only, not child-verified."
+func handbackStallContext(missing []string, ares bool) string {
+	base := "Stall timeout reached: no launch or finish for " + handbackStallTimeout.String() +
+		". Still missing: " + strings.Join(missing, ", ") + ". You may hand back now. "
+	if ares {
+		return base + "Write `Reach: child failed (stall timeout, no report from " + strings.Join(missing, ", ") +
+			")` and answer the four Reach questions yourself on the diff."
+	}
+	return base + "State in your report that these children's tiers are parent-only, not child-verified."
+}
+
+// handbackDeadContext is the trace a dead-child release leaves behind: which
+// child died, with its own error line, and what the report must say about it.
+func handbackDeadContext(dead map[string]string, ares bool) string {
+	ids := make([]string, 0, len(dead))
+	for id := range dead {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	parts := make([]string, 0, len(ids))
+	for _, id := range ids {
+		parts = append(parts, "child "+id+" failed: "+dead[id])
+	}
+	base := strings.Join(parts, "; ") + ". It will never report. You may hand back now. "
+	if ares {
+		return base + "Write `Reach: child failed (" + dead[ids[0]] + ")` and answer the four Reach questions yourself on the diff."
+	}
+	return base + "State in your report that its tier is parent-only, not child-verified."
 }
