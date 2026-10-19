@@ -1427,11 +1427,13 @@ func subagentStopCmd() *cobra.Command {
 				// ares-stop-state.json while a launched child is outstanding.
 				// A hand-back the PreToolUse gate denied for that same wait is
 				// in the transcript too, so the wait ignores hand-backs. It
-				// ends after handbackStallTimeout without progress, and a
-				// child that died on an API error is not outstanding.
+				// ends after handbackStallTimeout without progress, a child
+				// that died on an API error is not outstanding, and with no
+				// parseable timestamp the wait cannot be bounded, so the
+				// content checks run.
 				if p := subagentHandbackTranscriptPath(input); p != "" {
 					if st, err := scanOutstandingChildren(p, input.TranscriptPath, input.SessionID); err == nil && len(st.Missing) > 0 &&
-						(!st.HasProgress || handbackNow().Sub(st.LastProgress) < handbackStallTimeout) {
+						st.HasProgress && handbackNow().Sub(st.LastProgress) < handbackStallTimeout {
 						debugLog("ares-stop: async wait, %d children outstanding", len(st.Missing))
 						return outputSubagentOK()
 					}

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -230,7 +231,13 @@ func childAPIError(path string) (string, bool) {
 	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 	for sc.Scan() {
 		raw := sc.Bytes()
-		if len(strings.TrimSpace(string(raw))) == 0 {
+		// Parse JSON only for the lines that matter: an API-error marker, or
+		// an assistant entry that supersedes an earlier error. Every other
+		// line (tool results, user turns) is skipped on a substring check.
+		if !bytes.Contains(raw, []byte(`"isApiErrorMessage"`)) {
+			if bytes.Contains(raw, []byte(`"type":"assistant"`)) {
+				isErr, line = false, ""
+			}
 			continue
 		}
 		var entry handbackLine
@@ -248,6 +255,10 @@ func childAPIError(path string) (string, bool) {
 				break
 			}
 		}
+	}
+	if err := sc.Err(); err != nil {
+		debugLog("handback-gate: child transcript scan failed for %s: %v", path, err)
+		return "", false
 	}
 	return line, isErr
 }

@@ -1123,8 +1123,9 @@ var (
 
 // gateAwkIsFilter reports whether an awk segment only reads: flags limited to
 // -F and -v, no `>` or `@`, no `system(` or `close(`, and no `|` outside a
-// regex literal. A `|` inside /…/ is alternation (`/15:(09|1[0-9])/`); outside
-// it is `print | "cmd"` or `"cmd" | getline`, which run a command.
+// regex or string literal. A `|` inside /…/ is alternation (`/15:(09|1[0-9])/`)
+// and inside "…" it is data; outside both it is `print | "cmd"` or
+// `"cmd" | getline`, which run a command.
 func gateAwkIsFilter(raw string) bool {
 	tokens := gateSegmentTokens(raw)
 	for i := 1; i < len(tokens) && strings.HasPrefix(tokens[i], "-") && tokens[i] != "-" && tokens[i] != "--"; i++ {
@@ -1135,35 +1136,124 @@ func gateAwkIsFilter(raw string) bool {
 			i++
 		}
 	}
-	text := strings.TrimSpace(raw)
+	text := strings.TrimSpace(gateEffectiveSegmentText(raw))
 	if f := strings.Fields(text); len(f) > 0 {
 		text = text[len(f[0]):]
 	}
-	return !gateAwkCallRE.MatchString(text) && gateAwkNoWriteChars(text)
-}
-
-// gateAwkShellQuoteBefore reports whether text[i] directly follows a single
-// quote that opens a shell word, as in `awk '/re/'`. A quote glued to a name
-// or an operator (`a='/'`) sits inside the program and is not such a quote.
-func gateAwkShellQuoteBefore(text string, i int) bool {
-	if i == 0 || text[i-1] != '\'' {
+	if gateAwkCallRE.MatchString(text) {
 		return false
 	}
-	return i == 1 || text[i-2] == ' ' || text[i-2] == '\t'
+	words, ok := gateShellWords(text)
+	if !ok {
+		return false
+	}
+	// Flags were vetted above. The first word after them is the program;
+	// later words are file operands and var=value assignments, which awk
+	// reads but never runs.
+	k := 0
+	for k < len(words) && strings.HasPrefix(words[k], "-") && words[k] != "-" && words[k] != "--" {
+		if words[k] == "-F" || words[k] == "-v" {
+			k++
+		}
+		k++
+	}
+	if k < len(words) && words[k] == "--" {
+		k++
+	}
+	if k >= len(words) {
+		return true
+	}
+	return gateAwkNoWriteChars(words[k])
 }
 
-// gateAwkNoWriteChars scans awk text for `>`, `@` and `|`, skipping the body of
-// regex literals (where only `|` is legal). A `/` opens a regex when the last
-// non-space byte before it cannot end an operand; an unterminated literal
-// fails the check.
+// gateShellWords splits text into shell words and removes one level of
+// quoting: single quotes keep their content verbatim, double quotes unescape
+// a backslash before a backslash, double quote, dollar or backtick, and a bare
+// backslash escapes the next byte. It reports false for an unterminated quote.
+func gateShellWords(text string) ([]string, bool) {
+	var words []string
+	var cur strings.Builder
+	inWord := false
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		switch {
+		case c == ' ' || c == '\t' || c == '\n':
+			if inWord {
+				words = append(words, cur.String())
+				cur.Reset()
+				inWord = false
+			}
+		case c == '\'':
+			inWord = true
+			j := strings.IndexByte(text[i+1:], '\'')
+			if j < 0 {
+				return nil, false
+			}
+			cur.WriteString(text[i+1 : i+1+j])
+			i += j + 1
+		case c == '"':
+			inWord = true
+			closed := false
+			for i++; i < len(text); i++ {
+				d := text[i]
+				if d == '"' {
+					closed = true
+					break
+				}
+				if d == '\\' && i+1 < len(text) && strings.IndexByte("\\\"$`", text[i+1]) >= 0 {
+					i++
+					d = text[i]
+				}
+				cur.WriteByte(d)
+			}
+			if !closed {
+				return nil, false
+			}
+		case c == '\\' && i+1 < len(text):
+			inWord = true
+			i++
+			cur.WriteByte(text[i])
+		default:
+			inWord = true
+			cur.WriteByte(c)
+		}
+	}
+	if inWord {
+		words = append(words, cur.String())
+	}
+	return words, true
+}
+
+// gateAwkNoWriteChars scans an awk program for `>`, `@`, `|` and `#`. String
+// literals ("…", with \ escapes) are data and are skipped whole, and they end
+// an operand. In regex literals only `|` is legal. A `/` opens a regex when
+// the last non-space byte before it cannot end an operand; an unterminated
+// string or regex fails the check.
 func gateAwkNoWriteChars(text string) bool {
 	var prev byte
 	for i := 0; i < len(text); i++ {
 		c := text[i]
 		switch {
-		case c == '>' || c == '@' || c == '|':
+		case c == '>' || c == '@' || c == '|' || c == '#':
+			// A `#` outside a string or regex starts a comment. Quotes in a
+			// comment would pair up with real ones and hide a `|`, so a
+			// comment is not a read-only filter.
 			return false
-		case c == '/' && (strings.IndexByte("\x00{};(,~!&|=", prev) >= 0 || gateAwkShellQuoteBefore(text, i)):
+		case c == '"':
+			j := i + 1
+			for j < len(text) && text[j] != '"' {
+				if text[j] == '\\' {
+					j++
+				}
+				j++
+			}
+			if j >= len(text) {
+				return false
+			}
+			i = j
+			prev = '"'
+			continue
+		case c == '/' && strings.IndexByte("\x00{};(,~!&|=", prev) >= 0:
 			j := i + 1
 			for j < len(text) && text[j] != '/' {
 				if text[j] == '\\' {

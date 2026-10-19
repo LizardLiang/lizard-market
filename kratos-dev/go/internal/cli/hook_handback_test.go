@@ -951,3 +951,42 @@ func TestAresHandbackWaitsForChild(t *testing.T) {
 		}
 	})
 }
+
+// TestChildAPIErrorScan pins the line-by-line scan: an API error on the last
+// line is found, a transcript with no error is not dead, a later assistant
+// entry clears an earlier error, and a line over the scanner buffer is a scan
+// failure that must not report the child dead.
+func TestChildAPIErrorScan(t *testing.T) {
+	write := func(t *testing.T, lines ...string) string {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "child.jsonl")
+		if err := os.WriteFile(p, []byte(strings.Join(lines, "\n")+"\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	filler := handbackAssistantToolUseLine("x", "Read")
+
+	t.Run("error only on the last line is detected", func(t *testing.T) {
+		line, ok := childAPIError(write(t, filler, filler, filler, apiErrorLine("API Error: boom\nsecond line")))
+		if !ok || line != "API Error: boom" {
+			t.Fatalf("got (%q, %v), want (\"API Error: boom\", true)", line, ok)
+		}
+	})
+	t.Run("transcript without an error is not dead", func(t *testing.T) {
+		if line, ok := childAPIError(write(t, filler, filler)); ok {
+			t.Fatalf("got dead with %q, want not dead", line)
+		}
+	})
+	t.Run("a later assistant entry clears the error", func(t *testing.T) {
+		if _, ok := childAPIError(write(t, apiErrorLine("API Error: boom"), filler)); ok {
+			t.Fatal("got dead, want not dead after a later assistant entry")
+		}
+	})
+	t.Run("a line over the scanner buffer is not dead", func(t *testing.T) {
+		huge := `{"type":"user","message":"` + strings.Repeat("a", 17*1024*1024) + `"}`
+		if line, ok := childAPIError(write(t, apiErrorLine("API Error: boom"), huge)); ok {
+			t.Fatalf("got dead with %q, want not dead when the scan failed", line)
+		}
+	})
+}

@@ -1928,4 +1928,23 @@ func TestAresStopAllowsAsyncWait(t *testing.T) {
 			t.Fatal("expected block: a dead child is not a reason to wait")
 		}
 	})
+
+	t.Run("child outstanding but no parseable timestamp: no wait, checks run", func(t *testing.T) {
+		root := t.TempDir()
+		var bare []string
+		for _, l := range launch {
+			var m map[string]any
+			if err := json.Unmarshal([]byte(l), &m); err != nil {
+				t.Fatal(err)
+			}
+			delete(m, "timestamp")
+			b, _ := json.Marshal(m)
+			bare = append(bare, string(b))
+		}
+		main := writeHandbackTranscript(t, "sessAS6", "aresAS6", bare...)
+		resp := runSubagentStop(t, payload(root, "sessAS6", "aresAS6", main))
+		if resp.allowed() {
+			t.Fatal("expected block: with no timestamp the wait cannot be bounded, so the Final Block is enforced")
+		}
+	})
 }
