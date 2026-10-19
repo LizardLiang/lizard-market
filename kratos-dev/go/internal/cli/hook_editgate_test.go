@@ -953,6 +953,60 @@ sqlcmd -S "$SRV" -d "$DB" -U "$UID_" -P "$PW" -C -l 30 -W -i "$TMPDIR/verify.sql
 			ledger:    map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "iris"},
 			wantClear: false,
 		},
+		{
+			name:    "spawned odysseus writes a flow shard",
+			payload: odysseusPayload("Write", map[string]any{"file_path": ".claude/.Arena/flows/recognition-template-draft.md"}),
+		},
+		{
+			name:    "spawned odysseus edits a flow shard by absolute path",
+			payload: odysseusPayload("Edit", map[string]any{"file_path": "C:/repo/.claude/.Arena/flows/pipeline.md"}),
+		},
+		{
+			name:    "spawned odysseus multiedits a flow shard",
+			payload: odysseusPayload("MultiEdit", map[string]any{"file_path": ".claude/.Arena/flows/pipeline.md"}),
+		},
+		{
+			name:    "spawned odysseus flow shard with traversal denied",
+			payload: odysseusPayload("Write", map[string]any{"file_path": ".claude/.Arena/flows/../../etc/passwd.md"}),
+			want:    "deny",
+		},
+		{
+			name:    "spawned odysseus flow shard subdirectory denied",
+			payload: odysseusPayload("Write", map[string]any{"file_path": ".claude/.Arena/flows/sub/x.md"}),
+			want:    "deny",
+		},
+		{
+			name:    "spawned odysseus flow shard non-markdown denied",
+			payload: odysseusPayload("Write", map[string]any{"file_path": ".claude/.Arena/flows/x.json"}),
+			want:    "deny",
+		},
+		{
+			name:    "spawned odysseus other Arena shard denied",
+			payload: odysseusPayload("Write", map[string]any{"file_path": ".claude/.Arena/conventions/x.md"}),
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus writes a flow shard",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Write", "tool_input": map[string]any{"file_path": "C:/repo/.claude/.Arena/flows/pipeline.md"}}),
+			ledger:  map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "odysseus"},
+		},
+		{
+			name:    "inline odysseus edits a flow shard",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Edit", "tool_input": map[string]any{"file_path": ".claude/.Arena/flows/pipeline.md"}}),
+			ledger:  map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "odysseus"},
+		},
+		{
+			name:    "inline odysseus flow shard outside the project denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Write", "tool_input": map[string]any{"file_path": "D:/elsewhere/.claude/.Arena/flows/pipeline.md"}}),
+			ledger:  map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "odysseus"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus flow shard traversal denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Write", "tool_input": map[string]any{"file_path": "C:/repo/.claude/.Arena/flows/../../../etc/x.md"}}),
+			ledger:  map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "odysseus"},
+			want:    "deny",
+		},
 		// ---- skill load arms the gate (Fix 4) ----
 		{
 			name:       "skill load addresses iris by name",

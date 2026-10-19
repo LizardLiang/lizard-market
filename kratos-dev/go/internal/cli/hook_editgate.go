@@ -104,9 +104,12 @@ var gateReadOnlyCommands = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^(?:which|stat|file)(?:\.exe)?(?:\s|$)`),
 	// Every program head ends at whitespace, end of text or .exe, so a
 	// hyphenated program (sort-package-json, cat-evil) is not a reader.
-	// Pure text and navigation heads. awk is absent on purpose: an awk
-	// program can write files from inside its script.
+	// Pure text and navigation heads.
 	regexp.MustCompile(`(?i)^(?:cd|echo|printf|sort|uniq|cut|tr)(?:\.exe)?(?:\s|$)`),
+	// ps and date inspect. awk is here only as a filter: an awk program can
+	// write files and run commands from inside its script, so
+	// gateAwkIsFilter vets every awk segment before this entry can match.
+	regexp.MustCompile(`(?i)^(?:ps|date|awk)(?:\.exe)?(?:\s|$)`),
 	regexp.MustCompile(`(?i)^command\s+-v\b`),
 	regexp.MustCompile(`(?i)^Get-(?:ChildItem|Content|Location)\b`),
 	regexp.MustCompile(`(?i)^Select-String\b`),
@@ -677,7 +680,7 @@ func odysseusGate(input preToolUseInput, ledger map[string]any) editGateResult {
 			debugLog("edit-gate: %s payload carries no file path", input.ToolName)
 			return editGateResult{}
 		}
-		if isTacticalPlanPath(p, cwd) || isSpecDeltaGatePath(p, cwd) {
+		if isTacticalPlanPath(p, cwd) || isSpecDeltaGatePath(p, cwd) || isFlowShardPath(p, cwd) {
 			return editGateResult{}
 		}
 		return editGateResult{Decision: "deny", Reason: odysseusWriteDenyReason}
@@ -798,6 +801,18 @@ func isUnderGateCwd(cleaned, cwd string) bool {
 	}
 	p := normalizeLedgerPath(cleaned)
 	return p == root || strings.HasPrefix(p, root+"/")
+}
+
+// gateFlowShardRE allows exactly one segment after flows/, so a subdirectory
+// of flows/ stays denied. Case sensitive on .Arena, as the plan path is.
+var gateFlowShardRE = regexp.MustCompile(`(^|/)\.claude/\.Arena/flows/[^/]+\.md$`)
+
+// isFlowShardPath allows .claude/.Arena/flows/<subsystem>.md only. The Flow
+// Trace protocol and Iris's "a stated design rule is written down now" rule
+// both direct Odysseus to write that shard.
+func isFlowShardPath(filePath, cwd string) bool {
+	n := gateCleanPath(filePath)
+	return n != "" && gateFlowShardRE.MatchString(n) && isUnderGateCwd(n, cwd)
 }
 
 func isTacticalPlanPath(filePath, cwd string) bool {
@@ -1026,6 +1041,14 @@ func isReadOnlySegment(seg shellSegment) bool {
 		if gateFollowFlagRE.MatchString(masked) {
 			return false
 		}
+	case "awk":
+		if !gateAwkIsFilter(raw) {
+			return false
+		}
+	case "date":
+		if gateDateSetsClock(gateSegmentTokens(raw)) {
+			return false
+		}
 	case "sort":
 		if gateSortWritesFile(gateSegmentTokens(raw)) {
 			return false
@@ -1044,6 +1067,82 @@ func isReadOnlySegment(seg shellSegment) bool {
 		}
 	}
 	return false
+}
+
+// gateDateSetsClock reports a date invocation that sets the system clock
+// (-s, --set) instead of printing it.
+func gateDateSetsClock(tokens []string) bool {
+	for _, t := range tokens[min(1, len(tokens)):] {
+		if strings.HasPrefix(t, "--set") || (strings.HasPrefix(t, "-s") && !strings.HasPrefix(t, "--")) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	// gateAwkCallRE spots the two awk functions that run or finish a command.
+	gateAwkCallRE = regexp.MustCompile(`\b(?:system|close)\s*\(`)
+	// gateAwkFlagRE is the only flag shape awk may carry as a filter: a field
+	// separator or a variable assignment. Everything else (-i inplace, -f
+	// progfile, -l extension, -o and -p file output) can write or run code.
+	gateAwkFlagRE = regexp.MustCompile(`^-[Fv]`)
+)
+
+// gateAwkIsFilter reports whether an awk segment only reads: flags limited to
+// -F and -v, no `>` or `@`, no `system(` or `close(`, and no `|` outside a
+// regex literal. A `|` inside /…/ is alternation (`/15:(09|1[0-9])/`); outside
+// it is `print | "cmd"` or `"cmd" | getline`, which run a command.
+func gateAwkIsFilter(raw string) bool {
+	tokens := gateSegmentTokens(raw)
+	for i := 1; i < len(tokens) && strings.HasPrefix(tokens[i], "-") && tokens[i] != "-" && tokens[i] != "--"; i++ {
+		if !gateAwkFlagRE.MatchString(tokens[i]) {
+			return false
+		}
+		if tokens[i] == "-F" || tokens[i] == "-v" {
+			i++
+		}
+	}
+	text := strings.TrimSpace(raw)
+	if f := strings.Fields(text); len(f) > 0 {
+		text = text[len(f[0]):]
+	}
+	return !gateAwkCallRE.MatchString(text) && gateAwkNoWriteChars(text)
+}
+
+// gateAwkNoWriteChars scans awk text for `>`, `@` and `|`, skipping the body of
+// regex literals (where only `|` is legal). A `/` opens a regex when the last
+// non-space byte before it cannot end an operand; an unterminated literal
+// fails the check.
+func gateAwkNoWriteChars(text string) bool {
+	var prev byte
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		switch {
+		case c == '>' || c == '@' || c == '|':
+			return false
+		case c == '/' && strings.IndexByte("\x00{};(,~!&|='\"", prev) >= 0:
+			j := i + 1
+			for j < len(text) && text[j] != '/' {
+				if text[j] == '\\' {
+					j++
+				} else if text[j] == '>' {
+					return false
+				}
+				j++
+			}
+			if j >= len(text) {
+				return false
+			}
+			i = j
+			prev = '/'
+			continue
+		}
+		if c != ' ' && c != '\t' && c != '\n' {
+			prev = c
+		}
+	}
+	return true
 }
 
 // gateSegmentTokens splits a segment's effective text on whitespace and
