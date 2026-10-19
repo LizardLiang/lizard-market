@@ -923,6 +923,36 @@ sqlcmd -S "$SRV" -d "$DB" -U "$UID_" -P "$PW" -C -l 30 -W -i "$TMPDIR/verify.sql
 			ledger:  irisLedger("C:/repo/src/a.ts"),
 			want:    "ask",
 		},
+		{
+			name:      "dispatch of the armed odysseus clears his own claim",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Agent", "tool_input": map[string]any{"subagent_type": "kratos:odysseus"}}),
+			ledger:    map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "odysseus"},
+			wantClear: true,
+		},
+		{
+			name:      "dispatch of the armed odysseus is case-insensitive",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Agent", "tool_input": map[string]any{"subagent_type": "Kratos:Odysseus"}}),
+			ledger:    map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "odysseus"},
+			wantClear: true,
+		},
+		{
+			name:      "grounding spawn of metis keeps odysseus armed",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Agent", "tool_input": map[string]any{"subagent_type": "kratos:metis"}}),
+			ledger:    map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "odysseus"},
+			wantClear: false,
+		},
+		{
+			name:      "dispatch of the armed iris clears her own claim",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Agent", "tool_input": map[string]any{"subagent_type": "kratos:iris"}}),
+			ledger:    map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "iris"},
+			wantClear: true,
+		},
+		{
+			name:      "iris dispatching odysseus keeps iris armed",
+			payload:   payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Agent", "tool_input": map[string]any{"subagent_type": "kratos:odysseus"}}),
+			ledger:    map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "inline_god": "iris"},
+			wantClear: false,
+		},
 		// ---- skill load arms the gate (Fix 4) ----
 		{
 			name:       "skill load addresses iris by name",

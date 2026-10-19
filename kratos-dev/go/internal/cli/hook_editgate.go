@@ -592,6 +592,12 @@ func editGateDecisionRest(input preToolUseInput, extra gateToolExtra, ledger map
 				res.ClearGod = true
 			}
 		}
+		// The inline god handed his own role to a subagent: his claim on the
+		// session ends with the dispatch. Without this the main context kept
+		// the Odysseus read-only gate for the 18 minutes the subagent ran.
+		if god != "" && strings.EqualFold(target, "kratos:"+god) {
+			res.ClearGod = true
+		}
 		return res
 	}
 
