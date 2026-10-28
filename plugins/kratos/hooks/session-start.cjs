@@ -74,6 +74,7 @@ const OUTPUT_CONSTRAINT =
   "- Asking the user to decide: state the decision and its consequence before the options.\n" +
   "- No filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n" +
   "- A mid-turn progress line is the same standard in miniature: `[status] [what] [result]. [next].` Fragments OK; lead with the result, never a bare `[what]:`. No arrow chains in prose — a flow goes in an ASCII diagram.\n" +
+  "- Write every line in the user's language, progress lines too, even when code and instructions are English.\n" +
   "- A message the human typed always gets an answer; `No response requested` is only for harness task notifications.\n";
 
 // The pre-plugin installer registered copies of the hooks in ~/.claude/settings.json;

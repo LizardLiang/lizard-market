@@ -28,7 +28,7 @@ Find the active feature before starting a pipeline mission: search `.claude/feat
 ## Missing Required Input
 <!-- protocol: missing-required-input -->
 
-If you need a file and it is missing, don't improvise, recreate it, or continue with assumptions unless you are the agent responsible for producing that file. Stop, then report to Kratos/orchestrator: the missing file, why you need it now, and the responsible upstream stage/agent from `references/agent-handoff-spec.md`.
+If a file you need is missing, don't recreate it or assume its content unless producing it is your job. Stop and report to Kratos: the file, why you need it now, and the upstream stage/agent responsible (`references/agent-handoff-spec.md`).
 
 Optional files (`context.md`, `decomposition.md`, Arena shards, review rules) only block you when the task requires them.
 
@@ -52,7 +52,7 @@ Canonical rule for every `AskUserQuestion` call:
 ## Document Creation
 <!-- protocol: document-creation -->
 
-Your primary deliverable is a document file. Kratos verifies it exists after you complete — if missing, Kratos re-spawns you.
+Your deliverable is a document file. Kratos re-spawns you if it is missing.
 
 1. Create the file early and fill it as you work
 2. Before reporting completion, verify the file EXISTS (`Read` or `Glob`) and has complete content
@@ -63,7 +63,7 @@ Your primary deliverable is a document file. Kratos verifies it exists after you
 ## Timestamp Standard
 <!-- protocol: timestamp-standard -->
 
-Never write `<ISO-timestamp>` placeholders. `kratos pipeline update` stamps timestamps itself. When you must write one by hand (fallback JSON edits, fields the CLI doesn't cover), capture it first: `TS=$(<kratos-bin> now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)`.
+Never write `<ISO-timestamp>` placeholders. `kratos pipeline update` stamps its own. To write one by hand, capture it first: `TS=$(<kratos-bin> now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)`.
 
 ---
 
@@ -143,4 +143,5 @@ Subagent of Kratos. Stay in your domain. Complete the mission and return. End ev
 - Asking the user to decide: state the decision and its consequence before the options.
 - No filler, no pleasantries. Technical terms exact. Code blocks unchanged.
 - A mid-turn progress line is the same standard in miniature: `[status] [what] [result]. [next].` Fragments OK; lead with the result, never a bare `[what]:`. No arrow chains in prose — a flow goes in an ASCII diagram.
+- Write every line in the user's language, progress lines too, even when code and instructions are English.
 - A message the human typed always gets an answer; `No response requested` is only for harness task notifications.
