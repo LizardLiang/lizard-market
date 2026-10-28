@@ -283,6 +283,42 @@ func TestEditGateDecisions(t *testing.T) {
 			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
 			want:    "",
 		},
+		{
+			name:    "inline odysseus recorded K=kratos assignment chain allowed",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=C:/Users/lizard_liang/.kratos/bin/kratos.exe; $K slug --dated "recurring expenses"; $K now; $K template get tactical-plan-template; echo =====; $K template get spec-delta-template; echo =====; cat C:/Users/lizard_liang/.claude/plugins/cache/lizard-plugins/kratos/2.120.0/references/discovery-quadrants.md`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "",
+		},
+		{
+			name:    "inline odysseus assignment of a destructive program denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=rm; $K -rf build`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus assignment from command substitution denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=$(which kratos); $K slug x`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus substituted kratos then chained rm denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=C:/x/kratos.exe; $K slug x && rm -rf build`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus braced reference of a mutating kratos subcommand denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=C:/x/kratos.exe; ${K} spec archive x`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus non-leading assignment is not substituted and denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `echo a; K=C:/x/kratos.exe; $K slug x`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
 		// ---- Iris budget ----
 		{
 			name:      "first source file allowed and counted",

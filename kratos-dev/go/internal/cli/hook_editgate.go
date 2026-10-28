@@ -1016,6 +1016,7 @@ func isReadOnlyShellCommand(command string) bool {
 	if len(segs) == 0 {
 		return false
 	}
+	segs = substituteLeadingAssignment(segs)
 	for _, seg := range segs {
 		if strings.TrimSpace(seg.raw) == "" {
 			continue
@@ -1025,6 +1026,55 @@ func isReadOnlyShellCommand(command string) bool {
 		}
 	}
 	return true
+}
+
+// gateBareAssignmentRE matches a segment that only sets NAME=value, where the
+// value holds no shell metacharacter and no quote, so it is one literal word.
+var gateBareAssignmentRE = regexp.MustCompile("^([A-Za-z_][A-Za-z0-9_]*)=([^;&|<>`$()\\s'\"]+)$")
+
+// substituteLeadingAssignment expands `$NAME` and `${NAME}` at the head of
+// every later segment when the first segment is a bare assignment with a
+// literal value (`K=/x/kratos.exe; $K slug x`). Each expanded segment is then
+// classified like any typed command, so the value must still name a read-only
+// program. The assignment segment is dropped only when a later head used it,
+// so `PATH=/x; ls` classifies as before. Any other first segment, and any
+// `$NAME` past a segment head, is left unexpanded and classifies as before.
+func substituteLeadingAssignment(segs []shellSegment) []shellSegment {
+	if len(segs) < 2 {
+		return segs
+	}
+	m := gateBareAssignmentRE.FindStringSubmatch(strings.TrimSpace(segs[0].raw))
+	if m == nil {
+		return segs
+	}
+	out := make([]shellSegment, len(segs))
+	copy(out, segs)
+	used := false
+	for i := 1; i < len(out); i++ {
+		raw := strings.TrimLeft(out[i].raw, " 	")
+		for _, ref := range []string{"${" + m[1] + "}", "$" + m[1]} {
+			if !strings.HasPrefix(raw, ref) {
+				continue
+			}
+			rest := raw[len(ref):]
+			if rest != "" && ref[1] != '{' && isShellNameByte(rest[0]) {
+				continue
+			}
+			expanded := m[2] + rest
+			out[i] = shellSegment{raw: expanded, masked: maskQuoted(expanded)}
+			used = true
+			break
+		}
+	}
+	if !used {
+		return segs
+	}
+	return out[1:]
+}
+
+// isShellNameByte reports whether b can continue a shell variable name.
+func isShellNameByte(b byte) bool {
+	return b == '_' || b >= '0' && b <= '9' || b >= 'A' && b <= 'Z' || b >= 'a' && b <= 'z'
 }
 
 // isReadOnlySegment classifies one segment by its head plus the guards a reader
