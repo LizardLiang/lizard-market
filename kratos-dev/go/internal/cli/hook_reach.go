@@ -108,6 +108,22 @@ func isUserModeReport(report string) bool {
 	return false
 }
 
+// reachAllNotApplicable reports whether report, already folded by
+// foldHeaderLists, carries at least one `Reach:` line and every one of them
+// reads `not applicable`: the mission changed no code.
+func reachAllNotApplicable(report string) bool {
+	reachLines := reachLineRE.FindAllStringSubmatch(report, -1)
+	if len(reachLines) == 0 {
+		return false
+	}
+	for _, rl := range reachLines {
+		if !reachNotApplicableRE.MatchString(strings.TrimSpace(strings.Trim(rl[1], "*"))) {
+			return false
+		}
+	}
+	return true
+}
+
 // aresReachGateFailures returns one entry per unmet Reach Review check.
 // A brief is free text, so the gate cannot count its items reliably. The
 // evidence check enforces presence, not one RED/GREEN pair per item.
@@ -119,12 +135,7 @@ func aresReachGateFailures(report string, input subagentStopInput) []string {
 	var failures []string
 
 	reachLines := reachLineRE.FindAllStringSubmatch(report, -1)
-	allNotApplicable := len(reachLines) > 0
-	for _, rl := range reachLines {
-		if !reachNotApplicableRE.MatchString(strings.TrimSpace(strings.Trim(rl[1], "*"))) {
-			allNotApplicable = false
-		}
-	}
+	allNotApplicable := reachAllNotApplicable(report)
 	if len(reachLines) == 0 {
 		failures = append(failures, "no `Reach: <entry point> — reached by <callers/inputs/states the request did not name> → <test | fix | NEEDS DESIGN>` line (or `Reach: none beyond the request`, or `Reach: not applicable — no code changed`) — run the Reach Review on `git diff <start>..HEAD` and report one line per changed entry point")
 	}

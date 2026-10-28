@@ -1213,7 +1213,11 @@ func aresReportFailures(report string, input subagentStopInput) []string {
 		failures = append(failures, "no task list recap was written before starting work")
 	}
 
-	if !mentionsFilesRE.MatchString(report) {
+	// A mission that changed no code (the landed waiver plus only `Reach: not
+	// applicable` lines) has no file to name and no implementation to confirm.
+	noCodeChanged := landedWaiverRE.MatchString(report) && reachAllNotApplicable(report)
+
+	if !noCodeChanged && !mentionsFilesRE.MatchString(report) {
 		failures = append(failures, "no specific files were mentioned as created or modified")
 	}
 
@@ -1221,7 +1225,7 @@ func aresReportFailures(report string, input subagentStopInput) []string {
 		strings.Contains(reportLower, "done") ||
 		strings.Contains(reportLower, "finished") ||
 		strings.Contains(reportLower, "implemented")
-	if !declaresComplete {
+	if !noCodeChanged && !declaresComplete {
 		failures = append(failures, "implementation completion was not confirmed")
 	}
 

@@ -220,7 +220,7 @@ func TestAresReportFoldedHeaderStillDenies(t *testing.T) {
 		t.Errorf("a lone `Reach: not run` must still require the child, got %q", got)
 	}
 
-	noFiles := foldBase + "Files created/modified:\n- nothing\n" + foldTail + "Reach: not applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n"
+	noFiles := foldBase + "Files created/modified:\n- nothing\n" + "Landed: main@abc1234\nNot run: none\n" + "Reach: not applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n"
 	if got := reachFailureText(aresReportFailures(noFiles, subagentStopInput{})); !strings.Contains(got, "no specific files") {
 		t.Errorf("a file list without files must fail, got %q", got)
 	}
@@ -295,5 +295,62 @@ func TestAresReachChildFailedLine(t *testing.T) {
 	notLaunched := reachInput(t, "aresRF2", userPromptLine("implement"))
 	if got := reachFailureText(aresReportFailures(report, notLaunched)); !strings.Contains(got, "child agent") {
 		t.Fatalf("`Reach: child failed (...)` without a launched child must still fail the child check, got %q", got)
+	}
+}
+
+const noCodeReport = "TEST REPORT (AI usage and cost work, worktree nz-usage-test @ 62d3f6c). No code changed, nothing committed. LANDED-NOT-APPLICABLE: test-only mission, no files changed.\nReach: not applicable — no code changed.\n\n" +
+	"Task list:\n1. [x] Spec/plan located\n2. [x] dotnet tests\n3. [x] web unit tests and tsc\n4. [x] browser checks\n5. [x] WebApi and Vite stopped\n\n" +
+	"AUTOMATED TESTS\n- Agent unit: 187 passed, 0 failed\n- Web vitest: 693 tests passed\n\n" +
+	"BROWSER CHECKS\n1. PASS: list loads 21 documents.\n2. PASS: usage dialog opens.\n" +
+	"EVIDENCE-SKIPPED: test-only mission, nothing changed\n"
+
+// TestAresReportNoCodeChangedSkipsFilesAndCompletion pins the report of a
+// mission that changed no code: the landed waiver plus only `Reach: not
+// applicable` lines needs neither a named file nor a completion word.
+func TestAresReportNoCodeChangedSkipsFilesAndCompletion(t *testing.T) {
+	cases := []struct {
+		name       string
+		report     string
+		wantAll    []string
+		wantAbsent []string
+	}{
+		{name: "waiver and not-applicable reach pass", report: noCodeReport},
+		{
+			name:       "without the landed waiver the files check stays",
+			report:     strings.Replace(noCodeReport, "LANDED-NOT-APPLICABLE: test-only mission, no files changed.", "", 1),
+			wantAll:    []string{"no specific files"},
+			wantAbsent: []string{"fail-then-pass"},
+		},
+		{
+			name:       "a code reach line keeps the files check",
+			report:     strings.Replace(noCodeReport, "Reach: not applicable — no code changed.", "Reach: cli.go run — reached by cron → test", 1),
+			wantAll:    []string{"no specific files"},
+			wantAbsent: []string{"fail-then-pass"},
+		},
+		{
+			name:       "without the evidence line only the evidence check fails",
+			report:     strings.Replace(noCodeReport, "EVIDENCE-SKIPPED: test-only mission, nothing changed\n", "", 1),
+			wantAll:    []string{"fail-then-pass"},
+			wantAbsent: []string{"no specific files", "completion was not confirmed"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := reachInput(t, "aresNoCode", reachChildLine())
+			got := strings.Join(aresReportFailures(tc.report, in), " | ")
+			if len(tc.wantAll) == 0 && got != "" {
+				t.Fatalf("expected no failures, got %q", got)
+			}
+			for _, w := range tc.wantAll {
+				if !strings.Contains(got, w) {
+					t.Errorf("failures %q lack %q", got, w)
+				}
+			}
+			for _, w := range tc.wantAbsent {
+				if strings.Contains(got, w) {
+					t.Errorf("failures %q must not contain %q", got, w)
+				}
+			}
+		})
 	}
 }
