@@ -34,6 +34,17 @@ version anymore:
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 ```
 
+## Injection size budgets
+
+Two limits cut injected text to a 2,000-character preview. A Go test guards each.
+
+| Limit | Where | Test | Guards |
+|---|---|---|---|
+| 29,000 bytes per `!` launcher line | slash-command launchers | `TestAgentLoadPartsFitInlineBudget` | `agents/<god>.md` and its extras |
+| 10,000 characters per hook output | SubagentStart and SessionStart hooks | `TestAgentProtocolFitsHookCap` | `references/agent-protocol.md` |
+
+Run `make sync-assets` before `make test`, or run `make ci`. The test reads the synced copy.
+
 ## Making a release: `kratos-dev/release.sh`
 
 ```bash

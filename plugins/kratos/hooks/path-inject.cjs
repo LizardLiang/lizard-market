@@ -25,6 +25,7 @@ const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
 const { resolveBinary } = require('./kratos-bin.cjs');
+const { fitToBudget } = require('./hook-budget.cjs');
 
 const DB_PATH = path.join(os.homedir(), '.kratos', 'memory.db');
 const MAX_LESSONS = 5;
@@ -42,12 +43,7 @@ const OUTPUT_CONSTRAINT =
   '  - A sequence of actions — call order, request flow, pipeline stages, the steps you took or will take, above all code flow — is an ASCII diagram in a code block: one box or line per step, arrows (`→`, `│`, `└─▶`) for order, a branch per condition. Never a paragraph, never Mermaid (it does not render in a terminal).\n' +
   '  - Items with no order — options, checks, parallel facts — are bullet points.\n' +
   '  - Logic is pseudocode. Structure is a file or component tree. A change is a `diff` when part changes, a full block when most is new.\n' +
-  '  The view sits next to the short text it supports and keeps only the nodes that answer this question. One or two views, never all. A flow looks like:\n' +
-  '  ```\n' +
-  '  user prompt ──▶ classify.md ──▶ quick path? ──yes──▶ spawn one god\n' +
-  '                                      │\n' +
-  '                                      no ──▶ stages.md ──▶ Stage N god ──▶ status.json\n' +
-  '  ```\n' +
+  '  The view sits next to the short text it supports and keeps only the nodes that answer this question. One or two views, never all.\n' +
   '- Keep hedges and evidence status (verified vs inferred). Define a term at first use; never "simply", "just", "obviously". Name the misunderstanding the reader is likely to have.\n' +
   '- Asking the user to decide: state the decision and its consequence before the options.\n' +
   '- No filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n' +
@@ -175,11 +171,14 @@ process.stdin.on('end', () => {
   // normal case; only fall back to the literal when it's missing or doesn't
   // already carry that sentence, so the god never gets two copies.
   const needLiteral = !protocol || !protocol.includes('Output constraint:');
-  const extra = [needLiteral ? OUTPUT_CONSTRAINT : null, protocol, lessons, sessionPart].filter(Boolean);
-  emit(extra.concat(baseParts));
+  // Order: binary, root, session, lessons, then the protocol block, so the
+  // parts every god needs lead the output. fitToBudget drops whole protocol
+  // sections when the total would pass the hook output cap.
+  const head = [...baseParts, sessionPart, lessons, needLiteral ? OUTPUT_CONSTRAINT : null].filter(Boolean);
+  emit([fitToBudget(head, protocol, root)]);
 });
 
 // If no stdin arrives (older harness, manual invocation), no agent_type was
 // ever available so no protocol block was computed — the literal is the
 // only possible source on this path.
-setTimeout(() => emit([OUTPUT_CONSTRAINT, ...baseParts]), 1500).unref();
+setTimeout(() => emit([...baseParts, OUTPUT_CONSTRAINT]), 1500).unref();

@@ -311,9 +311,10 @@ func TestBuildMemoryReportExcludesOtherProjectsRules(t *testing.T) {
 }
 
 // runSessionStart drives session-start.cjs with a scratch HOME whose ledger
-// for session "sess-x" names inline_god "iris", and returns its stdout. It
-// skips when the plugin-local binary has not been built.
-func runSessionStart(t *testing.T, source string) string {
+// for session "sess-x" names inline_god "iris", and returns its stdout. hookArgs
+// are passed to the script (for example "--part", "extras"). It skips when the
+// plugin-local binary has not been built.
+func runSessionStart(t *testing.T, source string, hookArgs ...string) string {
 	t.Helper()
 	node, err := exec.LookPath("node")
 	if err != nil {
@@ -339,7 +340,7 @@ func runSessionStart(t *testing.T, source string) string {
 		t.Fatal(err)
 	}
 	payload, _ := json.Marshal(map[string]any{"session_id": "sess-x", "source": source, "cwd": t.TempDir()})
-	cmd := exec.Command(node, filepath.Join(root, "hooks", "session-start.cjs"))
+	cmd := exec.Command(node, append([]string{filepath.Join(root, "hooks", "session-start.cjs")}, hookArgs...)...)
 	cmd.Stdin = strings.NewReader(string(payload))
 	cmd.Env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home, "CLAUDE_PLUGIN_ROOT="+root)
 	out, err := cmd.Output()
@@ -352,15 +353,24 @@ func runSessionStart(t *testing.T, source string) string {
 const godExtrasMarker = "# Agent Protocol (injected)"
 
 func TestSessionStartCompactReinjectsInlineGodExtras(t *testing.T) {
-	if out := runSessionStart(t, "compact"); !strings.Contains(out, godExtrasMarker) {
-		t.Fatalf("compact output lacks the iris extras:\n%s", out)
+	out := runSessionStart(t, "compact", "--part", "extras")
+	if !strings.Contains(out, godExtrasMarker) {
+		t.Fatalf("compact extras output lacks the iris extras:\n%s", out)
+	}
+	if n := len(out); n >= hookOutputCap {
+		t.Fatalf("extras output is %d characters, over the %d hook cap", n, hookOutputCap)
+	}
+	if main := runSessionStart(t, "compact"); strings.Contains(main, godExtrasMarker) {
+		t.Fatalf("main mode carries the extras, which belong to the --part extras hook:\n%s", main)
 	}
 }
 
 func TestSessionStartOtherSourcesSkipInlineGodExtras(t *testing.T) {
 	for _, source := range []string{"startup", "resume", "clear"} {
-		if out := runSessionStart(t, source); strings.Contains(out, godExtrasMarker) {
-			t.Fatalf("%s output carries the extras:\n%s", source, out)
+		for _, args := range [][]string{nil, {"--part", "extras"}} {
+			if out := runSessionStart(t, source, args...); strings.Contains(out, godExtrasMarker) {
+				t.Fatalf("%s output %v carries the extras:\n%s", source, args, out)
+			}
 		}
 	}
 }

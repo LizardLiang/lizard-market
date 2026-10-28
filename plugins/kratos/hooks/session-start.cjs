@@ -14,16 +14,20 @@
  * other, resume pointers named the wrong project, and `step record-agent`
  * failed with FOREIGN KEY errors (2026-09 transcript review).
  *
- * Budget: hooks.json gives SessionStart 5 s (5000 ms). Every spawn below carries a
- * timeout and the worst-case serial sum stays under ~4200 ms (version 800 + memory
- * list 1500 + its unknown-flag retry 600 + init 500 + session start 800; a compact
- * source adds the inline god's extras at 700); the
- * plugin-bin → ~/.kratos/bin copy runs last so it can never starve the calls. The
- * retry has its own short timeout rather than reusing the 1500 ms memory-list
- * budget — a flag-parse failure returns in about 250 ms, so 600 ms covers it with
- * room to spare, and reusing 1500 ms there pushed the worst case to 5100 ms, over
- * budget. Every kratos call uses spawnSync with an argv array — payload text never
- * reaches a shell.
+ * Budget: hooks.json gives each SessionStart command 10 s (10000 ms). Every spawn
+ * below carries a timeout and the worst-case serial sum stays under ~5700 ms
+ * (version 800 + memory list 1500 + its unknown-flag retry 600 + init 2000 +
+ * session start 800); the plugin-bin → ~/.kratos/bin copy runs last so it can
+ * never starve the calls. The retry has its own short timeout rather than
+ * reusing the 1500 ms memory-list budget — a flag-parse failure returns in about
+ * 250 ms. Every kratos call uses spawnSync with an argv array — payload text
+ * never reaches a shell.
+ *
+ * Two commands run at SessionStart. The main mode prints the output constraint,
+ * binary path, stored rules and pointers. `--part extras` prints only the
+ * inline god's lessons and protocol after a compaction, in its own hook output:
+ * Claude Code caps one hook output at 10,000 characters and injects a
+ * 2,000-character preview beyond that.
  */
 
 const { execFileSync, spawn, spawnSync } = require("child_process");
@@ -31,6 +35,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { resolveBinary, platformBinaryName } = require("./kratos-bin.cjs");
+const { HOOK_OUTPUT_BUDGET, fitToBudget } = require("./hook-budget.cjs");
 
 // Global paths
 const KRATOS_HOME = path.join(os.homedir(), ".kratos");
@@ -63,12 +68,7 @@ const OUTPUT_CONSTRAINT =
   "  - A sequence of actions — call order, request flow, pipeline stages, the steps you took or will take, above all code flow — is an ASCII diagram in a code block: one box or line per step, arrows (`→`, `│`, `└─▶`) for order, a branch per condition. Never a paragraph, never Mermaid (it does not render in a terminal).\n" +
   "  - Items with no order — options, checks, parallel facts — are bullet points.\n" +
   "  - Logic is pseudocode. Structure is a file or component tree. A change is a `diff` when part changes, a full block when most is new.\n" +
-  "  The view sits next to the short text it supports and keeps only the nodes that answer this question. One or two views, never all. A flow looks like:\n" +
-  "  ```\n" +
-  "  user prompt ──▶ classify.md ──▶ quick path? ──yes──▶ spawn one god\n" +
-  "                                      │\n" +
-  "                                      no ──▶ stages.md ──▶ Stage N god ──▶ status.json\n" +
-  "  ```\n" +
+  "  The view sits next to the short text it supports and keeps only the nodes that answer this question. One or two views, never all.\n" +
   "- Keep hedges and evidence status (verified vs inferred). Define a term at first use; never \"simply\", \"just\", \"obviously\". Name the misunderstanding the reader is likely to have.\n" +
   "- Asking the user to decide: state the decision and its consequence before the options.\n" +
   "- No filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n" +
@@ -96,18 +96,18 @@ function ensureDir() {
 
 const findKratosBinary = resolveBinary;
 
-// Per-call budgets (ms). Serial sum must stay under the 5 s (5000 ms) hook timeout
-// with room for node startup.
+// Per-call budgets (ms). Serial sum must stay under the 10 s (10000 ms) hook
+// timeout with room for node startup.
 const VERSION_TIMEOUT_MS = 800;
 const MEMORY_LIST_TIMEOUT_MS = 1500;
 // A flag-parse failure (an older binary rejecting --with-rules) returns in
 // about 250 ms — this is its own budget, not MEMORY_LIST_TIMEOUT_MS, so the
-// retry cannot push the worst-case serial sum over the hook's 5000 ms limit.
+// retry cannot push the worst-case serial sum over the hook's 10000 ms limit.
 const MEMORY_LIST_RETRY_TIMEOUT_MS = 600;
-const INIT_TIMEOUT_MS = 500;
+const INIT_TIMEOUT_MS = 2000;
 const SESSION_START_TIMEOUT_MS = 800;
-// Runs on source "compact" only; the extras print in about 200 ms. 700 ms keeps
-// the worst-case serial sum (4200 ms) plus this call under the 5000 ms limit.
+// Runs in the `--part extras` hook on source "compact" only; the extras print
+// in about 200 ms.
 const GOD_EXTRAS_TIMEOUT_MS = 700;
 
 // Runs the kratos binary with an argv array; stdout on success, null otherwise.
@@ -166,7 +166,13 @@ function pluginVersion() {
 }
 
 // `<bin> --version` prints "kratos version v2.108.0"; returns "2.108.0" or null.
+const versionCache = new Map();
 function binaryVersion(bin) {
+  if (!versionCache.has(bin)) versionCache.set(bin, readBinaryVersion(bin));
+  return versionCache.get(bin);
+}
+
+function readBinaryVersion(bin) {
   try {
     const out = execFileSync(bin, ["--version"], {
       encoding: "utf-8",
@@ -191,18 +197,33 @@ function formatVersionMismatch(bin, refreshing) {
   return `Kratos: binary v${have} ≠ plugin v${want} — ${action}`;
 }
 
-// Initialize database if needed
+// Runs `kratos init` once per binary version: a successful init writes
+// ~/.kratos/init-<version>, and later starts skip init while that marker and
+// the database both exist. An unknown version always runs init. A failed
+// marker write never blocks the session.
 function initDb() {
-  if (fs.existsSync(DB_PATH)) return true;
   const kratosCmd = findKratosBinary();
+  const dbExists = fs.existsSync(DB_PATH);
   if (!kratosCmd) {
+    if (dbExists) return true;
     console.error(
       "Kratos binary not found yet. Downloading in the background to ~/.kratos/bin/ - " +
         "retry shortly, or build from source: cd kratos-dev/go && make build",
     );
     return false;
   }
-  return runKratos(["init"], INIT_TIMEOUT_MS) !== null;
+  const version = binaryVersion(kratosCmd);
+  const marker = version ? path.join(KRATOS_HOME, `init-${version}`) : null;
+  if (dbExists && marker && fs.existsSync(marker)) return true;
+  const ok = runKratos(["init"], INIT_TIMEOUT_MS) !== null;
+  if (ok && marker) {
+    try {
+      fs.writeFileSync(marker, "");
+    } catch (e) {
+      // the marker only saves the next start an init call
+    }
+  }
+  return dbExists || ok;
 }
 
 function toSlashes(p) {
@@ -603,6 +624,18 @@ function formatInlineGodExtras(sessionId, source) {
   }
 }
 
+// `--part extras` mode: only the inline god's lessons and protocol, fitted to
+// the hook output cap. Prints nothing unless source is "compact" and the
+// ledger names an inline god.
+function mainExtras(payload) {
+  const sessionId = payload && payload.session_id ? String(payload.session_id) : "";
+  const source = payload && payload.source ? String(payload.source) : "";
+  const extras = formatInlineGodExtras(sessionId, source);
+  if (!extras) return;
+  const root = toSlashes(process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, ".."));
+  console.log(fitToBudget([], extras, root, HOOK_OUTPUT_BUDGET));
+}
+
 function main(payload) {
   const cwd = (payload && payload.cwd) || process.cwd();
   const sessionId = payload && payload.session_id ? String(payload.session_id) : "";
@@ -635,7 +668,7 @@ function main(payload) {
   }
 
   const handoffLine = source === "compact" ? formatHandoffHead(cwd) || formatHandoffNotice(cwd) : formatHandoffNotice(cwd);
-  for (const line of [handoffLine, formatPendingSpecDeltas(cwd), formatDraftPlans(cwd), formatLegacyHooksWarning(), formatInlineGodExtras(sessionId, source)]) {
+  for (const line of [handoffLine, formatPendingSpecDeltas(cwd), formatDraftPlans(cwd), formatLegacyHooksWarning()]) {
     if (line) console.log(line);
   }
 
@@ -672,7 +705,9 @@ if (require.main === module) {
         payload = null;
       }
     }
-    main(payload);
+    const partIdx = process.argv.indexOf("--part");
+    if (partIdx >= 0 && process.argv[partIdx + 1] === "extras") mainExtras(payload);
+    else main(payload);
   };
   process.stdin.setEncoding("utf-8");
   process.stdin.on("data", (chunk) => (raw += chunk));
