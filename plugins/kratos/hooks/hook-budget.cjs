@@ -26,12 +26,16 @@ const DROP_ORDER = [
 ];
 
 function dropNotice(titles, root) {
-  return `Protocol sections not injected (hook cap): ${titles.join(', ')}; read ${root}/references/agent-protocol.md for them.`;
+  return `Protocol sections cut by the hook cap: ${titles.join(', ')}. Read only those sections in ${root}/references/agent-protocol.md; for them this overrides the "Do NOT read that file" line above.`;
 }
 
 // Joins `head` parts (kept whole) and `body` (a composed protocol block) with
 // blank lines. While the result exceeds `budget`, removes whole `## ` sections
-// of the body in DROP_ORDER and appends one line naming them.
+// of the body in DROP_ORDER and appends one line naming them. When the head
+// parts alone exceed `budget`, every droppable section goes and the result is
+// still over budget: the function fails open and returns it. Lessons are capped
+// at 5 entries of at most 200 characters by `feedback add`, so with the
+// one-line head parts that cannot happen in practice.
 function fitToBudget(head, body, root, budget = HOOK_OUTPUT_BUDGET) {
   const join = (b, notice) => [...head, b, notice].filter(Boolean).join('\n\n');
   if (!body) return join('', null);

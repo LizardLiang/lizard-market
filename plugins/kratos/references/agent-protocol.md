@@ -9,7 +9,7 @@ Procedures shared across all Kratos agents. Spawned and inline agents receive th
 
 Choose documents by the decision you are making; don't read every input or reread one without need.
 
-- `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` — stage state and summaries (never read `status.json` directly). `--compact` omits the audit-only `history[]` and `check_failures[]`.
+- `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` — stage state and summaries (never read `status.json` directly).
 - `prd.md` — requirements, acceptance criteria, product intent
 - `tech-spec.md` — architecture, interfaces, sequencing, implementation constraints
 - `test-plan.md` — expected coverage and verification scope
@@ -43,7 +43,7 @@ Canonical rule for every `AskUserQuestion` call:
 2. **Never set `preview` on options.** Any `preview` switches the client to a side-by-side layout that drops the built-in "Other" input. Fold essentials into the option's `description`.
 3. **Free-text reply is the answer.** Parse intent from the typed text before re-asking; follow up only if genuinely ambiguous.
 4. **Decline/interrupt/error → prose fallback, once.** Ask the same question once in plain prose and end the turn. Never re-fire the tool for that question.
-5. **Option cap: 4** (tool max).
+5. **Option cap: 4** (tool max); all 4 substantive.
 6. **Never call with an empty `options` array** — free text means ask in plain prose.
 7. **Subagent caveat.** `AskUserQuestion` only reaches the user from the top-level session. As a spawned subagent, flag the gap as an assumption, note that clarification was unavailable, and don't call the tool.
 
@@ -80,9 +80,9 @@ Your agent definition carries the exact `pipeline update` commands for your stag
 Applies to prose documents you write to disk, not to chat replies, code, commit messages or quoted text. A template's section order wins. Proxies for ISO 24495-1:2023 — make no conformance claim.
 
 - **Relevant** — write for the reader; include only what they need.
-- **Findable** — key point first; headings state the point.
-- **Understandable** — familiar words; one term per concept; short active sentences.
-- **Usable** — explicit commands, paths, values; tables for facts; ASCII diagram for a sequence.
+- **Findable** — key point first; headings state the point; order by the reader's task.
+- **Understandable** — familiar words; define terms at first use; one term per concept; short active sentences; one topic per paragraph; concrete over abstract.
+- **Usable** — explicit commands, paths, values; tables for facts; ASCII diagram for a sequence (Mermaid only if rendered); re-read as the reader before finishing.
 
 ---
 

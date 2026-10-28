@@ -109,18 +109,13 @@ const baseParts = [];
 
 if (kratosPath) {
   baseParts.push(
-    `**Kratos binary resolved:** \`${kratosPath}\`\n\n` +
-    `Use the path directly in every Bash command that calls kratos:\n` +
-    `\`\`\`bash\n` +
-    `'${kratosPath}' <subcommand>\n` +
-    `\`\`\`\n` +
-    `Wherever agent instructions show \`<kratos-bin>\`, use \`'${kratosPath}'\`.`
+    `**Kratos binary:** \`${kratosPath}\` — use it wherever instructions show \`<kratos-bin>\`.`
   );
 }
 
 if (root) {
   baseParts.push(
-    `**Kratos plugin root:** \`${root}\` — wherever instructions show \`<KRATOS_ROOT>\`, use this path.`
+    `**Kratos plugin root:** \`${root}\` — use it wherever instructions show \`<KRATOS_ROOT>\`.`
   );
 }
 
@@ -158,9 +153,9 @@ process.stdin.on('end', () => {
       const proj = payload.cwd ? toSlashes(String(payload.cwd)) : '';
       sessionPart = `**Kratos session:** \`${payload.session_id}\``
         + (proj ? ` (project root \`${proj}\`)` : '')
-        + ` — pass this id to \`step record-agent\` / \`step record-file\``
+        + ` — pass it to \`step record-agent\` / \`step record-file\``
         + (proj ? ` with \`--project "${proj}"\`` : '')
-        + '; do not look it up with `session active`.';
+        + '; never look it up with `session active`.';
     }
   } catch (e) {
     // Malformed/empty payload — inject base parts only.

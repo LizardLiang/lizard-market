@@ -17,7 +17,8 @@
  * Budget: hooks.json gives each SessionStart command 10 s (10000 ms). Every spawn
  * below carries a timeout and the worst-case serial sum stays under ~5700 ms
  * (version 800 + memory list 1500 + its unknown-flag retry 600 + init 2000 +
- * session start 800); the plugin-bin → ~/.kratos/bin copy runs last so it can
+ * session start 800); the `--part extras` call runs in its own 10 s hook with a
+ * 5000 ms budget of its own; the plugin-bin → ~/.kratos/bin copy runs last so it can
  * never starve the calls. The retry has its own short timeout rather than
  * reusing the 1500 ms memory-list budget — a flag-parse failure returns in about
  * 250 ms. Every kratos call uses spawnSync with an argv array — payload text
@@ -106,9 +107,9 @@ const MEMORY_LIST_TIMEOUT_MS = 1500;
 const MEMORY_LIST_RETRY_TIMEOUT_MS = 600;
 const INIT_TIMEOUT_MS = 2000;
 const SESSION_START_TIMEOUT_MS = 800;
-// Runs in the `--part extras` hook on source "compact" only; the extras print
-// in about 200 ms.
-const GOD_EXTRAS_TIMEOUT_MS = 700;
+// Runs in the `--part extras` hook on source "compact" only; that hook has its
+// own 10 s budget and the extras print in about 200 ms.
+const GOD_EXTRAS_TIMEOUT_MS = 5000;
 
 // Runs the kratos binary with an argv array; stdout on success, null otherwise.
 function runKratos(args, timeoutMs) {
