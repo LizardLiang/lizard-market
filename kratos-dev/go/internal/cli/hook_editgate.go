@@ -1039,6 +1039,11 @@ var gateBareAssignmentRE = regexp.MustCompile("^([A-Za-z_][A-Za-z0-9_]*)=([^;&|<
 // program. The assignment segment is dropped only when a later head used it,
 // so `PATH=/x; ls` classifies as before. Any other first segment, and any
 // `$NAME` past a segment head, is left unexpanded and classifies as before.
+// Nothing is substituted or dropped when a later segment names NAME as a bare
+// word (`printf -v K rm`, `K=rm`, `export K=rm`, `read K`, `unset K`): that
+// segment can reassign the variable before a later head reads it. Wrapper heads
+// (`rtk $K slug x`) are seen past before the `$NAME` test and not kept in the
+// expanded segment, so it classifies by the program the value names.
 func substituteLeadingAssignment(command string, segs []shellSegment) []shellSegment {
 	if len(segs) < 2 || !assignmentSeparatorKeepsVar(command, segs[0]) {
 		return segs
@@ -1047,11 +1052,20 @@ func substituteLeadingAssignment(command string, segs []shellSegment) []shellSeg
 	if m == nil {
 		return segs
 	}
+	quoted := regexp.QuoteMeta(m[1])
+	refRE := regexp.MustCompile(`\$\{` + quoted + `\}|\$` + quoted + `\b`)
+	bareRE := regexp.MustCompile(`(?:^|[^A-Za-z0-9_$])` + quoted + `(?:[^A-Za-z0-9_]|$)`)
+	for _, seg := range segs[1:] {
+		if bareRE.MatchString(refRE.ReplaceAllString(seg.masked, " ")) {
+			return segs
+		}
+	}
 	out := make([]shellSegment, len(segs))
 	copy(out, segs)
 	used := false
 	for i := 1; i < len(out); i++ {
-		raw := strings.TrimLeft(out[i].raw, " 	")
+		full := strings.TrimLeft(out[i].raw, " 	")
+		raw := gateStripCommandWrappers(full)
 		for _, ref := range []string{"${" + m[1] + "}", "$" + m[1]} {
 			if !strings.HasPrefix(raw, ref) {
 				continue
@@ -1129,6 +1143,10 @@ func isReadOnlySegment(seg shellSegment) bool {
 		}
 	case "uniq":
 		if gateUniqWritesFile(gateSegmentTokens(raw)) {
+			return false
+		}
+	case "printf":
+		if gatePrintfAssignsVar(gateSegmentTokens(raw)) {
 			return false
 		}
 	}
@@ -1363,6 +1381,18 @@ var (
 func gateSortWritesFile(tokens []string) bool {
 	for _, t := range tokens[min(1, len(tokens)):] {
 		if gateSortWriteFlagRE.MatchString(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// gatePrintfAssignsVar reports a printf invocation with -v (-v NAME or -vNAME):
+// bash writes the formatted text into the shell variable NAME, so it can
+// reassign a variable that an earlier segment set.
+func gatePrintfAssignsVar(tokens []string) bool {
+	for _, t := range tokens[min(1, len(tokens)):] {
+		if strings.HasPrefix(t, "-v") {
 			return true
 		}
 	}

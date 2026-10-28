@@ -290,6 +290,42 @@ func TestEditGateDecisions(t *testing.T) {
 			want:    "",
 		},
 		{
+			name:    "inline odysseus printf -v reassigns the variable and is denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=ls; printf -v K rm; $K -rf build`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus printf -vNAME reassigns the variable and is denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=ls; printf -vK rm; $K -rf build`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus export reassigns the variable and is denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=ls; export K=rm; $K -rf build`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus second assignment reassigns the variable and is denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=ls; K=rm; $K -rf build`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus rtk wrapped substituted kratos allowed",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=C:/x/kratos.exe; rtk $K slug x`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "",
+		},
+		{
+			name:    "inline odysseus rtk wrapped substituted destructive program denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=rm; rtk $K -rf build`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
 			name:    "inline odysseus assignment of a destructive program denied",
 			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=rm; $K -rf build`}}),
 			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
