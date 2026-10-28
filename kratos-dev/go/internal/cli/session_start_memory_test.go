@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // memoryFixtureItem mirrors one row of the JSON `memory list` returns.
@@ -357,7 +358,7 @@ func TestSessionStartCompactReinjectsInlineGodExtras(t *testing.T) {
 	if !strings.Contains(out, godExtrasMarker) {
 		t.Fatalf("compact extras output lacks the iris extras:\n%s", out)
 	}
-	if n := len(out); n >= hookOutputCap {
+	if n := utf8.RuneCountInString(out); n >= hookOutputCap {
 		t.Fatalf("extras output is %d characters, over the %d hook cap", n, hookOutputCap)
 	}
 	if main := runSessionStart(t, "compact"); strings.Contains(main, godExtrasMarker) {
