@@ -1016,7 +1016,7 @@ func isReadOnlyShellCommand(command string) bool {
 	if len(segs) == 0 {
 		return false
 	}
-	segs = substituteLeadingAssignment(segs)
+	segs = substituteLeadingAssignment(trimmed, segs)
 	for _, seg := range segs {
 		if strings.TrimSpace(seg.raw) == "" {
 			continue
@@ -1039,8 +1039,8 @@ var gateBareAssignmentRE = regexp.MustCompile("^([A-Za-z_][A-Za-z0-9_]*)=([^;&|<
 // program. The assignment segment is dropped only when a later head used it,
 // so `PATH=/x; ls` classifies as before. Any other first segment, and any
 // `$NAME` past a segment head, is left unexpanded and classifies as before.
-func substituteLeadingAssignment(segs []shellSegment) []shellSegment {
-	if len(segs) < 2 {
+func substituteLeadingAssignment(command string, segs []shellSegment) []shellSegment {
+	if len(segs) < 2 || !assignmentSeparatorKeepsVar(command, segs[0]) {
 		return segs
 	}
 	m := gateBareAssignmentRE.FindStringSubmatch(strings.TrimSpace(segs[0].raw))
@@ -1070,6 +1070,18 @@ func substituteLeadingAssignment(segs []shellSegment) []shellSegment {
 		return segs
 	}
 	return out[1:]
+}
+
+// assignmentSeparatorKeepsVar reports whether the separator after first is one
+// that runs the next command in the same shell with the variable set: `;`,
+// `&&` or a newline. `|` and `&` run the assignment in a subshell or in the
+// background, so the later segment sees the variable empty.
+func assignmentSeparatorKeepsVar(command string, first shellSegment) bool {
+	if !strings.HasPrefix(command, first.raw) {
+		return false
+	}
+	rest := strings.TrimLeft(maskQuoted(command)[len(first.raw):], " \t")
+	return strings.HasPrefix(rest, ";") || strings.HasPrefix(rest, "&&") || strings.HasPrefix(rest, "\n") || strings.HasPrefix(rest, "\r")
 }
 
 // isShellNameByte reports whether b can continue a shell variable name.

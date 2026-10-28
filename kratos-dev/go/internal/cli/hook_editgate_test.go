@@ -319,6 +319,18 @@ func TestEditGateDecisions(t *testing.T) {
 			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
 			want:    "deny",
 		},
+		{
+			name:    "inline odysseus pipe after the assignment denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=ls | $K rm -rf build`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus background assignment denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=ls & $K rm -rf build`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
 		// ---- Iris budget ----
 		{
 			name:      "first source file allowed and counted",
