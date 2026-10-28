@@ -89,7 +89,7 @@ var gateAbsPathRE = regexp.MustCompile(`^(?:/|[A-Za-z]:/)`)
 // the agent to route around it. which/command -v/stat/file came from the JS
 // guard's own allowlist fix (v2.110), merged into this port.
 var gateReadOnlyCommands = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:status|diff|show|log|rev-parse|ls-files)\b`),
+	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:status|diff|show|log|rev-parse|ls-files|check-ignore)\b`),
 	// `git branch` is its own entry because most of its surface mutates:
 	// -d/-D/--delete drop a branch, -m/-M rename one, -f moves a ref, and a
 	// bare `git branch <name>` creates one. Only the listing forms are
@@ -101,7 +101,8 @@ var gateReadOnlyCommands = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^(?:cat|type)(?:\.exe)?(?:\s|$)`),
 	regexp.MustCompile(`(?i)^(?:find|grep|rg)(?:\.exe)?(?:\s|$)`),
 	regexp.MustCompile(`(?i)^(?:sed|head|tail|wc)(?:\.exe)?(?:\s|$)`),
-	regexp.MustCompile(`(?i)^(?:which|stat|file)(?:\.exe)?(?:\s|$)`),
+	// where is the Windows which; Odysseus ran `where ollama` on 2026-10-28.
+	regexp.MustCompile(`(?i)^(?:which|where|stat|file)(?:\.exe)?(?:\s|$)`),
 	// Every program head ends at whitespace, end of text or .exe, so a
 	// hyphenated program (sort-package-json, cat-evil) is not a reader.
 	// Pure text and navigation heads.
