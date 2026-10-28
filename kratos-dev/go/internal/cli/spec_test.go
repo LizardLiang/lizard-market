@@ -638,6 +638,29 @@ func TestSpecArchiveIn_IdempotentReArchiveAfterCrash(t *testing.T) {
 	}
 }
 
+func TestSpecArchiveIn_NewShardAuthorFollowsFeatureKind(t *testing.T) {
+	root := t.TempDir()
+	setupFeatureDelta(t, root, "feat-quick", "billing", validAddedOnlyDelta)
+	setupFeatureDelta(t, root, "feat-pipe", "payments", validAddedOnlyDelta)
+	statusPath := filepath.Join(root, ".claude", "feature", "feat-pipe", "status.json")
+	if err := os.WriteFile(statusPath, []byte(`{"feature":"feat-pipe"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for feature, want := range map[string]string{"feat-quick": "odysseus", "feat-pipe": "athena"} {
+		if _, err := specArchiveIn(root, feature); err != nil {
+			t.Fatalf("%s: unexpected error: %v", feature, err)
+		}
+		capability := map[string]string{"feat-quick": "billing", "feat-pipe": "payments"}[feature]
+		b, err := os.ReadFile(specShardPathIn(root, capability))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := parseSpecShard(string(b)).FrontMatter["author"]; got != want {
+			t.Errorf("%s: author = %q, want %q", feature, got, want)
+		}
+	}
+}
+
 func TestSpecArchiveIn_AddedDifferentBodyStillConflicts(t *testing.T) {
 	root := t.TempDir()
 	setupCapabilitySpec(t, root, "auth", validSpecShard)

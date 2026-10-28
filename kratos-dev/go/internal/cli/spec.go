@@ -513,6 +513,16 @@ func specValidateIn(root, feature string, strict bool) (bool, []string, error) {
 
 // ---------- Archive (Phase 5) ----------
 
+// deltaAuthorIn names the agent that wrote a feature's spec delta: Athena on the
+// pipeline (the feature folder has a parseable status.json), Odysseus on the quick
+// path (a plan-only folder).
+func deltaAuthorIn(root, feature string) string {
+	if _, err := readStatusJSON(filepath.Join(filepath.Dir(featureSpecDeltaDirIn(root, feature)), "status.json")); err == nil {
+		return "athena"
+	}
+	return "odysseus"
+}
+
 // mergeDeltaIntoShard applies a delta's operations to shard's requirement list in
 // the fixed order RENAMED -> REMOVED -> MODIFIED -> ADDED. Returns the rendered
 // spec.md content and a one-line change summary, or an error on the first conflict
@@ -674,6 +684,9 @@ func specArchiveIn(root, feature string) (string, error) {
 		shard := &specShard{FrontMatter: map[string]string{}}
 		if b, err := os.ReadFile(shardPath); err == nil {
 			shard = parseSpecShard(string(b))
+		}
+		if shard.FrontMatter["author"] == "" {
+			shard.FrontMatter["author"] = deltaAuthorIn(root, feature)
 		}
 
 		rendered, summary, err := mergeDeltaIntoShard(shard, d, capability)
