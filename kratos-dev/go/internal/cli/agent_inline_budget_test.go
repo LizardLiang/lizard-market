@@ -58,12 +58,15 @@ func TestAgentLoadPartsFitInlineBudget(t *testing.T) {
 // characters (UTF-16 code units in Claude Code; runes here).
 const hookOutputCap = 10000
 
-// protocolBlockBudget is sized so a typical SubagentStart output stays under
-// the 9,500-character run-time budget (hooks/hook-budget.cjs,
-// HOOK_OUTPUT_BUDGET): head parts at most 450 (binary, root and session lines)
-// + typical lessons at most 350 + protocol at most 8,700 = 9,500. Past that the
-// run-time fitter drops protocol sections and prints a notice. extrasBudget is
-// the same 500-character margin for the SessionStart extras mode.
+// protocolBlockBudget bounds the protocol block a god gets from the
+// SubagentStart hook. The run-time budget is 9,500 characters
+// (hooks/hook-budget.cjs, HOOK_OUTPUT_BUDGET). The head parts (binary, root and
+// session lines) measure about 570 characters with a long Windows project path,
+// since the path appears in two of them; lessons add at most about 350. So a
+// block of 8,700 fits only without lessons (hephaestus, the largest god, gives
+// 9,475 in total with no lessons), and with lessons the run-time fitter drops
+// protocol sections and prints its notice. extrasBudget is the same 500-character
+// margin for the SessionStart extras mode.
 const (
 	protocolBlockBudget = 8700
 	extrasBudget        = hookOutputCap - 500
