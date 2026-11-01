@@ -47,6 +47,7 @@ Locked Decisions entry, appended before the next question is asked:
 status: ready
 started: <ISO8601 — carried over from the draft>
 completed: <ISO8601>
+run: all-phases | per-phase   # all-phases: the orchestrator chains every phase without stopping; per-phase: report and wait after each
 ---
 
 # Tactical Plan: <Task Title>
@@ -64,6 +65,14 @@ Flow: 1. <step — file:function> → 2. … → n. <finalize>
 |-------|--------|------------|-------|------------|
 Invariants: <one per line + writer evidence>
 Fit or fight: A) patch in place — <consequence> · B) restructure — <consequence> → **chosen: <pole>** — <why / the user's answer>
+
+## First-time user journey
+_Required when the plan adds or changes a screen, flow or setting; else "n/a — no user-facing change"._
+- Start: <the empty state a first-time user begins from>
+- Prerequisites: <each one, and who performs it — user / system / setup wizard>
+- Edit here: <the one page where each job is configured> · Read here: <the one page where its result is seen>
+- Cold open: <one paragraph — what a first-time user sees on opening the page and what they do next, or a mock link>
+- Existing surfaces for the same thing: <pages/cards that already configure or show this, or "none">
 
 ## Phases (optional — split when the plan touches ≥2 subsystems or has more than 6 steps)
 | Phase | Scope | Steps | Verify |
@@ -92,7 +101,7 @@ Requirements: <one line per `### Requirement:` authored, one per covered facet>
 <the four-quadrant ledger — every unknown-unknown technique shows what it surfaced or "nothing surfaced">
 
 ## Locked Decisions
-<carried over verbatim from the draft — every question and answer, oldest first; never summarized, dropped, or reordered>
+<carried over verbatim from the draft — every question and answer, oldest first; never summarized, dropped, or reordered. Any appendix or mechanics section the draft held is carried over too — the ready rewrite appends, never replaces>
 
 ## Decision Tree
 <every facet `[leaf]` or `[assumed: X]`; no `[open]` branches. ASCII format:>

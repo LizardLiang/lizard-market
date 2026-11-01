@@ -28,7 +28,7 @@ Find the active feature before starting a pipeline mission: search `.claude/feat
 ## Missing Required Input
 <!-- protocol: missing-required-input -->
 
-If a file you need is missing, don't recreate it or assume its content unless producing it is your job. Stop and report to Kratos: the file, why you need it now, and the upstream stage/agent responsible (`references/agent-handoff-spec.md`).
+A missing input file is not recreated or assumed unless producing it is your job: stop and report to Kratos the file, why you need it now, and the upstream stage/agent responsible (`references/agent-handoff-spec.md`).
 
 Optional files (`context.md`, `decomposition.md`, Arena shards, review rules) only block you when the task requires them.
 
@@ -40,19 +40,19 @@ Optional files (`context.md`, `decomposition.md`, Arena shards, review rules) on
 Canonical rule for every `AskUserQuestion` call:
 
 1. **No escape option.** The client renders a built-in "Other" free-text choice — never add your own "Let me type it" / "Other" option.
-2. **Never set `preview` on options.** Any `preview` switches the client to a side-by-side layout that drops the built-in "Other" input. Fold essentials into the option's `description`.
+2. **Never set `preview` on options** — it drops the built-in "Other" input; fold essentials into `description`.
 3. **Free-text reply is the answer.** Parse intent from the typed text before re-asking; follow up only if genuinely ambiguous.
-4. **Decline/interrupt/error → prose fallback, once.** Ask the same question once in plain prose and end the turn. Never re-fire the tool for that question.
+4. **Decline/interrupt/error →** ask once in plain prose and end the turn; never re-fire the tool for that question.
 5. **Option cap: 4** (tool max); all 4 substantive.
 6. **Never call with an empty `options` array** — free text means ask in plain prose.
-7. **Subagent caveat.** `AskUserQuestion` only reaches the user from the top-level session. As a spawned subagent, flag the gap as an assumption, note that clarification was unavailable, and don't call the tool.
+7. **Subagent caveat.** As a spawned subagent the tool never reaches the user: flag the gap as an assumption, note clarification was unavailable, don't call it.
 
 ---
 
 ## Document Creation
 <!-- protocol: document-creation -->
 
-Your deliverable is a document file. Kratos re-spawns you if it is missing.
+Kratos re-spawns you if your deliverable file is missing.
 
 1. Create the file early and fill it as you work
 2. Before reporting completion, verify the file EXISTS (`Read` or `Glob`) and has complete content
@@ -70,7 +70,7 @@ Never write `<ISO-timestamp>` placeholders. `kratos pipeline update` stamps its 
 ## Status Updates via Kratos CLI
 <!-- protocol: status-updates -->
 
-Your agent definition carries the exact `pipeline update` commands for your stage. Do not improvise flags. Run them as two steps so `started` and `completed` carry real, different timestamps: `--status in-progress` when you begin, then `--status complete --document DOC_NAME` (add `--verdict VERDICT` on review stages) when you finish. If the command outputs JSON, you are done — never also edit `status.json` by hand. If the binary is missing or errors, edit `status.json` directly (top-level key `pipeline`, see Timestamp Standard).
+Your agent definition carries the exact `pipeline update` commands for your stage. Do not improvise flags. Run them as two steps so `started` and `completed` carry real, different timestamps: `--status in-progress` when you begin, then `--status complete --document DOC_NAME` (add `--verdict VERDICT` on review stages) when you finish. JSON output means done — never also edit `status.json` by hand. If the binary is missing or errors, edit `status.json` directly (top-level key `pipeline`, see Timestamp Standard).
 
 ---
 
@@ -106,7 +106,7 @@ Detail: `<KRATOS_ROOT>/references/artifact-edit-protocol.md`.
 **Trigger** — the change touches a DB column, flag, status, counter, cache, or global written from more than one place; a step of a multi-step job; or a function with 3+ callers. Unsure → it triggers. The trace is grep plus one end-to-end read of the flow, not an interview.
 
 Before designing, editing, or approving, write down:
-1. **Every reader and writer** of the state, found by `grep`, never the list the brief named. Read the whole flow, not the function next to the change.
+1. **Every reader and writer** of the state, found by `grep`, never the brief's list; read the whole flow, not just the function next to the change.
 2. **Lifecycle table** — `state | set by | cleared by | scope (row / member / global) | stale when`. A state with no clearing path on every exit (success and failure) is a finding.
 3. **The invariant** the change relies on plus the writer evidence (file:function) that keeps it true. No evidence → an assumption, and assumptions go to the user.
 4. **Fit or fight** — two poles, no middle: patch inside the current flow vs restructure it. A bug takes the cheapest pole; an architectural fork takes the complete end-state, and the user decides.
@@ -118,7 +118,7 @@ Before designing, editing, or approving, write down:
 ## Boundaries (all agents)
 <!-- protocol: boundaries -->
 
-Subagent of Kratos. Stay in your domain. Complete the mission and return. End every turn with visible text — a turn that only launched background work still states what was launched and what comes next; never poll with `sleep` loops, rely on task notifications. The PostToolUse hook records your file writes and agent spawns in the session ledger — never call `session active` or `step record-*` yourself.
+Subagent of Kratos. Stay in your domain. Complete the mission and return. End every turn with visible text (a launch states what was launched and what comes next); never poll with `sleep`, rely on task notifications. The PostToolUse hook records your file writes and agent spawns in the session ledger — never call `session active` or `step record-*` yourself.
 
 **Git safety:**
 - Commit only on the checked-out branch.
@@ -126,6 +126,8 @@ Subagent of Kratos. Stay in your domain. Complete the mission and return. End ev
 - Never merge into master/main/prod/product and never push unless the user asked.
 - Baseline, bisect, or other-branch runs use `git worktree add` — never the user's checkout.
 - A push or deploy that carries commits the user did not name: state the count and ask.
+
+**Outside the repo:** text bound for another organization's system (form field, ticket, email, API note) is shown to the user first and never names the ERP, server or job purpose. Scratch/log files only under the session scratchpad (else `.claude/tmp/`). Before handing back, every child agent has reported and every process you started is stopped (name PIDs/ports).
 
 ---
 

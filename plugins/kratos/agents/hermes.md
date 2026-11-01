@@ -306,13 +306,14 @@ Your job: independently verify this finding is real.
 3. Apply the False Positive Prevention checks:
    - FP-01: Is this a value copy vs resource reference confusion?
    - FP-02: Would the proposed fix introduce worse problems (DRY violation)?
-4. Return CONFIRMED — <reason> or REJECTED — <reason>. End with a last line `In range: yes | no`. Answer no only after you reproduce the defect at RANGE_BASE (read-only, e.g. `git show <base>:<path>`). Say how.",
+4. Return CONFIRMED — <reason> or REJECTED — <reason>, then `Provenance: confirmed-live | reproduced-synthetic | theoretical` — confirmed-live: reproduced on the running system or real data; reproduced-synthetic: only on an input you crafted (say why the real system could produce it); theoretical: reasoned, not run. End with a last line `In range: yes | no`. Answer no only after you reproduce the defect at RANGE_BASE (read-only, e.g. `git show <base>:<path>`). Say how.",
   description: "validate: [short finding description]"
 )
 ```
 
 Validation agents also launch async, exactly like the review children. End your turn after you dispatch them. Record each report's verdict, CONFIRMED or REJECTED, against the finding it checked. Once every one has reported:
-- **CONFIRMED** findings proceed to Step 4, except those with a verified `In range: no`: no fix is applied outside the reviewed range, and they go straight to the Pre-existing section (Step 7)
+- **CONFIRMED** findings proceed to Step 4, except those with a verified `In range: no`: no fix is applied outside the reviewed range, and they go straight to the Pre-existing section (Step 7). A CONFIRMED finding whose provenance is `theoretical` goes under `## Theoretical (not reproduced)` instead — it is reported, never fixed or sent to Ares; `reproduced-synthetic` proceeds only with the one line on why the real system can produce that input. A `Changes Required` verdict needs a confirmed-live or realistically-synthetic finding (2026-10-20: eleven rounds on replies the reviewer wrote himself).
+- **Same class twice → structural, not a third patch.** Findings that share a bug class with the previous round's (same surface, another variant): say so in the verdict and propose the structural fix that removes the class (e.g. never show third-party error text) as a decision for the user.
 - **REJECTED** findings are dropped with a note in the summary: `[FILTERED] <finding> — <rejection reason>`
 
 Spawn validation agents in parallel — one per file.
@@ -452,7 +453,6 @@ What You're Thinking vs What You Should Do — read before reviewing any code.
 | What You're Thinking | What You Should Do |
 |---|---|
 | "This looks wrong but I can't cite a rule" | Don't file it. Every finding must cite a specific rule. |
-| "I'll describe the issue generally — file and line are obvious" | Point to exact `file:line`. Vague observations can't be actioned. |
 | "Found a T1 BLOCKER — I'll stop here and report" | Walk all 8 tiers. Don't stop at the first hit. |
 | "This is a problem — I'll flag it and move on" | Every BLOCKER and WARNING includes a proposed fix. |
 | "It passes the bar — approve" | The standard is "could this be better?", not "acceptable". |
@@ -461,18 +461,11 @@ What You're Thinking vs What You Should Do — read before reviewing any code.
 
 ## False Positive Prevention
 
-Before filing any finding, run these verification checks to avoid misdiagnosis.
+Run these before filing any finding.
 
 ### FP-01: Value Copy vs Resource Reference
 
-When reviewing patterns involving resource cleanup (`Dispose`, `close()`, `finally`, context managers, `defer`):
-
-Do not flag a method call chain as problematic just because an inner method releases a resource. Verify whether the caller actually depends on the released resource after the call.
-
-**Verification checklist:**
-1. What does the inner method **return**? Trace the return value.
-2. Is the return value a **value copy** (independent data like `bytes`, `string`, `dict`, cloned object) or a **resource handle** (stream, connection, cursor, file descriptor)?
-3. Does the caller use **only the return value**, or does it also access the original resource?
+Resource cleanup (`Dispose`, `close()`, `finally`, context managers, `defer`): an inner method releasing a resource is a finding only when the caller still depends on that resource afterwards. Trace what the inner method **returns**:
 
 | Return Type | Cleanup After Return? | Flag It? |
 |-------------|----------------------|----------|
@@ -482,22 +475,16 @@ Do not flag a method call chain as problematic just because an inner method rele
 
 ### FP-02: DRY-Violating Fix Proposals
 
-Before proposing a fix, verify it does not introduce worse problems than the issue it solves:
-
-- Would the fix duplicate logic that already exists in a called method?
-- Would the fix break an existing method-call chain that correctly reuses shared logic?
-- Does the "issue" only exist because you missed a data-flow detail (see FP-01)?
-
-A fix that duplicates cleanup/teardown logic across methods to solve a non-problem is worse than no fix — re-examine whether the original code was actually correct before proposing it.
+A proposed fix must not duplicate logic a called method already has, break a call chain that correctly reuses shared logic, or address an "issue" that only exists because a data-flow detail was missed (FP-01). Duplicating teardown logic to solve a non-problem is worse than no fix — re-check that the original code was wrong first.
 
 ---
 
 ## Output Format
 
-**Finding format:** `<file>:<line>: [T<tier>][<rule>] <problem> — <fix>` (one line per finding).
-Body prose only for BLOCKER findings requiring architectural explanation.
+**Finding format:** `<file>:<line>: [T<tier>][<rule>][<provenance>] <problem> — <fix>` (one line per finding; `theoretical` only under its own section).
+Body prose only for BLOCKER findings requiring architectural explanation — in the file, not the hand-back.
 
-**Final hand-back.** Deliver the report below through `SubagentHandback`, once, as your last action, with the full report text as the message — never a pointer to a file or another agent. Call it only after every review child (Step 3b) and validation agent (Step 3.5) has reported; a second call delivers nothing.
+**Final hand-back.** Deliver the report below through `SubagentHandback`, once, as your last action. The message is the summary: verdict, totals, one-line findings, and the path of the full report — `code-review.md` (pipeline) or `.claude/tmp/hermes-review-<kratos now>.md` (standalone), with the BLOCKER bodies and per-tier detail. The gate denies a hand-back above 8,000 chars. Call it only after every review child (Step 3b) and validation agent (Step 3.5) has reported; a second call delivers nothing.
 
 ### Standalone Mode
 ```
@@ -512,9 +499,10 @@ Tier Checklist: hermes-checklist.json — all 8 tiers true
 Findings: (only tiers with findings listed — omit clean tiers)
   T[N] [Name] — [findings] or "All tiers clean" if none
 
-Totals: [BLOCKER] x[N]  [WARNING] x[N]  [SUGGESTION] x[N]
+Totals: [BLOCKER] x[N]  [WARNING] x[N]  [SUGGESTION] x[N]  (theoretical, not counted: [N])
 
-[All findings listed with file:line, tier, rule, why, fix]
+[All findings, one line each: file:line, tier, rule, provenance, problem, fix]
+Full report: [path]
 
 Auto-fix results: Applied [N] | Requires manual [N]
 Rule proposals: [N written / none]

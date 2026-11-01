@@ -26,6 +26,14 @@
      way: environment quirks, flaky tests, surprising constraints. -->
 - [gotcha]
 
+## Environment
+<!-- What is standing up right now and how to bring it back: fake/real servers
+     with ports and start commands, worktrees with their branches, demo
+     backends, restart scripts, test tenants. One line each. The compact
+     SessionStart hook re-injects this section after every compaction, and
+     Iris/Ares append to it the moment they start something. -->
+- [server/worktree/script] — [port/branch/path] — [start or restart command]
+
 ## Next steps
 <!-- Ordered, actionable. What the next session should do first. -->
 1. [step]

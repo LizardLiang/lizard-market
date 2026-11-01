@@ -341,6 +341,65 @@ function formatMemories(cwd, capture) {
   }
 }
 
+// One line instead of the preference list after a compaction. The full list
+// (~2 KB) plus the output constraint and the inline god's extras pushed the
+// compact payload to 14-16 KB on v2.120, which Claude Code truncated to a 2 KB
+// preview — the preferences arrived cut off and the environment facts not at
+// all (2026-10-25/26, four compactions in one session). The model still has
+// the list from the session's first start in its summary; this tells it how
+// to get the full set back on demand.
+function formatMemoriesCompact(cwd, capture) {
+  capture = capture || runKratosCapture;
+  const { out } = capture(["memory", "list", "--limit", "1"], MEMORY_LIST_RETRY_TIMEOUT_MS);
+  if (!out) return null;
+  try {
+    const data = JSON.parse(out);
+    const total = typeof data.total === "number" ? data.total : null;
+    if (total === null || total === 0) return null;
+    return `Kratos: ${total} stored preferences unchanged — \`kratos memory list --limit 50\` or \`--project "${toSlashes(cwd)}"\` for the list`;
+  } catch (e) {
+    return null;
+  }
+}
+
+// The `## Environment` section of handoff.md: servers and ports, worktrees
+// and branches, restart commands — what Iris/Ares stood up and what a
+// compaction summary tends to drop (2026-10-26 09:06: the fake Mallbic server
+// was forgotten and the user asked for a real token). Up to 15 lines, same
+// freshness gate as the handoff head.
+function formatEnvironmentFacts(cwd) {
+  try {
+    const handoffPath = path.join(cwd, ".claude", ".Arena", "handoff.md");
+    const stats = fs.statSync(handoffPath);
+    if (Date.now() - stats.mtimeMs >= SESSION_FILE_MAX_AGE_MS) return null;
+    const lines = fs.readFileSync(handoffPath, "utf-8").split(/\r?\n/);
+    const start = lines.findIndex((l) => /^##\s+Environment\b/i.test(l));
+    if (start < 0) return null;
+    const body = [];
+    for (const l of lines.slice(start + 1)) {
+      if (/^##\s/.test(l)) break;
+      if (!l.trim() || /^\s*<!--/.test(l) || /^\s*-\s*\[/.test(l)) continue; // comments and template placeholders
+      body.push("  " + l.trim());
+      if (body.length >= 15) break;
+    }
+    if (body.length === 0) return null;
+    return ["Kratos: environment still standing (handoff.md ## Environment):", ...body].join("\n");
+  } catch (e) {
+    return null;
+  }
+}
+
+// readSessionState returns the per-session state file's object, or {}.
+function readSessionState(sessionId) {
+  if (!sessionId) return {};
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, `${sessionId}.json`), "utf-8"));
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
 // After a compaction the model has lost its working targets; print the head of
 // a fresh handoff.md (the memory sweep keeps it current) so files, pages and
 // next steps survive the boundary.
@@ -349,7 +408,16 @@ function formatHandoffHead(cwd) {
     const handoffPath = path.join(cwd, ".claude", ".Arena", "handoff.md");
     const stats = fs.statSync(handoffPath);
     if (Date.now() - stats.mtimeMs >= SESSION_FILE_MAX_AGE_MS) return null;
-    const lines = fs.readFileSync(handoffPath, "utf-8").split(/\r?\n/).filter((l) => l.trim()).slice(0, 12);
+    // The ## Environment section is printed by formatEnvironmentFacts in full;
+    // skip it here so a short handoff does not show it twice.
+    const lines = [];
+    let inEnv = false;
+    for (const l of fs.readFileSync(handoffPath, "utf-8").split(/\r?\n/)) {
+      if (/^##\s/.test(l)) inEnv = /^##\s+Environment\b/i.test(l);
+      if (inEnv || !l.trim()) continue;
+      lines.push(l);
+      if (lines.length >= 12) break;
+    }
     if (lines.length === 0) return null;
     return ["Kratos: current targets after compaction (.claude/.Arena/handoff.md):", ...lines.map((l) => "  " + l)].join("\n");
   } catch (e) {
@@ -551,8 +619,9 @@ function writeStateFile(stateFile, state) {
 }
 
 // Register the session in the ledger (idempotent on session_id) and write the
-// per-session state file other hooks read.
-function registerSession(sessionId, cwd, source) {
+// per-session state file other hooks read. extra holds fields this hook owns
+// (spec_delta_nag_shown) and is merged over the previous state.
+function registerSession(sessionId, cwd, source, extra) {
   if (!sessionId) return;
   if (!initDb()) return;
 
@@ -593,6 +662,7 @@ function registerSession(sessionId, cwd, source) {
   // a lock that can be left behind by a killed process.
   writeStateFile(stateFile, {
     ...prev,
+    ...(extra || {}),
     session_id: sessionId,
     project: path.basename(cwd),
     cwd,
@@ -664,17 +734,28 @@ function main(payload) {
     const mismatch = formatVersionMismatch(kratosBin, refreshing);
     if (mismatch) console.log(mismatch);
   }
-  const memoriesMsg = formatMemories(cwd);
+  const compact = source === "compact";
+  const memoriesMsg = compact ? formatMemoriesCompact(cwd) : formatMemories(cwd);
   if (memoriesMsg) {
     console.log(memoriesMsg);
   }
 
-  const handoffLine = source === "compact" ? formatHandoffHead(cwd) || formatHandoffNotice(cwd) : formatHandoffNotice(cwd);
-  for (const line of [handoffLine, formatPendingSpecDeltas(cwd), formatDraftPlans(cwd), formatLegacyHooksWarning()]) {
+  // The spec-delta reminder prints once per session: on 2026-10-22 → 28 the
+  // same "18 un-archived spec delta(s)" line arrived at all 18 compactions and
+  // was never acted on.
+  const prevState = readSessionState(sessionId);
+  let specLine = formatPendingSpecDeltas(cwd);
+  if (specLine && compact && prevState.spec_delta_nag_shown) specLine = null;
+
+  const handoffLine = compact ? formatHandoffHead(cwd) || formatHandoffNotice(cwd) : formatHandoffNotice(cwd);
+  const envLine = compact ? formatEnvironmentFacts(cwd) : null;
+  for (const line of [handoffLine, envLine, specLine, formatDraftPlans(cwd), formatLegacyHooksWarning()]) {
     if (line) console.log(line);
   }
 
-  registerSession(sessionId, cwd, source);
+  registerSession(sessionId, cwd, source, {
+    spec_delta_nag_shown: Boolean(specLine) || Boolean(prevState.spec_delta_nag_shown),
+  });
 
   // Copy last: resolveBinary() prefers the plugin-local binary, so nothing
   // above depends on the ~/.kratos/bin copy being fresh.

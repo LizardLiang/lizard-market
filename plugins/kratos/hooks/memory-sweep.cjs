@@ -172,7 +172,7 @@ function buildInstruction(kratosBin, cwd) {
     + 'Never cite list positions like #7. '
     + 'One lesson goes to memory OR feedback, not both. '
     + `Full procedure: "${protocol.replace(/\\/g, '/')}". `
-    + 'Finish with exactly one line: `Kratos: swept <n>` or `Kratos: nothing to sweep`. '
+    + 'If you saved anything, finish with exactly one line: `Kratos: swept <n>`; if nothing was saved, print no Kratos line at all. '
     + 'This applies to the current turn only: it is not a standing rule, and later turns print no Kratos line unless this instruction appears again.';
 }
 

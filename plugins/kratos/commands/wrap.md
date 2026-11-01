@@ -59,6 +59,7 @@ Fill the structure from the **conversation's own context** — not from the DB, 
 - **Decisions** — each with a one-line rationale (the why, not just the what). Include a rejected alternative only if it would otherwise get re-litigated next session.
 - **In-flight** — work started but unfinished: what's done, what's left, where to pick up.
 - **Gotchas** — non-obvious traps the next session would otherwise rediscover the hard way.
+- **Environment** — what is standing up and how to bring it back: servers with ports and start commands, worktrees with branches, demo backends, restart scripts. Keep lines already there that are still true; this section survives compaction via the SessionStart hook.
 - **Next steps** — ordered, actionable, what to do first.
 
 Keep it concise — **~80 lines max**. This is a handoff, not a transcript.

@@ -92,7 +92,7 @@ This is a standalone review — no pipeline stage to update, no status.json to w
 )
 ```
 
-Wait for **both** to complete, then present merged results.
+Wait for **both** to complete, then present merged results. Hermes findings carry a provenance label (`confirmed-live`, `reproduced-synthetic`, `theoretical`): a fix round takes the first two; `theoretical` is reported under its own heading and never sent to Ares. One review and one fix round per user turn; a second round is a new user message or an AskUserQuestion answer. Reviewing several worktrees at once: put `WORKTREE: <path>` in each prompt so the cap counts per worktree.
 
 ---
 
