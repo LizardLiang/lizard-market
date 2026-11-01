@@ -364,6 +364,9 @@ func evaluateLanded(repoDir, hash string) []string {
 			}
 		}
 	}
+	// Paths the Ares SubagentStart hook saw dirty before the mission began are
+	// the user's, not unlanded work (hook_dirty_baseline.go).
+	baseline := loadDirtyBaseline(repoDir)
 	var dirty []string
 	for _, line := range strings.Split(string(out), "\n") {
 		if len(line) < 4 {
@@ -376,6 +379,9 @@ func evaluateLanded(repoDir, hash string) []string {
 		}
 		p = strings.Trim(p, `"`)
 		if !untracked && !changed[p] {
+			continue
+		}
+		if baseline[p] {
 			continue
 		}
 		ignore := false

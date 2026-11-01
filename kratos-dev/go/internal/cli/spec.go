@@ -23,7 +23,7 @@ import (
 // strings.TrimSpace + case-sensitive equality (never fuzzy-matched).
 //
 // Functions taking a `root` parameter are reusable from both direct CLI invocation
-// (root = gitRoot()) and hook handlers (root = the SubagentStop/Start payload's cwd),
+// (root = specRoot()) and hook handlers (root = the SubagentStop/Start payload's cwd),
 // matching the existing dual-usage pattern in check.go and hook.go.
 
 // ---------- Data model ----------
@@ -327,7 +327,7 @@ func renameRequirementHeader(body, newName string) string {
 	return "### Requirement: " + newName + body[idx:]
 }
 
-// ---------- Path helpers (root-parameterized: gitRoot() for CLI, hook cwd for gates) ----------
+// ---------- Path helpers (root-parameterized: specRoot() for CLI, hook cwd for gates) ----------
 
 func specsDirIn(root string) string {
 	return filepath.Join(root, ".claude", ".Arena", "specs")
@@ -904,6 +904,7 @@ func SpecCmd() *cobra.Command {
 		Short: "Manage living behavioral specs and per-feature spec deltas",
 		Long:  "Living specs are pure markdown at .claude/.Arena/specs/<capability>/spec.md. No database is involved.",
 	}
+	cmd.PersistentFlags().StringVar(&specArenaRoot, "arena-root", "", "Checkout whose .claude/ holds the living specs and deltas (default: the main worktree of this repository)")
 	cmd.AddCommand(specListCmd())
 	cmd.AddCommand(specShowCmd())
 	cmd.AddCommand(specDiffCmd())
@@ -926,9 +927,9 @@ func specListCmd() *cobra.Command {
 				return fmt.Errorf("--capabilities and --changes are mutually exclusive")
 			}
 			if changes {
-				return specListChanges(cmd, gitRoot())
+				return specListChanges(cmd, specRoot())
 			}
-			return specListCapabilities(cmd, gitRoot())
+			return specListCapabilities(cmd, specRoot())
 		},
 	}
 	cmd.Flags().BoolVar(&capabilities, "capabilities", false, "list living capability shards (default)")
@@ -994,7 +995,7 @@ func specShowCmd() *cobra.Command {
 			if err := validSpecName(args[0]); err != nil {
 				return err
 			}
-			data, err := os.ReadFile(specShardPathIn(gitRoot(), args[0]))
+			data, err := os.ReadFile(specShardPathIn(specRoot(), args[0]))
 			if err != nil {
 				return fmt.Errorf("no living spec for capability %q: %w", args[0], err)
 			}
@@ -1033,7 +1034,7 @@ func specDiffCmd() *cobra.Command {
 			if err := validSpecName(args[0]); err != nil {
 				return err
 			}
-			root := gitRoot()
+			root := specRoot()
 			files, err := listFeatureDeltaFilesIn(root, args[0])
 			if err != nil {
 				return err
@@ -1072,7 +1073,7 @@ func specValidateCmd() *cobra.Command {
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ok, messages, err := specValidateIn(gitRoot(), args[0], strict)
+			ok, messages, err := specValidateIn(specRoot(), args[0], strict)
 			if err != nil {
 				return err
 			}
@@ -1098,7 +1099,7 @@ func specArchiveCmd() *cobra.Command {
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			root := gitRoot()
+			root := specRoot()
 			if err := specArchiveGuard(root, args[0], force); err != nil {
 				return err
 			}
@@ -1121,7 +1122,7 @@ func specBackfillCmd() *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			summary, err := specBackfillIn(gitRoot())
+			summary, err := specBackfillIn(specRoot())
 			if err != nil {
 				return err
 			}

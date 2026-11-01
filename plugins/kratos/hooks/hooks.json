@@ -96,6 +96,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook turn-reset",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "SubagentStart": [

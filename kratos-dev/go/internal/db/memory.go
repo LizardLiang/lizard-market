@@ -265,17 +265,30 @@ var memoryStopwords = func() map[string]bool {
 	return set
 }()
 
-// memoryContentTokens is memoryTokens minus stopwords and single-character
-// tokens (CJK bigrams are two runes and survive).
+// memoryContentTokens is memoryTokens minus stopwords, single-character
+// tokens (CJK bigrams are two runes and survive) and bare numbers or version
+// tags (19000, v2, 2026): a port or a date shared by two unrelated facts
+// inflated the overlap on 2026-10-23 ("Mallbic is the stock master" was
+// rejected as a near-duplicate of "v2 dev backend host port is 19000").
 func memoryContentTokens(text string) map[string]bool {
 	set := memoryTokens(text)
 	for tok := range set {
-		if memoryStopwords[tok] || utf8.RuneCountInString(tok) < 2 {
+		if memoryStopwords[tok] || utf8.RuneCountInString(tok) < 2 || memoryNumericTokenRE.MatchString(tok) {
 			delete(set, tok)
 		}
 	}
 	return set
 }
+
+// memoryNumericTokenRE matches a token that is digits, or one letter followed
+// by digits (v2, p0, e040502): identifiers that carry no topic on their own.
+var memoryNumericTokenRE = regexp.MustCompile(`^(?:\d+|[a-z]\d+)$`)
+
+// memoryOverlapMinTokens is the smallest content-token set the overlap metric
+// trusts: with four or five tokens two shared words already read as 0.40–0.50
+// (the 2026-10-22 false positive at 0.50 had a six-token short side), so a
+// short fact is judged by Jaccard alone.
+const memoryOverlapMinTokens = 7
 
 // overlapOf is the overlap coefficient |A∩B| / min(|A|,|B|) of two token
 // sets, in [0, 1]; 0 when either set is empty.
@@ -343,7 +356,11 @@ func FindSimilarMemory(db *sql.DB, text string) (*MemoryMatch, error) {
 		if s := MemorySimilarity(text, m.Text); s > jScore {
 			bestJ, jScore = m, s
 		}
-		if s := overlapOf(content, memoryContentTokens(m.Text)); s > oScore {
+		other := memoryContentTokens(m.Text)
+		if len(content) < memoryOverlapMinTokens || len(other) < memoryOverlapMinTokens {
+			continue
+		}
+		if s := overlapOf(content, other); s > oScore {
 			bestO, oScore = m, s
 		}
 	}

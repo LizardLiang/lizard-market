@@ -157,12 +157,7 @@ func recordInlineGod(sessionID, cwd, prompt string) {
 		changed = true
 	}
 	if userTurn {
-		if _, ok := m[ledgerKeyEditedFiles]; !ok || len(ledgerStrings(m)) > 0 {
-			m[ledgerKeyEditedFiles] = []string{}
-			changed = true
-		}
-		if len(ledgerTurnSpawns(m)) > 0 {
-			m[ledgerKeyTurnSpawns] = map[string]int{}
+		if resetTurnFields(m) {
 			changed = true
 		}
 		bypass := gateBypassRE.MatchString(prompt)

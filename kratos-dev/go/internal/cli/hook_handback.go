@@ -157,6 +157,9 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 			TranscriptPath:      input.TranscriptPath,
 			AgentTranscriptPath: handbackTranscriptPath(input),
 		})
+		if f, ok := handbackSizeFailure(input.ToolInput.Message, aresHandbackMaxChars, "ares"); ok {
+			failures = append(failures, f)
+		}
 		res := handbackContentGateDecision("ares", gateStatePath(input.Cwd, "", "ares-handback-state.json"), input.AgentID, failures)
 		if waited && res.Decision == "" {
 			res.AdditionalContext = child.AdditionalContext
@@ -172,8 +175,43 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 		return handbackGateResult{}
 	}
 
-	res, _ := outstandingChildDecision(handbackTranscriptPath(input), input, false)
+	res, waited := outstandingChildDecision(handbackTranscriptPath(input), input, false)
+	if waited && res.Decision == "deny" {
+		return res
+	}
+	if f, ok := handbackSizeFailure(input.ToolInput.Message, hermesHandbackMaxChars, "hermes"); ok {
+		size := handbackContentGateDecision("hermes", gateStatePath(input.Cwd, "", "hermes-handback-state.json"), input.AgentID, []string{f})
+		if size.Decision == "deny" {
+			return size
+		}
+	}
 	return res
+}
+
+// Hand-back size caps. Every hand-back lands in the orchestrator's context in
+// full: 2026-10-22 → 10-28 the Ares checkpoints ran 8–13 KB each (53 of them)
+// and one Hermes hand-back was 55 KB, the main driver of 18 compactions in one
+// session, after which environment facts were lost and re-derived from the
+// raw transcript. The report body belongs in a file; the hand-back carries
+// the Final Block / verdict and the file's path. Counted in characters, the
+// unit the model sees; capped at gateMaxBlocks denials like every other
+// content check.
+const (
+	aresHandbackMaxChars   = 5000
+	hermesHandbackMaxChars = 8000
+)
+
+// handbackSizeFailure returns the failure text when message exceeds max.
+func handbackSizeFailure(message string, max int, agent string) (string, bool) {
+	n := len([]rune(message))
+	if n <= max {
+		return "", false
+	}
+	where := ".claude/feature/<name>/implementation-notes.md or the session scratchpad"
+	if agent == "hermes" {
+		where = ".claude/feature/<name>/code-review.md or .claude/tmp/hermes-review-<timestamp>.md"
+	}
+	return fmt.Sprintf("report is %d chars (cap %d) — write the full report to %s, then hand back only the summary block and that path", n, max, where), true
 }
 
 // handbackChildState is what one scan of an agent's own transcript says about

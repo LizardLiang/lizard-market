@@ -112,6 +112,9 @@ var gateReadOnlyCommands = []*regexp.Regexp{
 	// gateAwkIsFilter vets every awk segment before this entry can match.
 	regexp.MustCompile(`(?i)^(?:ps|date|awk)(?:\.exe)?(?:\s|$)`),
 	regexp.MustCompile(`(?i)^command\s+-v\b`),
+	// gh read forms. Odysseus ran `gh auth status | head` on 2026-10-27 and
+	// was denied; a planner also reads PRs, runs and issues.
+	regexp.MustCompile(`(?i)^gh\s+(?:auth\s+status|pr\s+(?:view|list|diff|checks|status)|run\s+(?:list|view)|issue\s+(?:view|list)|release\s+(?:view|list)|repo\s+view)\b`),
 	regexp.MustCompile(`(?i)^Get-(?:ChildItem|Content|Location)\b`),
 	regexp.MustCompile(`(?i)^Select-String\b`),
 	regexp.MustCompile(`(?i)^Test-Path\b`),
@@ -122,7 +125,7 @@ var gateReadOnlyCommands = []*regexp.Regexp{
 // session-tracking calls references/agent-protocol.md mandates for every agent.
 // Mutating subcommands — spec archive, pipeline update, session start, init,
 // install — are deliberately absent and stay denied.
-var gateKratosReadOnlySubcommandRE = regexp.MustCompile(`(?i)^(?:slug|now|version|--version|template\s+get|spec\s+(?:validate|list)|agent\s+(?:load|protocol)|session\s+active|pipeline\s+(?:get|status|next|discover)|feedback\s+list|memory\s+list|profile\s+list|todo\s+list|step\s+record-(?:agent|file))\b`)
+var gateKratosReadOnlySubcommandRE = regexp.MustCompile(`(?i)^(?:slug|now|version|--version|template\s+get|spec\s+(?:validate|list)|agent\s+(?:load|protocol)|session\s+active|pipeline\s+(?:get|status|next|discover)|feedback\s+list|memory\s+(?:list|add)|profile\s+list|todo\s+list|step\s+record-(?:agent|file))\b`)
 
 // Any shell metacharacter disqualifies a kratos command. This is what makes it
 // safe to check the kratos allowlist *before* the segment heuristics: without
@@ -385,19 +388,23 @@ type editGateResult struct {
 type gateToolExtra struct {
 	Prompt string
 	To     string
+	// Message is a SendMessage body; a control message (stop, hand back,
+	// status — isGateControlMessage) is exempt from the resume-turn cap.
+	Message string
 }
 
 func parseGateToolExtra(raw []byte) gateToolExtra {
 	var p struct {
 		ToolInput struct {
-			Prompt string `json:"prompt"`
-			To     string `json:"to"`
+			Prompt  string `json:"prompt"`
+			To      string `json:"to"`
+			Message string `json:"message"`
 		} `json:"tool_input"`
 	}
 	if json.Unmarshal(raw, &p) != nil {
 		return gateToolExtra{}
 	}
-	return gateToolExtra{Prompt: p.ToolInput.Prompt, To: p.ToolInput.To}
+	return gateToolExtra{Prompt: p.ToolInput.Prompt, To: p.ToolInput.To, Message: p.ToolInput.Message}
 }
 
 func editGateCmd() *cobra.Command {
@@ -565,7 +572,9 @@ func editGateDecisionRest(input preToolUseInput, extra gateToolExtra, ledger map
 		if gateIsSpawnedOdysseus(input) {
 			return odysseusGate(input, ledger)
 		}
-		return editGateResult{}
+		// Ares shell rules and the read-only-child git guard
+		// (hook_editgate_spawned.go). Never a ledger read.
+		return spawnedAgentGate(input)
 	}
 
 	// 2. No session id or no readable ledger: this session never ran a
@@ -594,7 +603,7 @@ func editGateDecisionRest(input preToolUseInput, extra gateToolExtra, ledger map
 		target := strings.TrimSpace(input.ToolInput.SubagentType)
 		res := editGateResult{}
 		if god == "iris" {
-			deny, spawns := irisSpawnCap(ledger, target)
+			deny, spawns := irisSpawnCapScoped(ledger, target, gateSpawnScope(extra.Prompt))
 			if deny {
 				return editGateResult{Decision: "deny", Reason: irisSpawnCapReason}
 			}
@@ -620,7 +629,7 @@ func editGateDecisionRest(input preToolUseInput, extra gateToolExtra, ledger map
 	// 4b. Resumed agent. An inline Iris resuming a long-lived agent through
 	//     SendMessage pays for that agent's whole context every round.
 	if input.ToolName == "SendMessage" {
-		if god == "iris" {
+		if god == "iris" && !isGateControlMessage(extra.Message) {
 			if n := gateAgentTurns(input, extra.To); n > gateMaxResumeTurns {
 				return editGateResult{Decision: "deny", Reason: irisResumeReason(n)}
 			}
@@ -693,7 +702,7 @@ func odysseusGate(input preToolUseInput, ledger map[string]any) editGateResult {
 			debugLog("edit-gate: %s payload carries no file path", input.ToolName)
 			return editGateResult{}
 		}
-		if isTacticalPlanPath(p, cwd) || isSpecDeltaGatePath(p, cwd) || isFlowShardPath(p, cwd) {
+		if isTacticalPlanPath(p, cwd) || isSpecDeltaGatePath(p, cwd) || isFlowShardPath(p, cwd) || isClaudeMemoryPath(p) {
 			return editGateResult{}
 		}
 		return editGateResult{Decision: "deny", Reason: odysseusWriteDenyReason}
@@ -819,6 +828,17 @@ func isUnderGateCwd(cleaned, cwd string) bool {
 // gateFlowShardRE allows exactly one segment after flows/, so a subdirectory
 // of flows/ stays denied. Case sensitive on .Arena, as the plan path is.
 var gateFlowShardRE = regexp.MustCompile(`(^|/)\.claude/\.Arena/flows/[^/]+\.md$`)
+
+// gateClaudeMemoryRE matches Claude Code's per-project auto-memory files
+// (~/.claude/projects/<slug>/memory/*.md, MEMORY.md included). Saving a user
+// correction there is not building: on 2026-10-26 14:11 the inline Odysseus
+// was denied the save until plan mode ended, and the Stop-hook sweep then
+// stored a near-duplicate the next day.
+var gateClaudeMemoryRE = regexp.MustCompile(`(^|/)\.claude/projects/[^/]+/memory/[^/]+\.md$`)
+
+func isClaudeMemoryPath(filePath string) bool {
+	return gateClaudeMemoryRE.MatchString(gateSlashPath(filePath))
+}
 
 // isFlowShardPath allows .claude/.Arena/flows/<subsystem>.md only. The Flow
 // Trace protocol and Iris's "a stated design rule is written down now" rule
@@ -1441,7 +1461,7 @@ func firstNonEmpty(values ...string) string {
 
 // irisSpawnCapReason is the deny text for a second review or fix round in one
 // user turn.
-const irisSpawnCapReason = "One review and one fix round per user turn. Report the findings and ask: re-review, ticket, or stop."
+const irisSpawnCapReason = "One review and one fix round per user turn. Report the findings and ask: re-review, ticket, or stop. A new user message or an AskUserQuestion answer starts the next round; a parallel review of another worktree carries its own `WORKTREE: <path>` line."
 
 // irisSpawnCap counts an inline Iris's Hermes spawns, and the Ares spawns
 // that follow a Hermes spawn, in the ledger's turn_spawns. It reports whether
@@ -1454,24 +1474,47 @@ const irisSpawnCapReason = "One review and one fix round per user turn. Report t
 // Hook processes do not lock the ledger, so two Hermes spawns issued in one
 // assistant message can both read a count of zero and both pass.
 func irisSpawnCap(ledger map[string]any, target string) (bool, map[string]int) {
+	return irisSpawnCapScoped(ledger, target, "")
+}
+
+// irisSpawnCapScoped is irisSpawnCap with an optional scope — the worktree,
+// workdir or branch the spawn prompt names (gateSpawnScope). With a scope,
+// the second review or fix round is denied only for that same scope, so
+// parallel work on two worktrees in one turn passes while a second round on
+// one of them still trips. The unscoped counters are kept as before, so a
+// prompt without a scope line keeps the strict one-per-turn rule.
+func irisSpawnCapScoped(ledger map[string]any, target, scope string) (bool, map[string]int) {
 	name := strings.TrimPrefix(strings.ToLower(target), "kratos:")
 	spawns := ledgerTurnSpawns(ledger)
+	scoped := ""
+	if scope != "" {
+		scoped = name + "@" + scope
+	}
+	repeat := func() bool {
+		if scoped == "" {
+			return true
+		}
+		return spawns[scoped] >= 1
+	}
 	switch name {
 	case "hermes":
-		if spawns["hermes"] >= 1 {
+		if spawns["hermes"] >= 1 && repeat() {
 			return true, nil
 		}
 	case "ares":
 		if spawns["hermes"] < 1 {
 			return false, nil
 		}
-		if spawns["ares"] >= 1 {
+		if spawns["ares"] >= 1 && repeat() {
 			return true, nil
 		}
 	default:
 		return false, nil
 	}
 	spawns[name]++
+	if scoped != "" {
+		spawns[scoped]++
+	}
 	return false, spawns
 }
 

@@ -268,6 +268,7 @@ func HookCmd() *cobra.Command {
 	cmd.AddCommand(editGateCmd())
 	cmd.AddCommand(specDeltaCheckCmd())
 	cmd.AddCommand(handbackGateCmd())
+	cmd.AddCommand(turnResetCmd())
 	return cmd
 }
 
@@ -757,7 +758,11 @@ func subagentStartCmd() *cobra.Command {
 			reminder := arenaScanReminder(input.Cwd)
 
 			// Ares gets the subagent-specific gate: markdown checklist, no Task* tools.
+			// His start also snapshots the repository's dirty paths, so that
+			// verify --landed can tell the user's pre-existing files from
+			// unlanded work (hook_dirty_baseline.go).
 			if strings.Contains(agentType, "ares") {
+				recordDirtyBaseline(input.Cwd)
 				return outputSubagentStartContext(aresTaskGate + reminder)
 			}
 

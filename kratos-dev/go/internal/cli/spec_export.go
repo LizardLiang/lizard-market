@@ -261,7 +261,7 @@ func specExportCmd() *cobra.Command {
 			if len(args) == 1 {
 				capability = args[0]
 			}
-			path, wrote, err := specExportIn(gitRoot(), capability, format, out)
+			path, wrote, err := specExportIn(specRoot(), capability, format, out)
 			if err != nil {
 				return err
 			}
