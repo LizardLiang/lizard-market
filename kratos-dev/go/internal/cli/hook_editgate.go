@@ -1463,7 +1463,7 @@ func firstNonEmpty(values ...string) string {
 // user turn.
 const irisSpawnCapReason = "One review and one fix round per user turn. Report the findings and ask: re-review, ticket, or stop. A new user message or an AskUserQuestion answer starts the next round; a parallel review of another worktree carries its own `WORKTREE: <path>` line."
 
-// irisSpawnCap counts an inline Iris's Hermes spawns, and the Ares spawns
+// The spawn cap counts an inline Iris's Hermes spawns, and the Ares spawns
 // that follow a Hermes spawn, in the ledger's turn_spawns. It reports whether
 // the spawn is the second Hermes review, or the second Ares fix round after a
 // review, in one user turn. An Ares spawn before any Hermes spawn is the
@@ -1473,11 +1473,7 @@ const irisSpawnCapReason = "One review and one fix round per user turn. Report t
 //
 // Hook processes do not lock the ledger, so two Hermes spawns issued in one
 // assistant message can both read a count of zero and both pass.
-func irisSpawnCap(ledger map[string]any, target string) (bool, map[string]int) {
-	return irisSpawnCapScoped(ledger, target, "")
-}
-
-// irisSpawnCapScoped is irisSpawnCap with an optional scope — the worktree,
+// irisSpawnCapScoped adds an optional scope — the worktree,
 // workdir or branch the spawn prompt names (gateSpawnScope). With a scope,
 // the second review or fix round is denied only for that same scope, so
 // parallel work on two worktrees in one turn passes while a second round on
