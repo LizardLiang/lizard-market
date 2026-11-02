@@ -184,14 +184,25 @@ func spawnedAgentGate(input preToolUseInput) editGateResult {
 var gateSpawnScopeRE = regexp.MustCompile(`(?mi)^\s*(?:WORKTREE|WORKDIR|BRANCH|SCOPE):\s*(\S.*?)\s*$`)
 
 // gateSpawnScope returns the normalized scope named in a spawn prompt, or "".
-// Every scope line counts: a prompt naming a worktree and a module keys on
-// both, so two modules of one worktree get two scopes.
+// The first worktree/branch line and the first SCOPE line key together, so two
+// modules of one worktree get two scopes and an extra worktree line cannot
+// split one.
 func gateSpawnScope(prompt string) string {
-	var parts []string
+	var base, module string
 	for _, m := range gateSpawnScopeRE.FindAllStringSubmatch(prompt, -1) {
-		parts = append(parts, strings.ToLower(strings.TrimRight(strings.ReplaceAll(strings.Trim(m[1], "`\"'"), `\`, "/"), "/")))
+		v := strings.ToLower(strings.TrimRight(strings.ReplaceAll(strings.Trim(m[1], "`\"'"), `\`, "/"), "/"))
+		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(m[0])), "SCOPE") {
+			if module == "" {
+				module = v
+			}
+		} else if base == "" {
+			base = v
+		}
 	}
-	return strings.Join(parts, "|")
+	if base != "" && module != "" {
+		return base + "|" + module
+	}
+	return base + module
 }
 
 // gateControlMessageRE recognizes a SendMessage body that steers a running

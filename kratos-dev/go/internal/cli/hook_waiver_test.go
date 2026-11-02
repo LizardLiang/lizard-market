@@ -109,6 +109,19 @@ func TestAresUserWaiver(t *testing.T) {
 			t.Fatalf("failures = %v, want none", got)
 		}
 	})
+	t.Run("no-code report passes under a waiver", func(t *testing.T) {
+		in := waiverInput(t, []string{human}, []string{waiverMission(t, "MISSION: x\n"+waiverLine)})
+		rep := "LANDED-NOT-APPLICABLE: read-only\nReach: not applicable — no code changed\n"
+		if got := aresReportFailures(rep, in); len(got) != 0 {
+			t.Fatalf("failures = %v, want none", got)
+		}
+	})
+	t.Run("short quote is refused", func(t *testing.T) {
+		in := waiverInput(t, []string{human}, []string{waiverMission(t, "MISSION: x\nUSER-WAIVER: speed — \"a\"")})
+		if got := aresReportFailures(filesOnly, in); len(got) == 0 {
+			t.Fatal("want failures for a one-letter quote")
+		}
+	})
 	t.Run("files check stays under a waiver", func(t *testing.T) {
 		in := waiverInput(t, []string{human}, []string{waiverMission(t, "MISSION: x\n"+waiverLine)})
 		got := strings.Join(aresReportFailures("done, nothing else to say", in), "; ")

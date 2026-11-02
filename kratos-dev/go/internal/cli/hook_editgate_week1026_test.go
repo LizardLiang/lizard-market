@@ -183,6 +183,12 @@ func TestIrisSpawnCapScoped(t *testing.T) {
 			t.Fatalf("repeat module: decision = %q, want deny", res.Decision)
 		}
 	})
+	t.Run("an extra scope line on the same worktree does not split the cap", func(t *testing.T) {
+		res := scoped("kratos:hermes", "WORKTREE: D:\\wt\\whmap\nBRANCH: x", map[string]any{"hermes": float64(1), "hermes@d:/wt/whmap": float64(1)})
+		if res.Decision != "deny" {
+			t.Fatalf("decision = %q, want deny", res.Decision)
+		}
+	})
 	t.Run("reason names the two ways out", func(t *testing.T) {
 		if !strings.Contains(irisSpawnCapReason, "AskUserQuestion answer") || !strings.Contains(irisSpawnCapReason, "WORKTREE:") || !strings.Contains(irisSpawnCapReason, "SCOPE:") {
 			t.Fatalf("reason = %q", irisSpawnCapReason)

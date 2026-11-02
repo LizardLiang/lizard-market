@@ -1216,7 +1216,8 @@ func aresReportFailures(report string, input subagentStopInput) []string {
 	// The user asked for speed, no tests or no commit, and the orchestrator
 	// passed the words on (hook_waiver.go): only the files check stays.
 	if aresUserWaiverGranted(input) {
-		if !mentionsFilesRE.MatchString(reachEntryLineRE.ReplaceAllString(report, "")) {
+		noCode := landedWaiverRE.MatchString(report) && reachAllNotApplicable(report)
+		if !noCode && !mentionsFilesRE.MatchString(reachEntryLineRE.ReplaceAllString(report, "")) {
 			failures = append(failures, "no specific files were mentioned as created or modified")
 		}
 		return failures

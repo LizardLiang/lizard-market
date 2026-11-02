@@ -16,7 +16,8 @@ import (
 //
 // aresReportFailures then skips the Final Block checks that the user's words
 // override (test run, RED/GREEN, Reach, reach child, task list, completion,
-// Landed) and keeps the files check. 2026-10-28 and 10-29, three runs: the gates
+// Landed, the comment gate) and keeps the files check, which a no-code report
+// (LANDED-NOT-APPLICABLE plus only `Reach: not applicable`) also passes. 2026-10-28 and 10-29, three runs: the gates
 // made Ares spawn a reach child and run tests against the user's instruction.
 //
 // Only an inbound entry of the Ares transcript can grant the waiver: the first
@@ -105,6 +106,10 @@ func inboundWaiverQuotes(path string) ([]string, error) {
 	return quotes, err
 }
 
+// waiverMinQuoteRunes is the shortest quote the gate accepts: a one-letter
+// quote would match any human prompt.
+const waiverMinQuoteRunes = 8
+
 func normalizeWaiverQuote(s string) string {
 	return strings.ToLower(strings.Join(strings.Fields(strings.Trim(s, "\"“”' ")), " "))
 }
@@ -114,7 +119,7 @@ func normalizeWaiverQuote(s string) string {
 // human prompt, so the caller fails open.
 func humanPromptsHave(path, quote string) (found, known bool) {
 	want := normalizeWaiverQuote(quote)
-	if want == "" {
+	if len([]rune(want)) < waiverMinQuoteRunes {
 		return false, true
 	}
 	err := forEachWaiverEntry(path, func(e waiverEntry) bool {
