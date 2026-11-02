@@ -85,14 +85,14 @@ func pipelineStatusRun(root, feature string, staleDays int, asJSON bool, nowT ti
 		}
 		report.Features = append(report.Features, buildFeatureReport(name, dir, status, staleDays, nowT))
 	} else {
-		featureRoot := filepath.Join(root, ".claude", "feature")
-		entries, _ := os.ReadDir(featureRoot)
+		fRoot := featureRoot(root)
+		entries, _ := os.ReadDir(fRoot)
 		for _, entry := range entries {
 			// _archive/ (pipeline gc) and dotfiles are not features.
 			if !entry.IsDir() || strings.HasPrefix(entry.Name(), "_") || strings.HasPrefix(entry.Name(), ".") {
 				continue
 			}
-			dir := filepath.Join(featureRoot, entry.Name())
+			dir := filepath.Join(fRoot, entry.Name())
 			status, err := readStatusJSON(filepath.Join(dir, "status.json"))
 			if err != nil {
 				// No parseable status.json → plan-only folder (e.g. a

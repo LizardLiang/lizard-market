@@ -85,26 +85,26 @@ func gcReason(root, name, dir string, maxAge time.Duration, now time.Time) (arch
 // unless dryRun, moves the retirable ones to .claude/feature/_archive/<name>.
 func pipelineGCIn(root string, maxAge time.Duration, dryRun bool, now time.Time) (gcResult, error) {
 	res := gcResult{Root: root, DryRun: dryRun}
-	featureRoot := filepath.Join(root, ".claude", "feature")
-	entries, err := os.ReadDir(featureRoot)
+	fRoot := featureRoot(root)
+	entries, err := os.ReadDir(fRoot)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return res, nil
 		}
-		return res, fmt.Errorf("cannot read %s: %w", featureRoot, err)
+		return res, fmt.Errorf("cannot read %s: %w", fRoot, err)
 	}
 	for _, e := range entries {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), "_") || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
-		dir := filepath.Join(featureRoot, e.Name())
+		dir := filepath.Join(fRoot, e.Name())
 		archive, reason, skip := gcReason(root, e.Name(), dir, maxAge, now)
 		switch {
 		case skip != "":
 			res.Skipped = append(res.Skipped, gcEntry{Feature: e.Name(), Reason: skip})
 		case archive:
 			if !dryRun {
-				dest := filepath.Join(featureRoot, featureArchiveDirName, e.Name())
+				dest := filepath.Join(fRoot, featureArchiveDirName, e.Name())
 				if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 					return res, err
 				}
@@ -129,7 +129,7 @@ func pipelineGCCmd() *cobra.Command {
 	var dryRun, asJSON bool
 	cmd := &cobra.Command{
 		Use:   "gc",
-		Short: "Archive stale or legacy feature folders to .claude/feature/_archive/",
+		Short: rewriteStateText("Archive stale or legacy feature folders to .claude/feature/_archive/"),
 		Long: `Move feature folders that the pipeline can no longer use out of the way:
 folders whose status.json carries pre-renumbering stage keys (10-prd-alignment,
 11-review, 8-code-review, …) and folders with no activity for --days days.

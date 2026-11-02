@@ -398,7 +398,7 @@ func runStageChecks(featureDir string, check stageCheck) []string {
 // whose status.json matches the target stage (top-level "stage" field or pipeline stage status).
 // If multiple features match, returns the one with the most recent "updated" timestamp.
 func findFeatureDirByStage(cwd string, targetStage string) (string, error) {
-	pattern := filepath.Join(cwd, ".claude", "feature", "*", "status.json")
+	pattern := filepath.Join(featureRoot(cwd), "*", "status.json")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return "", fmt.Errorf("glob error: %w", err)
@@ -493,7 +493,7 @@ func detectCurrentStage(cwd, feature string) (string, error) {
 	}
 
 	if feature != "" {
-		statusFile := filepath.Join(cwd, ".claude", "feature", feature, "status.json")
+		statusFile := filepath.Join(featureRoot(cwd), feature, "status.json")
 		data, err := os.ReadFile(statusFile)
 		if err != nil {
 			return "", fmt.Errorf("cannot read status.json for feature %q: %w", feature, err)
@@ -503,7 +503,7 @@ func detectCurrentStage(cwd, feature string) (string, error) {
 	}
 
 	// Scan all features — return the stage from the most recently updated one.
-	pattern := filepath.Join(cwd, ".claude", "feature", "*", "status.json")
+	pattern := filepath.Join(featureRoot(cwd), "*", "status.json")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return "", fmt.Errorf("glob error: %w", err)
@@ -536,7 +536,7 @@ func resolveFeatureDir(cwd, featureFlag, stage string) (string, error) {
 		if !featureNameRE.MatchString(featureFlag) {
 			return "", fmt.Errorf("invalid feature name %q: must contain only alphanumeric characters, hyphens, and underscores", featureFlag)
 		}
-		dir := filepath.Join(cwd, ".claude", "feature", featureFlag)
+		dir := filepath.Join(featureRoot(cwd), featureFlag)
 		info, err := os.Stat(dir)
 		if err != nil {
 			return "", fmt.Errorf("feature directory %q not found: %w", dir, err)

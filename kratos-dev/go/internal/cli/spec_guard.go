@@ -15,7 +15,7 @@ func specArchiveGuard(root, feature string, force bool) error {
 	if force {
 		return nil
 	}
-	status, err := readStatusJSON(filepath.Join(root, ".claude", "feature", feature, "status.json"))
+	status, err := readStatusJSON(filepath.Join(featureRoot(root), feature, "status.json"))
 	if err != nil {
 		return nil
 	}

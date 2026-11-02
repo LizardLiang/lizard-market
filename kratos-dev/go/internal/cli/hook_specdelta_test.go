@@ -29,7 +29,7 @@ func TestSpecDeltaPathRE(t *testing.T) {
 		{`.claude/feature/my-feat/spec-delta/auth.txt`, ""},
 	}
 	for _, c := range cases {
-		m := specDeltaPathRE.FindStringSubmatch(c.path)
+		m := specDeltaPathRE().FindStringSubmatch(c.path)
 		got := ""
 		if m != nil {
 			got = m[1]

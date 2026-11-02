@@ -35,7 +35,7 @@ const { execFileSync, spawn, spawnSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
-const { resolveBinary, platformBinaryName } = require("./kratos-bin.cjs");
+const { resolveBinary, platformBinaryName, stateDir, stateDirInfo, syncStateDirConfig } = require("./kratos-bin.cjs");
 const { HOOK_OUTPUT_BUDGET, fitToBudget } = require("./hook-budget.cjs");
 
 // Global paths
@@ -369,7 +369,7 @@ function formatMemoriesCompact(cwd, capture) {
 // freshness gate as the handoff head.
 function formatEnvironmentFacts(cwd) {
   try {
-    const handoffPath = path.join(cwd, ".claude", ".Arena", "handoff.md");
+    const handoffPath = path.join(cwd, stateDir(), ".Arena", "handoff.md");
     const stats = fs.statSync(handoffPath);
     if (Date.now() - stats.mtimeMs >= SESSION_FILE_MAX_AGE_MS) return null;
     const lines = fs.readFileSync(handoffPath, "utf-8").split(/\r?\n/);
@@ -403,9 +403,28 @@ function readSessionState(sessionId) {
 // After a compaction the model has lost its working targets; print the head of
 // a fresh handoff.md (the memory sweep keeps it current) so files, pages and
 // next steps survive the boundary.
+// Syncs the plugin's shipped state_dir into ~/.kratos/config.json, then names
+// the active state dir when it is not .claude, and warns once when a project
+// still holds state under .claude/.
+function formatStateDirNotices(cwd, pluginRoot) {
+  const lines = [];
+  try {
+    syncStateDirConfig(pluginRoot);
+    const info = stateDirInfo();
+    if (info.dir === ".claude") return lines;
+    lines.push("Kratos: state dir " + info.dir + " (from " + info.source + ")");
+    if (fs.existsSync(path.join(cwd, ".claude", "feature")) || fs.existsSync(path.join(cwd, ".claude", ".Arena"))) {
+      lines.push("Kratos: found old state in .claude/ — move it with: mv .claude/feature .claude/.Arena " + info.dir + "/");
+    }
+  } catch (e) {
+    // a notice must never block session start
+  }
+  return lines;
+}
+
 function formatHandoffHead(cwd) {
   try {
-    const handoffPath = path.join(cwd, ".claude", ".Arena", "handoff.md");
+    const handoffPath = path.join(cwd, stateDir(), ".Arena", "handoff.md");
     const stats = fs.statSync(handoffPath);
     if (Date.now() - stats.mtimeMs >= SESSION_FILE_MAX_AGE_MS) return null;
     // The ## Environment section is printed by formatEnvironmentFacts in full;
@@ -419,7 +438,7 @@ function formatHandoffHead(cwd) {
       if (lines.length >= 12) break;
     }
     if (lines.length === 0) return null;
-    return ["Kratos: current targets after compaction (.claude/.Arena/handoff.md):", ...lines.map((l) => "  " + l)].join("\n");
+    return ["Kratos: current targets after compaction (" + stateDir() + "/.Arena/handoff.md):", ...lines.map((l) => "  " + l)].join("\n");
   } catch (e) {
     return null;
   }
@@ -430,7 +449,7 @@ function formatHandoffHead(cwd) {
 // appears; this only prints a one-line pointer for a fresh file.
 function formatHandoffNotice(cwd) {
   try {
-    const handoffPath = path.join(cwd, ".claude", ".Arena", "handoff.md");
+    const handoffPath = path.join(cwd, stateDir(), ".Arena", "handoff.md");
     const stats = fs.statSync(handoffPath);
     const age = Date.now() - stats.mtimeMs;
     if (age >= SESSION_FILE_MAX_AGE_MS) return null;
@@ -444,7 +463,7 @@ function formatHandoffNotice(cwd) {
 // archived/. One line, once per session, only while the newest delta is fresh
 // — stale deltas from abandoned features stop nagging on their own.
 function formatPendingSpecDeltas(cwd) {
-  const featureRoot = path.join(cwd, ".claude", "feature");
+  const featureRoot = path.join(cwd, stateDir(), "feature");
   let features;
   try {
     features = fs.readdirSync(featureRoot);
@@ -492,7 +511,7 @@ function countLockedDecisions(body) {
 // Unfinished tactical plans (status: draft) hold answers the user already
 // gave. One line, same freshness gate as the deltas.
 function formatDraftPlans(cwd) {
-  const planDir = path.join(cwd, ".claude", ".Arena", "tactical-plans");
+  const planDir = path.join(cwd, stateDir(), ".Arena", "tactical-plans");
   let names;
   try {
     names = fs.readdirSync(planDir);
@@ -728,6 +747,8 @@ function main(payload) {
   // Always inject the output constraint, regardless of session source.
   console.log(OUTPUT_CONSTRAINT);
 
+  for (const line of formatStateDirNotices(cwd, process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, ".."))) console.log(line);
+
   const kratosBin = findKratosBinary();
   if (kratosBin) {
     console.log(`KRATOS_BIN: ${kratosBin}`);
@@ -798,5 +819,5 @@ if (require.main === module) {
   process.stdin.on("error", finish);
   setTimeout(finish, 300).unref();
 } else {
-  module.exports = { buildMemoryReport, formatMemories, normalizeProject };
+  module.exports = { buildMemoryReport, formatMemories, normalizeProject, formatStateDirNotices };
 }

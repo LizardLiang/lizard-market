@@ -134,7 +134,7 @@ func gitRoot() string {
 
 // statusPath resolves the status.json path for a feature
 func statusPath(feature string) string {
-	return filepath.Join(gitRoot(), ".claude", "feature", feature, "status.json")
+	return filepath.Join(featureRoot(gitRoot()), feature, "status.json")
 }
 
 // readStatusJSON reads and parses a status.json file
@@ -723,7 +723,7 @@ Use --verify to find the stage-7-ready feature and verify its prerequisites (Are
 // When all is false, only incomplete features are shown.
 func pipelineDiscoverList(all bool) error {
 	root := gitRoot()
-	pattern := filepath.Join(root, ".claude", "feature", "*", "status.json")
+	pattern := filepath.Join(featureRoot(root), "*", "status.json")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return fmt.Errorf("glob error: %w", err)
@@ -785,7 +785,7 @@ func pipelineDiscoverList(all bool) error {
 // This is the original discover behavior, preserved for backward compatibility (Ares).
 func pipelineDiscoverVerify() error {
 	root := gitRoot()
-	pattern := filepath.Join(root, ".claude", "feature", "*", "status.json")
+	pattern := filepath.Join(featureRoot(root), "*", "status.json")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return fmt.Errorf("glob error: %w", err)
@@ -850,7 +850,7 @@ func pipelineDiscoverVerify() error {
 	}
 
 	c := ready[0]
-	featureDir := filepath.Join(root, ".claude", "feature", c.feature)
+	featureDir := filepath.Join(featureRoot(root), c.feature)
 	pipeline, _ := c.data["pipeline"].(map[string]interface{})
 
 	stage6status := "missing"
@@ -933,7 +933,7 @@ func resolveFeatureIn(root, explicit string) (name, dir string, status map[strin
 		if !featureNameRE.MatchString(explicit) {
 			return "", "", nil, fmt.Errorf("invalid feature name %q", explicit)
 		}
-		path := filepath.Join(root, ".claude", "feature", explicit, "status.json")
+		path := filepath.Join(featureRoot(root), explicit, "status.json")
 		status, err = readStatusJSON(path)
 		if err != nil {
 			return "", "", nil, err
@@ -941,7 +941,7 @@ func resolveFeatureIn(root, explicit string) (name, dir string, status map[strin
 		return explicit, filepath.Dir(path), status, nil
 	}
 
-	pattern := filepath.Join(root, ".claude", "feature", "*", "status.json")
+	pattern := filepath.Join(featureRoot(root), "*", "status.json")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("glob error: %w", err)

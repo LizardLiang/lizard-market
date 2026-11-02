@@ -48,4 +48,72 @@ function resolveBinary() {
   return null;
 }
 
-module.exports = { resolveBinary, platformBinaryName };
+// ---- Kratos state directory -------------------------------------------------
+// Project directory that holds feature/, .Arena/ and tmp/. Same precedence and
+// validation as the Go binary (internal/cli/statedir.go): env KRATOS_STATE_DIR,
+// then ~/.kratos/config.json "state_dir", then ".claude".
+
+const DEFAULT_STATE_DIR = '.claude';
+
+function validStateDirName(v) {
+  return typeof v === 'string' && v.length >= 2 && v[0] === '.' && v !== '..' && !/[\/\\0]/.test(v);
+}
+
+function configPath() {
+  return path.join(os.homedir(), '.kratos', 'config.json');
+}
+
+function readConfig() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(configPath(), 'utf-8'));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Returns { dir, source } where source is 'env', '~/.kratos/config.json' or 'default'.
+function stateDirInfo() {
+  const env = process.env.KRATOS_STATE_DIR;
+  if (env) {
+    if (validStateDirName(env)) return { dir: env, source: 'KRATOS_STATE_DIR' };
+    process.stderr.write("kratos: ignoring invalid KRATOS_STATE_DIR '" + env + "'\n");
+    return { dir: DEFAULT_STATE_DIR, source: 'default' };
+  }
+  const cfg = readConfig();
+  if (cfg && cfg.state_dir) {
+    if (validStateDirName(cfg.state_dir)) return { dir: cfg.state_dir, source: '~/.kratos/config.json' };
+    process.stderr.write("kratos: ignoring invalid state_dir '" + cfg.state_dir + "' in ~/.kratos/config.json\n");
+  }
+  return { dir: DEFAULT_STATE_DIR, source: 'default' };
+}
+
+function stateDir() {
+  return stateDirInfo().dir;
+}
+
+// Merges <pluginRoot>/kratos.config.json "state_dir" into ~/.kratos/config.json
+// when it is valid and differs. Writes a temp file, then renames. A corrupt
+// existing config is left alone. Returns true when the file was written.
+function syncStateDirConfig(pluginRoot) {
+  try {
+    const shipped = JSON.parse(fs.readFileSync(path.join(pluginRoot, 'kratos.config.json'), 'utf-8'));
+    if (!shipped || !validStateDirName(shipped.state_dir)) return false;
+    const target = configPath();
+    let current = {};
+    if (fs.existsSync(target)) {
+      current = readConfig();
+      if (!current) return false;
+    }
+    if (current.state_dir === shipped.state_dir) return false;
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    const tmp = target + '.' + process.pid + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify({ ...current, state_dir: shipped.state_dir }, null, 2) + '\n');
+    fs.renameSync(tmp, target);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+module.exports = { resolveBinary, platformBinaryName, stateDir, stateDirInfo, syncStateDirConfig, validStateDirName, DEFAULT_STATE_DIR };

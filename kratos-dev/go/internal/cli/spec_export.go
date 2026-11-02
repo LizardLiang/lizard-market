@@ -70,7 +70,7 @@ func shardTitle(shard *specShard, capability string) string {
 // specsExportDirIn is the default export destination, mirroring specsDirIn's
 // root-parameterized path helper convention.
 func specsExportDirIn(root string) string {
-	return filepath.Join(root, ".claude", ".Arena", "specs-export")
+	return filepath.Join(arenaRoot(root), "specs-export")
 }
 
 // loadSpecShardsIn reads every living capability shard under specsDirIn(root),
@@ -251,7 +251,7 @@ func specExportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export [capability]",
 		Short: "Export living specs to a self-contained HTML or Markdown document",
-		Long: "Renders .claude/.Arena/specs/<capability>/spec.md shards into a single self-contained " +
+		Long: rewriteStateText("Renders .claude/.Arena/specs/<capability>/spec.md shards into a single self-contained ") +
 			"HTML document (inline CSS/JS, no external resources) or a concatenated Markdown document. " +
 			"Pending spec deltas are never included — only archived, living content is exported.",
 		Args:         cobra.MaximumNArgs(1),
@@ -274,6 +274,6 @@ func specExportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", "html", "export format: html or md")
-	cmd.Flags().StringVar(&out, "out", "", "write the export to this path instead of the default .claude/.Arena/specs-export/ location")
+	cmd.Flags().StringVar(&out, "out", "", rewriteStateText("write the export to this path instead of the default .claude/.Arena/specs-export/ location"))
 	return cmd
 }

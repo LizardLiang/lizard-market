@@ -72,10 +72,12 @@ var gateTempClaudeRE = regexp.MustCompile(`(^|/)(temp|tmp)/claude/`)
 // gateSpecDeltaRE allows exactly one segment after spec-delta/, so
 // spec-delta/archived/*.md — where `kratos spec archive` moves promoted deltas
 // — stays denied.
-var gateSpecDeltaRE = regexp.MustCompile(`(?i)(^|/)\.claude/feature/[^/]+/spec-delta/[^/]+\.md$`)
+func gateSpecDeltaRE() *regexp.Regexp {
+	return regexp.MustCompile(`(?i)(^|/)` + stateQuoted() + `/feature/[^/]+/spec-delta/[^/]+\.md$`)
+}
 
 // gatePlanRoot is the tactical-plan directory Odysseus may write.
-const gatePlanRoot = ".claude/.Arena/tactical-plans"
+func gatePlanRoot() string { return stateRel(".Arena/tactical-plans") }
 
 // gateAbsPathRE matches the absolute path shapes the edit tools actually send:
 // POSIX and Windows drive-letter. Only an absolute path can be compared with
@@ -827,7 +829,9 @@ func isUnderGateCwd(cleaned, cwd string) bool {
 
 // gateFlowShardRE allows exactly one segment after flows/, so a subdirectory
 // of flows/ stays denied. Case sensitive on .Arena, as the plan path is.
-var gateFlowShardRE = regexp.MustCompile(`(^|/)\.claude/\.Arena/flows/[^/]+\.md$`)
+func gateFlowShardRE() *regexp.Regexp {
+	return regexp.MustCompile(`(^|/)` + stateQuoted() + `/\.Arena/flows/[^/]+\.md$`)
+}
 
 // gateClaudeMemoryRE matches Claude Code's per-project auto-memory files
 // (~/.claude/projects/<slug>/memory/*.md, MEMORY.md included). Saving a user
@@ -845,7 +849,7 @@ func isClaudeMemoryPath(filePath string) bool {
 // both direct Odysseus to write that shard.
 func isFlowShardPath(filePath, cwd string) bool {
 	n := gateCleanPath(filePath)
-	return n != "" && gateFlowShardRE.MatchString(n) && isUnderGateCwd(n, cwd)
+	return n != "" && gateFlowShardRE().MatchString(n) && isUnderGateCwd(n, cwd)
 }
 
 func isTacticalPlanPath(filePath, cwd string) bool {
@@ -853,7 +857,7 @@ func isTacticalPlanPath(filePath, cwd string) bool {
 	if n == "" || !strings.HasSuffix(n, ".md") {
 		return false
 	}
-	return strings.Contains(n, gatePlanRoot+"/") && isUnderGateCwd(n, cwd)
+	return strings.Contains(n, gatePlanRoot()+"/") && isUnderGateCwd(n, cwd)
 }
 
 // isSpecDeltaGatePath allows .claude/feature/<slug>/spec-delta/<capability>.md
@@ -861,7 +865,7 @@ func isTacticalPlanPath(filePath, cwd string) bool {
 // still denied.
 func isSpecDeltaGatePath(filePath, cwd string) bool {
 	n := gateCleanPath(filePath)
-	return n != "" && gateSpecDeltaRE.MatchString(n) && isUnderGateCwd(n, cwd)
+	return n != "" && gateSpecDeltaRE().MatchString(n) && isUnderGateCwd(n, cwd)
 }
 
 // isGateProjectFile reports whether the file is project work: under cwd and
@@ -880,7 +884,7 @@ func isGateProjectFile(filePath, cwd string) bool {
 		return false
 	}
 	rel := file[len(root)+1:]
-	if strings.HasPrefix(rel, ".claude/") || strings.HasPrefix(rel, ".kratos/") || strings.HasPrefix(rel, ".git/") {
+	if strings.HasPrefix(rel, ".claude/") || strings.HasPrefix(rel, stateDirName()+"/") || strings.HasPrefix(rel, ".kratos/") || strings.HasPrefix(rel, ".git/") {
 		return false
 	}
 	if gateTempClaudeRE.MatchString(file) {
@@ -1666,7 +1670,7 @@ func gateContainmentRootSource(cwd string) (string, bool) {
 			break
 		}
 		for _, marker := range []string{".Arena", "feature"} {
-			if st, err := os.Stat(filepath.Join(dir, ".claude", marker)); err == nil && st.IsDir() {
+			if st, err := os.Stat(filepath.Join(dir, stateDirName(), marker)); err == nil && st.IsDir() {
 				return dir, false
 			}
 		}

@@ -111,7 +111,7 @@ func resolveTaskFeature(root, explicit string) (string, string, map[string]inter
 		return resolveFeatureIn(root, explicit)
 	}
 
-	pattern := filepath.Join(root, ".claude", "feature", "*", "status.json")
+	pattern := filepath.Join(featureRoot(root), "*", "status.json")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("glob error: %w", err)

@@ -207,9 +207,9 @@ func handbackSizeFailure(message string, max int, agent string) (string, bool) {
 	if n <= max {
 		return "", false
 	}
-	where := ".claude/feature/<name>/implementation-notes.md or the session scratchpad"
+	where := rewriteStateText(".claude/feature/<name>/implementation-notes.md or the session scratchpad")
 	if agent == "hermes" {
-		where = ".claude/feature/<name>/code-review.md or .claude/tmp/hermes-review-<timestamp>.md"
+		where = rewriteStateText(".claude/feature/<name>/code-review.md or .claude/tmp/hermes-review-<timestamp>.md")
 	}
 	return fmt.Sprintf("report is %d chars (cap %d) — write the full report to %s, then hand back only the summary block and that path", n, max, where), true
 }

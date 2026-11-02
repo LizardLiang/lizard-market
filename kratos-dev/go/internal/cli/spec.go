@@ -330,7 +330,7 @@ func renameRequirementHeader(body, newName string) string {
 // ---------- Path helpers (root-parameterized: specRoot() for CLI, hook cwd for gates) ----------
 
 func specsDirIn(root string) string {
-	return filepath.Join(root, ".claude", ".Arena", "specs")
+	return filepath.Join(arenaRoot(root), "specs")
 }
 
 func specShardPathIn(root, capability string) string {
@@ -338,7 +338,7 @@ func specShardPathIn(root, capability string) string {
 }
 
 func featureSpecDeltaDirIn(root, feature string) string {
-	return filepath.Join(root, ".claude", "feature", feature, "spec-delta")
+	return filepath.Join(featureRoot(root), feature, "spec-delta")
 }
 
 // validSpecName rejects names that could escape the intended directory (M-003
@@ -793,7 +793,7 @@ func extractRequirementsFromPRD(content string) []requirement {
 // adds zero new requirements the second time, since requirements are deduplicated by
 // name within each capability shard.
 func specBackfillIn(root string) (string, error) {
-	pattern := filepath.Join(root, ".claude", "feature", "*", "status.json")
+	pattern := filepath.Join(featureRoot(root), "*", "status.json")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return "", fmt.Errorf("glob error: %w", err)
@@ -902,9 +902,9 @@ func SpecCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "spec",
 		Short: "Manage living behavioral specs and per-feature spec deltas",
-		Long:  "Living specs are pure markdown at .claude/.Arena/specs/<capability>/spec.md. No database is involved.",
+		Long:  rewriteStateText("Living specs are pure markdown at .claude/.Arena/specs/<capability>/spec.md. No database is involved."),
 	}
-	cmd.PersistentFlags().StringVar(&specArenaRoot, "arena-root", "", "Checkout whose .claude/ holds the living specs and deltas (default: the main worktree of this repository)")
+	cmd.PersistentFlags().StringVar(&specArenaRoot, "arena-root", "", "Checkout whose Kratos state directory (.claude by default) holds the living specs and deltas (default: the main worktree of this repository)")
 	cmd.AddCommand(specListCmd())
 	cmd.AddCommand(specShowCmd())
 	cmd.AddCommand(specDiffCmd())
@@ -967,7 +967,7 @@ func specListCapabilities(cmd *cobra.Command, root string) error {
 }
 
 func specListChanges(cmd *cobra.Command, root string) error {
-	pattern := filepath.Join(root, ".claude", "feature", "*", "spec-delta", "*.md")
+	pattern := filepath.Join(featureRoot(root), "*", "spec-delta", "*.md")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return fmt.Errorf("glob error: %w", err)

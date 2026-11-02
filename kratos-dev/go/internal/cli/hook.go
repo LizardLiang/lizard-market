@@ -275,7 +275,9 @@ func HookCmd() *cobra.Command {
 // specDeltaPathRE extracts the feature slug from a spec-delta file path,
 // tolerating both / and \ separators. Anchored on the .claude/feature/…/
 // spec-delta/…md shape so ordinary writes never match.
-var specDeltaPathRE = regexp.MustCompile(`\.claude[/\\]feature[/\\]([^/\\]+)[/\\]spec-delta[/\\][^/\\]+\.md$`)
+func specDeltaPathRE() *regexp.Regexp {
+	return regexp.MustCompile(stateQuoted() + `[/\\]feature[/\\]([^/\\]+)[/\\]spec-delta[/\\][^/\\]+\.md$`)
+}
 
 // postToolUseInput is the JSON Claude Code sends for PostToolUse (Write/Edit).
 type postToolUseInput struct {
@@ -321,7 +323,7 @@ func specDeltaRoot(prefix, fallback string) string {
 	if !filepath.IsAbs(prefix) {
 		prefix = filepath.Join(fallback, prefix)
 	}
-	if info, err := os.Stat(filepath.Join(prefix, ".claude", "feature")); err == nil && info.IsDir() {
+	if info, err := os.Stat(featureRoot(prefix)); err == nil && info.IsDir() {
 		return prefix
 	}
 	return fallback
@@ -335,7 +337,7 @@ func specDeltaCheckIn(root string, raw []byte, stdout io.Writer) error {
 	}
 
 	filePath := input.ToolInput.FilePath
-	m := specDeltaPathRE.FindStringSubmatchIndex(filePath)
+	m := specDeltaPathRE().FindStringSubmatchIndex(filePath)
 	if m == nil {
 		return nil
 	}
@@ -360,10 +362,10 @@ func specDeltaCheckIn(root string, raw []byte, stdout io.Writer) error {
 		return nil
 	}
 
-	reason := fmt.Sprintf(
+	reason := rewriteStateText(fmt.Sprintf(
 		"Spec delta validation failed for feature %q: %s — fix the delta now (the file must start directly with ## ADDED/MODIFIED/REMOVED/RENAMED Requirements; every ADDED/MODIFIED requirement needs a SHALL statement and ≥1 #### Scenario:; ADDED vs MODIFIED is relative to the living spec at .claude/.Arena/specs/<capability>/spec.md, not the code: if the capability has no living spec or the requirement isn't recorded there yet, it is ADDED — even for a bug fix to existing behavior).",
 		feature, strings.Join(messages, "; "),
-	)
+	))
 	return json.NewEncoder(stdout).Encode(map[string]string{
 		"decision": "block",
 		"reason":   reason,
@@ -501,7 +503,7 @@ func handoffInjectionContext(cleanedPrompt string, input hookInput) string {
 		return ""
 	}
 
-	handoffPath := filepath.Join(cwd, ".claude", ".Arena", "handoff.md")
+	handoffPath := filepath.Join(arenaRoot(cwd), "handoff.md")
 	info, err := os.Stat(handoffPath)
 	if err != nil {
 		return ""
@@ -790,7 +792,7 @@ func handleHermesStart(input subagentStartInput) error {
 	checklistDir, err := findActiveFeatureDir(cwd)
 	if err != nil || checklistDir == "" {
 		// Fall back to .claude/tmp/
-		checklistDir = filepath.Join(cwd, ".claude", "tmp")
+		checklistDir = tmpRoot(cwd)
 		debugLog("hermes-start: no active feature found, using fallback dir: %s", checklistDir)
 	}
 
@@ -888,7 +890,7 @@ func readHermesChecklistState(path string) (hermesChecklistState, bool) {
 // findActiveFeatureDir scans .claude/feature/*/status.json and returns the feature folder
 // for the first feature where stage 9-review has status pending, in-progress, or ready.
 func findActiveFeatureDir(cwd string) (string, error) {
-	pattern := filepath.Join(cwd, ".claude", "feature", "*", "status.json")
+	pattern := filepath.Join(featureRoot(cwd), "*", "status.json")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return "", err
@@ -1528,10 +1530,10 @@ func subagentStopCmd() *cobra.Command {
 				if len(failures) == 0 {
 					clearGateBlock(statePath)
 				} else {
-					return evaluateGateBlock("hephaestus", statePath, input.AgentID, fmt.Sprintf(
+					return evaluateGateBlock("hephaestus", statePath, input.AgentID, rewriteStateText(fmt.Sprintf(
 						"Hephaestus quality gate failed: %s. A complete spec must cover architecture, data models, API design, and implementation details, written to .claude/feature/<name>/ before completing.",
 						strings.Join(failures, "; "),
-					))
+					)))
 				}
 			}
 
@@ -1579,10 +1581,10 @@ func handleAthenaStop(input subagentStopInput) error {
 		return outputSubagentOK()
 	}
 	if len(files) == 0 {
-		return outputSubagentBlock(fmt.Sprintf(
+		return outputSubagentBlock(rewriteStateText(fmt.Sprintf(
 			"Athena quality gate failed: no spec delta found at .claude/feature/%s/spec-delta/. After writing prd.md, assign a capability (existing or new) and write spec-delta/<capability>.md using the spec-delta-template before completing.",
 			feature,
-		))
+		)))
 	}
 
 	ok, messages, err := specValidateIn(cwd, feature, false)
@@ -1591,10 +1593,10 @@ func handleAthenaStop(input subagentStopInput) error {
 		return outputSubagentOK()
 	}
 	if !ok {
-		return outputSubagentBlock(fmt.Sprintf(
+		return outputSubagentBlock(rewriteStateText(fmt.Sprintf(
 			"Athena quality gate failed: kratos spec validate found errors in the spec delta:\n%s\nFix the delta before completing. Reminder: ADDED vs MODIFIED is relative to the living spec at .claude/.Arena/specs/<capability>/spec.md, not the code: if the capability has no living spec or the requirement isn't recorded there yet, it is ADDED — even for a bug fix to existing behavior.",
 			strings.Join(messages, "\n"),
-		))
+		)))
 	}
 
 	debugLog("athena-stop: spec delta valid for %q, allowing stop", feature)
@@ -1604,7 +1606,7 @@ func handleAthenaStop(input subagentStopInput) error {
 // findMostRecentFeatureDirWithFile scans .claude/feature/*/<filename> and returns the
 // feature directory whose file has the most recent modification time.
 func findMostRecentFeatureDirWithFile(cwd, filename string) string {
-	pattern := filepath.Join(cwd, ".claude", "feature", "*", filename)
+	pattern := filepath.Join(featureRoot(cwd), "*", filename)
 	matches, err := filepath.Glob(pattern)
 	if err != nil || len(matches) == 0 {
 		return ""
@@ -1658,10 +1660,10 @@ func handleNemesisStop(input subagentStopInput) error {
 	var failure string
 	challengePath := filepath.Join(featureDir, "prd-challenge.md")
 	if !discoverFileExists(challengePath) {
-		failure = fmt.Sprintf(
+		failure = rewriteStateText(fmt.Sprintf(
 			"prd-challenge.md not found in %s. Write your PRD challenge to .claude/feature/<name>/prd-challenge.md before completing.",
 			featureDir,
-		)
+		))
 	} else if content, rerr := os.ReadFile(challengePath); rerr != nil || len(strings.TrimSpace(string(content))) == 0 {
 		failure = "prd-challenge.md exists but is empty. Add at least one challenge section before completing."
 	} else if !challengeHeadingRe.Match(content) {
@@ -1721,7 +1723,7 @@ func gateStatePath(cwd, featureDir, filename string) string {
 	if cwd == "" {
 		cwd, _ = os.Getwd()
 	}
-	return filepath.Join(cwd, ".claude", "tmp", filename)
+	return filepath.Join(tmpRoot(cwd), filename)
 }
 
 // evaluateGateBlock applies the bounded block-count guard for a content gate that just found
@@ -1967,7 +1969,7 @@ func findHermesChecklist(cwd string) string {
 
 	// Fall back to .claude/tmp/ — same fallback handleHermesStart uses when
 	// no feature has an active 9-review stage.
-	fallback := filepath.Join(cwd, ".claude", "tmp", "hermes-checklist.json")
+	fallback := filepath.Join(tmpRoot(cwd), "hermes-checklist.json")
 	if _, err := os.Stat(fallback); err == nil {
 		return fallback
 	}

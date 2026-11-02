@@ -22,7 +22,7 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { resolveBinary } = require('./kratos-bin.cjs');
+const { resolveBinary, stateDir } = require('./kratos-bin.cjs');
 
 const KRATOS_HOME = path.join(os.homedir(), '.kratos');
 const DB_PATH = path.join(KRATOS_HOME, 'memory.db');
@@ -46,10 +46,10 @@ function runKratos(kratosCmd, args) {
   }
 }
 
-// Most recently touched in-progress feature under cwd/.claude/feature, for the
+// Most recently touched in-progress feature under cwd/<state dir>/feature, for the
 // summary line only.
 function findActiveFeature(cwd) {
-  const featureDir = path.join(cwd, '.claude', 'feature');
+  const featureDir = path.join(cwd, stateDir(), 'feature');
   let features;
   try {
     features = fs.readdirSync(featureDir);

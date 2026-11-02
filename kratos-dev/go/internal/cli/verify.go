@@ -237,10 +237,10 @@ func arenaScanReminder(cwd string) string {
 	if cwd == "" {
 		cwd, _ = os.Getwd()
 	}
-	if _, err := os.Stat(filepath.Join(cwd, ".claude", ".Arena", "index.md")); err != nil {
+	if _, err := os.Stat(filepath.Join(arenaRoot(cwd), "index.md")); err != nil {
 		return ""
 	}
-	return "\n\nCONTEXT REUSE: This project has an Arena knowledge base (.claude/.Arena/). " +
+	return "\n\nCONTEXT REUSE: This project has an Arena knowledge base (" + stateRel(".Arena") + "/). " +
 		"Upstream stages already scanned the codebase — read Arena (index.md → architecture/, conventions/) " +
 		"and the stage summaries via 'kratos pipeline get --compact' instead of re-globbing broadly. " +
 		"A broad codebase re-scan duplicates upstream work and wastes tokens."
@@ -315,7 +315,9 @@ func runVerifyFinal(feature string) error {
 
 // landedIgnorePrefixes are paths whose dirtiness never counts against a landed
 // check: pipeline bookkeeping and Kratos state, not implementation work.
-var landedIgnorePrefixes = []string{".claude/", ".kratos/"}
+func landedIgnorePrefixes() []string {
+	return []string{".claude/", ".kratos/", stateDirName() + "/"}
+}
 
 // evaluateLanded returns the reasons implementation work in repoDir is not
 // landed: the reported commit is missing, or tracked files outside the
@@ -385,7 +387,7 @@ func evaluateLanded(repoDir, hash string) []string {
 			continue
 		}
 		ignore := false
-		for _, pre := range landedIgnorePrefixes {
+		for _, pre := range landedIgnorePrefixes() {
 			if strings.HasPrefix(p, pre) {
 				ignore = true
 				break

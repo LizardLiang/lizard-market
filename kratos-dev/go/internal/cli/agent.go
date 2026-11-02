@@ -253,7 +253,7 @@ func resolveTokens(body, rootFlag string) string {
 	if exe, err := os.Executable(); err == nil && exe != "" {
 		body = strings.ReplaceAll(body, "<kratos-bin>", toSlash(exe))
 	}
-	return body
+	return rewriteStateText(body)
 }
 
 // toSlash normalizes path separators to forward slashes on every host OS.

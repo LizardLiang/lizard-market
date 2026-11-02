@@ -20,7 +20,7 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 const os = require('os');
-const { resolveBinary } = require('./kratos-bin.cjs');
+const { resolveBinary, stateDir } = require('./kratos-bin.cjs');
 
 const KRATOS_HOME = path.join(os.homedir(), '.kratos');
 const DB_PATH = path.join(KRATOS_HOME, 'memory.db');
@@ -80,9 +80,10 @@ function isProjectFile(filePath, cwd) {
   if (!file.startsWith(root + '/')) return false;
   const rel = file.slice(root.length + 1);
   if (rel.startsWith('.kratos/') || rel.startsWith('.git/')) return false;
-  if (rel.startsWith('.claude/')) {
-    if (rel.startsWith('.claude/tmp/')) return false;
-    if (!rel.startsWith('.claude/feature/') && !rel.startsWith('.claude/.arena/')) return false;
+  for (const dir of new Set(['.claude', stateDir().toLowerCase()])) {
+    if (!rel.startsWith(dir + '/')) continue;
+    if (rel.startsWith(dir + '/tmp/')) return false;
+    if (!rel.startsWith(dir + '/feature/') && !rel.startsWith(dir + '/.arena/')) return false;
   }
   if (/(^|\/)(temp|tmp)\/claude\//.test(file)) return false;
   return true;
