@@ -1053,13 +1053,16 @@ func isReadOnlyShellCommand(command string) bool {
 // value holds no shell metacharacter and no quote, so it is one literal word.
 var gateBareAssignmentRE = regexp.MustCompile("^([A-Za-z_][A-Za-z0-9_]*)=([^;&|<>`$()\\s'\"]+)$")
 
-// substituteLeadingAssignment expands `$NAME` and `${NAME}` at the head of
-// every later segment when the first segment is a bare assignment with a
+// substituteLeadingAssignment expands `$NAME` and `${NAME}` in every
+// position of every later segment when the first segment is a bare assignment with a
 // literal value (`K=/x/kratos.exe; $K slug x`). Each expanded segment is then
 // classified like any typed command, so the value must still name a read-only
 // program. The assignment segment is dropped only when a later head used it,
-// so `PATH=/x; ls` classifies as before. Any other first segment, and any
-// `$NAME` past a segment head, is left unexpanded and classifies as before.
+// so `PATH=/x; ls` classifies as before. Any other first segment is left
+// unexpanded and classifies as before.
+// `$NAME` past a segment head is expanded too, because the value is one literal
+// word and the expanded text is exactly what the shell runs (`D=src; cat
+// $D/x | head`).
 // Nothing is substituted or dropped when a later segment names NAME as a bare
 // word (`printf -v K rm`, `K=rm`, `export K=rm`, `read K`, `unset K`): that
 // segment can reassign the variable before a later head reads it. Wrapper heads
@@ -1099,6 +1102,11 @@ func substituteLeadingAssignment(command string, segs []shellSegment) []shellSeg
 			out[i] = shellSegment{raw: expanded, masked: maskQuoted(expanded)}
 			used = true
 			break
+		}
+		if refRE.MatchString(out[i].raw) {
+			expanded := refRE.ReplaceAllLiteralString(out[i].raw, m[2])
+			out[i] = shellSegment{raw: expanded, masked: maskQuoted(expanded)}
+			used = true
 		}
 	}
 	if !used {
@@ -1461,7 +1469,7 @@ func firstNonEmpty(values ...string) string {
 
 // irisSpawnCapReason is the deny text for a second review or fix round in one
 // user turn.
-const irisSpawnCapReason = "One review and one fix round per user turn. Report the findings and ask: re-review, ticket, or stop. A new user message or an AskUserQuestion answer starts the next round; a parallel review of another worktree carries its own `WORKTREE: <path>` line."
+const irisSpawnCapReason = "One review and one fix round per user turn. Report the findings and ask: re-review, ticket, or stop. A new user message or an AskUserQuestion answer starts the next round; a parallel review of another worktree carries its own `WORKTREE: <path>` line, and a parallel review of another module in the same worktree carries its own `SCOPE: <module>` line."
 
 // The spawn cap counts an inline Iris's Hermes spawns, and the Ares spawns
 // that follow a Hermes spawn, in the ledger's turn_spawns. It reports whether

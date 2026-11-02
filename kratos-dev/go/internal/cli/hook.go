@@ -1153,9 +1153,14 @@ func aresVerifyGateFailure(report string, input subagentStopInput) string {
 	return ""
 }
 
-// mentionsFilesRE matches Ares naming a specific file it created or modified,
-// with a recognized source-file extension.
-var mentionsFilesRE = regexp.MustCompile(`(?i)(created|wrote|implemented|modified|updated).*\.(ts|js|py|go|rs|java|cs|rb|md)`)
+// mentionsFilesRE matches a path-like token that ends in a word-bounded
+// source, markup, config or script extension. No verb is required: Ares lists
+// files under "Changes:", "Changed files:" or "Files created/modified:" alike.
+var mentionsFilesRE = regexp.MustCompile(`(?i)[\w-]\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|cs|rb|md|lua|sql|json|css|scss|less|html|cshtml|razor|vue|svelte|yaml|yml|toml|sh|ps1|bat|xml|config|csproj|kt|swift|c|h|cpp|php|txt)\b`)
+
+// reachEntryLineRE matches a `Reach:` line, which names entry points rather than
+// the files the mission changed.
+var reachEntryLineRE = regexp.MustCompile(`(?im)^\s*reach:.*$`)
 
 // taskListHeadingRE matches a markdown heading Ares uses in place of the
 // "Task list:"/"TODO:" recap text.
@@ -1208,6 +1213,15 @@ func aresReportFailures(report string, input subagentStopInput) []string {
 	reportLower := strings.ToLower(report)
 	var failures []string
 
+	// The user asked for speed, no tests or no commit, and the orchestrator
+	// passed the words on (hook_waiver.go): only the files check stays.
+	if aresUserWaiverGranted(input) {
+		if !mentionsFilesRE.MatchString(reachEntryLineRE.ReplaceAllString(report, "")) {
+			failures = append(failures, "no specific files were mentioned as created or modified")
+		}
+		return failures
+	}
+
 	// Subagent Ares plans via a markdown checklist (Task* tools are not
 	// available to subagents); the gate matches the "Task list:" recap Ares is
 	// instructed to print at the end (text TODO still accepted).
@@ -1222,7 +1236,7 @@ func aresReportFailures(report string, input subagentStopInput) []string {
 	// applicable` lines) has no file to name and no implementation to confirm.
 	noCodeChanged := landedWaiverRE.MatchString(report) && reachAllNotApplicable(report)
 
-	if !noCodeChanged && !mentionsFilesRE.MatchString(report) {
+	if !noCodeChanged && !mentionsFilesRE.MatchString(reachEntryLineRE.ReplaceAllString(report, "")) {
 		failures = append(failures, "no specific files were mentioned as created or modified")
 	}
 

@@ -320,6 +320,36 @@ func TestEditGateDecisions(t *testing.T) {
 			want:    "",
 		},
 		{
+			name:    "inline odysseus path variable used in an argument allowed",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `D=src/apps/web; cat $D/package.json | head -3`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "",
+		},
+		{
+			name:    "inline odysseus file variable used in later arguments allowed",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `F=README.md; wc -l $F; grep -n x ${F}`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "",
+		},
+		{
+			name:    "inline odysseus path variable naming a destructive head denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `D=rm; $D -rf x`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus path variable reassigned before use denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `D=x; D=rm; $D y`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
+			name:    "inline odysseus path variable as redirect target denied",
+			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `F=a.md; cat b > $F`}}),
+			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
+			want:    "deny",
+		},
+		{
 			name:    "inline odysseus rtk wrapped substituted destructive program denied",
 			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `K=rm; rtk $K -rf build`}}),
 			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},

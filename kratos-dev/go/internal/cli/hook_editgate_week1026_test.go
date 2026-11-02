@@ -166,8 +166,25 @@ func TestIrisSpawnCapScoped(t *testing.T) {
 			t.Fatalf("decision = %q, want deny", res.Decision)
 		}
 	})
+	t.Run("five module scopes in one worktree all pass, a repeat is denied", func(t *testing.T) {
+		spawns := map[string]any{}
+		for i, mod := range []string{"auth", "billing", "orders", "search", "users"} {
+			res := scoped("kratos:hermes", "WORKTREE: D:/wt/app\nSCOPE: ONLY files under src/modules/"+mod+"/", spawns)
+			if res.Decision != "" {
+				t.Fatalf("module %d (%s): decision = %q (%s), want none", i, mod, res.Decision, res.Reason)
+			}
+			spawns = map[string]any{}
+			for k, v := range res.TurnSpawns {
+				spawns[k] = float64(v)
+			}
+		}
+		res := scoped("kratos:hermes", "WORKTREE: D:/wt/app\nSCOPE: ONLY files under src/modules/auth/", spawns)
+		if res.Decision != "deny" {
+			t.Fatalf("repeat module: decision = %q, want deny", res.Decision)
+		}
+	})
 	t.Run("reason names the two ways out", func(t *testing.T) {
-		if !strings.Contains(irisSpawnCapReason, "AskUserQuestion answer") || !strings.Contains(irisSpawnCapReason, "WORKTREE:") {
+		if !strings.Contains(irisSpawnCapReason, "AskUserQuestion answer") || !strings.Contains(irisSpawnCapReason, "WORKTREE:") || !strings.Contains(irisSpawnCapReason, "SCOPE:") {
 			t.Fatalf("reason = %q", irisSpawnCapReason)
 		}
 	})
@@ -178,6 +195,7 @@ func TestGateSpawnScope(t *testing.T) {
 		"MISSION: x\nWORKTREE: D:\\wt\\A\\\nTARGET: y": "d:/wt/a",
 		"WORKDIR: `/home/u/wt/b`":                      "/home/u/wt/b",
 		"branch: Feat/X":                               "feat/x",
+		"SCOPE: ONLY files under src/modules/Auth/":    "only files under src/modules/auth",
 		"TARGET: src/a.ts":                             "",
 		"":                                             "",
 	}

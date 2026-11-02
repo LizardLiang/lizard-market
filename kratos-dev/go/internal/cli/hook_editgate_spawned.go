@@ -179,15 +179,19 @@ func spawnedAgentGate(input preToolUseInput) editGateResult {
 // Hermes reviews of two worktrees in one turn both pass while a second review
 // of the same worktree still trips. 2026-10-25 16:28: the second Hermes (button
 // branch, its own worktree) was denied and waited ten hours for the next turn.
-var gateSpawnScopeRE = regexp.MustCompile(`(?mi)^\s*(?:WORKTREE|WORKDIR|BRANCH):\s*(\S.*?)\s*$`)
+// A `SCOPE:` line splits one worktree by module: 2026-10-30, four of five
+// parallel module reviews in one worktree were denied.
+var gateSpawnScopeRE = regexp.MustCompile(`(?mi)^\s*(?:WORKTREE|WORKDIR|BRANCH|SCOPE):\s*(\S.*?)\s*$`)
 
 // gateSpawnScope returns the normalized scope named in a spawn prompt, or "".
+// Every scope line counts: a prompt naming a worktree and a module keys on
+// both, so two modules of one worktree get two scopes.
 func gateSpawnScope(prompt string) string {
-	m := gateSpawnScopeRE.FindStringSubmatch(prompt)
-	if m == nil {
-		return ""
+	var parts []string
+	for _, m := range gateSpawnScopeRE.FindAllStringSubmatch(prompt, -1) {
+		parts = append(parts, strings.ToLower(strings.TrimRight(strings.ReplaceAll(strings.Trim(m[1], "`\"'"), `\`, "/"), "/")))
 	}
-	return strings.ToLower(strings.TrimRight(strings.ReplaceAll(strings.Trim(m[1], "`\"'"), `\`, "/"), "/"))
+	return strings.Join(parts, "|")
 }
 
 // gateControlMessageRE recognizes a SendMessage body that steers a running
