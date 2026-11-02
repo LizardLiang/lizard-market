@@ -1155,7 +1155,8 @@ func aresVerifyGateFailure(report string, input subagentStopInput) string {
 
 // mentionsFilesRE matches a file name that ends in a word-bounded source,
 // markup, config or script extension and is either part of a path (it holds a
-// slash or a backslash) or wrapped in backticks. A bare `Node.js` or
+// slash or a backslash) or wrapped in backticks, so a backticked `Node.js`
+// still matches. A bare `Node.js` or
 // `section 3.c` is prose, not a changed file. Name characters are Unicode
 // letters and digits, so a CJK file name counts. No verb is required: Ares
 // lists files under "Changes:", "Changed files:" or "Files created/modified:".
