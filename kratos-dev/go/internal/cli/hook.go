@@ -1162,6 +1162,21 @@ func aresVerifyGateFailure(report string, input subagentStopInput) string {
 // lists files under "Changes:", "Changed files:" or "Files created/modified:".
 var mentionsFilesRE = regexp.MustCompile(`(?i)(?:(?:[\p{L}\p{N}_.-]*[/\\])+[\p{L}\p{N}_.-]*[\p{L}\p{N}_-]|` + "`" + `[^` + "`" + `\s]*[\p{L}\p{N}_-])\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|cs|rb|md|lua|sql|json|css|scss|less|html|cshtml|razor|vue|svelte|yaml|yml|toml|sh|ps1|bat|xml|config|csproj|kt|swift|c|h|cpp|php|txt)\b`)
 
+// filesLineBareNameRE matches a `Files created/modified:` or `Changed files:`
+// line that names a bare root-level file (`main.go, util.go`). On that line a
+// bare name is a file by construction, so it needs no path or backticks.
+var filesLineBareNameRE = regexp.MustCompile(`(?im)^[ \t]*[-*]?[ \t]*\**(?:files created/modified|changed files)\**[ \t]*:.*\b[\p{L}\p{N}_-]+\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|cs|rb|md|lua|sql|json|css|scss|less|html|cshtml|razor|vue|svelte|yaml|yml|toml|sh|ps1|bat|xml|config|csproj|kt|swift|c|h|cpp|php|txt)\b`)
+
+// reportNamesFiles reports whether an Ares report names a changed file: a path
+// or backticked name anywhere outside `Reach:` lines, or a bare name on the
+// files line. foldHeaderLists joins a header-plus-bullets list into one line.
+func reportNamesFiles(report string) bool {
+	if mentionsFilesRE.MatchString(reachEntryLineRE.ReplaceAllString(report, "")) {
+		return true
+	}
+	return filesLineBareNameRE.MatchString(foldHeaderLists(report))
+}
+
 // reachEntryLineRE matches a `Reach:` line, which names entry points rather than
 // the files the mission changed.
 var reachEntryLineRE = regexp.MustCompile(`(?im)^\s*reach:.*$`)
@@ -1222,7 +1237,7 @@ func aresReportFailures(report string, input subagentStopInput) []string {
 	// passed the words on (hook_waiver.go): only the files check stays.
 	if aresUserWaiverGranted(input) {
 		noCode := landedWaiverRE.MatchString(report) && reachAllNotApplicable(report)
-		if !noCode && !mentionsFilesRE.MatchString(reachEntryLineRE.ReplaceAllString(report, "")) {
+		if !noCode && !reportNamesFiles(report) {
 			failures = append(failures, "no specific files were mentioned as created or modified")
 		}
 		return failures
@@ -1242,7 +1257,7 @@ func aresReportFailures(report string, input subagentStopInput) []string {
 	// applicable` lines) has no file to name and no implementation to confirm.
 	noCodeChanged := landedWaiverRE.MatchString(report) && reachAllNotApplicable(report)
 
-	if !noCodeChanged && !mentionsFilesRE.MatchString(reachEntryLineRE.ReplaceAllString(report, "")) {
+	if !noCodeChanged && !reportNamesFiles(report) {
 		failures = append(failures, "no specific files were mentioned as created or modified")
 	}
 

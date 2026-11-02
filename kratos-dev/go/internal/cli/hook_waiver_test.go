@@ -171,3 +171,27 @@ func TestMentionsFilesRE(t *testing.T) {
 		}
 	}
 }
+
+func TestReportNamesFilesBareOnFilesLine(t *testing.T) {
+	pass := []string{
+		"Files created/modified: main.go, util.go",
+		"Files created/modified:\n- main.go\n- util.go\nLanded: master@abc1234",
+		"- **Files created/modified:** Makefile.sh",
+		"Changed files: main.go",
+	}
+	for _, r := range pass {
+		if !reportNamesFiles(r) {
+			t.Errorf("want files named in %q", r)
+		}
+	}
+	fail := []string{
+		"We moved to Node.js and main.go stays the same",
+		"Reach: main.go entry point - none beyond the request",
+		"Files created/modified: none",
+	}
+	for _, r := range fail {
+		if reportNamesFiles(r) {
+			t.Errorf("want no files named in %q", r)
+		}
+	}
+}
