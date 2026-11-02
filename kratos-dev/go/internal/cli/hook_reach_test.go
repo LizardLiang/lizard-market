@@ -13,7 +13,7 @@ const reachBase = `ARES COMPLETE
 
 Task list:
 1. [x] fix handler — done
-Files created/modified: handler.go, handler_test.go
+Files created/modified: src/handler.go, src/handler_test.go
 Landed: LANDED-NOT-APPLICABLE: test fixture
 Not run: none
 `

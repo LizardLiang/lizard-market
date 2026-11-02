@@ -1153,10 +1153,13 @@ func aresVerifyGateFailure(report string, input subagentStopInput) string {
 	return ""
 }
 
-// mentionsFilesRE matches a path-like token that ends in a word-bounded
-// source, markup, config or script extension. No verb is required: Ares lists
-// files under "Changes:", "Changed files:" or "Files created/modified:" alike.
-var mentionsFilesRE = regexp.MustCompile(`(?i)[\w-]\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|cs|rb|md|lua|sql|json|css|scss|less|html|cshtml|razor|vue|svelte|yaml|yml|toml|sh|ps1|bat|xml|config|csproj|kt|swift|c|h|cpp|php|txt)\b`)
+// mentionsFilesRE matches a file name that ends in a word-bounded source,
+// markup, config or script extension and is either part of a path (it holds a
+// slash or a backslash) or wrapped in backticks. A bare `Node.js` or
+// `section 3.c` is prose, not a changed file. Name characters are Unicode
+// letters and digits, so a CJK file name counts. No verb is required: Ares
+// lists files under "Changes:", "Changed files:" or "Files created/modified:".
+var mentionsFilesRE = regexp.MustCompile(`(?i)(?:(?:[\p{L}\p{N}_.-]*[/\\])+[\p{L}\p{N}_.-]*[\p{L}\p{N}_-]|` + "`" + `[^` + "`" + `\s]*[\p{L}\p{N}_-])\.(?:ts|tsx|js|jsx|mjs|cjs|py|go|rs|java|cs|rb|md|lua|sql|json|css|scss|less|html|cshtml|razor|vue|svelte|yaml|yml|toml|sh|ps1|bat|xml|config|csproj|kt|swift|c|h|cpp|php|txt)\b`)
 
 // reachEntryLineRE matches a `Reach:` line, which names entry points rather than
 // the files the mission changed.
@@ -1195,7 +1198,8 @@ func isNonCompletionReport(report string) bool {
 }
 
 // aresReportFailures runs every Ares completion check against report and
-// returns every unmet one as its own entry (nil when all pass). report is
+// returns every unmet one as its own entry (nil when all pass). When
+// aresUserWaiverGranted holds, only the files check runs. report is
 // whichever text actually carries Ares's final word: the delivered
 // SubagentHandback message when lastHandbackMessage found one, otherwise
 // input.LastAssistantMessage — the caller resolves that, this function only

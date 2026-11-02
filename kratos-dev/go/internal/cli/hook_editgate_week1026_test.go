@@ -183,6 +183,25 @@ func TestIrisSpawnCapScoped(t *testing.T) {
 			t.Fatalf("repeat module: decision = %q, want deny", res.Decision)
 		}
 	})
+	t.Run("second ares fix round with free-text SCOPE labels is denied", func(t *testing.T) {
+		first := scoped("kratos:hermes", "FOCUS: all", map[string]any{})
+		spawns := map[string]any{}
+		for k, v := range first.TurnSpawns {
+			spawns[k] = float64(v)
+		}
+		r1 := scoped("kratos:ares", "SCOPE: exactly the 11 findings below", spawns)
+		if r1.Decision != "" {
+			t.Fatalf("first fix round: decision = %q (%s), want none", r1.Decision, r1.Reason)
+		}
+		spawns = map[string]any{}
+		for k, v := range r1.TurnSpawns {
+			spawns[k] = float64(v)
+		}
+		r2 := scoped("kratos:ares", "SCOPE: exactly the 2 findings below", spawns)
+		if r2.Decision != "deny" {
+			t.Fatalf("second fix round: decision = %q, want deny", r2.Decision)
+		}
+	})
 	t.Run("an extra scope line on the same worktree does not split the cap", func(t *testing.T) {
 		res := scoped("kratos:hermes", "WORKTREE: D:\\wt\\whmap\nBRANCH: x", map[string]any{"hermes": float64(1), "hermes@d:/wt/whmap": float64(1)})
 		if res.Decision != "deny" {
@@ -206,9 +225,15 @@ func TestGateSpawnScope(t *testing.T) {
 		"":                                             "",
 	}
 	for prompt, want := range cases {
-		if got := gateSpawnScope(prompt); got != want {
+		if got := gateSpawnScope(prompt, "kratos:hermes"); got != want {
 			t.Errorf("gateSpawnScope(%q) = %q, want %q", prompt, got, want)
 		}
+	}
+	if got := gateSpawnScope("WORKTREE: D:/wt/a\nSCOPE: exactly the 11 findings below", "kratos:ares"); got != "d:/wt/a" {
+		t.Errorf("ares scope = %q, want the worktree alone", got)
+	}
+	if got := gateSpawnScope("SCOPE: exactly the 11 findings below", "kratos:ares"); got != "" {
+		t.Errorf("ares free-text scope = %q, want empty", got)
 	}
 }
 

@@ -316,7 +316,7 @@ func TestHandbackGateDecision(t *testing.T) {
 			AgentType: "kratos:ares",
 			AgentID:   "aresHandback1",
 			Cwd:       t.TempDir(),
-			ToolInput: preToolUseToolInput{Message: "Task list:\n1. [x] done\ncreated a.ts\nImplementation complete."},
+			ToolInput: preToolUseToolInput{Message: "Task list:\n1. [x] done\ncreated src/a.ts\nImplementation complete."},
 		})
 		if res.Decision != "deny" {
 			t.Fatalf("expected deny for a report missing the Landed: line, got %q", res.Decision)
@@ -332,7 +332,7 @@ func TestHandbackGateDecision(t *testing.T) {
 			AgentType: "kratos:ares",
 			AgentID:   "aresHandback2",
 			Cwd:       t.TempDir(),
-			ToolInput: preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"},
+			ToolInput: preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"},
 		})
 		if res.Decision != "" {
 			t.Fatalf("expected no decision for a complete report, got %q: %s", res.Decision, res.Reason)
@@ -358,7 +358,7 @@ func TestHandbackGateDecision(t *testing.T) {
 			SessionID:      "sess8",
 			TranscriptPath: mainTranscript,
 			Cwd:            t.TempDir(),
-			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"},
+			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"},
 		})
 		if res.Decision != "deny" {
 			t.Fatalf("expected deny for a code edit with no test command in Ares's own transcript, got %q", res.Decision)
@@ -382,7 +382,7 @@ func TestHandbackGateDecision(t *testing.T) {
 			SessionID:      "sess9",
 			TranscriptPath: mainTranscript,
 			Cwd:            t.TempDir(),
-			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] docs\ncreated doc.md\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nTESTS-NOT-APPLICABLE: docs only"},
+			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] docs\ncreated docs/doc.md\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nTESTS-NOT-APPLICABLE: docs only"},
 		})
 		if res.Decision != "" {
 			t.Fatalf("expected no decision once TESTS-NOT-APPLICABLE waives the verify gate, got %q: %s", res.Decision, res.Reason)
@@ -821,7 +821,7 @@ func apiErrorLine(text string) string {
 }
 
 func TestAresHandbackWaitsForChild(t *testing.T) {
-	const goodReport = "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"
+	const goodReport = "Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"
 	ref := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
 	mk := func(sess, agent string, extra ...string) (preToolUseInput, string) {
 		lines := aresChildLaunchLines("tuC", "childR", ref.Add(-1*time.Minute))

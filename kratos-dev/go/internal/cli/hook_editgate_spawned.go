@@ -184,15 +184,17 @@ func spawnedAgentGate(input preToolUseInput) editGateResult {
 var gateSpawnScopeRE = regexp.MustCompile(`(?mi)^\s*(?:WORKTREE|WORKDIR|BRANCH|SCOPE):\s*(\S.*?)\s*$`)
 
 // gateSpawnScope returns the normalized scope named in a spawn prompt, or "".
-// The first worktree/branch line and the first SCOPE line key together, so two
-// modules of one worktree get two scopes and an extra worktree line cannot
-// split one.
-func gateSpawnScope(prompt string) string {
+// The first worktree/branch line and, for a Hermes spawn only, the first SCOPE
+// line key together, so two modules of one worktree get two scopes and an extra
+// worktree line cannot split one. Iris writes a free-text SCOPE label in Ares
+// fix missions, so an Ares spawn keys on the worktree lines alone.
+func gateSpawnScope(prompt, target string) string {
+	hermes := strings.Contains(strings.ToLower(target), "hermes")
 	var base, module string
 	for _, m := range gateSpawnScopeRE.FindAllStringSubmatch(prompt, -1) {
 		v := strings.ToLower(strings.TrimRight(strings.ReplaceAll(strings.Trim(m[1], "`\"'"), `\`, "/"), "/"))
 		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(m[0])), "SCOPE") {
-			if module == "" {
+			if hermes && module == "" {
 				module = v
 			}
 		} else if base == "" {

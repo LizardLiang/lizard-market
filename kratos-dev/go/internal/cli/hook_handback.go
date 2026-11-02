@@ -433,6 +433,7 @@ type handbackLine struct {
 		Content json.RawMessage `json:"content"`
 	} `json:"message"`
 	Attachment *struct {
+		Type string `json:"type"`
 		// Prompt is json.RawMessage, not string: a real queued_command
 		// attachment can carry it as a content-block array rather than a
 		// plain string. A typed string field made json.Unmarshal fail on
@@ -440,6 +441,7 @@ type handbackLine struct {
 		// dropping this attachment's own origin.handback along with it.
 		Prompt json.RawMessage `json:"prompt"`
 		Origin *struct {
+			Kind     string `json:"kind"`
 			From     string `json:"from"`
 			Handback bool   `json:"handback"`
 		} `json:"origin"`

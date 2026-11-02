@@ -17,8 +17,9 @@ import (
 // aresReportFailures then skips the Final Block checks that the user's words
 // override (test run, RED/GREEN, Reach, reach child, task list, completion,
 // Landed, the comment gate) and keeps the files check, which a no-code report
-// (LANDED-NOT-APPLICABLE plus only `Reach: not applicable`) also passes. 2026-10-28 and 10-29, three runs: the gates
-// made Ares spawn a reach child and run tests against the user's instruction.
+// (LANDED-NOT-APPLICABLE plus only `Reach: not applicable`) also passes.
+// 2026-10-28 and 10-29, three runs: the gates made Ares spawn a reach child and
+// run tests against the user's instruction.
 //
 // Only an inbound entry of the Ares transcript can grant the waiver: the first
 // user entry (the mission) or a queued_command attachment from the coordinator
@@ -27,24 +28,6 @@ import (
 // orchestrator invented is refused.
 
 var userWaiverLineRE = regexp.MustCompile(`(?im)^[ \t]*USER-WAIVER:[ \t]*speed[ \t]*[—–-][ \t]*["“'](.+?)["”']?[ \t\r]*$`)
-
-// waiverEntry is the subset of a transcript entry the waiver scan reads.
-type waiverEntry struct {
-	Type    string `json:"type"`
-	Message *struct {
-		Content json.RawMessage `json:"content"`
-	} `json:"message"`
-	Origin *struct {
-		Kind string `json:"kind"`
-	} `json:"origin"`
-	Attachment *struct {
-		Type   string          `json:"type"`
-		Prompt json.RawMessage `json:"prompt"`
-		Origin *struct {
-			Kind string `json:"kind"`
-		} `json:"origin"`
-	} `json:"attachment"`
-}
 
 // waiverText joins the text of a message.content or attachment.prompt value,
 // whether it is a plain string or an array of text blocks.
@@ -63,7 +46,7 @@ func waiverText(raw json.RawMessage) string {
 
 // forEachWaiverEntry calls fn for every parseable JSONL entry of path until fn
 // returns true.
-func forEachWaiverEntry(path string, fn func(waiverEntry) bool) error {
+func forEachWaiverEntry(path string, fn func(handbackLine) bool) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -72,7 +55,7 @@ func forEachWaiverEntry(path string, fn func(waiverEntry) bool) error {
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 	for sc.Scan() {
-		var e waiverEntry
+		var e handbackLine
 		if json.Unmarshal(sc.Bytes(), &e) != nil {
 			continue
 		}
@@ -88,7 +71,7 @@ func forEachWaiverEntry(path string, fn func(waiverEntry) bool) error {
 func inboundWaiverQuotes(path string) ([]string, error) {
 	var quotes []string
 	missionSeen := false
-	err := forEachWaiverEntry(path, func(e waiverEntry) bool {
+	err := forEachWaiverEntry(path, func(e handbackLine) bool {
 		var text string
 		switch {
 		case e.Type == "user" && e.Message != nil && !missionSeen:
@@ -115,19 +98,28 @@ func normalizeWaiverQuote(s string) string {
 }
 
 // humanPromptsHave reports whether any human prompt of the transcript at path
-// contains quote. known is false when the transcript is unreadable or holds no
+// contains quote. A prompt typed while the orchestrator ran a turn is stored as
+// a queued_command attachment with origin.kind human, and counts like a user
+// entry. known is false when the transcript is unreadable or holds no
 // human prompt, so the caller fails open.
 func humanPromptsHave(path, quote string) (found, known bool) {
 	want := normalizeWaiverQuote(quote)
 	if len([]rune(want)) < waiverMinQuoteRunes {
 		return false, true
 	}
-	err := forEachWaiverEntry(path, func(e waiverEntry) bool {
-		if e.Type != "user" || e.Origin == nil || e.Origin.Kind != "human" || e.Message == nil {
+	err := forEachWaiverEntry(path, func(e handbackLine) bool {
+		var text string
+		switch {
+		case e.Type == "user" && e.Origin != nil && e.Origin.Kind == "human" && e.Message != nil:
+			text = waiverText(e.Message.Content)
+		case e.Type == "attachment" && e.Attachment != nil && e.Attachment.Type == "queued_command" &&
+			e.Attachment.Origin != nil && e.Attachment.Origin.Kind == "human":
+			text = waiverText(e.Attachment.Prompt)
+		default:
 			return false
 		}
 		known = true
-		if strings.Contains(normalizeWaiverQuote(waiverText(e.Message.Content)), want) {
+		if strings.Contains(normalizeWaiverQuote(text), want) {
 			found = true
 			return true
 		}

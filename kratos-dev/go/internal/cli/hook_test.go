@@ -209,7 +209,7 @@ func TestSubagentStopReadsHandbackMessage(t *testing.T) {
 		root := t.TempDir()
 		mainTranscript := writeHandbackTranscript(t, "sessHB1", "aresHB1",
 			reachChildLine(),
-			subagentHandbackToolUseLine("Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"),
+			subagentHandbackToolUseLine("Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"),
 		)
 		agentTranscript := filepath.Join(filepath.Dir(mainTranscript), "sessHB1", "subagents", "agent-aresHB1.jsonl")
 		b, _ := json.Marshal(map[string]interface{}{
@@ -246,7 +246,7 @@ func TestSubagentStopReadsHandbackMessage(t *testing.T) {
 		root := t.TempDir()
 		mainTranscript := writeHandbackTranscript(t, "sessHB3", "aresHB3",
 			reachChildLine(),
-			subagentHandbackToolUseLine("Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"),
+			subagentHandbackToolUseLine("Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"),
 		)
 		b, _ := json.Marshal(map[string]interface{}{
 			"agent_type":      "kratos:ares",
@@ -277,7 +277,7 @@ func TestSubagentStopGate(t *testing.T) {
 			name: "ares passes with all checks",
 			input: subagentStopInput{
 				AgentType:            "kratos:ares",
-				LastAssistantMessage: "TODO:\n1. [ ] Implement auth\nTODO:\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
+				LastAssistantMessage: "TODO:\n1. [ ] Implement auth\nTODO:\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
 			},
 			wantOK: true,
 		},
@@ -285,7 +285,7 @@ func TestSubagentStopGate(t *testing.T) {
 			name: "ares passes with task list recap",
 			input: subagentStopInput{
 				AgentType:            "kratos:ares",
-				LastAssistantMessage: "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
+				LastAssistantMessage: "Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
 			},
 			wantOK: true,
 		},
@@ -293,7 +293,7 @@ func TestSubagentStopGate(t *testing.T) {
 			name: "ares blocked — no todo list",
 			input: subagentStopInput{
 				AgentType:            "kratos:ares",
-				LastAssistantMessage: "created auth.ts. Implementation complete.",
+				LastAssistantMessage: "created src/auth.ts. Implementation complete.",
 			},
 			wantOK:    false,
 			wantInMsg: "no task list",
@@ -430,7 +430,7 @@ func TestSubagentStopOutputShape(t *testing.T) {
 			"agent_type":             "kratos:ares",
 			"cwd":                    dir,
 			"stop_hook_active":       true,
-			"last_assistant_message": "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
+			"last_assistant_message": "Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
 		})
 		got := run(string(b))
 		if len(got) != 0 {
@@ -1303,7 +1303,7 @@ func TestAresBlockCountResetsOnPass(t *testing.T) {
 			"agent_type":             "kratos:ares",
 			"agent_id":               "ares-1",
 			"cwd":                    dir,
-			"last_assistant_message": "Task list:\n1. [x] auth\ncreated auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
+			"last_assistant_message": "Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed",
 		})
 		return string(b)
 	}
@@ -1732,7 +1732,7 @@ Wave 2 complete. Tasks done: auth service, auth tests. All verify checks passed.
 Task list:
 1. [x] auth service — done
 2. [x] auth tests — done
-Files created/modified: auth.go, auth_test.go
+Files created/modified: src/auth.go, src/auth_test.go
 Landed: main@abc1234
 Not run: none
 Reach: none beyond the request
@@ -1747,7 +1747,7 @@ Phase 1 of 3 complete. Steps done: scaffold, wire config. Verify passed.
 Task list:
 1. [x] scaffold — done
 2. [x] wire config — done
-Files created/modified: scaffold.go, config.go
+Files created/modified: src/scaffold.go, src/config.go
 Landed: main@abc1234
 Not run: none
 Reach: none beyond the request
@@ -1775,7 +1775,7 @@ Ticket: none
 Task list:
 1. [x] Implement PaymentService — done
 2. [x] Write PaymentService tests — done
-Files created/modified: payment_service.go, payment_service_test.go
+Files created/modified: src/payment_service.go, src/payment_service_test.go
 Landed: main@def5678
 Not run: none
 Reach: none beyond the request

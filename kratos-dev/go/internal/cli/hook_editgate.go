@@ -603,7 +603,7 @@ func editGateDecisionRest(input preToolUseInput, extra gateToolExtra, ledger map
 		target := strings.TrimSpace(input.ToolInput.SubagentType)
 		res := editGateResult{}
 		if god == "iris" {
-			deny, spawns := irisSpawnCapScoped(ledger, target, gateSpawnScope(extra.Prompt))
+			deny, spawns := irisSpawnCapScoped(ledger, target, gateSpawnScope(extra.Prompt, target))
 			if deny {
 				return editGateResult{Decision: "deny", Reason: irisSpawnCapReason}
 			}
@@ -1053,16 +1053,16 @@ func isReadOnlyShellCommand(command string) bool {
 // value holds no shell metacharacter and no quote, so it is one literal word.
 var gateBareAssignmentRE = regexp.MustCompile("^([A-Za-z_][A-Za-z0-9_]*)=([^;&|<>`$()\\s'\"]+)$")
 
-// substituteLeadingAssignment expands `$NAME` and `${NAME}` in every
-// position of every later segment when the first segment is a bare assignment with a
-// literal value (`K=/x/kratos.exe; $K slug x`). Each expanded segment is then
-// classified like any typed command, so the value must still name a read-only
-// program. The assignment segment is dropped only when a later head used it,
-// so `PATH=/x; ls` classifies as before. Any other first segment is left
-// unexpanded and classifies as before.
-// `$NAME` past a segment head is expanded too, because the value is one literal
-// word and the expanded text is exactly what the shell runs (`D=src; cat
-// $D/x | head`).
+// substituteLeadingAssignment expands `$NAME` and `${NAME}` when the first
+// segment is a bare assignment with a literal value (`K=/x/kratos.exe; $K slug
+// x`). Each expanded segment is then classified like any typed command, so the
+// value must still name a read-only program. A reference past a segment head is
+// expanded too (`D=src; cat $D/x | head`), but only when the value holds no
+// backslash and does not start with `-`, and no reference sits inside quotes.
+// A pasted backslash shifts the quote pairing, and a quoted flag hides from the
+// flag guards, so otherwise nothing is substituted. The assignment segment is
+// dropped when any later segment used it, so `PATH=/x; ls` classifies as
+// before. Any other first segment is left unexpanded and classifies as before.
 // Nothing is substituted or dropped when a later segment names NAME as a bare
 // word (`printf -v K rm`, `K=rm`, `export K=rm`, `read K`, `unset K`): that
 // segment can reassign the variable before a later head reads it. Wrapper heads
@@ -1087,6 +1087,7 @@ func substituteLeadingAssignment(command string, segs []shellSegment) []shellSeg
 	out := make([]shellSegment, len(segs))
 	copy(out, segs)
 	used := false
+	valueSafeBeyondHead := !strings.Contains(m[2], `\`) && !strings.HasPrefix(m[2], "-")
 	for i := 1; i < len(out); i++ {
 		full := strings.TrimLeft(out[i].raw, " 	")
 		raw := gateStripCommandWrappers(full)
@@ -1104,6 +1105,9 @@ func substituteLeadingAssignment(command string, segs []shellSegment) []shellSeg
 			break
 		}
 		if refRE.MatchString(out[i].raw) {
+			if !valueSafeBeyondHead || len(refRE.FindAllString(out[i].raw, -1)) != len(refRE.FindAllString(out[i].masked, -1)) {
+				return segs
+			}
 			expanded := refRE.ReplaceAllLiteralString(out[i].raw, m[2])
 			out[i] = shellSegment{raw: expanded, masked: maskQuoted(expanded)}
 			used = true
