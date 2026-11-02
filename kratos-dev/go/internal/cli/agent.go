@@ -69,7 +69,7 @@ func composeProtocolFor(name string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("embedded agent-protocol.md missing: %w", err)
 	}
-	doc, err := protocol.Parse(string(raw))
+	doc, err := protocol.Parse(normalizeNewlines(string(raw)))
 	if err != nil {
 		return "", err
 	}
@@ -128,13 +128,15 @@ func composeAgentLoad(name, mode, lessons string) (agentLoadParts, error) {
 	}
 	if mode == "command" {
 		if suffix, err := commandSuffixFS.ReadFile("command-mode-suffix/" + file); err == nil {
-			if s := strings.TrimRight(string(suffix), "\n"); s != "" {
+			if s := strings.TrimRight(normalizeNewlines(string(suffix)), "\n"); s != "" {
 				pieces = append(pieces, s)
 			}
 		}
 	}
 
-	parts := agentLoadParts{Body: string(body)}
+	// A CRLF checkout (core.autocrlf=true) embeds \r bytes, which count toward
+	// the 30,000-char inline cap. Emit LF only.
+	parts := agentLoadParts{Body: normalizeNewlines(string(body))}
 	if len(pieces) > 0 {
 		parts.Extras = strings.Join(pieces, partSeparator) + "\n"
 	}
