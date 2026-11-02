@@ -257,7 +257,7 @@ func VerifyCmd() *cobra.Command {
 		Long: "Verify that every pipeline stage produced its deliverable and declared a passing verdict.\n" +
 			"Run 'kratos verify --final --feature <name>' before declaring VICTORY. Exits non-zero if any check fails.\n\n" +
 			"'kratos verify --landed [--hash <commit>]' checks that implementation work is committed: the named\n" +
-			"commit exists and no tracked source file (outside .claude/) is left modified. Exits non-zero otherwise.",
+			"commit exists and no tracked source file (outside the Kratos state dir) is left modified. Exits non-zero otherwise.",
 		// A failed ship gate is an expected outcome, not CLI misuse: don't dump
 		// usage, and let main.go print the single error line.
 		SilenceUsage:  true,
@@ -276,7 +276,7 @@ func VerifyCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&final, "final", false, "Run the consolidated all-stages-passed ship gate")
 	cmd.Flags().StringVar(&feature, "feature", "", "Feature name (required with --final)")
-	cmd.Flags().BoolVar(&landed, "landed", false, "Check that implementation work is committed (clean tracked tree outside .claude/)")
+	cmd.Flags().BoolVar(&landed, "landed", false, "Check that implementation work is committed (clean tracked tree outside the Kratos state dir)")
 	cmd.Flags().StringVar(&hash, "hash", "", "Commit reported by Ares (Landed: <branch>@<hash>); must exist in the repository")
 	return cmd
 }
@@ -402,7 +402,7 @@ func evaluateLanded(repoDir, hash string) []string {
 		if len(shown) > 10 {
 			shown = append(shown[:10], fmt.Sprintf("… %d more", len(dirty)-10))
 		}
-		failures = append(failures, fmt.Sprintf("%d uncommitted path(s) outside .claude/: %s", len(dirty), strings.Join(shown, ", ")))
+		failures = append(failures, fmt.Sprintf("%d uncommitted path(s) outside the Kratos state dir: %s", len(dirty), strings.Join(shown, ", ")))
 	}
 	return failures
 }
@@ -413,9 +413,9 @@ func runVerifyLanded(cmd *cobra.Command, repoDir, hash string) error {
 	failures := evaluateLanded(repoDir, hash)
 	if len(failures) == 0 {
 		if hash != "" {
-			fmt.Fprintf(cmd.OutOrStdout(), "VERIFIED: landed — commit %s exists and the tracked tree outside .claude/ is clean\n", hash)
+			fmt.Fprintf(cmd.OutOrStdout(), "VERIFIED: landed — commit %s exists and the tracked tree outside the Kratos state dir is clean\n", hash)
 		} else {
-			fmt.Fprintln(cmd.OutOrStdout(), "VERIFIED: landed — the tracked tree outside .claude/ is clean")
+			fmt.Fprintln(cmd.OutOrStdout(), "VERIFIED: landed — the tracked tree outside the Kratos state dir is clean")
 		}
 		return nil
 	}

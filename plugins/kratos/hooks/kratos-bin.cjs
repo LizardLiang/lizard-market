@@ -56,7 +56,7 @@ function resolveBinary() {
 const DEFAULT_STATE_DIR = '.claude';
 
 function validStateDirName(v) {
-  return typeof v === 'string' && v.length >= 2 && v[0] === '.' && v !== '..' && !/[\/\\0]/.test(v);
+  return typeof v === 'string' && v.length >= 2 && v[0] === '.' && v !== '..' && !/[\/\\]/.test(v) && !v.includes(String.fromCharCode(0));
 }
 
 function configPath() {

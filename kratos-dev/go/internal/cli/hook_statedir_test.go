@@ -138,3 +138,13 @@ func TestLedgerClassificationFollowsStateDir(t *testing.T) {
 		assert.Equal(t, tc.want, js, "version %s", tc.name)
 	}
 }
+
+func TestNodeStateDirNameValidationMatchesGo(t *testing.T) {
+	for _, name := range []string{".kratos0", ".state10", ".agents", "..", ".a/b", "x", "."} {
+		useStateDir(t, "", name)
+		goName := stateDirName()
+		out := runNodeHook(t, t.TempDir(), "process.env.KRATOS_STATE_DIR="+strconv.Quote(name)+";console.log(require("+hookModule("kratos-bin.cjs")+").stateDir())")
+		lines := strings.Split(strings.TrimSpace(out), "\n")
+		assert.Equal(t, goName, strings.TrimSpace(lines[len(lines)-1]), "state dir %q", name)
+	}
+}

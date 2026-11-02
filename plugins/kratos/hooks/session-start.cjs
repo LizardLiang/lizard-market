@@ -400,12 +400,9 @@ function readSessionState(sessionId) {
   }
 }
 
-// After a compaction the model has lost its working targets; print the head of
-// a fresh handoff.md (the memory sweep keeps it current) so files, pages and
-// next steps survive the boundary.
 // Syncs the plugin's shipped state_dir into ~/.kratos/config.json, then names
-// the active state dir when it is not .claude, and warns once when a project
-// still holds state under .claude/.
+// the active state dir when it is not .claude, and prints a notice on each session start while a
+// project still holds state under .claude/.
 function formatStateDirNotices(cwd, pluginRoot) {
   const lines = [];
   try {
@@ -422,6 +419,9 @@ function formatStateDirNotices(cwd, pluginRoot) {
   return lines;
 }
 
+// After a compaction the model has lost its working targets; print the head of
+// a fresh handoff.md (the memory sweep keeps it current) so files, pages and
+// next steps survive the boundary.
 function formatHandoffHead(cwd) {
   try {
     const handoffPath = path.join(cwd, stateDir(), ".Arena", "handoff.md");

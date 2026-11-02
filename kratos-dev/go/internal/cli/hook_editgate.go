@@ -1669,9 +1669,11 @@ func gateContainmentRootSource(cwd string) (string, bool) {
 		if err != nil || (homeInfo != nil && os.SameFile(di, homeInfo)) {
 			break
 		}
-		for _, marker := range []string{".Arena", "feature"} {
-			if st, err := os.Stat(filepath.Join(dir, stateDirName(), marker)); err == nil && st.IsDir() {
-				return dir, false
+		for _, state := range []string{stateDirName(), defaultStateDir} {
+			for _, marker := range []string{".Arena", "feature"} {
+				if st, err := os.Stat(filepath.Join(dir, state, marker)); err == nil && st.IsDir() {
+					return dir, false
+				}
 			}
 		}
 		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
