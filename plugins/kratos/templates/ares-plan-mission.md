@@ -4,7 +4,7 @@ Fetched by the orchestrator (Iris, Odysseus on approval, `/kratos:quick`) with `
 
 ```
 MISSION: Implement Approved Tactical Plan
-PLAN: <.claude/.Arena/tactical-plans/<slug>.md>
+PLAN: <absolute path of .claude/.Arena/tactical-plans/<slug>.md in the main checkout — never a worktree's copy>
 PHASE: <n of m — only when the plan has a ## Phases table; omit otherwise>
 DONE: <none | git log --oneline <base>..HEAD — only with PHASE>
 WORKTREE: <absolute path — only when the work runs in a worktree other than the main checkout>

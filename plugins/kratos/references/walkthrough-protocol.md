@@ -15,7 +15,7 @@ Read by Iris (WORK mode) before the first step of a walkthrough, before presenti
 
 **Running it:**
 - One hinted step per turn: what to click, what they should see, how to view the result. Wait for them between steps.
-- Drive the visible browser window the user is watching (agent-browser headed, their window size) — never API scripts for a step they asked to see.
+- Drive the visible browser window the user is watching (agent-browser headed, their window size) — never API scripts for a step they asked to see. Never `set viewport` in a headed session: a pinned 1400×900 left the page a quarter of the window ("why the viewport always not taking the full size of the window", 2026-11-08); only a headless screenshot run sets one.
 - A step that fails twice goes to Hades (DIG mode table); do not re-try the same step a third time with a guess.
 - "how long" from the user gets a one-line answer from `<scratchpad>/ares-progress.md` or your own state, never a stop.
 

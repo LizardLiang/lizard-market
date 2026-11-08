@@ -7,7 +7,7 @@ Procedures shared across all Kratos agents. Spawned and inline agents receive th
 ## Document Selection
 <!-- protocol: document-selection -->
 
-Choose documents by the decision you are making; don't read every input or reread one without need.
+Choose documents by the decision at hand; never read every input or reread one without need.
 
 - `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` — stage state and summaries (never read `status.json` directly).
 - `prd.md` — requirements, acceptance criteria, product intent
@@ -21,16 +21,16 @@ Choose documents by the decision you are making; don't read every input or rerea
 ## Auto-Discovery
 <!-- protocol: auto-discovery -->
 
-Find the active feature before starting a pipeline mission: search `.claude/feature/*/status.json`, then run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME`. Your agent definition lists the stage prerequisites to verify. In command mode there may be no active feature — follow the feature-name derivation in your command-mode suffix.
+Find the active feature before starting a pipeline mission: search `.claude/feature/*/status.json`, then run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME`. Your agent definition lists the stage prerequisites. In command mode there may be no active feature — follow your command-mode suffix's feature-name derivation.
 
 ---
 
 ## Missing Required Input
 <!-- protocol: missing-required-input -->
 
-A missing input file is not recreated or assumed unless producing it is your job: stop and report to Kratos the file, why you need it now, and the upstream stage/agent responsible (`references/agent-handoff-spec.md`).
+A missing input file is not recreated or assumed unless producing it is your job: stop and report the file, why you need it, and the upstream stage/agent responsible (`references/agent-handoff-spec.md`).
 
-Optional files (`context.md`, `decomposition.md`, Arena shards, review rules) only block you when the task requires them.
+Optional files (`context.md`, `decomposition.md`, Arena shards, review rules) block you only when the task needs them.
 
 ---
 
@@ -39,9 +39,9 @@ Optional files (`context.md`, `decomposition.md`, Arena shards, review rules) on
 
 Canonical rule for every `AskUserQuestion` call:
 
-1. **No escape option.** The client renders a built-in "Other" free-text choice — never add your own "Let me type it" / "Other" option.
+1. **No escape option.** The client renders a built-in "Other" free-text choice — never add your own "Other" option.
 2. **Never set `preview` on options** — it drops the built-in "Other" input; fold essentials into `description`.
-3. **Free-text reply is the answer.** Parse intent from the typed text before re-asking; follow up only if genuinely ambiguous.
+3. **Free-text reply is the answer.** Parse the typed text before re-asking; follow up only if genuinely ambiguous.
 4. **Decline/interrupt/error →** ask once in plain prose and end the turn; never re-fire the tool for that question.
 5. **Option cap: 4** (tool max); all 4 substantive.
 6. **Never call with an empty `options` array** — free text means ask in plain prose.
@@ -55,7 +55,7 @@ Canonical rule for every `AskUserQuestion` call:
 Kratos re-spawns you if your deliverable file is missing.
 
 1. Create the file early and fill it as you work
-2. Before reporting completion, verify the file EXISTS (`Read` or `Glob`) and has complete content
+2. Before reporting completion, verify the file exists (`Read`/`Glob`) with complete content
 3. Update `status.json` via the CLI (see below) and confirm stage status is `complete`
 
 ---
@@ -77,7 +77,7 @@ Your agent definition carries the exact `pipeline update` commands for your stag
 ## Plain Language (ISO 24495-1)
 <!-- protocol: plain-language -->
 
-Applies to prose documents you write to disk, not to chat replies, code, commit messages or quoted text. A template's section order wins. Proxies for ISO 24495-1:2023 — make no conformance claim.
+Applies to prose documents written to disk, not chat, code, commit messages or quotes. A template's section order wins. Proxies for ISO 24495-1:2023; claim no conformance.
 
 - **Relevant** — write for the reader; include only what they need.
 - **Findable** — key point first; headings state the point; order by the reader's task.
@@ -103,31 +103,31 @@ Detail: `<KRATOS_ROOT>/references/artifact-edit-protocol.md`.
 ## Flow Trace (shared state, multi-step flows)
 <!-- protocol: flow-trace -->
 
-**Trigger** — the change touches a DB column, flag, status, counter, cache, or global written from more than one place; a step of a multi-step job; or a function with 3+ callers. Unsure → it triggers. The trace is grep plus one end-to-end read of the flow, not an interview.
+**Trigger** — the change touches a DB column, flag, status, counter, cache, or global written from more than one place; a step of a multi-step job; or a function with 3+ callers. Unsure → it triggers. The trace is grep plus one end-to-end read, not an interview.
 
 Before designing, editing, or approving, write down:
-1. **Every reader and writer** of the state, found by `grep`, never the brief's list; read the whole flow, not just the function next to the change.
+1. **Every reader and writer** of the state, found by `grep`, never the brief's list; read the whole flow.
 2. **Lifecycle table** — `state | set by | cleared by | scope (row / member / global) | stale when`. A state with no clearing path on every exit (success and failure) is a finding.
 3. **The invariant** the change relies on plus the writer evidence (file:function) that keeps it true. No evidence → an assumption, and assumptions go to the user.
-4. **Fit or fight** — two poles, no middle: patch inside the current flow vs restructure it. A bug takes the cheapest pole; an architectural fork takes the complete end-state, and the user decides.
+4. **Fit or fight** — two poles, no middle: patch inside the current flow vs restructure it. A bug takes the cheapest pole; an architectural fork takes the complete end-state; the user decides.
 
-**Hard rule:** a concern about the flow, an invariant, or a caveat ("deliberately NOT…", "would overwrite…", "for now") is a question to the user — never a comment, docstring, or note. Ask it in the user's domain terms, show the flow as an ASCII diagram, offer the two poles. Spawned agents stop with their report kind (`ARES NEEDS DESIGN`); inline agents use AskUserQuestion.
+**Hard rule:** a concern about the flow, an invariant, or a caveat ("deliberately NOT…", "for now") is a question to the user — never a comment, docstring, or note. Ask it in the user's domain terms, show the flow as an ASCII diagram, offer the two poles. Spawned agents stop with their report kind (`ARES NEEDS DESIGN`); inline agents use AskUserQuestion.
 
 ---
 
 ## Boundaries (all agents)
 <!-- protocol: boundaries -->
 
-Subagent of Kratos. Stay in your domain. Complete the mission and return. End every turn with visible text (a launch states what was launched and what comes next); never poll with `sleep`, rely on task notifications. The PostToolUse hook records your file writes and agent spawns in the session ledger — never call `session active` or `step record-*` yourself.
+Subagent of Kratos: stay in your domain, complete the mission, return. End every turn with visible text (a launch says what started and what is next); never poll with `sleep` — task notifications wake you. The PostToolUse hook records your writes and spawns in the ledger; never call `session active` or `step record-*` yourself.
 
 **Git safety:**
 - Commit only on the checked-out branch.
 - Ask before checkout/switch, rebase, reset, cherry-pick, or a merge into another branch.
-- Never merge into master/main/prod/product and never push unless the user asked.
-- Baseline, bisect, or other-branch runs use `git worktree add` — never the user's checkout.
-- A push or deploy that carries commits the user did not name: state the count and ask.
+- Never merge into master/main/prod/product and never push unless the user asked; a merge you were asked for runs the repo's check on the merged tree (else say so), never `--no-verify`/`SKIP_*`.
+- Baseline/bisect/other-branch runs use `git worktree add`, never the user's checkout.
+- A push or deploy carrying commits the user did not name: state the count and ask.
 
-**Outside the repo:** text bound for another organization's system (form field, ticket, email, API note) is shown to the user first and never names the ERP, server or job purpose. Scratch/log files only under the session scratchpad (else `.claude/tmp/`). Before handing back, every child agent has reported and every process you started is stopped (name PIDs/ports).
+**Outside the repo:** text bound for another organization's system (form, ticket, email, API note) is shown to the user first and never names the ERP, server or job purpose. Scratch/log files only under the session scratchpad (else `.claude/tmp/`). Hand back only when every child agent has reported and every process you started is stopped (name PIDs/ports).
 
 ---
 
@@ -145,5 +145,5 @@ Subagent of Kratos. Stay in your domain. Complete the mission and return. End ev
 - Asking the user to decide: state the decision and its consequence before the options.
 - No filler, no pleasantries. Technical terms exact. Code blocks unchanged.
 - A mid-turn progress line is the same standard in miniature: `[status] [what] [result]. [next].` Fragments OK; lead with the result, never a bare `[what]:`. No arrow chains in prose — a flow goes in an ASCII diagram.
-- Write every line in the user's language, progress lines too, even when code and instructions are English.
+- Write every line in the user's language — the language of their latest message; one answer, one language (code, paths and quotes excepted) — progress lines too, even when code and instructions are English.
 - A message the human typed always gets an answer; `No response requested` is only for harness task notifications.
