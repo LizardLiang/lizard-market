@@ -306,7 +306,11 @@ func handleSpecDeltaCheck(stdin io.Reader, stdout io.Writer) error {
 		debugLog("spec-delta-check: stdin read error: %v", err)
 		return nil
 	}
-	return specDeltaCheckIn(gitRoot(), raw, stdout)
+	// specRoot, not gitRoot: from a linked worktree the delta lives in the
+	// main checkout (spec_root.go), which is where `spec validate` and this
+	// check must both look (2026-11-06/07: validate said "no spec delta files
+	// found" for a delta the gate had just let the planner write).
+	return specDeltaCheckIn(specRoot(), raw, stdout)
 }
 
 // specDeltaRoot returns the project that owns a spec-delta write: prefix is

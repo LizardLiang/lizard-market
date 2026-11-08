@@ -117,9 +117,50 @@ var gateReadOnlyCommands = []*regexp.Regexp{
 	// gh read forms. Odysseus ran `gh auth status | head` on 2026-10-27 and
 	// was denied; a planner also reads PRs, runs and issues.
 	regexp.MustCompile(`(?i)^gh\s+(?:auth\s+status|pr\s+(?:view|list|diff|checks|status)|run\s+(?:list|view)|issue\s+(?:view|list)|release\s+(?:view|list)|repo\s+view)\b`),
-	regexp.MustCompile(`(?i)^Get-(?:ChildItem|Content|Location)\b`),
+	regexp.MustCompile(`(?i)^Get-(?:ChildItem|Content|Location|Item|Date)\b`),
 	regexp.MustCompile(`(?i)^Select-String\b`),
 	regexp.MustCompile(`(?i)^Test-Path\b`),
+	// PowerShell pipeline readers (the 2026-11-08 session ran its hooks and
+	// inspection under PowerShell). A script block (`{ … }`) can run any
+	// command — `ForEach-Object { npm run build }` — so isReadOnlySegment
+	// denies these heads when the segment holds a brace; Where-Object and
+	// Select-Object still work in their bare-argument forms.
+	regexp.MustCompile(`(?i)^(?:Select-Object|Measure-Object|Sort-Object|Where-Object|ForEach-Object|Format-Table|Format-List|Format-Wide|Out-String)\b`),
+}
+
+// gateOpenHeadRE names the programs that only hand a file to the desktop.
+var gateOpenHeadRE = regexp.MustCompile(`(?i)^(?:start-process|invoke-item|xdg-open|open|explorer|start)$`)
+
+// gateOpensPlanPage reports a segment that opens the plan's page in the
+// browser — `Start-Process <plan>.html`, `cmd /c start "" <plan>.html`,
+// `xdg-open <plan>.html` — and nothing else: one operand, under the plan root,
+// ending in .html. The planner writes the page (isTacticalPlanPath) and has to
+// show it (a file path in chat is "not shown"); every other use of these
+// heads stays denied.
+func gateOpensPlanPage(raw string) bool {
+	tokens := gateSegmentTokens(raw)
+	if len(tokens) >= 3 && strings.EqualFold(tokens[0], "cmd") && strings.EqualFold(tokens[1], "/c") {
+		tokens = tokens[2:]
+	}
+	if len(tokens) < 2 || !gateOpenHeadRE.MatchString(strings.TrimSuffix(strings.ToLower(tokens[0]), ".exe")) {
+		return false
+	}
+	operand := ""
+	for _, t := range tokens[1:] {
+		// "" is `start`'s window title; a dash token is a flag (-FilePath).
+		if t == "" || strings.HasPrefix(t, "-") {
+			continue
+		}
+		if operand != "" {
+			return false
+		}
+		operand = t
+	}
+	if operand == "" {
+		return false
+	}
+	p := gateCleanPath(operand)
+	return strings.HasSuffix(p, ".html") && strings.Contains(p, gatePlanRoot()+"/")
 }
 
 // Read-only kratos subcommands the planner is instructed to run: slug mint and
@@ -457,12 +498,21 @@ func handleEditGate(raw []byte) {
 		}
 	}
 
-	rootBefore, rootCwdBefore := ledgerString(ledger, ledgerKeyRoot), ledgerString(ledger, ledgerKeyRootCwd)
+	rootKeys := []string{ledgerKeyRoot, ledgerKeyRootCwd, ledgerKeyMainRoot, ledgerKeyMainRootCwd}
+	rootsBefore := make(map[string]string, len(rootKeys))
+	for _, k := range rootKeys {
+		rootsBefore[k] = ledgerString(ledger, k)
+	}
 	res := editGateDecisionWith(input, parseGateToolExtra(raw), ledger)
 
 	if ledger != nil && input.SessionID != "" {
-		// gateCachedRoot filled the containment root during the decision.
-		rootChanged := ledgerString(ledger, ledgerKeyRoot) != rootBefore || ledgerString(ledger, ledgerKeyRootCwd) != rootCwdBefore
+		// gateCachedRoot / gateCachedMainRoot filled the roots during the decision.
+		rootChanged := false
+		for _, k := range rootKeys {
+			if ledgerString(ledger, k) != rootsBefore[k] {
+				rootChanged = true
+			}
+		}
 		changed := false
 		if res.Files != nil {
 			ledger[ledgerKeyEditedFiles] = res.Files
@@ -484,7 +534,11 @@ func handleEditGate(raw []byte) {
 			// ran in parallel and wrote inline_god or the file list is not undone
 			// by this call's older copy.
 			if fresh, err := readInlineLedger(input.SessionID); err == nil {
-				fresh[ledgerKeyRoot], fresh[ledgerKeyRootCwd] = ledger[ledgerKeyRoot], ledger[ledgerKeyRootCwd]
+				for _, k := range rootKeys {
+					if v, ok := ledger[k]; ok {
+						fresh[k] = v
+					}
+				}
 				ledger, changed = fresh, true
 			}
 		}
@@ -704,7 +758,14 @@ func odysseusGate(input preToolUseInput, ledger map[string]any) editGateResult {
 			debugLog("edit-gate: %s payload carries no file path", input.ToolName)
 			return editGateResult{}
 		}
-		if isTacticalPlanPath(p, cwd) || isSpecDeltaGatePath(p, cwd) || isFlowShardPath(p, cwd) || isClaudeMemoryPath(p) {
+		if isPlanningArtifactPath(p, cwd) || isClaudeMemoryPath(p) {
+			return editGateResult{}
+		}
+		// From a linked worktree the plan, its page, the flow shard and the
+		// spec delta belong in the main checkout, where `kratos spec validate`
+		// reads them (spec_root.go). The worktree's own copy stays allowed
+		// above, so nothing that worked before stops working.
+		if main := gateCachedMainRoot(ledger, cwd); main != "" && normalizeLedgerPath(main) != normalizeLedgerPath(cwd) && isPlanningArtifactPath(p, main) {
 			return editGateResult{}
 		}
 		return editGateResult{Decision: "deny", Reason: odysseusWriteDenyReason}
@@ -852,12 +913,34 @@ func isFlowShardPath(filePath, cwd string) bool {
 	return n != "" && gateFlowShardRE().MatchString(n) && isUnderGateCwd(n, cwd)
 }
 
+// isTacticalPlanPath allows the plan itself (.md) and, beside it, the plan's
+// page: `<slug>.html` next to an existing `<slug>.md`. The page is how the
+// user reads a plan before approving it (flows as HTML boxes, preference of
+// 2026-11-05); the week of 11-01 this gate denied it six times across three
+// plans, and the planner once routed around the gate with a helper agent.
 func isTacticalPlanPath(filePath, cwd string) bool {
 	n := gateCleanPath(filePath)
-	if n == "" || !strings.HasSuffix(n, ".md") {
+	if n == "" || !strings.Contains(n, gatePlanRoot()+"/") || !isUnderGateCwd(n, cwd) {
 		return false
 	}
-	return strings.Contains(n, gatePlanRoot()+"/") && isUnderGateCwd(n, cwd)
+	if strings.HasSuffix(n, ".md") {
+		return true
+	}
+	if !strings.HasSuffix(n, ".html") {
+		return false
+	}
+	plan := strings.TrimSuffix(n, ".html") + ".md"
+	if !gateAbsPathRE.MatchString(plan) && cwd != "" {
+		plan = path.Join(gateSlashPath(cwd), plan)
+	}
+	info, err := os.Stat(filepath.FromSlash(plan))
+	return err == nil && !info.IsDir()
+}
+
+// isPlanningArtifactPath is the union of what Odysseus may write under one
+// root: the plan and its page, a flow shard, a spec delta.
+func isPlanningArtifactPath(filePath, root string) bool {
+	return isTacticalPlanPath(filePath, root) || isSpecDeltaGatePath(filePath, root) || isFlowShardPath(filePath, root)
 }
 
 // isSpecDeltaGatePath allows .claude/feature/<slug>/spec-delta/<capability>.md
@@ -938,6 +1021,10 @@ func isReadOnlyKratosCommand(command string) bool {
 type shellSegment struct {
 	raw    string
 	masked string
+	// end is the offset just past this segment in the string that was split,
+	// so the separator after it can be read (substituteAssignments). Zero for
+	// a segment built by hand.
+	end int
 }
 
 // maskQuoted blanks quoted spans with 'x', preserving length and index
@@ -1009,12 +1096,12 @@ func splitShellSegments(command string) []shellSegment {
 	start := 0
 	for _, loc := range gateSegmentSplitRE.FindAllStringIndex(masked, -1) {
 		if loc[0] > start {
-			segs = append(segs, shellSegment{raw: command[start:loc[0]], masked: masked[start:loc[0]]})
+			segs = append(segs, shellSegment{raw: command[start:loc[0]], masked: masked[start:loc[0]], end: loc[0]})
 		}
 		start = loc[1]
 	}
 	if start < len(command) {
-		segs = append(segs, shellSegment{raw: command[start:], masked: masked[start:]})
+		segs = append(segs, shellSegment{raw: command[start:], masked: masked[start:], end: len(command)})
 	}
 	return segs
 }
@@ -1041,7 +1128,7 @@ func isReadOnlyShellCommand(command string) bool {
 	if len(segs) == 0 {
 		return false
 	}
-	segs = substituteLeadingAssignment(trimmed, segs)
+	segs = substituteAssignments(trimmed, segs)
 	for _, seg := range segs {
 		if strings.TrimSpace(seg.raw) == "" {
 			continue
@@ -1053,91 +1140,100 @@ func isReadOnlyShellCommand(command string) bool {
 	return true
 }
 
-// gateBareAssignmentRE matches a segment that only sets NAME=value, where the
-// value holds no shell metacharacter and no quote, so it is one literal word.
-var gateBareAssignmentRE = regexp.MustCompile("^([A-Za-z_][A-Za-z0-9_]*)=([^;&|<>`$()\\s'\"]+)$")
+// gateAssignmentRE matches a segment that only sets NAME=value, where the value
+// is one literal: a bare word with no shell metacharacter or quote, or one
+// single- or double-quoted string. The quoted forms arrived with the 2026-11
+// review: every compound inspection command the planner was denied that week
+// opened with `F="C:/…/plan.html"` or `R="D:/repo"` — the quotes were the
+// only reason, and the retried commands without the variable passed.
+var gateAssignmentRE = regexp.MustCompile("^([A-Za-z_][A-Za-z0-9_]*)=(\"[^\"]*\"|'[^']*'|[^;&|<>`$()\\s'\"]+)$")
 
-// substituteLeadingAssignment expands `$NAME` and `${NAME}` when the first
-// segment is a bare assignment with a literal value (`K=/x/kratos.exe; $K slug
-// x`). Each expanded segment is then classified like any typed command, so the
-// value must still name a read-only program. A reference past a segment head is
-// expanded too (`D=src; cat $D/x | head`), but only when the value holds no
-// backslash and does not start with `-`, and no reference sits inside quotes.
-// A pasted backslash shifts the quote pairing, and a quoted flag hides from the
-// flag guards, so otherwise nothing is substituted. The assignment segment is
-// dropped when any later segment used it, so `PATH=/x; ls` classifies as
-// before. Any other first segment is left unexpanded and classifies as before.
-// Nothing is substituted or dropped when a later segment names NAME as a bare
-// word (`printf -v K rm`, `K=rm`, `export K=rm`, `read K`, `unset K`): that
-// segment can reassign the variable before a later head reads it. Wrapper heads
-// (`rtk $K slug x`) are seen past before the `$NAME` test and not kept in the
-// expanded segment, so it classifies by the program the value names.
-func substituteLeadingAssignment(command string, segs []shellSegment) []shellSegment {
-	if len(segs) < 2 || !assignmentSeparatorKeepsVar(command, segs[0]) {
-		return segs
-	}
-	m := gateBareAssignmentRE.FindStringSubmatch(strings.TrimSpace(segs[0].raw))
-	if m == nil {
-		return segs
-	}
-	quoted := regexp.QuoteMeta(m[1])
-	refRE := regexp.MustCompile(`\$\{` + quoted + `\}|\$` + quoted + `\b`)
-	bareRE := regexp.MustCompile(`(?:^|[^A-Za-z0-9_$])` + quoted + `(?:[^A-Za-z0-9_]|$)`)
-	for _, seg := range segs[1:] {
-		if bareRE.MatchString(refRE.ReplaceAllString(seg.masked, " ")) {
-			return segs
+// substituteAssignments expands `$NAME`, `"$NAME"` and `${NAME}` for every
+// segment that only assigns a literal to NAME (`K=/x/kratos.exe; $K slug x`,
+// `ls a; W=D:/wt; grep -n x $W/f | head`). The assignment may sit anywhere in
+// the line, not only first (2026-11-06: `ls …; W=…; grep … $W/…`); it applies
+// to the segments after it, and only when the separator that follows runs the
+// next command in the same shell (`;`, `&&`, a newline — `|` and `&` leave the
+// variable unset). Each expanded segment is then classified like any typed
+// command, so the value must still name a read-only program when it is the
+// head, and the re-masked text keeps every flag guard honest. A value that
+// starts with `-` is never substituted: `sed "$F" x` with F=-i would hide the
+// in-place flag inside quotes. The assignment segment is dropped once a later
+// segment used it; an unused assignment stays and classifies as before (no
+// reader head, denied). Nothing is substituted when a later segment names NAME
+// as a bare word (`read K`, `unset K`, `export K=rm`, `printf -v K rm`): that
+// segment can reassign the variable before a head reads it. A flag spelled
+// like the name (`grep -R`, `grep -F`) is not that word.
+func substituteAssignments(command string, segs []shellSegment) []shellSegment {
+	masked := maskQuoted(command)
+	out := segs
+	for i := 0; i < len(out)-1; i++ {
+		m := gateAssignmentRE.FindStringSubmatch(strings.TrimSpace(out[i].raw))
+		if m == nil || !segmentSeparatorKeepsVar(masked, out[i]) {
+			continue
 		}
-	}
-	out := make([]shellSegment, len(segs))
-	copy(out, segs)
-	used := false
-	valueSafeBeyondHead := !strings.Contains(m[2], `\`) && !strings.HasPrefix(m[2], "-")
-	for i := 1; i < len(out); i++ {
-		full := strings.TrimLeft(out[i].raw, " 	")
-		raw := gateStripCommandWrappers(full)
-		for _, ref := range []string{"${" + m[1] + "}", "$" + m[1]} {
-			if !strings.HasPrefix(raw, ref) {
-				continue
-			}
-			rest := raw[len(ref):]
-			if rest != "" && ref[1] != '{' && isShellNameByte(rest[0]) {
-				continue
-			}
-			expanded := m[2] + rest
-			out[i] = shellSegment{raw: expanded, masked: maskQuoted(expanded)}
-			used = true
-			break
+		value := assignmentLiteral(m[2])
+		if value == "" || strings.HasPrefix(value, "-") || strings.ContainsAny(value, "\"'`$") {
+			continue
 		}
-		if refRE.MatchString(out[i].raw) {
-			if !valueSafeBeyondHead || len(refRE.FindAllString(out[i].raw, -1)) != len(refRE.FindAllString(out[i].masked, -1)) {
-				return segs
+		quoted := regexp.QuoteMeta(m[1])
+		refRE := regexp.MustCompile(`\$\{` + quoted + `\}|\$` + quoted + `\b`)
+		bareRE := regexp.MustCompile(`(?:^|[^A-Za-z0-9_$-])` + quoted + `(?:[^A-Za-z0-9_]|$)`)
+		collides := false
+		for _, seg := range out[i+1:] {
+			if bareRE.MatchString(refRE.ReplaceAllString(seg.masked, " ")) {
+				collides = true
+				break
 			}
-			expanded := refRE.ReplaceAllLiteralString(out[i].raw, m[2])
-			out[i] = shellSegment{raw: expanded, masked: maskQuoted(expanded)}
-			used = true
 		}
+		if collides {
+			continue
+		}
+		next := make([]shellSegment, 0, len(out)-1)
+		next = append(next, out[:i]...)
+		used := false
+		for _, seg := range out[i+1:] {
+			if refRE.MatchString(seg.raw) {
+				expanded := refRE.ReplaceAllLiteralString(seg.raw, value)
+				seg = shellSegment{raw: expanded, masked: maskQuoted(expanded), end: seg.end}
+				used = true
+			}
+			next = append(next, seg)
+		}
+		if !used {
+			continue
+		}
+		out = next
+		i-- // the segment now at i is the one that followed the assignment
 	}
-	if !used {
-		return segs
-	}
-	return out[1:]
+	return out
 }
 
-// assignmentSeparatorKeepsVar reports whether the separator after first is one
-// that runs the next command in the same shell with the variable set: `;`,
-// `&&` or a newline. `|` and `&` run the assignment in a subshell or in the
-// background, so the later segment sees the variable empty.
-func assignmentSeparatorKeepsVar(command string, first shellSegment) bool {
-	if !strings.HasPrefix(command, first.raw) {
+// assignmentLiteral strips the one layer of quotes a shell would strip from an
+// assignment value. A value that ends with a backslash, or holds a backslash
+// before a quote, returns "": the shell and the quote mask would pair the
+// quotes differently, so nothing is substituted.
+func assignmentLiteral(v string) string {
+	if len(v) >= 2 && (v[0] == '"' || v[0] == '\'') && v[len(v)-1] == v[0] {
+		v = v[1 : len(v)-1]
+	}
+	if strings.HasSuffix(v, `\`) || strings.Contains(v, `\"`) || strings.Contains(v, `\'`) {
+		return ""
+	}
+	return v
+}
+
+// segmentSeparatorKeepsVar reports whether the separator after seg runs the
+// next command in the same shell with the variable set: `;`, `&&` or a
+// newline. `|` and `&` run the assignment in a subshell or in the background,
+// so the later segment sees the variable empty. masked is the quote mask of
+// the string the segments were split from.
+func segmentSeparatorKeepsVar(masked string, seg shellSegment) bool {
+	if seg.end <= 0 || seg.end > len(masked) {
 		return false
 	}
-	rest := strings.TrimLeft(maskQuoted(command)[len(first.raw):], " \t")
+	rest := strings.TrimLeft(masked[seg.end:], " \t")
 	return strings.HasPrefix(rest, ";") || strings.HasPrefix(rest, "&&") || strings.HasPrefix(rest, "\n") || strings.HasPrefix(rest, "\r")
-}
-
-// isShellNameByte reports whether b can continue a shell variable name.
-func isShellNameByte(b byte) bool {
-	return b == '_' || b >= '0' && b <= '9' || b >= 'A' && b <= 'Z' || b >= 'a' && b <= 'z'
 }
 
 // isReadOnlySegment classifies one segment by its head plus the guards a reader
@@ -1186,8 +1282,15 @@ func isReadOnlySegment(seg shellSegment) bool {
 		if gatePrintfAssignsVar(gateSegmentTokens(raw)) {
 			return false
 		}
+	case "select-object", "measure-object", "sort-object", "where-object", "foreach-object", "format-table", "format-list", "format-wide", "out-string":
+		if strings.Contains(masked, "{") {
+			return false
+		}
 	}
-	if isReadOnlyKratosCommand(raw) {
+	// Wrappers (`rtk $K slug x` after substitution is `rtk C:/…/kratos.exe
+	// slug x`) are seen past so the kratos allowlist tests the program that
+	// runs, as gateSegmentHead does for every other head.
+	if isReadOnlyKratosCommand(gateStripCommandWrappers(raw)) || gateOpensPlanPage(raw) {
 		return true
 	}
 	for _, re := range gateReadOnlyCommands {
@@ -1605,6 +1708,54 @@ func gateSpellingOfRoot(cwd, top string) string {
 // gateRootLookup is the containment-root lookup, a variable so a test can
 // count the calls.
 var gateRootLookup = gateContainmentRootSource
+
+// gateMainRootLookup is the main-checkout lookup, a variable for the same
+// reason.
+var gateMainRootLookup = gateMainWorktreeRoot
+
+// gateCachedMainRoot is the main checkout of the repository that contains
+// root — the parent of `git rev-parse --git-common-dir` — cached in the
+// ledger beside the containment root. From a linked worktree the planner's
+// artifacts belong beside the living specs in the main checkout, where
+// `kratos spec validate` reads them (spec_root.go); the week of 2026-11-01
+// two plans and their deltas were written into the worktree, validate said
+// "no spec delta files found", and the orchestrator copied them across by
+// hand. "" when git is unavailable or root is not a work tree; the same
+// directory as root for a plain checkout, so callers compare the two.
+func gateCachedMainRoot(ledger map[string]any, root string) string {
+	if root == "" {
+		return ""
+	}
+	if ledger != nil && ledgerString(ledger, ledgerKeyMainRootCwd) == root {
+		return ledgerString(ledger, ledgerKeyMainRoot)
+	}
+	main := gateMainRootLookup(root)
+	if ledger != nil && main != "" {
+		ledger[ledgerKeyMainRoot] = main
+		ledger[ledgerKeyMainRootCwd] = root
+	}
+	return main
+}
+
+// gateMainWorktreeRoot is spec_root.go's gitMainWorktreeRoot for a given
+// directory, with the gate's 1 s budget: the parent of the git common dir
+// when that dir is a plain .git, else "".
+func gateMainWorktreeRoot(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "git", "-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir").Output()
+	if err != nil {
+		return ""
+	}
+	common := strings.TrimSpace(string(out))
+	if common == "" || filepath.Base(common) != ".git" {
+		return ""
+	}
+	return gateSlashPath(filepath.Dir(common))
+}
 
 // gateCachedRoot is gateContainmentRoot with the answer kept in the session
 // ledger beside the cwd it was computed for. The lookup runs `git rev-parse`,

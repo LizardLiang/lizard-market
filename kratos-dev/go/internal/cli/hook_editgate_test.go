@@ -434,10 +434,12 @@ func TestEditGateDecisions(t *testing.T) {
 			want:    "deny",
 		},
 		{
-			name:    "inline odysseus non-leading assignment is not substituted and denied",
+			// 2026-11-06: `ls …; W=…; grep … $W/f` — an assignment mid-line is
+			// expanded into the segments after it, like a leading one.
+			name:    "inline odysseus non-leading assignment substituted and allowed",
 			payload: payloadJSON(map[string]any{"session_id": "sess-1", "cwd": "C:/repo", "tool_name": "Bash", "tool_input": map[string]any{"command": `echo a; K=C:/x/kratos.exe; $K slug x`}}),
 			ledger:  map[string]any{"inline_god": "odysseus", "cwd": "C:/repo"},
-			want:    "deny",
+			want:    "",
 		},
 		{
 			name:    "inline odysseus pipe after the assignment denied",

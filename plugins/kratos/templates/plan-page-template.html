@@ -1,0 +1,132 @@
+<!doctype html>
+<!--
+  Plan page skeleton. Fetched by Odysseus with `<kratos-bin> template get plan-page-template`
+  and written as `.claude/.Arena/tactical-plans/<slug>.html`, beside the plan `<slug>.md`,
+  before the approval footer. Replace every «…» placeholder; delete a section the plan
+  does not need; never add an ASCII diagram in <pre> — a flow is .flow boxes, a fork is
+  .branches cards (user rule, 2026-11-05). Opens offline; fonts fall back to the system.
+-->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>«計畫標題»</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #6b6b6b; --line: #d9d9d9; --card: #f6f6f6;
+    --accent: #2563eb; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+    --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121417; --fg: #e8e8e8; --muted: #9a9a9a; --line: #30343a; --card: #1b1f24;
+      --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121417; --fg: #e8e8e8; --muted: #9a9a9a; --line: #30343a; --card: #1b1f24;
+    --accent: #60a5fa; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+  }
+  html, body { background: var(--bg); color: var(--fg); }
+  body { margin: 0; font: 16px/1.6 var(--font); }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.15rem; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  p, li { max-width: 72ch; }
+  .meta { color: var(--muted); font-size: .9rem; margin: 0 0 24px; }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  /* A flow: one .step per box, top to bottom, arrows drawn by CSS. */
+  .flow { display: flex; flex-direction: column; align-items: stretch; margin: 12px 0 20px; }
+  .flow .step { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+  .flow .step.now { border-left: 4px solid var(--accent); }
+  .flow .step small { display: block; color: var(--muted); }
+  .flow .arrow { position: relative; height: 26px; width: 2px; margin: 0 auto; background: var(--muted); }
+  .flow .arrow::after { content: ""; position: absolute; left: -5px; bottom: -1px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--muted); }
+  .flow .arrow[data-label]::before { content: attr(data-label); position: absolute; left: 10px; top: 2px; font-size: .8rem; color: var(--muted); white-space: nowrap; }
+  /* A fork: side-by-side cards; each carries a top edge colour for its outcome. */
+  .branches { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0 20px; }
+  .branches .card { background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; }
+  .branches .card.ok { border-top-color: var(--ok); }
+  .branches .card.warn { border-top-color: var(--warn); }
+  .branches .card.bad { border-top-color: var(--bad); }
+  .branches .card h3 { margin: 0 0 6px; font-size: 1rem; }
+  /* A screen mock: a framed box with a title bar; keep real labels and real button text. */
+  .screen { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 12px 0 20px; }
+  .screen .bar { background: var(--card); padding: 6px 12px; font-size: .85rem; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .screen .body { padding: 14px; }
+  .btn { display: inline-block; border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; font-size: .9rem; margin: 2px 4px 2px 0; }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tag { display: inline-block; font-size: .8rem; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
+  @media (max-width: 600px) { .branches { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>«計畫標題»</h1>
+  <p class="meta">«票號 #N» · «日期» · 計畫檔 <code>.claude/.Arena/tactical-plans/«slug».md</code></p>
+
+  <h2>要解決的事</h2>
+  <p>«使用者的原話，一句；接著一句說為什麼現在要做»</p>
+
+  <h2>現在</h2>
+  <div class="flow">
+    <div class="step">«第一步，使用者看到／做什麼»<small>«哪個畫面、哪個按鈕»</small></div>
+    <div class="arrow"></div>
+    <div class="step">«第二步»</div>
+    <div class="arrow" data-label="«條件»"></div>
+    <div class="step">«結果，以及今天的問題出在哪»</div>
+  </div>
+
+  <h2>改完之後</h2>
+  <div class="flow">
+    <div class="step">«第一步»</div>
+    <div class="arrow"></div>
+    <div class="step now">«新加入的步驤，例如人工確認»<small>«誰做、在哪個畫面»</small></div>
+    <div class="arrow"></div>
+    <div class="step">«結果»</div>
+  </div>
+  <div class="branches">
+    <div class="card ok"><h3>«按鈕 A»</h3><p>«按下去會怎樣»</p></div>
+    <div class="card bad"><h3>«按鈕 B»</h3><p>«按下去會怎樣»</p></div>
+    <div class="card"><h3>«按鈕 C»</h3><p>«按下去會怎樣»</p></div>
+  </div>
+
+  <h2>使用者會看到的畫面</h2>
+  <div class="screen">
+    <div class="bar">«頁面名稱 › 區塊»</div>
+    <div class="body">
+      <p>«畫面上的文字，照實寫»</p>
+      <span class="btn primary">«主要按鈕»</span><span class="btn">«次要按鈕»</span>
+    </div>
+  </div>
+  <p>«第一次進來的人：從哪裡開始、前置條件誰做、在哪一頁編輯、在哪一頁看結果»</p>
+
+  <h2>你已決定的</h2>
+  <table>
+    <tr><th>問題</th><th>你的決定</th></tr>
+    <tr><td>«問題 1»</td><td>«答案（原話）»</td></tr>
+  </table>
+
+  <h2>我先替你選的（可以改）</h2>
+  <table>
+    <tr><th>項目</th><th>預設</th><th>另一個選擇</th></tr>
+    <tr><td>«項目»</td><td>«預設與理由»</td><td>«替代方案»</td></tr>
+  </table>
+
+  <h2>代價</h2>
+  <p>«這個做法會帶來的限制或風險，一句一條»</p>
+
+  <h2>實作與驗證</h2>
+  <table>
+    <tr><th>階段</th><th>範圔</th><th>怎麼驗</th></tr>
+    <tr><td>1</td><td>«後端»</td><td>«測試、指令»</td></tr>
+    <tr><td>2</td><td>«前端»</td><td>«tsc -b、vite build、截圖»</td></tr>
+  </table>
+
+  <footer>«日期»</footer>
+</main>
+</body>
+</html>

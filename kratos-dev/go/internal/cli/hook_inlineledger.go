@@ -35,6 +35,11 @@ const (
 	// ledgerKeyRootCwd the payload cwd it was computed for.
 	ledgerKeyRoot    = "containment_root"
 	ledgerKeyRootCwd = "containment_root_cwd"
+	// ledgerKeyMainRoot is the main checkout gateCachedMainRoot computed for
+	// the containment root in ledgerKeyMainRootCwd (a linked worktree's plan
+	// artifacts are allowed there too).
+	ledgerKeyMainRoot    = "main_root"
+	ledgerKeyMainRootCwd = "main_root_cwd"
 )
 
 // sessionIDRE is the character set a Claude Code session id may use. It is

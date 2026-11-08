@@ -13,7 +13,7 @@ LDFLAGS = -ldflags="-s -w -X main.version=$(VERSION)"
 sync-assets:
 	@mkdir -p internal/cli/agents internal/cli/templates internal/cli/command-mode-suffix internal/cli/references
 	@cp $(PLUGIN_DIR)/agents/*.md internal/cli/agents/
-	@cp $(PLUGIN_DIR)/templates/*.md internal/cli/templates/
+	@cp $(PLUGIN_DIR)/templates/*.md $(PLUGIN_DIR)/templates/*.html internal/cli/templates/
 	@cp $(PLUGIN_DIR)/command-mode-suffix/*.md internal/cli/command-mode-suffix/
 	@cp $(PLUGIN_DIR)/references/agent-protocol.md internal/cli/references/
 
