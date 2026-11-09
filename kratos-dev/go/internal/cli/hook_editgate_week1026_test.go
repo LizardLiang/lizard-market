@@ -387,14 +387,14 @@ func TestHooksJSONRegistersTurnReset(t *testing.T) {
 }
 
 func TestHandbackSizeFailure(t *testing.T) {
-	if _, ok := handbackSizeFailure(strings.Repeat("x", 5000), aresHandbackMaxChars, "ares"); ok {
+	if _, ok := handbackSizeFailure(strings.Repeat("x", 8000), "ares"); ok {
 		t.Fatal("a report at the cap must pass")
 	}
-	f, ok := handbackSizeFailure(strings.Repeat("字", 5001), aresHandbackMaxChars, "ares")
-	if !ok || !strings.Contains(f, "5001 chars") || !strings.Contains(f, "implementation-notes.md") {
+	f, ok := handbackSizeFailure(strings.Repeat("字", 8001), "ares")
+	if !ok || !strings.Contains(f, "8001 chars") || !strings.Contains(f, "implementation-notes.md") {
 		t.Fatalf("got %q %v", f, ok)
 	}
-	f, ok = handbackSizeFailure(strings.Repeat("x", 9000), hermesHandbackMaxChars, "hermes")
+	f, ok = handbackSizeFailure(strings.Repeat("x", 9000), "hermes")
 	if !ok || !strings.Contains(f, "code-review.md") {
 		t.Fatalf("got %q %v", f, ok)
 	}

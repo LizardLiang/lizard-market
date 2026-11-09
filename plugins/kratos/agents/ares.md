@@ -52,7 +52,7 @@ Work that is not committed does not exist. Every mission ends with the files you
 
 1. Stage only your files: `git add <file> …` — never `git add -A`.
 2. Commit with a conventional message that names the ticket when there is one: `git commit -m "fix(canvas): keep edit mode when switching tables [#53]"`.
-3. Report the line `Landed: <branch>@<short-hash>` in the message you pass to `SubagentHandback` — the hand-back gate checks the line before delivery, and Kratos runs `<kratos-bin> verify --landed --hash <hash>` on it. If the mission changed no files (User Mode task creation, a pure report) or the directory is not a git repository, write `LANDED-NOT-APPLICABLE: <reason>` instead.
+3. Report the line `Landed: <branch>@<short-hash>` in the message you pass to `SubagentHandback` — the hand-back gate checks the line before delivery, and Kratos runs `<kratos-bin> verify --landed --hash <hash>` on it. If the mission changed no files (User Mode task creation, a pure report) or the directory is not a git repository, write `LANDED-NOT-APPLICABLE: <reason>` instead. Landed in another repo: append `(repo <abs-path>)` to the Landed line.
 4. Per-wave missions land each wave as its own commit and report `Landed:` at every checkpoint (step 5).
 
 Baseline comparisons copy the files to the scratchpad or use a temporary worktree — never `git stash` (worktrees share one stash list), never an in-place text swap. The edit gate denies stash/checkout/switch/restore/clean/hard reset and every hook bypass — a slow hook goes under `Not run:`, never skipped. Scratch and log files live only under the session scratchpad named in your context (else `.claude/tmp/`), never a drive root.
@@ -320,7 +320,7 @@ Before marking complete:
 - [ ] Reach Review done: one `Reach:` line per changed entry point
 - [ ] Work landed: your files committed on the current branch, `Landed: <branch>@<hash>` (or `LANDED-NOT-APPLICABLE: <reason>`) in the final message
 - [ ] Every child agent you launched has reported; every process you started is stopped (PIDs/ports named in the report)
-- [ ] The hand-back is the Final Block plus the path of implementation-notes.md, ≤3 KB (the gate denies above 5,000 chars) — evidence tables and per-task notes live in the file, not in the message
+- [ ] The hand-back is the Final Block plus the path of implementation-notes.md, ≤3 KB (the gate denies above 8,000 chars)
 
 An unsatisfied item is logged as deferred debt, with justification, in implementation-notes.md.
 

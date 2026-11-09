@@ -1004,7 +1004,7 @@ func rawHasStopHookActive(raw []byte) bool {
 
 // testCmdRE matches test-runner invocations across common ecosystems. Word-bounded so
 // "attest" or "npmrc test" don't count as evidence.
-var testCmdRE = regexp.MustCompile(`(?i)(^|[\s;&|(])(pytest\b|go\s+test\b|cargo\s+test\b|(npm|pnpm)\s+(run\s+)?test\b|yarn\s+test\b|bun\s+test\b|npx\s+(vitest|jest|playwright)\b|vitest\b|jest\b|playwright\s+test\b|dotnet\s+test\b|make\s+test\b|mvnw?\s+(\S+\s+)*test\b|gradlew?\s+(\S+\s+)*test\b|rspec\b|phpunit\b|ctest\b|python3?\s+-m\s+(pytest|unittest)\b|deno\s+test\b|node\s+--test\b|mix\s+test\b)`)
+var testCmdRE = regexp.MustCompile(`(?i)(^|[\s;&|(])(pytest\b|go\s+test\b|cargo\s+test\b|(npm|pnpm)\s+(run\s+)?test\b|yarn\s+test\b|bun\s+(run\s+)?test\b|npx\s+(vitest|jest|playwright)\b|vitest\b|jest\b|playwright\s+test\b|dotnet\s+test\b|make\s+test\b|mvnw?\s+(\S+\s+)*test\b|gradlew?\s+(\S+\s+)*test\b|rspec\b|phpunit\b|ctest\b|python3?\s+-m\s+(pytest|unittest)\b|deno\s+test\b|node\s+--test\b|mix\s+test\b)`)
 
 // codeFileExts are the extensions that count as "code was edited" for the verify gate.
 // Deliberately excludes .md/.json/.yaml — deliverable and config writes alone must not

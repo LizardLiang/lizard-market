@@ -157,7 +157,7 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 			TranscriptPath:      input.TranscriptPath,
 			AgentTranscriptPath: handbackTranscriptPath(input),
 		})
-		if f, ok := handbackSizeFailure(input.ToolInput.Message, aresHandbackMaxChars, "ares"); ok {
+		if f, ok := handbackSizeFailure(input.ToolInput.Message, "ares"); ok {
 			failures = append(failures, f)
 		}
 		res := handbackContentGateDecision("ares", gateStatePath(input.Cwd, "", "ares-handback-state.json"), input.AgentID, failures)
@@ -179,7 +179,7 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 	if waited && res.Decision == "deny" {
 		return res
 	}
-	if f, ok := handbackSizeFailure(input.ToolInput.Message, hermesHandbackMaxChars, "hermes"); ok {
+	if f, ok := handbackSizeFailure(input.ToolInput.Message, "hermes"); ok {
 		size := handbackContentGateDecision("hermes", gateStatePath(input.Cwd, "", "hermes-handback-state.json"), input.AgentID, []string{f})
 		if size.Decision == "deny" {
 			return size
@@ -197,12 +197,16 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 // unit the model sees; capped at gateMaxBlocks denials like every other
 // content check.
 const (
-	aresHandbackMaxChars   = 5000
+	aresHandbackMaxChars   = 8000
 	hermesHandbackMaxChars = 8000
 )
 
 // handbackSizeFailure returns the failure text when message exceeds max.
-func handbackSizeFailure(message string, max int, agent string) (string, bool) {
+func handbackSizeFailure(message, agent string) (string, bool) {
+	max := aresHandbackMaxChars
+	if agent == "hermes" {
+		max = hermesHandbackMaxChars
+	}
 	n := len([]rune(message))
 	if n <= max {
 		return "", false

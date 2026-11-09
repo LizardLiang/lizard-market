@@ -92,6 +92,8 @@ var gateAbsPathRE = regexp.MustCompile(`^(?:/|[A-Za-z]:/)`)
 // guard's own allowlist fix (v2.110), merged into this port.
 var gateReadOnlyCommands = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:status|diff|show|log|rev-parse|ls-files|check-ignore)\b`),
+	// `git stash` mutates; only its two listing forms are inspection.
+	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?stash\s+(?:list|show)\b`),
 	// `git branch` is its own entry because most of its surface mutates:
 	// -d/-D/--delete drop a branch, -m/-M rename one, -f moves a ref, and a
 	// bare `git branch <name>` creates one. Only the listing forms are
@@ -102,6 +104,8 @@ var gateReadOnlyCommands = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^(?:ls|dir|pwd)(?:\.exe)?(?:\s|$)`),
 	regexp.MustCompile(`(?i)^(?:cat|type)(?:\.exe)?(?:\s|$)`),
 	regexp.MustCompile(`(?i)^(?:find|grep|rg)(?:\.exe)?(?:\s|$)`),
+	// fd finds files; isReadOnlySegment denies its -x/-X/--exec forms.
+	regexp.MustCompile(`(?i)^(?:fd|fdfind)(?:\.exe)?(?:\s|$)`),
 	regexp.MustCompile(`(?i)^(?:sed|head|tail|wc)(?:\.exe)?(?:\s|$)`),
 	// where is the Windows which; Odysseus ran `where ollama` on 2026-10-28.
 	regexp.MustCompile(`(?i)^(?:which|where|stat|file)(?:\.exe)?(?:\s|$)`),
@@ -229,6 +233,7 @@ var (
 	// script parser, which this gate deliberately does not build — the miss
 	// costs a permission prompt, not an unattended write, because the gate
 	// never returns "allow".
+	gateFdExecRE     = regexp.MustCompile(`(?:^|\s)(?:-[a-zA-Z]*[xX][a-zA-Z]*|--exec(?:-batch)?(?:=\S*)?)(?:\s|$)`)
 	gateFindActionRE = regexp.MustCompile(`(?i)(?:^|\s)-(?:delete|exec|execdir|ok|okdir|fprintf|fprint0|fprint|fls)\b`)
 	// gateFollowFlagRE matches `tail -f`/`-F`/`--follow`, which never returns
 	// and would hang the tool call until its timeout.
@@ -1128,6 +1133,9 @@ func isReadOnlyShellCommand(command string) bool {
 	if len(segs) == 0 {
 		return false
 	}
+	if rest, ok := peelSubstAssignment(trimmed); ok {
+		return isReadOnlyShellCommand(rest)
+	}
 	segs = substituteAssignments(trimmed, segs)
 	for _, seg := range segs {
 		if strings.TrimSpace(seg.raw) == "" {
@@ -1138,6 +1146,102 @@ func isReadOnlyShellCommand(command string) bool {
 		}
 	}
 	return true
+}
+
+var gateSubstAssignHeadRE = regexp.MustCompile("^([A-Za-z_][A-Za-z0-9_]*)=(\\$\\(|`)")
+
+// gateOpaqueVarHeads are the heads that may receive an opaque `$NAME` as an
+// argument: none has a flag that writes a file or runs a program. A head with
+// such a flag (find -delete, git log --output, rg --pre, date -s) never gets
+// one, because the value could be that flag. sed is handled apart.
+var gateOpaqueVarHeads = map[string]bool{
+	"echo": true, "cat": true, "type": true, "ls": true, "dir": true, "head": true, "wc": true,
+	"grep": true, "egrep": true, "fgrep": true, "stat": true, "cd": true, "pwd": true,
+	"which": true, "where": true,
+}
+
+// peelSubstAssignment handles a line that opens with `NAME=$(<cmd>)` or
+// NAME=`<cmd>` (the user's `f=$(grep X); sed -n 1,5p "$f"` idiom). When <cmd>
+// is itself read-only and the separator that follows runs the next command in
+// the same shell (`;`, `&&`, a newline), it returns the rest of the line with
+// every `$NAME` / `${NAME}` replaced by an opaque word, and the caller
+// classifies that rest. A later segment is judged by its own head; it may use
+// the variable only as the argument of a head in gateOpaqueVarHeads, or as the
+// final quoted operand of sed, so the unknown value cannot be a write flag.
+// Nothing is peeled when a later segment names NAME as a bare word (`read f`,
+// `export f=rm`), which can reassign it.
+func peelSubstAssignment(command string) (string, bool) {
+	m := gateSubstAssignHeadRE.FindStringSubmatchIndex(command)
+	if m == nil {
+		return "", false
+	}
+	name := command[m[2]:m[3]]
+	masked := maskQuoted(command)
+	open := m[1]
+	var closeAt int
+	if command[m[4]] == '`' {
+		end := strings.IndexByte(masked[open:], '`')
+		if end < 0 {
+			return "", false
+		}
+		closeAt = open + end
+	} else {
+		depth := 1
+		closeAt = -1
+		for i := open; i < len(masked); i++ {
+			switch masked[i] {
+			case '(':
+				depth++
+			case ')':
+				depth--
+			}
+			if depth == 0 {
+				closeAt = i
+				break
+			}
+		}
+		if closeAt < 0 {
+			return "", false
+		}
+	}
+	inner := strings.TrimSpace(command[open:closeAt])
+	if inner == "" || strings.Contains(inner, "\\") || !isReadOnlyShellCommand(inner) {
+		return "", false
+	}
+	after := strings.TrimLeft(masked[closeAt+1:], " \t")
+	skip := 0
+	switch {
+	case strings.HasPrefix(after, "&&"):
+		skip = 2
+	case strings.HasPrefix(after, ";"), strings.HasPrefix(after, "\n"):
+		skip = 1
+	case strings.HasPrefix(after, "\r\n"):
+		skip = 2
+	default:
+		return "", false
+	}
+	rest := command[closeAt+1:]
+	rest = rest[len(rest)-len(after)+skip:]
+	quoted := regexp.QuoteMeta(name)
+	refRE := regexp.MustCompile(`\$\{` + quoted + `\}|\$` + quoted + `\b`)
+	bareRE := regexp.MustCompile(`(?:^|[^A-Za-z0-9_$-])` + quoted + `(?:[^A-Za-z0-9_]|$)`)
+	quotedLastRE := regexp.MustCompile(`\s"(?:\$\{` + quoted + `\}|\$` + quoted + `)"\s*$`)
+	if bareRE.MatchString(refRE.ReplaceAllString(maskQuoted(rest), " ")) {
+		return "", false
+	}
+	for _, seg := range splitShellSegments(rest) {
+		if !refRE.MatchString(seg.raw) {
+			continue
+		}
+		head := gateSegmentHead(seg.raw)
+		switch {
+		case gateOpaqueVarHeads[head]:
+		case head == "sed" && len(refRE.FindAllString(seg.raw, -1)) == 1 && quotedLastRE.MatchString(seg.raw) && sedScriptPrecedes(seg.raw):
+		default:
+			return "", false
+		}
+	}
+	return refRE.ReplaceAllLiteralString(rest, "OPAQUEVALUE"), true
 }
 
 // gateAssignmentRE matches a segment that only sets NAME=value, where the value
@@ -1256,6 +1360,10 @@ func isReadOnlySegment(seg shellSegment) bool {
 		}
 	case "find":
 		if gateFindActionRE.MatchString(masked) {
+			return false
+		}
+	case "fd", "fdfind":
+		if gateFdExecRE.MatchString(masked) {
 			return false
 		}
 	case "tail":
@@ -1451,9 +1559,17 @@ func gateShellWords(text string) ([]string, bool) {
 // string or regex fails the check.
 func gateAwkNoWriteChars(text string) bool {
 	var prev byte
+	depth := 0
 	for i := 0; i < len(text); i++ {
 		c := text[i]
 		switch {
+		case c == '{':
+			depth++
+		case c == '}':
+			depth--
+		case c == '>' && depth == 0:
+			// Outside an action block `>` is a comparison in a pattern
+			// (`$1>10`); only `print >` inside braces opens a file.
 		case c == '>' || c == '@' || c == '|' || c == '#':
 			// A `#` outside a string or regex starts a comment. Quotes in a
 			// comment would pair up with real ones and hide a `|`, so a
@@ -1837,4 +1953,30 @@ func gateContainmentRootSource(cwd string) (string, bool) {
 		dir = parent
 	}
 	return cwd, false
+}
+
+// sedScriptPrecedes reports a sed segment whose script is a literal word before
+// the final operand, with no -e/-f/--expression/--file flag: the operand
+// is then a file name, never the script.
+func sedScriptPrecedes(raw string) bool {
+	tokens := gateSegmentTokens(raw)
+	if len(tokens) < 3 {
+		return false
+	}
+	words := 0
+	for _, t := range tokens[1 : len(tokens)-1] {
+		switch {
+		case strings.HasPrefix(t, "--"):
+			if strings.HasPrefix(t, "--expression") || strings.HasPrefix(t, "--file") {
+				return false
+			}
+		case strings.HasPrefix(t, "-") && len(t) > 1:
+			if strings.ContainsAny(t[1:], "ef") {
+				return false
+			}
+		default:
+			words++
+		}
+	}
+	return words == 1
 }
