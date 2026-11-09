@@ -122,7 +122,12 @@ func TestOdysseusMainCheckoutFromWorktree(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not on PATH")
 	}
-	base := t.TempDir()
+	// git reports long paths. Expand an 8.3 short TEMP (C:\Users\LIZARD~1)
+	// or a symlinked one (macOS /var) so the expected root matches git's.
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	main := filepath.Join(base, "main")
 	if err := os.MkdirAll(filepath.Join(main, ".claude", ".Arena", "tactical-plans"), 0o755); err != nil {
 		t.Fatal(err)
