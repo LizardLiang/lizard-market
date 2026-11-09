@@ -312,8 +312,12 @@ func acquireStatusLock(path string) (func(), error) {
 			return nil, fmt.Errorf("cannot create lock file %s: %w", lockPath, err)
 		}
 		if info, statErr := os.Stat(lockPath); statErr == nil && time.Since(info.ModTime()) > statusLockStaleAge {
-			os.Remove(lockPath) // abandoned by a crashed holder — reclaim it
-			continue
+			// Abandoned by a crashed holder — reclaim it. If the remove fails
+			// (another process holds the file open), fall through to the
+			// deadline check and sleep instead of spinning.
+			if os.Remove(lockPath) == nil {
+				continue
+			}
 		}
 		if time.Now().After(deadline) {
 			return nil, fmt.Errorf("timed out waiting for lock on %s (another process may be updating it)", lockPath)
