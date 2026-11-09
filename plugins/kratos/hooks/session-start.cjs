@@ -43,6 +43,7 @@ const {
   syncStateDirConfig,
   replaceBinary,
   sweepStaleBinaries,
+  compareVersions,
 } = require("./kratos-bin.cjs");
 const { HOOK_OUTPUT_BUDGET, fitToBudget } = require("./hook-budget.cjs");
 
@@ -198,11 +199,19 @@ function readBinaryVersion(bin) {
 
 // A stale binary silently lacks flags newer agents call (2026-09 review: a
 // v2.1.0 binary under a v2.108.0 plugin). One line; ensureBinary already
-// spawned the refresh when the binary is a release download.
+// spawned the refresh when the binary is a release download. The other
+// direction — binary newer than the plugin — is a session still pinned to an
+// older plugin root after an update (2026-11-09: a resumed 2.126.0 session
+// under the 2.126.1 binary); nothing refreshes, the session must restart.
 function formatVersionMismatch(bin, refreshing) {
-  const have = binaryVersion(bin);
-  const want = pluginVersion();
+  return formatVersionMismatchFor(binaryVersion(bin), pluginVersion(), refreshing);
+}
+
+function formatVersionMismatchFor(have, want, refreshing) {
   if (!have || !want || have === want) return null;
+  if (compareVersions(have, want) > 0) {
+    return `Kratos: plugin v${want} in this session is older than binary v${have} — start a new session to load the current plugin`;
+  }
   const action = refreshing ? "refreshing in background" : "rebuild: cd kratos-dev/go && make build";
   return `Kratos: binary v${have} ≠ plugin v${want} — ${action}`;
 }
@@ -834,5 +843,5 @@ if (require.main === module) {
   process.stdin.on("error", finish);
   setTimeout(finish, 300).unref();
 } else {
-  module.exports = { buildMemoryReport, formatMemories, normalizeProject, formatStateDirNotices };
+  module.exports = { buildMemoryReport, formatMemories, normalizeProject, formatStateDirNotices, formatVersionMismatchFor };
 }

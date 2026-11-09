@@ -20,7 +20,7 @@ const path = require('path');
 const os = require('os');
 const { URL } = require('url');
 const { execFileSync } = require('child_process');
-const { platformBinaryName, replaceBinary } = require('./kratos-bin.cjs');
+const { platformBinaryName, replaceBinary, compareVersions } = require('./kratos-bin.cjs');
 
 const isWindows = process.platform === 'win32';
 
@@ -255,6 +255,12 @@ async function ensureBinary() {
     const currentVersion = fs.existsSync(targetPath) ? versionFromBinary(targetPath) : null;
 
     if (currentVersion === wantedVersion) return; // already up to date
+
+    // Never downgrade: a binary newer than this plugin means the session was
+    // launched under an older plugin root (it is pinned there until restart),
+    // not that the shared binary is stale. Other sessions already run the
+    // newer plugin.
+    if (currentVersion && compareVersions(currentVersion, wantedVersion) > 0) return;
 
     if (throttled()) return;
 

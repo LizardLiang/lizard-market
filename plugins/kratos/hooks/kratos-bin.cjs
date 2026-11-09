@@ -116,6 +116,25 @@ function syncStateDirConfig(pluginRoot) {
   }
 }
 
+// ---- Version compare --------------------------------------------------------
+// Numeric dotted compare ("2.99.0" < "2.100.0"); a leading "v" and missing
+// parts are tolerated. Returns -1, 0 or 1. Both update paths use it so a
+// session still running under an older plugin root never pulls the shared
+// ~/.kratos/bin binary back to the plugin's version (2026-11-09: a resumed
+// 2.126.0 session saw the 2.126.1 binary as a mismatch and would have
+// downgraded it once the download throttle lapsed).
+function compareVersions(a, b) {
+  const pa = String(a || '').replace(/^v/, '').split('.');
+  const pb = String(b || '').replace(/^v/, '').split('.');
+  const n = Math.max(pa.length, pb.length);
+  for (let i = 0; i < n; i++) {
+    const x = parseInt(pa[i], 10) || 0;
+    const y = parseInt(pb[i], 10) || 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}
+
 // ---- Binary replacement -----------------------------------------------------
 // Windows lets a running .exe be renamed but never deleted or overwritten:
 // copyFileSync/renameSync onto ~/.kratos/bin/kratos.exe fail with EBUSY/EPERM
@@ -217,4 +236,5 @@ module.exports = {
   replaceBinary,
   sweepStaleBinaries,
   STALE_DIR_NAME,
+  compareVersions,
 };
