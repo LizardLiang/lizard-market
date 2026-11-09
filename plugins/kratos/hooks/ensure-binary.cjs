@@ -20,7 +20,7 @@ const path = require('path');
 const os = require('os');
 const { URL } = require('url');
 const { execFileSync } = require('child_process');
-const { platformBinaryName } = require('./kratos-bin.cjs');
+const { platformBinaryName, replaceBinary } = require('./kratos-bin.cjs');
 
 const isWindows = process.platform === 'win32';
 
@@ -277,9 +277,13 @@ async function ensureBinary() {
       }
 
       try {
-        fs.renameSync(TMP_FILE, targetPath);
+        // Move the live binary to bin/stale/, move the download in, delete the
+        // stale file now or at a later sweep — a running kratos.exe can be
+        // renamed but not overwritten (see replaceBinary in kratos-bin.cjs).
+        replaceBinary(targetPath, (dest) => fs.renameSync(TMP_FILE, dest));
       } catch (renameErr) {
-        // Windows: binary currently executing in another session's hook.
+        // Windows: even the rename-aside is refused when a handle opened
+        // without FILE_SHARE_DELETE (an antivirus scan) holds the file.
         // Leave temp file for the next attempt; exit silently.
         if (renameErr.code === 'EBUSY' || renameErr.code === 'EPERM') {
           recordAttempt();

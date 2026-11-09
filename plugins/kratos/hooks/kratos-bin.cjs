@@ -116,4 +116,105 @@ function syncStateDirConfig(pluginRoot) {
   }
 }
 
-module.exports = { resolveBinary, platformBinaryName, stateDir, stateDirInfo, syncStateDirConfig, validStateDirName, DEFAULT_STATE_DIR };
+// ---- Binary replacement -----------------------------------------------------
+// Windows lets a running .exe be renamed but never deleted or overwritten:
+// copyFileSync/renameSync onto ~/.kratos/bin/kratos.exe fail with EBUSY/EPERM
+// whenever another session's hook is executing it (measured 2026-11-09 on a
+// running kratos.exe: rename OK, unlink EPERM, unlink OK once it exited). Linux
+// refuses the overwrite too (ETXTBSY). So an update renames the live file
+// into `<bin>/stale/`, places the new file at the fixed path, then deletes the
+// stale one — at once when nothing runs it, otherwise at a later SessionStart
+// sweep, which ignores the EPERM of a file still held by another process and
+// waits for the next start. The Windows call that marks a file for deletion
+// (MoveFileEx MOVEFILE_DELAY_UNTIL_REBOOT) needs administrator rights, so the
+// sweep stands in for it.
+
+const STALE_DIR_NAME = 'stale';
+
+function staleDirFor(binDir) {
+  return path.join(binDir, STALE_DIR_NAME);
+}
+
+// Deletes every file in `<binDir>/stale/` that is no longer in use and removes
+// the folder once empty. Returns the number removed; a file still executing
+// stays for the next sweep. No stale folder → nothing to do.
+function sweepStaleBinaries(binDir) {
+  const staleDir = staleDirFor(binDir);
+  let names;
+  try {
+    names = fs.readdirSync(staleDir);
+  } catch (e) {
+    return 0; // no stale folder — the common case
+  }
+  let removed = 0;
+  let left = 0;
+  for (const name of names) {
+    try {
+      fs.unlinkSync(path.join(staleDir, name));
+      removed++;
+    } catch (e) {
+      left++; // still mapped by a running process — next sweep
+    }
+  }
+  if (left === 0) {
+    try {
+      fs.rmdirSync(staleDir);
+    } catch (e) {
+      // best-effort tidy-up
+    }
+  }
+  return removed;
+}
+
+// Replaces the binary at targetPath. place(targetPath) must put the new file
+// there (rename or copy). The old file is moved into `<bin>/stale/` first so
+// place() never hits a running executable; if place() throws, the old file is
+// moved back so the fixed path never goes empty. Returns the stale path when
+// the old binary is still in use and could not be deleted yet, else null.
+function replaceBinary(targetPath, place) {
+  const dir = path.dirname(targetPath);
+  const base = path.basename(targetPath);
+  sweepStaleBinaries(dir);
+  let aside = null;
+  if (fs.existsSync(targetPath)) {
+    const staleDir = staleDirFor(dir);
+    fs.mkdirSync(staleDir, { recursive: true });
+    aside = path.join(staleDir, `${base}.${Date.now()}-${process.pid}`);
+    fs.renameSync(targetPath, aside);
+  }
+  try {
+    place(targetPath);
+  } catch (e) {
+    if (aside) {
+      try {
+        fs.renameSync(aside, targetPath);
+      } catch (e2) {
+        // the old binary stays in stale/; the next sweep removes it
+      }
+    }
+    throw e;
+  }
+  if (aside) {
+    try {
+      fs.unlinkSync(aside);
+      aside = null;
+      sweepStaleBinaries(dir); // removes the now-empty stale folder
+    } catch (e) {
+      // in use by another session's hook — swept at a later SessionStart
+    }
+  }
+  return aside;
+}
+
+module.exports = {
+  resolveBinary,
+  platformBinaryName,
+  stateDir,
+  stateDirInfo,
+  syncStateDirConfig,
+  validStateDirName,
+  DEFAULT_STATE_DIR,
+  replaceBinary,
+  sweepStaleBinaries,
+  STALE_DIR_NAME,
+};

@@ -35,7 +35,15 @@ const { execFileSync, spawn, spawnSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
-const { resolveBinary, platformBinaryName, stateDir, stateDirInfo, syncStateDirConfig } = require("./kratos-bin.cjs");
+const {
+  resolveBinary,
+  platformBinaryName,
+  stateDir,
+  stateDirInfo,
+  syncStateDirConfig,
+  replaceBinary,
+  sweepStaleBinaries,
+} = require("./kratos-bin.cjs");
 const { HOOK_OUTPUT_BUDGET, fitToBudget } = require("./hook-budget.cjs");
 
 // Global paths
@@ -562,6 +570,11 @@ function ensureBinary() {
   const targetName = isWin ? "kratos.exe" : "kratos";
   const targetPath = path.join(targetDir, targetName);
 
+  // A previous update may have left the old binary in `bin/stale/` because a
+  // hook was still executing it. Try to remove it now; a file another process
+  // still holds is skipped without error and waits for the next start.
+  sweepStaleBinaries(targetDir);
+
   const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, "..");
   const srcPath = path.join(pluginRoot, "bin", platformBinaryName());
   if (!fs.existsSync(srcPath)) {
@@ -588,7 +601,9 @@ function ensureBinary() {
     refreshing: false,
     copy: () => {
       fs.mkdirSync(targetDir, { recursive: true });
-      fs.copyFileSync(srcPath, targetPath);
+      // Never copy onto a running binary: move it to bin/stale/, copy, then
+      // delete the stale file now or at a later sweep (replaceBinary in kratos-bin.cjs).
+      replaceBinary(targetPath, (dest) => fs.copyFileSync(srcPath, dest));
       if (!isWin) fs.chmodSync(targetPath, 0o755);
     },
   };
