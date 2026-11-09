@@ -35,9 +35,13 @@ var verdictSynonyms = map[string]string{
 
 // verdictFields maps each verdict-bearing stage to its accepted values and the
 // schema field each value lands in (references/status-json-schema.md). Stage 9
-// is shared by Hermes and Cassandra — their vocabularies are disjoint, so the
-// value alone selects the right field and the two agents cannot clobber each
-// other's verdicts.
+// is shared by Hermes and Cassandra — their vocabularies are disjoint, so a
+// single applyStageUpdate call always routes to the right field. That alone
+// does NOT stop the two agents from clobbering each other: applyStageUpdate
+// only mutates an in-memory map, and the surrounding read-modify-write cycle
+// (readStatusJSON, mutate, writeStatusJSON) still races if two callers run it
+// concurrently against the same file. withStatusLock (below) closes that gap;
+// every caller that reads then writes status.json must go through it.
 var verdictFields = map[string]map[string]string{
 	"2-prd-review": {
 		"approved": "nemesis_verdict", "revisions": "nemesis_verdict", "rejected": "nemesis_verdict",
@@ -271,6 +275,68 @@ func now() string {
 	return time.Now().Format(time.RFC3339)
 }
 
+// statusLockRetryInterval and statusLockTimeout bound acquireStatusLock: a
+// contending writer polls every 20ms and gives up after 5s — two to three
+// orders of magnitude longer than a status.json read-modify-write ever takes,
+// enough margin for a loaded CI box without wedging a command past a user's
+// patience.
+const (
+	statusLockRetryInterval = 20 * time.Millisecond
+	statusLockTimeout       = 5 * time.Second
+	// statusLockStaleAge is how long a lock file may sit before it is treated
+	// as abandoned by a crashed holder rather than an active writer. Well
+	// above any real critical section, well below statusLockTimeout's budget
+	// for a live contender to wait it out.
+	statusLockStaleAge = 2 * time.Second
+)
+
+// acquireStatusLock creates path+".lock" with O_EXCL — atomic create-if-absent
+// on both POSIX and Windows — so exactly one caller at a time holds it,
+// whether the callers are goroutines in one process or separate `kratos`
+// invocations (Hermes and Cassandra racing to file stage 9 verdicts, for
+// example). It retries on contention and reclaims a lock file older than
+// statusLockStaleAge, since a crashed holder never removes its own lock and a
+// dead process must not wedge every future status.json update. The returned
+// func releases the lock; callers must defer it.
+func acquireStatusLock(path string) (func(), error) {
+	lockPath := path + ".lock"
+	deadline := time.Now().Add(statusLockTimeout)
+	for {
+		f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if err == nil {
+			fmt.Fprintf(f, "%d\n", os.Getpid())
+			f.Close()
+			return func() { os.Remove(lockPath) }, nil
+		}
+		if !os.IsExist(err) {
+			return nil, fmt.Errorf("cannot create lock file %s: %w", lockPath, err)
+		}
+		if info, statErr := os.Stat(lockPath); statErr == nil && time.Since(info.ModTime()) > statusLockStaleAge {
+			os.Remove(lockPath) // abandoned by a crashed holder — reclaim it
+			continue
+		}
+		if time.Now().After(deadline) {
+			return nil, fmt.Errorf("timed out waiting for lock on %s (another process may be updating it)", lockPath)
+		}
+		time.Sleep(statusLockRetryInterval)
+	}
+}
+
+// withStatusLock serializes a status.json read-modify-write cycle: it holds
+// path+".lock" for the duration of fn so two concurrent updates can no longer
+// interleave their read and write and drop one caller's field. fn is
+// responsible for its own readStatusJSON/writeStatusJSON calls;
+// atomicWriteFile already makes each individual write atomic — this closes
+// the remaining gap between one caller's read and its write.
+func withStatusLock(path string, fn func() error) error {
+	release, err := acquireStatusLock(path)
+	if err != nil {
+		return err
+	}
+	defer release()
+	return fn()
+}
+
 // --- pipeline init ---
 
 func pipelineInitCmd() *cobra.Command {
@@ -460,16 +526,19 @@ func pipelineUpdate(feature, stage, newStatus, mode, verdict, document, summary 
 
 	path := statusPath(feature)
 
-	statusJSON, err := readStatusJSON(path)
+	var statusJSON map[string]interface{}
+	err := withStatusLock(path, func() error {
+		var rerr error
+		statusJSON, rerr = readStatusJSON(path)
+		if rerr != nil {
+			return rerr
+		}
+		if rerr := applyStageUpdate(statusJSON, stage, newStatus, mode, verdict, document, summary, now()); rerr != nil {
+			return rerr
+		}
+		return writeStatusJSON(path, statusJSON)
+	})
 	if err != nil {
-		return err
-	}
-
-	if err := applyStageUpdate(statusJSON, stage, newStatus, mode, verdict, document, summary, now()); err != nil {
-		return err
-	}
-
-	if err := writeStatusJSON(path, statusJSON); err != nil {
 		return err
 	}
 
@@ -1082,19 +1151,20 @@ func pipelineSetPending(feature, stage string) error {
 
 	path := statusPath(feature)
 
-	statusJSON, err := readStatusJSON(path)
+	err := withStatusLock(path, func() error {
+		statusJSON, rerr := readStatusJSON(path)
+		if rerr != nil {
+			return rerr
+		}
+		if stage == "" {
+			delete(statusJSON, "pending_stage")
+		} else {
+			statusJSON["pending_stage"] = stage
+		}
+		statusJSON["updated"] = time.Now().Format(time.RFC3339)
+		return writeStatusJSON(path, statusJSON)
+	})
 	if err != nil {
-		return err
-	}
-
-	if stage == "" {
-		delete(statusJSON, "pending_stage")
-	} else {
-		statusJSON["pending_stage"] = stage
-	}
-	statusJSON["updated"] = time.Now().Format(time.RFC3339)
-
-	if err := writeStatusJSON(path, statusJSON); err != nil {
 		return err
 	}
 

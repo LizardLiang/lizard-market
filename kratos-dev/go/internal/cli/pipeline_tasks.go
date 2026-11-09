@@ -272,115 +272,128 @@ func pipelineTasksList(root, feature string, asJSON bool) error {
 }
 
 func pipelineTasksComplete(root, feature string, ids []string, all, noAdvance, asJSON bool) error {
-	name, dir, status, err := resolveTaskFeature(root, feature)
+	name, dir, _, err := resolveTaskFeature(root, feature)
 	if err != nil {
 		return err
 	}
-	items, s7, err := stage7Tasks(status)
-	if err != nil {
-		return err
-	}
-	if err := validateUserMode(status, s7); err != nil {
-		return err
-	}
+	statusFile := filepath.Join(dir, "status.json")
 
-	byID := make(map[string]map[string]interface{}, len(items))
-	for _, item := range items {
-		if id, _ := item["id"].(string); id != "" {
-			byID[id] = item
+	var result tasksResult
+	err = withStatusLock(statusFile, func() error {
+		// Re-read inside the lock — the copy resolveTaskFeature returned may
+		// already be stale if another writer ran between resolution and here.
+		status, err := readStatusJSON(statusFile)
+		if err != nil {
+			return err
 		}
-	}
+		items, s7, err := stage7Tasks(status)
+		if err != nil {
+			return err
+		}
+		if err := validateUserMode(status, s7); err != nil {
+			return err
+		}
 
-	if all {
-		ids = nil
+		byID := make(map[string]map[string]interface{}, len(items))
 		for _, item := range items {
 			if id, _ := item["id"].(string); id != "" {
-				ids = append(ids, id)
+				byID[id] = item
 			}
 		}
-	}
 
-	// Validate the whole batch before touching anything — a single unknown ID
-	// aborts with the file untouched.
-	var unknown []string
-	for _, id := range ids {
-		if _, ok := byID[id]; !ok {
-			unknown = append(unknown, id)
+		batchIDs := ids
+		if all {
+			batchIDs = nil
+			for _, item := range items {
+				if id, _ := item["id"].(string); id != "" {
+					batchIDs = append(batchIDs, id)
+				}
+			}
 		}
-	}
-	if len(unknown) > 0 {
-		var available []string
-		for _, item := range items {
-			id, _ := item["id"].(string)
+
+		// Validate the whole batch before touching anything — a single unknown ID
+		// aborts with the file untouched.
+		var unknown []string
+		for _, id := range batchIDs {
+			if _, ok := byID[id]; !ok {
+				unknown = append(unknown, id)
+			}
+		}
+		if len(unknown) > 0 {
+			var available []string
+			for _, item := range items {
+				id, _ := item["id"].(string)
+				itemName, _ := item["name"].(string)
+				available = append(available, fmt.Sprintf("%s: %s", id, itemName))
+			}
+			return fmt.Errorf("task(s) not found: %s\navailable tasks:\n  %s",
+				strings.Join(unknown, ", "), strings.Join(available, "\n  "))
+		}
+
+		ts := now()
+		result = tasksResult{Feature: name}
+		for _, id := range batchIDs {
+			item := byID[id]
 			itemName, _ := item["name"].(string)
-			available = append(available, fmt.Sprintf("%s: %s", id, itemName))
+			if itemDone(item) {
+				result.AlreadyComplete = append(result.AlreadyComplete, id)
+				continue
+			}
+			item["status"] = "complete"
+			item["completed_at"] = ts
+			result.CompletedNow = append(result.CompletedNow, taskItem{ID: id, Name: itemName})
 		}
-		return fmt.Errorf("task(s) not found: %s\navailable tasks:\n  %s",
-			strings.Join(unknown, ", "), strings.Join(available, "\n  "))
-	}
 
-	ts := now()
-	result := tasksResult{Feature: name}
-	for _, id := range ids {
-		item := byID[id]
-		itemName, _ := item["name"].(string)
-		if itemDone(item) {
-			result.AlreadyComplete = append(result.AlreadyComplete, id)
-			continue
+		// Recompute counters and normalize to the object container shape.
+		result.Total = len(items)
+		rawItems := make([]interface{}, len(items))
+		for i, item := range items {
+			if itemDone(item) {
+				result.Completed++
+			} else {
+				id, _ := item["id"].(string)
+				itemName, _ := item["name"].(string)
+				result.Remaining = append(result.Remaining, taskItem{ID: id, Name: itemName})
+			}
+			rawItems[i] = item
 		}
-		item["status"] = "complete"
-		item["completed_at"] = ts
-		result.CompletedNow = append(result.CompletedNow, taskItem{ID: id, Name: itemName})
-	}
+		s7["tasks"] = map[string]interface{}{
+			"total":     result.Total,
+			"completed": result.Completed,
+			"items":     rawItems,
+		}
+		result.Pct, result.Bar = progressBar(result.Completed, result.Total)
+		result.AllComplete = result.Completed == result.Total
 
-	// Recompute counters and normalize to the object container shape.
-	result.Total = len(items)
-	rawItems := make([]interface{}, len(items))
-	for i, item := range items {
-		if itemDone(item) {
-			result.Completed++
-		} else {
-			id, _ := item["id"].(string)
-			itemName, _ := item["name"].(string)
-			result.Remaining = append(result.Remaining, taskItem{ID: id, Name: itemName})
+		status["updated"] = ts
+		if len(result.CompletedNow) > 0 {
+			completedIDs := make([]string, len(result.CompletedNow))
+			for i, t := range result.CompletedNow {
+				completedIDs[i] = t.ID
+			}
+			history, _ := status["history"].([]interface{})
+			status["history"] = append(history, map[string]interface{}{
+				"timestamp": ts,
+				"stage":     "7-implementation",
+				"action":    fmt.Sprintf("tasks completed: %s", strings.Join(completedIDs, ", ")),
+			})
 		}
-		rawItems[i] = item
-	}
-	s7["tasks"] = map[string]interface{}{
-		"total":     result.Total,
-		"completed": result.Completed,
-		"items":     rawItems,
-	}
-	result.Pct, result.Bar = progressBar(result.Completed, result.Total)
-	result.AllComplete = result.Completed == result.Total
 
-	status["updated"] = ts
-	if len(result.CompletedNow) > 0 {
-		completedIDs := make([]string, len(result.CompletedNow))
-		for i, t := range result.CompletedNow {
-			completedIDs[i] = t.ID
+		// All done → advance 7→complete and 8→ready inside the same atomic write,
+		// with the exact `pipeline update` semantics.
+		if result.AllComplete && !noAdvance {
+			if err := applyStageUpdate(status, "7-implementation", "complete", "", "", "", "", ts); err != nil {
+				return err
+			}
+			if err := applyStageUpdate(status, "8-prd-alignment", "ready", "", "", "", "", ts); err != nil {
+				return err
+			}
+			result.Advanced = true
 		}
-		history, _ := status["history"].([]interface{})
-		status["history"] = append(history, map[string]interface{}{
-			"timestamp": ts,
-			"stage":     "7-implementation",
-			"action":    fmt.Sprintf("tasks completed: %s", strings.Join(completedIDs, ", ")),
-		})
-	}
 
-	// All done → advance 7→complete and 8→ready inside the same atomic write,
-	// with the exact `pipeline update` semantics.
-	if result.AllComplete && !noAdvance {
-		if err := applyStageUpdate(status, "7-implementation", "complete", "", "", "", "", ts); err != nil {
-			return err
-		}
-		if err := applyStageUpdate(status, "8-prd-alignment", "ready", "", "", "", "", ts); err != nil {
-			return err
-		}
-		result.Advanced = true
-	}
-
-	if err := writeStatusJSON(filepath.Join(dir, "status.json"), status); err != nil {
+		return writeStatusJSON(statusFile, status)
+	})
+	if err != nil {
 		return err
 	}
 

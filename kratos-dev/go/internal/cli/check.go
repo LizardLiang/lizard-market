@@ -607,7 +607,8 @@ func writeCheckState(featureDir string, state map[string]int) error {
 // immediately (check.go AgentDispatch: hermes entry absent), so it never calls incrementRetry.
 // The only 9-review agent that reaches this path is kratos:cassandra, making the concurrent
 // read-modify-write race between two 9-review agents a non-issue in practice. If future Tier 2/3
-// checks are added for hermes, introduce an advisory file lock before the read-modify-write here.
+// checks are added for hermes, wrap this read-modify-write in withStatusLock (pipeline.go) — the
+// same helper recordCheckFailure below now uses for status.json's check_failures race.
 func incrementRetry(featureDir, stage string) (int, error) {
 	state, err := readCheckState(featureDir)
 	if err != nil {
@@ -633,37 +634,39 @@ func resetRetry(featureDir, stage string) error {
 // recordCheckFailure appends a check_failures entry to the stage object in status.json.
 func recordCheckFailure(featureDir, stage string, tier int, failedChecks []string) error {
 	statusFile := filepath.Join(featureDir, "status.json")
-	status, err := readStatusJSON(statusFile)
-	if err != nil {
-		return fmt.Errorf("cannot read status.json: %w", err)
-	}
+	return withStatusLock(statusFile, func() error {
+		status, err := readStatusJSON(statusFile)
+		if err != nil {
+			return fmt.Errorf("cannot read status.json: %w", err)
+		}
 
-	// Ensure pipeline map exists
-	pipeline, ok := status["pipeline"].(map[string]interface{})
-	if !ok {
-		pipeline = map[string]interface{}{}
-		status["pipeline"] = pipeline
-	}
+		// Ensure pipeline map exists
+		pipeline, ok := status["pipeline"].(map[string]interface{})
+		if !ok {
+			pipeline = map[string]interface{}{}
+			status["pipeline"] = pipeline
+		}
 
-	// Ensure stage entry exists
-	stageData, ok := pipeline[stage].(map[string]interface{})
-	if !ok {
-		stageData = map[string]interface{}{}
-		pipeline[stage] = stageData
-	}
+		// Ensure stage entry exists
+		stageData, ok := pipeline[stage].(map[string]interface{})
+		if !ok {
+			stageData = map[string]interface{}{}
+			pipeline[stage] = stageData
+		}
 
-	// Build failure entry
-	failure := map[string]interface{}{
-		"timestamp":         time.Now().Format(time.RFC3339),
-		"tier":              tier,
-		"checks_failed":     failedChecks,
-		"retries_exhausted": true,
-	}
+		// Build failure entry
+		failure := map[string]interface{}{
+			"timestamp":         time.Now().Format(time.RFC3339),
+			"tier":              tier,
+			"checks_failed":     failedChecks,
+			"retries_exhausted": true,
+		}
 
-	// Append to check_failures array
-	existing, _ := stageData["check_failures"].([]interface{})
-	existing = append(existing, failure)
-	stageData["check_failures"] = existing
+		// Append to check_failures array
+		existing, _ := stageData["check_failures"].([]interface{})
+		existing = append(existing, failure)
+		stageData["check_failures"] = existing
 
-	return writeStatusJSON(statusFile, status)
+		return writeStatusJSON(statusFile, status)
+	})
 }
