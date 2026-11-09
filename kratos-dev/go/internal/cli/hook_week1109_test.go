@@ -97,6 +97,9 @@ func TestOdysseusReadOnlyWeek1109(t *testing.T) {
 		`sed -n 1,5p file`,
 		`git stash list`,
 		`git stash show -p`,
+		`git diff HEAD~1`,
+		`git log --oneline -5`,
+		`git diff -O orderfile`,
 	}
 	deny := []string{
 		`f=$(grep X); sed -i s/a/b/ "$f"`,
@@ -121,6 +124,11 @@ func TestOdysseusReadOnlyWeek1109(t *testing.T) {
 		`git stash`,
 		`git stash drop`,
 		`python -c "print(1)"`,
+		`git diff --output=/tmp/x`,
+		`git diff --output /tmp/x`,
+		`git stash show --output=/tmp/x`,
+		`git log --output=/tmp/x`,
+		`git show -o /tmp/x`,
 	}
 	for _, c := range allow {
 		if got := odysseusBashDecision(c); got.Decision != "" {

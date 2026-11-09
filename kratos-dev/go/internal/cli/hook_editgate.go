@@ -92,7 +92,9 @@ var gateAbsPathRE = regexp.MustCompile(`^(?:/|[A-Za-z]:/)`)
 // guard's own allowlist fix (v2.110), merged into this port.
 var gateReadOnlyCommands = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:status|diff|show|log|rev-parse|ls-files|check-ignore)\b`),
-	// `git stash` mutates; only its two listing forms are inspection.
+	// `git stash` mutates; only `list` and `show` are inspection. `show`
+	// prints a diff rather than a listing, so the git case in isReadOnlySegment
+	// denies the diff-family `--output`/`-o <file>` it would otherwise honor.
 	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?stash\s+(?:list|show)\b`),
 	// `git branch` is its own entry because most of its surface mutates:
 	// -d/-D/--delete drop a branch, -m/-M rename one, -f moves a ref, and a
@@ -233,7 +235,14 @@ var (
 	// script parser, which this gate deliberately does not build — the miss
 	// costs a permission prompt, not an unattended write, because the gate
 	// never returns "allow".
-	gateFdExecRE     = regexp.MustCompile(`(?:^|\s)(?:-[a-zA-Z]*[xX][a-zA-Z]*|--exec(?:-batch)?(?:=\S*)?)(?:\s|$)`)
+	gateFdExecRE = regexp.MustCompile(`(?:^|\s)(?:-[a-zA-Z]*[xX][a-zA-Z]*|--exec(?:-batch)?(?:=\S*)?)(?:\s|$)`)
+	// gateGitOutputRE matches git's diff-family output flag. `git diff/show/log`
+	// and `git stash show` delegate to the diff machinery, which honors
+	// `--output=<file>` / `-o <file>` to create or truncate an arbitrary file.
+	// gateRedirectRE only catches `>`, so without this a read-only git command
+	// could write. (Verified live on git 2.56: diff/show/log/stash-show --output.)
+	// `-o` is lowercase-only: git diff's read-only `-O<orderfile>` must not match.
+	gateGitOutputRE  = regexp.MustCompile(`(?:^|\s)(?:(?i:--output)(?:=|\s|$)|-o(?:=|\s))`)
 	gateFindActionRE = regexp.MustCompile(`(?i)(?:^|\s)-(?:delete|exec|execdir|ok|okdir|fprintf|fprint0|fprint|fls)\b`)
 	// gateFollowFlagRE matches `tail -f`/`-F`/`--follow`, which never returns
 	// and would hang the tool call until its timeout.
@@ -1354,6 +1363,11 @@ func isReadOnlySegment(seg shellSegment) bool {
 		return false
 	}
 	switch gateSegmentHead(raw) {
+	case "git":
+		// git diff/show/log and stash show write a file with --output/-o.
+		if gateGitOutputRE.MatchString(masked) {
+			return false
+		}
 	case "sed":
 		if gateInPlaceFlagRE.MatchString(masked) {
 			return false
