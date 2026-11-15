@@ -1027,13 +1027,22 @@ type transcriptEntry struct {
 	Message     struct {
 		Content json.RawMessage `json:"content"`
 	} `json:"message"`
+	// ToolUseResult sits on the user line that answers an Agent/Task call and
+	// names the child that call launched.
+	ToolUseResult *struct {
+		AgentID string `json:"agentId"`
+	} `json:"toolUseResult"`
 }
 
-// transcriptToolUse is a tool_use block inside an assistant message's content array.
+// transcriptToolUse is a content block the verify gate reads: an assistant's
+// tool_use, or the user-side tool_result that answers it (ToolUseID, IsError).
 type transcriptToolUse struct {
-	Type  string `json:"type"`
-	Name  string `json:"name"`
-	Input struct {
+	Type      string `json:"type"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	ToolUseID string `json:"tool_use_id"`
+	IsError   bool   `json:"is_error"`
+	Input     struct {
 		FilePath     string `json:"file_path"`
 		NotebookPath string `json:"notebook_path"`
 		Command      string `json:"command"`
@@ -1071,12 +1080,46 @@ func isRealUserPrompt(entry transcriptEntry) bool {
 // sidechain filter is what scopes the scan to subagent activity, and resetting at each
 // real user prompt scopes it to the current turn's spawn. Unparseable lines are skipped
 // (fail open per line); only I/O-level errors are returned.
+//
+// Two facts from the week of 2026-11-08 (89 false denials in one session):
+// an edit the harness refused (tool_result is_error — a worktree-isolation
+// refusal) changed nothing, so it is not a code edit; and a test command run
+// by a child the agent spawned is the agent's test run. Children are read one
+// level deep, from the sibling agent-<id>.jsonl files, only when path is the
+// agent's own transcript; an unreadable child counts as no evidence.
 func transcriptTestEvidence(path string, sidechainOnly bool) (editedCode, ranTests bool, err error) {
+	editedCode, ranTests, children, err := scanTestEvidence(path, sidechainOnly)
+	if err != nil || ranTests || !editedCode || sidechainOnly {
+		return editedCode, ranTests, err
+	}
+	for _, id := range children {
+		_, childRan, _, childErr := scanTestEvidence(filepath.Join(filepath.Dir(path), "agent-"+id+".jsonl"), false)
+		if childErr == nil && childRan {
+			return editedCode, true, nil
+		}
+	}
+	return editedCode, false, nil
+}
+
+// transcriptChildIDRE is the shape of a Claude Code agent id. A child id is
+// joined into a file name, so anything else is dropped.
+var transcriptChildIDRE = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// scanTestEvidence is one pass over one transcript: code edits that were not
+// refused, test commands the transcript's own shell calls ran, and the ids of
+// the children it launched since the last real user prompt.
+func scanTestEvidence(path string, sidechainOnly bool) (editedCode, ranTests bool, children []string, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return false, false, err
+		return false, false, nil, err
 	}
 	defer f.Close()
+
+	// edits holds the tool_use id of every code edit; an id-less block (older
+	// transcripts) counts at once. refused holds the ids a tool_result marked
+	// is_error. launches holds the ids of Agent/Task calls.
+	edits, refused, launches := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	editedNoID := false
 
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
@@ -1092,10 +1135,11 @@ func transcriptTestEvidence(path string, sidechainOnly bool) (editedCode, ranTes
 		if isRealUserPrompt(entry) {
 			// New turn: evidence from earlier turns (e.g. a previous agent's test
 			// run) must not vouch for this one.
-			editedCode, ranTests = false, false
+			ranTests, editedNoID, children = false, false, nil
+			edits, refused, launches = map[string]bool{}, map[string]bool{}, map[string]bool{}
 			continue
 		}
-		if entry.Type != "assistant" || (sidechainOnly && !entry.IsSidechain) {
+		if (entry.Type != "assistant" && entry.Type != "user") || (sidechainOnly && !entry.IsSidechain) {
 			continue
 		}
 		var blocks []transcriptToolUse
@@ -1103,6 +1147,17 @@ func transcriptTestEvidence(path string, sidechainOnly bool) (editedCode, ranTes
 			continue
 		}
 		for _, b := range blocks {
+			if entry.Type == "user" {
+				if b.Type != "tool_result" || b.ToolUseID == "" {
+					continue
+				}
+				if b.IsError {
+					refused[b.ToolUseID] = true
+				} else if launches[b.ToolUseID] && entry.ToolUseResult != nil && transcriptChildIDRE.MatchString(entry.ToolUseResult.AgentID) {
+					children = append(children, entry.ToolUseResult.AgentID)
+				}
+				continue
+			}
 			if b.Type != "tool_use" {
 				continue
 			}
@@ -1113,19 +1168,34 @@ func transcriptTestEvidence(path string, sidechainOnly bool) (editedCode, ranTes
 					p = b.Input.NotebookPath
 				}
 				if isCodeFile(p) {
-					editedCode = true
+					if b.ID == "" {
+						editedNoID = true
+					} else {
+						edits[b.ID] = true
+					}
 				}
 			case "Bash", "PowerShell":
 				if testCmdRE.MatchString(b.Input.Command) {
 					ranTests = true
 				}
+			case "Agent", "Task":
+				if b.ID != "" {
+					launches[b.ID] = true
+				}
 			}
 		}
 	}
 	if scanErr := sc.Err(); scanErr != nil {
-		return false, false, scanErr
+		return false, false, nil, scanErr
 	}
-	return editedCode, ranTests, nil
+	editedCode = editedNoID
+	for id := range edits {
+		if !refused[id] {
+			editedCode = true
+			break
+		}
+	}
+	return editedCode, ranTests, children, nil
 }
 
 // aresVerifyGateFailure runs the fail-then-pass verify gate for Ares: if the transcript

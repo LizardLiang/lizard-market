@@ -91,7 +91,13 @@ var gateAbsPathRE = regexp.MustCompile(`^(?:/|[A-Za-z]:/)`)
 // the agent to route around it. which/command -v/stat/file came from the JS
 // guard's own allowlist fix (v2.110), merged into this port.
 var gateReadOnlyCommands = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:status|diff|show|log|rev-parse|ls-files|check-ignore)\b`),
+	// ls-tree, ls-remote, grep, blame, merge-base and cat-file were each denied
+	// during the week of 2026-11-08 (`git ls-tree -r --name-only main -- …`,
+	// `git -C … grep -n -E "…"`, `git ls-remote … | Select-String`). The git
+	// case in isReadOnlySegment denies the two forms that run a program:
+	// `grep -O<pager>` and `ls-remote --upload-pack`.
+	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:status|diff|show|log|rev-parse|ls-files|check-ignore|ls-tree|ls-remote|grep|blame|merge-base|cat-file)\b`),
+	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?worktree\s+list\b`),
 	// `git stash` mutates; only `list` and `show` are inspection. `show`
 	// prints a diff rather than a listing, so the git case in isReadOnlySegment
 	// denies the diff-family `--output`/`-o <file>` it would otherwise honor.
@@ -253,7 +259,65 @@ var (
 
 const odysseusWriteDenyReason = "Odysseus plans, Ares builds — save the plan, get approval, then spawn kratos:ares with the plan path."
 
-const odysseusBashDenyReason = "Odysseus plan mode may only run read-only inspection commands. Write the command into the plan for Ares to run instead of running it now."
+// The second sentence names the two ways out. Without it a session stayed
+// read-only for ten hours after "approve" (2026-11-12): the builder that
+// clears the lock is kratos:ares or kratos:hades, and a Skill load of another
+// god replaces the planner (skillLoadResult).
+const odysseusBashDenyReason = "Odysseus plan mode may only run read-only inspection commands. Write the command into the plan for Ares to run instead of running it now. Planning is over? Spawn kratos:ares with the approved plan, or load Iris (Skill kratos:iris): either one ends plan mode."
+
+var (
+	// gateGitSubcommandRE captures the git subcommand past an optional -C <path>.
+	gateGitSubcommandRE = regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?([a-z-]+)`)
+	// gateGitGrepPagerRE matches `git grep -O[<pager>]` /
+	// `--open-files-in-pager[=<pager>]`, which runs the named program.
+	gateGitGrepPagerRE = regexp.MustCompile(`(?:^|\s)(?:-O\S*|--open-files-in-pager\b\S*)`)
+	// gateGitUploadPackRE matches the ls-remote flags that name a program to run.
+	gateGitUploadPackRE = regexp.MustCompile(`(?i)(?:^|\s)(?:--upload-pack|--exec|-u)(?:=|\s|$)`)
+
+	// gateWhereBlockRE accepts a Where-Object script block that only compares
+	// properties of the pipeline item: `{ $_.Name -match 'x' -and -not
+	// $_.PSIsContainer }`. A value is a quoted literal with nothing that
+	// expands, a number, or $true/$false/$null. A method call, a command, a
+	// nested block or a second statement does not fit and stays denied.
+	gateWhereValue   = `(?:'[^']*'|"[^"$` + "`" + `]*"|-?\d+(?:\.\d+)?|\$true|\$false|\$null)`
+	gateWhereTerm    = `(?:(?:-not\s+|!\s*)?\$_(?:\.\w+)+(?:\s+-[ci]?(?:eq|ne|gt|ge|lt|le|like|notlike|match|notmatch|contains|notcontains|in|notin)\s+` + gateWhereValue + `)?)`
+	gateWhereBlockRE = regexp.MustCompile(`(?i)^Where-Object\s+\{\s*` + gateWhereTerm + `(?:\s+-(?:and|or)\s+` + gateWhereTerm + `)*\s*\}$`)
+
+	// gateLoaderArgsRE is the argument list of a god loader: `agent load <god>
+	// --resolve --part body`, `agent protocol <god>`. Words and flags only.
+	gateLoaderArgsRE = regexp.MustCompile(`(?i)^agent\s+(?:load|protocol)(?:\s+[A-Za-z0-9_=.-]+)*$`)
+)
+
+// isGodLoaderCommand matches `node <maybe-quoted path>/hooks/launch.cjs agent
+// load|protocol …` with no shell metacharacter outside quotes. commands/plan.md
+// tells Odysseus to run exactly this line when the launcher's `!` lines did
+// not expand; the gate denied it 12 times in the week of 2026-11-08 and the
+// planner then read agents/odysseus.md raw, without his protocol sections.
+// launch.cjs only forwards its arguments to the kratos binary, so the accepted
+// set is the read-only `agent` subcommands and nothing else.
+func isGodLoaderCommand(command string) bool {
+	trimmed := strings.TrimSpace(command)
+	if trimmed == "" || gateShellMetaRE.MatchString(maskQuoted(trimmed)) {
+		return false
+	}
+	m := gateBinArgsRE.FindStringSubmatch(trimmed)
+	if m == nil {
+		return false
+	}
+	node := strings.ToLower(gateSlashPath(firstNonEmpty(m[1], m[2], m[3])))
+	if base := node[strings.LastIndex(node, "/")+1:]; base != "node" && base != "node.exe" {
+		return false
+	}
+	m = gateBinArgsRE.FindStringSubmatch(strings.TrimSpace(m[4]))
+	if m == nil {
+		return false
+	}
+	script := strings.ToLower(gateSlashPath(firstNonEmpty(m[1], m[2], m[3])))
+	if script != "hooks/launch.cjs" && !strings.HasSuffix(script, "/hooks/launch.cjs") {
+		return false
+	}
+	return gateLoaderArgsRE.MatchString(strings.TrimSpace(m[4]))
+}
 
 // credentialGuardReason is the "ask" text for the credential guard (see
 // credentialGuardDecision). The user sees the exact command and decides — the
@@ -1364,9 +1428,25 @@ func isReadOnlySegment(seg shellSegment) bool {
 	}
 	switch gateSegmentHead(raw) {
 	case "git":
-		// git diff/show/log and stash show write a file with --output/-o.
-		if gateGitOutputRE.MatchString(masked) {
-			return false
+		sub := ""
+		if m := gateGitSubcommandRE.FindStringSubmatch(raw); m != nil {
+			sub = strings.ToLower(m[1])
+		}
+		switch sub {
+		case "grep":
+			// -o is --only-matching here, not an output file; -O runs a pager.
+			if gateGitGrepPagerRE.MatchString(masked) {
+				return false
+			}
+		case "ls-remote":
+			if gateGitUploadPackRE.MatchString(masked) {
+				return false
+			}
+		default:
+			// git diff/show/log and stash show write a file with --output/-o.
+			if gateGitOutputRE.MatchString(masked) {
+				return false
+			}
 		}
 	case "sed":
 		if gateInPlaceFlagRE.MatchString(masked) {
@@ -1404,10 +1484,17 @@ func isReadOnlySegment(seg shellSegment) bool {
 		if gatePrintfAssignsVar(gateSegmentTokens(raw)) {
 			return false
 		}
-	case "select-object", "measure-object", "sort-object", "where-object", "foreach-object", "format-table", "format-list", "format-wide", "out-string":
+	case "where-object":
+		if strings.Contains(masked, "{") && !gateWhereBlockRE.MatchString(raw) {
+			return false
+		}
+	case "select-object", "measure-object", "sort-object", "foreach-object", "format-table", "format-list", "format-wide", "out-string":
 		if strings.Contains(masked, "{") {
 			return false
 		}
+	}
+	if isGodLoaderCommand(raw) {
+		return true
 	}
 	// Wrappers (`rtk $K slug x` after substitution is `rtk C:/…/kratos.exe
 	// slug x`) are seen past so the kratos allowlist tests the program that
