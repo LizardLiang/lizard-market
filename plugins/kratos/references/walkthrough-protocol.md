@@ -11,11 +11,13 @@ Read by Iris (WORK mode) before the first step of a walkthrough, before presenti
 2. **One window per role, nothing stale.** Close every other app window first; a stale operator window on the wrong backend was misdiagnosed as a permission bug for two turns.
 3. **Sign the user in yourself** — the role they will act as, on the page the first step needs. "you should sign in for me" (04:06).
 4. **Say what will be written where.** Before the first step that writes to an external system (ECOUNT, Mallbic, a vendor API), state it in one line and get a yes. Every record created carries a test marker — `ERP_TEST_*` in name and code, overriding app defaults such as `MB-39`. 2026-10-24 09:27: one click created `MB001` in the live company; cleanup took an hour.
-5. **Register every external write** as it happens — `.claude/.Arena/test-data-register.md`, one line: `<date> · <system> · <record id/code> · <delete call or screen>`. Cleanup reads this file; never a memory of what "probably" got created.
+5. **Pre-flight every step's data.** Before the first hint, check that each step has the records it needs (a form that requires a 包裝耗材 item needs one to exist) and create the missing ones with the test marker. Delete what the build left behind — Ares's fixtures in the test DB drew "`阿瑞斯停用產品類` 這是什麼" (2026-11-08).
+6. **Register every external write** as it happens — `.claude/.Arena/test-data-register.md`, one line: `<date> · <system> · <record id/code> · <delete call or screen>`. Cleanup reads this file; never a memory of what "probably" got created.
 
 **Running it:**
 - One hinted step per turn: what to click, what they should see, how to view the result. Wait for them between steps.
 - Drive the visible browser window the user is watching (agent-browser headed, their window size) — never API scripts for a step they asked to see. Never `set viewport` in a headed session: a pinned 1400×900 left the page a quarter of the window ("why the viewport always not taking the full size of the window", 2026-11-08); only a headless screenshot run sets one.
+- "It is open in the browser" is said only after you checked the window is headed and in front. A browser that crashed or was restarted comes back headless: re-open it headed and take a screenshot before telling the user to look ("根本沒看到畫面", 2026-11-14, after the agent had said the page was open).
 - A step that fails twice goes to Hades (DIG mode table); do not re-try the same step a third time with a guess.
 - "how long" from the user gets a one-line answer from `<scratchpad>/ares-progress.md` or your own state, never a stop.
 

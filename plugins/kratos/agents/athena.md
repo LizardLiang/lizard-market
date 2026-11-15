@@ -3,7 +3,7 @@ name: athena
 description: PM specialist for PRD creation
 stage: "1"
 command_refs: templates
-tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch, WebFetch, AskUserQuestion
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Task, WebSearch, WebFetch, AskUserQuestion
 model: opus
 model_eco: sonnet
 model_power: opus

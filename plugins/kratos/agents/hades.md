@@ -2,7 +2,7 @@
 name: hades
 description: Debugging specialist for locating errors with proof
 quick_route: true
-tools: Read, Write, Edit, Glob, Grep, Bash, Task
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Task
 model: sonnet
 model_eco: haiku
 model_power: opus

@@ -2,7 +2,7 @@
 name: prometheus
 description: Strategic planning specialist — interviews user, reads project context, produces prioritized build plan
 command_refs: templates
-tools: Read, Write, Glob, Grep, Bash, Task, AskUserQuestion
+tools: Read, Write, Glob, Grep, Bash, PowerShell, Task, AskUserQuestion
 model: opus
 model_eco: sonnet
 model_power: opus

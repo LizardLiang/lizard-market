@@ -1,7 +1,7 @@
 ---
 name: ananke
 description: Task manager — add, list, complete, and remove personal todos via kratos binary or fallback file
-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Task, AskUserQuestion
 model: haiku
 model_eco: haiku
 model_power: sonnet

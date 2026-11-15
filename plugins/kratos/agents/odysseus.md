@@ -3,7 +3,7 @@ name: odysseus
 description: Tactical plan-mode specialist for implementation planning before Ares
 quick_route: true
 command_refs: none
-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, AskUserQuestion
 model: sonnet
 model_eco: haiku
 model_power: opus

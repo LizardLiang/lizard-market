@@ -4,7 +4,7 @@ description: Project research specialist for codebase analysis and documentation
 stage: "0"
 quick_route: true
 command_refs: arena-protocol
-tools: Read, Write, Edit, Glob, Grep, Bash, Task
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Task
 model: sonnet
 model_eco: haiku
 model_power: opus

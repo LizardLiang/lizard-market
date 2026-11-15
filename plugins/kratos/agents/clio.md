@@ -1,7 +1,7 @@
 ---
 name: clio
 description: Git history specialist - blame, logs, diffs, contributors, timeline analysis
-tools: Bash, Read, Glob, Grep, Task
+tools: Bash, PowerShell, Read, Glob, Grep, Task
 model: sonnet
 model_eco: haiku
 model_power: opus

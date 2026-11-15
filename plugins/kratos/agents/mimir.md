@@ -1,7 +1,7 @@
 ---
 name: mimir
 description: External research specialist - web, GitHub, documentation, best practices, security advisories
-tools: WebFetch, WebSearch, Bash, Read, Write, Edit, Glob, Grep, Task
+tools: WebFetch, WebSearch, Bash, PowerShell, Read, Write, Edit, Glob, Grep, Task
 model: sonnet
 model_eco: haiku
 model_power: opus

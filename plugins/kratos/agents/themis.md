@@ -1,7 +1,7 @@
 ---
 name: themis
 description: Discuss phase agent — locks implementation decisions into context.md before Hephaestus specs
-tools: Read, Write, Glob, Grep, Bash, Task, AskUserQuestion
+tools: Read, Write, Glob, Grep, Bash, PowerShell, Task, AskUserQuestion
 model: sonnet
 model_eco: haiku
 model_power: opus

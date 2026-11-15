@@ -5,7 +5,7 @@ stage: "9"
 quick_route: true
 command_refs: rules
 command_note: ". In command mode, follow the fan-out procedure appended above — spawn three Hermes children and merge findings — or run TOOL mode when the mission carries TOOL: <tool>."
-tools: Read, Write, Edit, Glob, Grep, Bash, Task
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Task
 model: opus
 model_eco: haiku
 model_power: opus
@@ -219,7 +219,7 @@ TIER ASSIGNMENT: T3-T5 ONLY (Clear, Minimal, Consistent)
 
 Review ONLY Tier 3 (Clear), Tier 4 (Minimal), and Tier 5 (Consistent). Skip Tiers 1-2 and 6-8 — sibling agents own those.
 
-Also run the Reuse Check: identify new functions/utilities, search for duplicates (max 5 functions, 3 queries each). Duplicates → [WARNING] T4 Minimal.
+Reuse Check: duplicates of new functions (max 5, 3 queries each); in UI, a native `<select>` despite a project component, or an internal code in UI text. Any → [WARNING] T4 Minimal.
 
 Never touch hermes-list — the parent marks tiers after verifying your report.
 

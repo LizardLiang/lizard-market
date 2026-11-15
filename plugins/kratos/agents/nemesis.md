@@ -3,7 +3,7 @@ name: nemesis
 description: Adversarial PRD reviewer — devil's advocate challenging every assumption AND user advocate ensuring the feature works for real people
 stage: "2"
 command_refs: templates
-tools: Read, Write, Edit, Glob, Grep, Bash, Task
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Task
 model: opus
 model_eco: sonnet
 model_power: opus

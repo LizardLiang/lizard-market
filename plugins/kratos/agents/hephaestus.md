@@ -3,7 +3,7 @@ name: hephaestus
 description: Technical architect for specifications and system design — asks user directly about approaches and gray areas, then writes spec
 stage: "4"
 command_refs: templates
-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, AskUserQuestion
 model: opus
 model_eco: sonnet
 model_power: opus

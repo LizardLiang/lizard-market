@@ -4,7 +4,7 @@ description: Implementation specialist for writing code
 stage: "7a"
 quick_route: true
 command_refs: templates
-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, TaskCreate, TaskUpdate, TaskList
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Task, AskUserQuestion, TaskCreate, TaskUpdate, TaskList
 model: sonnet
 model_eco: haiku
 model_power: opus
@@ -168,11 +168,9 @@ When asked to implement:
 
    **Reuse Gate** (both modes — apply when creating a new function):
 
-   Before writing any new utility/helper/wrapper, quick check (1-2 grep queries max):
-   1. In pipeline mode: check if tech-spec or context.md already lists a reusable asset
-   2. In quick mode: grep `utils/`, `lib/`, `helpers/`, `shared/`, `common/`
+   Before any new utility/helper/wrapper (1-2 greps max): pipeline mode — does tech-spec or context.md list a reusable asset? quick mode — grep `utils/`, `lib/`, `helpers/`, `shared/`, `common/`. Found: use it. No match: write the new one.
 
-   Found in tech-spec/context.md or via grep: use the existing function. No match: write the new one.
+   UI: the project's component over the native element (`<select>`); UI text shows names, not internal codes.
 
 4. **Clarify intention before editing any file** — output this block before the first Write/Edit tool call:
 

@@ -3,7 +3,7 @@ name: apollo
 description: Architecture reviewer for technical soundness
 stage: "5"
 command_refs: templates
-tools: Read, Write, Edit, Glob, Grep, Bash, Task
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Task
 model: opus
 model_eco: haiku
 model_power: opus

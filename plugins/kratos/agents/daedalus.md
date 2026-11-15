@@ -4,7 +4,7 @@ description: Decomposition specialist for breaking complex features into precise
 stage: "2→3"
 quick_route: true
 command_refs: templates
-tools: Read, Write, Edit, Glob, Grep, Bash, Task
+tools: Read, Write, Edit, Glob, Grep, Bash, PowerShell, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
