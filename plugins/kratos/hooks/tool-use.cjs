@@ -1,100 +1,95 @@
 #!/usr/bin/env node
 /**
- * Kratos Memory - Tool Use Hook
+ * Kratos Memory - Tool Use Hook (PostToolUse)
  *
- * Records agent spawns and file changes automatically.
- * Receives tool use data via stdin in JSON format.
+ * Records agent spawns and project file changes against the Claude Code
+ * session id carried in the hook payload. The session row is created on
+ * demand by the CLI, so recording never depends on a state file.
+ *
+ * Only files under the session's cwd are recorded. Pipeline deliverables under
+ * .claude/feature/ and Arena writes under .claude/.Arena/ count as project work
+ * (agents no longer run `step record-file` themselves — this hook is the only
+ * recorder). The agent scratchpad (%TEMP%/claude), .claude/tmp/, other .claude/
+ * bookkeeping, .kratos/ and .git/ are skipped — before this filter 13 of 15
+ * weekly "file_modify" steps were scratchpad writes.
+ *
+ * Every kratos call goes through spawnSync with an argv array: payload text
+ * (agent descriptions, file paths) never reaches a shell.
  */
 
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
-const fs = require('fs');
 const os = require('os');
-const { resolveBinary } = require('./kratos-bin.cjs');
+const { resolveBinary, stateDir } = require('./kratos-bin.cjs');
 
-// Global paths
 const KRATOS_HOME = path.join(os.homedir(), '.kratos');
 const DB_PATH = path.join(KRATOS_HOME, 'memory.db');
-const SESSION_FILE = path.join(KRATOS_HOME, 'active-session.json');
 
-// Kratos agent names for detection
-const KRATOS_AGENTS = ['metis', 'athena', 'hephaestus', 'apollo', 'artemis', 'ares', 'hermes'];
-
-// Read session data
-function getSession() {
-  if (!fs.existsSync(SESSION_FILE)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
-  } catch (e) {
-    return null;
-  }
-}
+// Kratos god names for detection (subagent_type "kratos:<god>" or a description mention)
+const KRATOS_AGENTS = [
+  'metis', 'athena', 'nemesis', 'daedalus', 'hephaestus', 'apollo', 'artemis', 'ares', 'hera',
+  'hermes', 'cassandra', 'clio', 'mimir', 'hades', 'odysseus', 'prometheus', 'themis', 'ananke', 'iris',
+];
 
 const findKratosBinary = resolveBinary;
 
-// Record agent spawn
-function recordAgentSpawn(sessionId, agentName, agentModel, action) {
+function run(args) {
   const kratosCmd = findKratosBinary();
   if (!kratosCmd) return false;
-
   try {
-    execSync(
-      `"${kratosCmd}" step record-agent "${sessionId}" "${agentName}" "${agentModel}" "${escapeShell(action)}"`,
-      {
-        stdio: 'ignore',
-        env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
-      }
-    );
-    return true;
+    const r = spawnSync(kratosCmd, args, {
+      stdio: 'ignore',
+      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
+      timeout: 3000,
+    });
+    return !r.error && r.status === 0;
   } catch (e) {
     return false;
   }
 }
 
-// Record file change
-function recordFileChange(sessionId, filePath, changeType) {
-  const kratosCmd = findKratosBinary();
-  if (!kratosCmd) return false;
-
-  try {
-    execSync(
-      `"${kratosCmd}" step record-file "${sessionId}" "${changeType}" "${escapeShell(filePath)}"`,
-      {
-        stdio: 'ignore',
-        env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
-      }
-    );
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-// Escape shell characters
-function escapeShell(str) {
+// Single-line, length-capped argument text (argv-safe; no shell quoting involved).
+function clip(str, max) {
   if (!str) return '';
-  return str.replace(/"/g, '\\"').replace(/\n/g, ' ').substring(0, 200);
+  return String(str).replace(/\r?\n/g, ' ').substring(0, max);
 }
 
-// Detect Kratos agent from Task tool input
-function detectAgent(toolInput) {
-  const desc = (toolInput?.description || '').toLowerCase();
-  const prompt = (toolInput?.prompt || '').toLowerCase();
-  const agentType = toolInput?.subagent_type || '';
+function toSlashes(p) {
+  return String(p || '').replace(/\\/g, '/');
+}
 
+// Detect the god from an Agent/Task tool input
+function detectAgent(toolInput) {
+  const agentType = String((toolInput && toolInput.subagent_type) || '');
+  const m = agentType.match(/^kratos:([a-z-]+)$/i);
+  if (m) return m[1].toLowerCase();
+  const desc = String((toolInput && toolInput.description) || '').toLowerCase();
   for (const agent of KRATOS_AGENTS) {
-    if (desc.includes(agent) || prompt.includes(agent) || agentType.includes(agent)) {
-      return agent;
-    }
+    if (desc.includes(agent)) return agent;
   }
   return agentType || 'unknown';
 }
 
-// Process tool use
-function processToolUse(data) {
-  const session = getSession();
-  if (!session) return;
+// A file is project work when it sits under cwd and outside bookkeeping dirs.
+// Feature deliverables (.claude/feature/) and Arena shards (.claude/.Arena/) are
+// project work; the rest of .claude/ (tmp/, settings, plans) is not.
+function isProjectFile(filePath, cwd) {
+  const file = toSlashes(filePath).toLowerCase();
+  const root = toSlashes(cwd).toLowerCase().replace(/\/+$/, '');
+  if (!file || !root) return false;
+  if (!file.startsWith(root + '/')) return false;
+  const rel = file.slice(root.length + 1);
+  if (rel.startsWith('.kratos/') || rel.startsWith('.git/')) return false;
+  for (const dir of new Set(['.claude', stateDir().toLowerCase()])) {
+    if (!rel.startsWith(dir + '/')) continue;
+    if (rel.startsWith(dir + '/tmp/')) return false;
+    if (!rel.startsWith(dir + '/feature/') && !rel.startsWith(dir + '/.arena/')) return false;
+  }
+  if (/(^|\/)(temp|tmp)\/claude\//.test(file)) return false;
+  return true;
+}
 
+function processToolUse(data) {
   let toolData;
   try {
     toolData = JSON.parse(data);
@@ -102,36 +97,45 @@ function processToolUse(data) {
     return;
   }
 
+  const sessionId = toolData.session_id ? String(toolData.session_id) : '';
+  if (!sessionId) return;
+  const cwd = toolData.cwd || process.cwd();
   const { tool_name, tool_input } = toolData;
-  const sessionId = session.session_id;
+  const projectArgs = ['--project', clip(cwd, 200)];
 
-  // Record Task tool usage (agent spawns)
-  if (tool_name === 'Task') {
+  // Agent spawns (the Agent tool; older harnesses call it Task)
+  if (tool_name === 'Agent' || tool_name === 'Task') {
     const agent = detectAgent(tool_input);
-    const action = tool_input?.description || 'Agent task';
-    const model = tool_input?.model || 'sonnet';
-
-    recordAgentSpawn(sessionId, agent, model, action);
+    const action = (tool_input && tool_input.description) || 'Agent task';
+    const model = (tool_input && tool_input.model) || 'default';
+    run(['step', 'record-agent', sessionId, clip(agent, 200), clip(model, 200), clip(action, 200), ...projectArgs]);
+    return;
   }
 
-  // Record file writes and edits
-  if (tool_name === 'Write' || tool_name === 'Edit') {
-    const filePath = tool_input?.file_path || 'unknown';
-    recordFileChange(sessionId, filePath, tool_name);
+  // Project file writes and edits
+  if (tool_name === 'Write' || tool_name === 'Edit' || tool_name === 'MultiEdit') {
+    const filePath = tool_input && tool_input.file_path;
+    if (!isProjectFile(filePath, cwd)) return;
+    const rel = toSlashes(filePath).slice(toSlashes(cwd).replace(/\/+$/, '').length + 1);
+    run(['step', 'record-file', sessionId, tool_name, clip(rel, 200), ...projectArgs]);
   }
 }
 
-// Main - read from stdin
-let inputData = '';
-process.stdin.setEncoding('utf-8');
-process.stdin.on('data', chunk => inputData += chunk);
-process.stdin.on('end', () => {
-  if (inputData.trim()) {
-    processToolUse(inputData);
-  }
-});
+// Only read stdin when run as a hook. Required as a module, this file is the
+// reference implementation of isProjectFile: the Go edit gate ports that rule
+// and a shared fixture test (TestGateProjectFileMatchesJS) runs both over the
+// same inputs so the two copies cannot drift.
+if (require.main === module) {
+  let inputData = '';
+  process.stdin.setEncoding('utf-8');
+  process.stdin.on('data', (chunk) => (inputData += chunk));
+  process.stdin.on('end', () => {
+    if (inputData.trim()) processToolUse(inputData);
+  });
 
-// Handle case where stdin is empty or closed immediately
-setTimeout(() => {
-  if (!inputData) process.exit(0);
-}, 100);
+  setTimeout(() => {
+    if (!inputData) process.exit(0);
+  }, 100);
+} else {
+  module.exports = { isProjectFile, detectAgent, toSlashes };
+}

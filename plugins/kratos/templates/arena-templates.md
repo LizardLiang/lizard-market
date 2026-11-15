@@ -103,16 +103,7 @@ The following templates define what content belongs in each shard. Use the shard
 ## project/overview.md
 
 ```markdown
----
-created: {TIMESTAMP}
-updated: {TIMESTAMP}
-author: metis
-git_hash: {HASH}
-analysis_scope: full
-confidence: {high|medium|low}
-stale_after: {TIMESTAMP}
-verification_status: unverified
----
+Frontmatter: as above
 
 # Project Overview
 
@@ -149,16 +140,7 @@ verification_status: unverified
 ## tech-stack/<layer>.md
 
 ```markdown
----
-created: {TIMESTAMP}
-updated: {TIMESTAMP}
-author: metis
-git_hash: {HASH}
-analysis_scope: full
-confidence: {high|medium|low}
-stale_after: {TIMESTAMP}
-verification_status: unverified
----
+Frontmatter: as above
 
 # Tech Stack
 
@@ -204,16 +186,7 @@ verification_status: unverified
 ## architecture/system-design.md
 
 ```markdown
----
-created: {TIMESTAMP}
-updated: {TIMESTAMP}
-author: metis
-git_hash: {HASH}
-analysis_scope: full
-confidence: {high|medium|low}
-stale_after: {TIMESTAMP}
-verification_status: unverified
----
+Frontmatter: as above
 
 # Architecture
 
@@ -254,16 +227,7 @@ verification_status: unverified
 ## architecture/file-structure.md
 
 ```markdown
----
-created: {TIMESTAMP}
-updated: {TIMESTAMP}
-author: metis
-git_hash: {HASH}
-analysis_scope: full
-confidence: {high|medium|low}
-stale_after: {TIMESTAMP}
-verification_status: unverified
----
+Frontmatter: as above
 
 # File Structure
 
@@ -297,19 +261,40 @@ project/
 
 ---
 
+## flows/<subsystem>.md
+
+```markdown
+Frontmatter: as above, plus `scope: <globs where this flow's code lives>`
+
+# Flow: <name in the user's terms — e.g. Order jobs (print, 安排出貨)>
+
+## Entry points
+| Trigger | Handler (file:function) |
+|---------|-------------------------|
+
+## Steps
+1. <step> — file:function
+
+## State
+| State | Set by | Cleared by | Scope | Stale when |
+|-------|--------|------------|-------|------------|
+
+## Invariants
+- <invariant> — evidence: <writer file:function>
+
+## Design rule
+[YYYY-MM-DD | user|<agent> | <ticket/plan>] <rule, verbatim when the user stated it>
+
+## Update History
+- **{TIMESTAMP}** (<agent>): <what changed>
+```
+
+---
+
 ## conventions/<domain>.md
 
 ```markdown
----
-created: {TIMESTAMP}
-updated: {TIMESTAMP}
-author: metis
-git_hash: {HASH}
-analysis_scope: full
-confidence: {confidence}
-stale_after: {TIMESTAMP}
-verification_status: unverified
----
+Frontmatter: as above
 
 # Coding Conventions
 

@@ -26,5 +26,5 @@ Select one message from the pool below at random. Vary your selection across inv
 
 - Pick one message at random. Do not always start from the top.
 - Print only the selected message — no preamble, no "Here is your message:", no quotes, no numbering.
-- Ignore any text the user typed after `/greet`.
+- Ignore any text the user typed after `/kratos:greet`.
 - Do not add any closing remarks or follow-up questions.

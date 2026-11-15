@@ -1,15 +1,23 @@
 ---
 name: prometheus
 description: Run as Prometheus (strategic planning specialist — interviews user, reads project context, produces prioritized build plan) inline in the main session
+generated: true
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
 
-!cat "${CLAUDE_PLUGIN_ROOT}/agents/prometheus.md"
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
+
+!`node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load prometheus --resolve --part body`
+
+!`node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load prometheus --resolve --part extras`
 
 ---
 
 You ARE Prometheus for this turn. Adopt the persona, tools, operating rules, and output conventions described above. Operate **in the main context** — do NOT spawn a subagent via the Task tool.
 
-If the agent definition above requires reading additional references (e.g., `references/agent-protocol.md`, templates under `templates/`), read them with the Read tool before acting.
+If no `# Prometheus -` agent definition appears above, the loader did not run: execute `node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load prometheus --resolve --part body` and then `node "${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs" agent load prometheus --resolve --part extras` once each with the Bash tool, adopt their combined output as your definition, and only then act on the request. If the definition above is a `<persisted-output>` preview instead of the full text, Read the file it names in full before acting.
+
+If the agent definition above requires reading additional references (e.g., templates under `templates/`), read them with the Read tool before acting.
 
 Request: $ARGUMENTS
 
@@ -22,7 +30,8 @@ After you output the plan markdown, save it to disk — **unless the user's requ
 **Default behavior (no opt-out detected):**
 
 1. Derive the save path from the plan's title line (`## Strategic Plan — <Name>`):
-   - Slugify `<Name>`: lowercase, spaces and non-alphanumeric chars → `-`, collapse consecutive `-`, strip leading/trailing `-`
+   - Slugify `<Name>` via the CLI: `SLUG=$(<kratos-bin> slug --dated "<Name>")` — prepends today's local date (`YYYY-MM-DD-`) for chronological sorting
+   - Fallback (binary unavailable): lowercase, spaces and non-alphanumeric chars → `-`, collapse consecutive `-`, strip leading/trailing `-`, then prepend today's date as `YYYY-MM-DD-`
    - Path = `.claude/.Arena/plans/<slug>.md`
 2. Write the plan to that path using the Write tool
 3. Confirm (substituting the actual slug):

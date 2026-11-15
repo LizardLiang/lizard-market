@@ -56,11 +56,7 @@ When no target is given, OR when a git target yields an empty diff, resolve the 
 
 ## Step 2: Detect Execution Mode
 
-| Mode | Keywords | Model |
-|------|----------|-------|
-| **Eco** | `eco`, `budget`, `cheap` | haiku |
-| **Power** | `power`, `max`, `full-power` | opus |
-| **Normal** | (default) | opus |
+Models: see `<KRATOS_ROOT>/modes/modes.md` (default normal — Hermes opus, Cassandra sonnet; eco/power keywords switch).
 
 ---
 
@@ -76,8 +72,9 @@ Task(
 TARGET: [file / directory / git diff target]
 FOCUS: [specific concerns, or 'all categories']
 MODE: standalone (not pipeline)
+TOOL: [named review tool, e.g. jev-review — omit this line if the user did not name one]
 
-Follow your standard review protocol from your agent instructions.
+Follow your standard review protocol from your agent instructions, or TOOL mode when a tool is named above.
 This is a standalone review — no pipeline stage to update, no status.json to write.",
   description: "hermes - dedicated review"
 )
@@ -89,13 +86,13 @@ Task(
 TARGET: [file / directory / git diff target]
 MODE: standalone (not pipeline)
 
-Analyze the target for security vulnerabilities, breaking changes, edge cases, scalability risks, and dependency issues. Rate each finding by severity (CRITICAL / CAUTION / CLEAR).
+Analyze the target for security vulnerabilities, breaking changes, edge cases, scalability risks, and dependency issues. Rate each finding by severity (CRITICAL / HIGH / MEDIUM / LOW) and end with a verdict (Clear / Caution / Blocked).
 This is a standalone review — no pipeline stage to update, no status.json to write.",
   description: "cassandra - risk analysis"
 )
 ```
 
-Wait for **both** to complete, then present merged results.
+Wait for **both** to complete, then present merged results. Hermes findings carry a provenance label (`confirmed-live`, `reproduced-synthetic`, `theoretical`): a fix round takes the first two; `theoretical` is reported under its own heading and never sent to Ares. One review and one fix round per user turn; a second round is a new user message or an AskUserQuestion answer. Reviewing several worktrees at once: put `WORKTREE: <path>` in each prompt so the cap counts per worktree.
 
 ---
 
@@ -111,15 +108,7 @@ Wait for **both** to complete, then present merged results.
 
 Severity mapping is determined by Hermes based on the loaded rule files. See `agents/hermes.md` for the full review protocol.
 
-Rule proposals written to `.claude/.Arena/review-rules/proposals/` follow the format:
-```yaml
-rule: <rule-name>
-severity: blocker | warning | suggestion
-description: <what the rule checks>
-rationale: <why this matters>
-example_violation: <code example>
-example_fix: <corrected code>
-```
+Rule proposals written to `.claude/.Arena/review-rules/proposals/` follow the markdown format documented in `rules/default.md` (Rule Proposal Protocol) — see that file for the authoritative format.
 
 ---
 
@@ -139,10 +128,12 @@ Spawning: Hermes (quality) + Cassandra (risk) in parallel
 ### After Both Complete
 Merge and present results in this order:
 1. **Hermes verdict** — quality findings by severity tier
-2. **Cassandra risk summary** — CRITICAL / CAUTION / CLEAR findings
+2. **Cassandra risk summary** — findings by severity (CRITICAL / HIGH / MEDIUM / LOW) and her verdict (Clear / Caution / Blocked)
 3. **Combined verdict** — overall ship/hold recommendation
 
 Do not editorialize beyond the combined verdict.
+
+**Capture user-caught escapes:** if the user overrides a finding or reports one the review missed, this is the main session's job to capture — Hermes has already returned and cannot see the reaction. Append a draft rule to `.claude/.Arena/review-rules/proposals/<YYYY-MM-DD>-<short-name>.md` in the format documented in `rules/default.md` (Rule Proposal Protocol). Note in the summary that the draft activates only via `/kratos:retro` promotion or a manual move into a topic file under `review-rules/`.
 
 ---
 

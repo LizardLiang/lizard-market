@@ -1,0 +1,249 @@
+package cli
+
+import (
+	"encoding/json"
+	"path"
+	"strings"
+	"time"
+
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/db"
+)
+
+// recordPromptLedger is the UserPromptSubmit hook's side effect on the session
+// ledger: it makes sure a row exists for this Claude Code session id (keyed by
+// the harness id, so `step record-agent` can never hit a missing foreign key)
+// and stores the first real prompt as initial_request. Every failure is
+// swallowed — the ledger must never change or block the hook's output.
+func recordPromptLedger(raw []byte) {
+	var input hookInput
+	if err := json.Unmarshal(raw, &input); err != nil || input.SessionID == "" {
+		return
+	}
+
+	// Session-ledger side effect first: it must not depend on the database
+	// being reachable, because the edit gate reads it on every Write/Edit.
+	recordInlineGod(input.SessionID, input.Cwd, input.Prompt)
+
+	// The database half is bounded: each statement may wait busy_timeout
+	// (5000ms) on a lock held by another writer, which alone equals the hook's
+	// 5s timeout — Claude Code then kills the hook and discards the routing
+	// output. Past the budget the hook answers without the row; the process
+	// exit abandons the goroutine, and SQLite rolls back any open write.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		recordPromptSessionRow(input)
+	}()
+	select {
+	case <-done:
+	case <-time.After(promptLedgerBudget):
+		debugLog("ledger: database write exceeded %v, skipped", promptLedgerBudget)
+	}
+}
+
+// promptLedgerBudget caps the prompt-submit database write well below the
+// UserPromptSubmit hook timeout (5s in hooks/hooks.json), leaving room for
+// node and binary startup.
+const promptLedgerBudget = 2 * time.Second
+
+// recordPromptSessionRow ensures the session row and stores initial_request.
+func recordPromptSessionRow(input hookInput) {
+	conn, err := db.GetConnection()
+	if err != nil {
+		debugLog("ledger: db unavailable: %v", err)
+		return
+	}
+	defer conn.Close()
+	if err := db.InitDB(conn); err != nil {
+		debugLog("ledger: init failed: %v", err)
+		return
+	}
+
+	project := ""
+	if input.Cwd != "" {
+		project = normalizeProjectPath(input.Cwd)
+	}
+	if _, _, err := db.EnsureSession(conn, input.SessionID, project); err != nil {
+		debugLog("ledger: ensure session failed: %v", err)
+		return
+	}
+
+	if prompt := initialRequestText(input.Prompt); prompt != "" {
+		if err := db.SetInitialRequestIfEmpty(conn, input.SessionID, prompt); err != nil {
+			debugLog("ledger: initial request failed: %v", err)
+		}
+	}
+}
+
+// initialRequestText returns the prompt text worth storing as a session's
+// initial request, or "" for slash-command echoes, expanded launcher bodies,
+// harness pseudo-prompts, and other non-request input.
+func initialRequestText(prompt string) string {
+	p := strings.TrimSpace(prompt)
+	if p == "" {
+		return ""
+	}
+	if strings.HasPrefix(p, "/") || strings.HasPrefix(p, "!") || strings.HasPrefix(p, "<") {
+		return ""
+	}
+	if isHarnessPseudoPrompt(p) {
+		// Covers the "Another Claude session sent a message" hand-back wrapper,
+		// which does not open with "<" the way <task-notification> does — a
+		// subagent's report must never be stored as the session's own request.
+		return ""
+	}
+	if strings.Contains(p, "KRATOS_ROOT=") || strings.Contains(p, "agent load ") {
+		return ""
+	}
+	return p
+}
+
+// setInlineGod writes god as the ledger's inline_god, resetting the since
+// timestamp and the edited-files list, but only when god differs from the one
+// already recorded. Relaunching the same god must not refill the file budget.
+// Returns whether the ledger changed. The two writers are a slash command
+// (recordInlineGod, from UserPromptSubmit) and a Skill load addressed by name
+// (editGateDecision, from PreToolUse) — both call this rather than duplicate
+// the god-change branch.
+func setInlineGod(m map[string]any, god string) bool {
+	if ledgerString(m, ledgerKeyInlineGod) == god {
+		return false
+	}
+	m[ledgerKeyInlineGod] = god
+	m[ledgerKeyInlineSince] = now()
+	m[ledgerKeyEditedFiles] = []string{}
+	return true
+}
+
+// recordInlineGod keeps the session ledger's edit-gate fields current from the
+// UserPromptSubmit payload. It is the sole writer of gate_bypass; inline_god
+// has a second writer, editGateDecision's Skill-load path, and both go through
+// the shared setInlineGod so relaunching the same god never refills the
+// budget. Every failure is swallowed: a session with no readable ledger simply
+// has no gate.
+//
+// Two prompt shapes matter:
+//
+//   - a launcher invocation (`/kratos:iris …`, or an expanded launcher body on
+//     harnesses that send one) names the god now running inline;
+//   - anything else the user typed is a new turn: the per-turn file budget
+//     refills and gate_bypass is re-evaluated from the user's own words.
+//
+// A harness pseudo-prompt — `<task-notification>` (Claude Code posts one when
+// a spawned subagent finishes — verified on a real payload, 2026-09-11) or a
+// subagent hand-back (see isHarnessPseudoPrompt) — is neither: it is not user
+// text, so it must not grant or clear a bypass, or refill the budget.
+func recordInlineGod(sessionID, cwd, prompt string) {
+	if sessionID == "" {
+		return
+	}
+	god := inlineGodFromPrompt(prompt)
+	userTurn := isUserTurnPrompt(prompt)
+	if god == "" && !userTurn {
+		return
+	}
+
+	changed := false
+	m, err := readInlineLedger(sessionID)
+	if err != nil || m == nil {
+		// session-start.cjs has not written (or could not write) a ledger for
+		// this session — start one, with the fields it would have set, from the
+		// payload this hook already holds.
+		m = newInlineLedger(sessionID, cwd)
+		changed = true
+	}
+
+	if god != "" && setInlineGod(m, god) {
+		changed = true
+	}
+	if userTurn {
+		if resetTurnFields(m) {
+			changed = true
+		}
+		bypass := gateBypassRE.MatchString(prompt)
+		if _, ok := m[ledgerKeyGateBypass]; !ok || ledgerBool(m) != bypass {
+			m[ledgerKeyGateBypass] = bypass
+			changed = true
+		}
+	}
+	if !changed {
+		// Nothing to store. Rewriting an identical ledger on every prompt is a
+		// file replacement (and a temp file) for no reason.
+		return
+	}
+
+	if err := writeInlineLedger(sessionID, m); err != nil {
+		debugLog("ledger: inline god write failed: %v", err)
+	}
+}
+
+// newInlineLedger is the stub written when a session has no ledger file yet. It
+// carries the same fields hooks/session-start.cjs writes, from the payload the
+// caller holds: a stub with only session_id dropped the cwd the gate's
+// project-root test falls back to, plus the project name and start time the
+// session notice reads.
+func newInlineLedger(sessionID, cwd string) map[string]any {
+	m := map[string]any{
+		"session_id": sessionID,
+		"started_at": time.Now().UnixMilli(),
+		"source":     "prompt-submit",
+	}
+	if cwd != "" {
+		m[ledgerKeyCwd] = cwd
+		m["project"] = path.Base(strings.ReplaceAll(cwd, "\\", "/"))
+	}
+	return m
+}
+
+// inlineGodFromPrompt names the god a prompt launches inline, or "" when the
+// prompt launches none. A slash command only counts when it resolves to a real
+// agent definition, so /kratos:status or /kratos:main leave the field alone.
+//
+// Only the typed slash command counts. Matching `agent load <god> --resolve`
+// anywhere in the prompt was measured dead (Claude Code 2.1.268 never delivers
+// an expanded body here) and was live as an injection vector: any prompt
+// quoting a launcher line — a review of this very file — rebound the session's
+// inline god.
+func inlineGodFromPrompt(prompt string) string {
+	if m := slashGodRE.FindStringSubmatch(prompt); m != nil {
+		name := strings.ToLower(m[1])
+		if alias, ok := inlineGodAliases[name]; ok {
+			name = alias
+		}
+		if isEmbeddedGod(name) {
+			return name
+		}
+	}
+	return ""
+}
+
+// isEmbeddedGod reports whether name has an agent definition in the embedded
+// FS. ReadFile rather than Open+Close, which is how agent.go reads the same FS;
+// an embedded read is a slice of a byte array already in the binary, so there
+// is no I/O to save by not reading it.
+func isEmbeddedGod(name string) bool {
+	if name == "" {
+		return false
+	}
+	_, err := agentsFS.ReadFile("agents/" + name + ".md")
+	return err == nil
+}
+
+// isUserTurnPrompt reports whether the prompt is text the user typed, as
+// opposed to an expanded launcher body or a harness pseudo-prompt.
+//
+// Only <task-notification> and a subagent hand-back (see
+// isHarnessPseudoPrompt) are harness events. Rejecting every prompt that opens
+// with "<" also rejected the user's own text — an XML tag, a quoted snippet,
+// "<br> renders wrong" — and such a turn silently kept the previous turn's
+// spent budget and bypass.
+func isUserTurnPrompt(prompt string) bool {
+	p := strings.TrimSpace(prompt)
+	if p == "" {
+		return false
+	}
+	if isHarnessPseudoPrompt(p) {
+		return false
+	}
+	return !isExpandedLauncherBody(p)
+}

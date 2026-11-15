@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "luban": {
+      "source": "LearnPrompt/luban-skill",
+      "sourceType": "github",
+      "skillPath": "skills/luban/SKILL.md",
+      "computedHash": "9f0deb27efe2e4b7aae4ccb5702d980b8ccfb883860b692e7b6c0b4806f7fa93"
+    }
+  }
+}

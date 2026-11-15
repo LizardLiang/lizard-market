@@ -44,9 +44,9 @@ Read this when a stage produces an unexpected verdict, an agent fails to deliver
 - This is a violation of its own protocol — it should present exactly 2-3 options
 - If it happens: ask Hephaestus to consolidate to the top 2-3 options
 
-**Metis sub-call was skipped or failed**
-- Hephaestus must call Metis before writing the spec — this is non-negotiable
-- If Hephaestus attempts to write without the scan: re-spawn with explicit instruction "You MUST spawn Metis (haiku) for codebase scan before writing tech-spec.md"
+**Codebase scan (Phase 4a) was skipped or failed**
+- Hephaestus has no Task tool and cannot spawn Metis. Kratos owns the scan: `<KRATOS_ROOT>/pipeline/hephaestus-gate.md` Phase 4a (read the Arena shards, or spawn Metis `PHASE: CODEBASE_SCAN` on haiku).
+- If `decisions.md` has no `## Codebase Scan Decision (Kratos — Stage 4)` entry, or WRITE_SPEC ran without `CODEBASE_CONTEXT`: run Phase 4a yourself, record the decision entry, then re-spawn Hephaestus WRITE_SPEC with the scan results in `decisions.md` and `tech-spec-proposal.md`.
 
 **tech-spec.md is missing the implementation sequence**
 - The spec must contain a step-by-step ordered list of changes
@@ -112,14 +112,41 @@ Read this when a stage produces an unexpected verdict, an agent fails to deliver
 - Present: the original BLOCKER, what Ares did, why it persists
 - Ask user how to proceed
 
-**Cassandra verdict is `critical`**
+**Cassandra verdict is `blocked`** (any CRITICAL finding, or 4+ HIGH findings)
 - VICTORY is blocked — do not proceed
-- Present the critical findings (security, breaking changes) to user
-- Ares addresses critical findings; then re-run Stage 9
+- Present the CRITICAL / HIGH findings (security, breaking changes) to user
+- Ares addresses those findings; then re-run Stage 9
 
-**Hermes approved but Cassandra critical (or vice versa)**
+**Hermes approved but Cassandra blocked (or vice versa)**
 - VICTORY requires BOTH: Hermes `approved` AND Cassandra `clear|caution`
 - If only one passes: surface the remaining blocker, fix it, re-run only the failing review
+
+---
+
+## Stage Transition Logic
+
+> **Fallback / reference — `<kratos-bin> pipeline next` encodes this table.** Kratos uses the CLI (`commands/main.md` Step 2); consult this table only when the binary is unavailable or you need to sanity-check its output.
+
+| Stage Complete | Verdict | Next |
+|----------------|---------|------|
+| *(new feature)* | — | **1-prd** — read `<KRATOS_ROOT>/pipeline/gap-analysis.md` and run the inline gap analysis loop. Do NOT spawn Athena with PHASE: GAP_ANALYSIS. |
+| 1-prd | — | 2-prd-review (nemesis) |
+| 2-prd-review | Approved | Complexity check → optional decomposition → optional discuss → 4-tech-spec |
+| 2-prd-review | Revisions | 1-prd (athena) — revise PRD and re-review |
+| 2-prd-review | Rejected | Blocked — escalate to user, fundamental PRD issue |
+| 3-decomposition | Complete/Skipped | **4-tech-spec** — read `<KRATOS_ROOT>/pipeline/hephaestus-gate.md` and run the 3-phase gate (Metis scan → Hephaestus ANALYZE → user questions → Hephaestus WRITE_SPEC). Do NOT spawn Hephaestus directly. |
+| 4-tech-spec | — | 5-spec-review-sa (apollo) |
+| 5-spec-review-sa | Sound | 6-test-plan (artemis) |
+| 5-spec-review-sa | Concerns/Unsound | 4-tech-spec (hephaestus) |
+| 6-test-plan | — | Pre-implementation gate → 7-implementation (ares) |
+| 7-implementation | Ares Mode | 8-prd-alignment (hera) |
+| 7-implementation | User Mode | Wait — user completes tasks, then `/kratos:task-complete all` |
+| 8-prd-alignment | Aligned | Spec archive offer (`<KRATOS_ROOT>/commands/spec-archive.md` § "Offer after implementation") → 9-review (hermes + cassandra parallel) |
+| 8-prd-alignment | Gaps | 7-implementation (ares) — add missing test coverage AND/OR remove scope-creep code Hera flagged |
+| 8-prd-alignment | Misaligned | Blocked — escalate to user, fundamental scope issue |
+| 9-review | Approved + risk CLEAR/CAUTION | **Ship gate** — run `<kratos-bin> verify --final --feature FEATURE_NAME`. VICTORY **only** on exit 0; any non-zero output → BLOCKED with the listed failures. |
+| 9-review | Approved + risk BLOCKED | Blocked — fix risks, re-run stage 9 |
+| 9-review | Changes Required | 7-implementation (ares) |
 
 ---
 
@@ -129,7 +156,7 @@ Read this when a stage produces an unexpected verdict, an agent fails to deliver
 
 ```bash
 # 1. Check current state
-./bin/kratos pipeline get --feature <name>
+<kratos-bin> pipeline get --feature <name>
 
 # 2. Read the required document to understand what failed
 cat .claude/feature/<name>/<document>.md

@@ -1,0 +1,6 @@
+# Every .go and shell blob in this repo is stored with LF. Without these rules a
+# Windows checkout with core.autocrlf=true gets CRLF working-tree files, and the
+# gofmt step of `make ci` then fails on all of them for a reason that has nothing
+# to do with the code (137 .go files, 90 reported issues, 2026-09-21).
+*.go text eol=lf
+*.sh text eol=lf

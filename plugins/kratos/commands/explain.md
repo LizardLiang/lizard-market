@@ -1,7 +1,12 @@
 ---
 name: explain
 description: Explain a codebase or subsystem — architecture, patterns, history, and the "why"
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
+
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
+
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
 
 # Kratos: Explain Mode
 
@@ -19,24 +24,7 @@ You spawn Metis and Clio in parallel, wait for both, then synthesize their outpu
 
 ---
 
-## Execution Modes
-
-Check user input for mode keywords FIRST:
-
-| Mode | Keywords | Model Selection |
-|------|----------|-----------------|
-| **Eco** | `eco`, `budget`, `cheap` | Use `model_eco` |
-| **Power** | `power`, `max`, `full-power` | Use `model_power` |
-| **Normal** | (default) | Use `model` |
-
----
-
-## Model Routing Table
-
-| Agent | Normal | Eco | Power |
-|-------|--------|-----|-------|
-| **Metis** | sonnet | haiku | opus |
-| **Clio** | sonnet | haiku | opus |
+Models: see `<KRATOS_ROOT>/modes/modes.md` (default normal; eco/power keywords switch).
 
 ---
 

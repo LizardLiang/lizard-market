@@ -1,0 +1,52 @@
+// Command kratos is the Kratos plugin CLI: pipeline tracking, quality-gate hooks,
+// session memory, and embedded agent/template assets.
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/LizardLiang/lizard-market/plugins/kratos/internal/cli"
+	"github.com/spf13/cobra"
+)
+
+// Dev fallback only — release builds inject the plugin.json version via
+// -ldflags (see Makefile).
+var version = "2.85.0-dev"
+
+func main() {
+	rootCmd := &cobra.Command{
+		Use:     "kratos",
+		Short:   "Kratos Memory System - Fast SQLite journey tracking",
+		Version: version,
+	}
+
+	rootCmd.AddCommand(cli.InitCmd())
+	rootCmd.AddCommand(cli.SessionCmd())
+	rootCmd.AddCommand(cli.QueryCmd())
+	rootCmd.AddCommand(cli.RecallCmd())
+	rootCmd.AddCommand(cli.StepCmd())
+	rootCmd.AddCommand(cli.InstallCmd())
+	rootCmd.AddCommand(cli.UninstallCmd())
+	rootCmd.AddCommand(cli.StatusCmd())
+	rootCmd.AddCommand(cli.PipelineCmd())
+	rootCmd.AddCommand(cli.TodoCmd())
+	rootCmd.AddCommand(cli.MemoryCmd())
+	rootCmd.AddCommand(cli.FeedbackCmd())
+	rootCmd.AddCommand(cli.ProfileCmd())
+	rootCmd.AddCommand(cli.RoutineCmd())
+	rootCmd.AddCommand(cli.HookCmd())
+	rootCmd.AddCommand(cli.CheckCmd())
+	rootCmd.AddCommand(cli.VerifyCmd())
+	rootCmd.AddCommand(cli.NowCmd())
+	rootCmd.AddCommand(cli.TemplateCmd())
+	rootCmd.AddCommand(cli.AgentCmd())
+	rootCmd.AddCommand(cli.HermesListCmd())
+	rootCmd.AddCommand(cli.SpecCmd())
+	rootCmd.AddCommand(cli.SlugCmd())
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}

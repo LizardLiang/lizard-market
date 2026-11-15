@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Living Specs Export</title>
+<style>
+:root{--bg:#ffffff;--fg:#1a1a1a;--muted:#666666;--accent:#2563eb;--border:#dddddd;--sidebar-bg:#f7f7f8;--code-bg:#f0f0f0;}
+[data-theme="dark"]{--bg:#1a1a1a;--fg:#e6e6e6;--muted:#999999;--accent:#60a5fa;--border:#333333;--sidebar-bg:#242424;--code-bg:#2a2a2a;}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]):not([data-theme="dark"]){--bg:#1a1a1a;--fg:#e6e6e6;--muted:#999999;--accent:#60a5fa;--border:#333333;--sidebar-bg:#242424;--code-bg:#2a2a2a;}
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--fg);}
+.layout{display:flex;min-height:100vh;align-items:flex-start;}
+nav.sidebar{width:280px;flex-shrink:0;background:var(--sidebar-bg);border-right:1px solid var(--border);padding:1rem;overflow-y:auto;position:sticky;top:0;height:100vh;}
+main{flex:1;padding:2rem;max-width:900px;}
+.controls{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;}
+button{cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--fg);padding:.4rem .8rem;border-radius:4px;font-size:.85rem;}
+button:hover{border-color:var(--accent);}
+#search{width:100%;padding:.5rem;margin-bottom:1rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);}
+.toc-cap{margin-bottom:.75rem;}
+.toc-cap>a{font-weight:600;text-decoration:none;color:var(--fg);}
+.toc-cap ul{list-style:none;padding-left:.75rem;margin:.25rem 0;}
+.toc-cap li{margin:.15rem 0;}
+.toc-cap a{color:var(--muted);text-decoration:none;font-size:.85rem;}
+.toc-cap a.active{color:var(--accent);font-weight:600;}
+details{border:1px solid var(--border);border-radius:6px;margin:.75rem 0;padding:.5rem .75rem;}
+summary{cursor:pointer;font-weight:600;}
+h1,h2,h3,h4{color:var(--fg);}
+.capability{margin-bottom:3rem;}
+.req-meta{color:var(--muted);font-size:.85rem;margin-bottom:1rem;}
+code{background:var(--code-bg);padding:.1rem .3rem;border-radius:3px;font-family:ui-monospace,Consolas,Menlo,monospace;}
+.scenario{margin-top:.75rem;font-size:.95rem;color:var(--accent);}
+footer{margin-top:3rem;color:var(--muted);font-size:.8rem;border-top:1px solid var(--border);padding-top:1rem;}
+.hidden{display:none !important;}
+@media print{
+  nav.sidebar,.controls{display:none !important;}
+  main{max-width:100%;padding:0;}
+  :root,[data-theme]{--bg:#ffffff;--fg:#000000;--muted:#333333;--accent:#000000;--border:#cccccc;--sidebar-bg:#ffffff;--code-bg:#f0f0f0;}
+  details{border:none;padding:0;}
+  details>*:not(summary){display:block !important;}
+  summary{list-style:none;}
+  summary::-webkit-details-marker{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="controls">
+      <button id="theme-toggle" type="button">Toggle theme</button>
+    </div>
+    <input type="text" id="search" placeholder="Search requirements...">
+    {{range .Capabilities}}
+    <div class="toc-cap">
+      <a href="#cap-{{.Slug}}">{{.Title}}</a>
+      <ul>
+        {{range .Requirements}}<li><a href="#{{.ID}}" data-target="{{.ID}}">{{.Name}}</a></li>
+        {{end}}
+      </ul>
+    </div>
+    {{end}}
+  </nav>
+  <main>
+    <div class="controls">
+      <button id="expand-all" type="button">Expand all</button>
+      <button id="collapse-all" type="button">Collapse all</button>
+      <button id="print-btn" type="button">Save as PDF</button>
+    </div>
+    {{range .Capabilities}}
+    <section class="capability" id="cap-{{.Slug}}">
+      <h1>{{.Title}}</h1>
+      <div class="req-meta">Author: {{.Author}} &middot; Updated: {{.Updated}} &middot; Git: {{.GitHash}}</div>
+      <div class="purpose">{{.PurposeHTML}}</div>
+      <h2>Requirements</h2>
+      {{range .Requirements}}
+      <details open id="{{.ID}}" class="requirement">
+        <summary>{{.Name}}</summary>
+        {{.BodyHTML}}
+      </details>
+      {{end}}
+    </section>
+    {{end}}
+    <footer>Generated {{.GeneratedAt}} by kratos spec export</footer>
+  </main>
+</div>
+<script>
+(function(){
+  "use strict";
+  var root = document.documentElement;
+  var toggle = document.getElementById("theme-toggle");
+  var stored = null;
+  try { stored = window.localStorage.getItem("kratos-spec-theme"); } catch (e) { stored = null; }
+  if (stored) { root.setAttribute("data-theme", stored); }
+
+  toggle.addEventListener("click", function () {
+    var current = root.getAttribute("data-theme");
+    var next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { window.localStorage.setItem("kratos-spec-theme", next); } catch (e) { /* no storage available */ }
+  });
+
+  var details = Array.prototype.slice.call(document.querySelectorAll("details.requirement"));
+
+  document.getElementById("expand-all").addEventListener("click", function () {
+    details.forEach(function (d) { d.open = true; });
+  });
+  document.getElementById("collapse-all").addEventListener("click", function () {
+    details.forEach(function (d) { d.open = false; });
+  });
+  document.getElementById("print-btn").addEventListener("click", function () {
+    window.print();
+  });
+
+  var reopenState = [];
+  window.addEventListener("beforeprint", function () {
+    reopenState = details.map(function (d) { return d.open; });
+    details.forEach(function (d) { d.open = true; });
+  });
+  window.addEventListener("afterprint", function () {
+    details.forEach(function (d, i) { d.open = reopenState[i]; });
+  });
+
+  var search = document.getElementById("search");
+  search.addEventListener("input", function () {
+    var term = search.value.trim().toLowerCase();
+    details.forEach(function (d) {
+      var text = d.textContent.toLowerCase();
+      var match = term === "" || text.indexOf(term) !== -1;
+      d.classList.toggle("hidden", !match);
+      if (match && term !== "") { d.open = true; }
+    });
+  });
+
+  var links = Array.prototype.slice.call(document.querySelectorAll("nav.sidebar a[data-target]"));
+  if ("IntersectionObserver" in window && links.length && details.length) {
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute("data-target")] = a; });
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var link = byId[entry.target.id];
+        if (!link || !entry.isIntersecting) { return; }
+        links.forEach(function (a) { a.classList.remove("active"); });
+        link.classList.add("active");
+      });
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    details.forEach(function (d) { observer.observe(d); });
+  }
+})();
+</script>
+</body>
+</html>

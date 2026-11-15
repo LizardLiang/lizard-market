@@ -73,6 +73,9 @@
 | Security | [Requirement] |
 | Scalability | [Requirement] |
 
+### Spec Delta
+Durable, cross-feature behavioral contract for this feature: `.claude/feature/[name]/spec-delta/[capability].md` (capability: **[capability-slug]**). See `templates/spec-delta-template.md` — do not duplicate the full requirements above here, only the distilled `### Requirement:` + SHALL statement + scenarios that should survive across features.
+
 ---
 
 ## 5. User Flows
@@ -137,7 +140,7 @@
 ---
 
 ## 10. Alignment
-> *This section is filled in by Hera at Stage 10. Athena leaves it empty.*
+> *This section is filled in by Hera at Stage 8. Athena leaves it empty.*
 
 **Status:** pending  
 **Coverage:** —  

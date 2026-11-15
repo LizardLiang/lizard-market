@@ -1,0 +1,377 @@
+package cli
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"testing"
+	"unicode/utf8"
+)
+
+// memoryFixtureItem mirrors one row of the JSON `memory list` returns.
+type memoryFixtureItem struct {
+	ID       int    `json:"id"`
+	Text     string `json:"text"`
+	Category string `json:"category"`
+	Project  string `json:"project,omitempty"`
+}
+
+// runBuildMemoryReport calls session-start.cjs's buildMemoryReport(data, rules, cwd)
+// with fixture JSON through node, the same node-exec pattern
+// TestGateProjectFileMatchesJS uses for tool-use.cjs. It returns the report
+// string (possibly empty).
+func runBuildMemoryReport(t *testing.T, memories []memoryFixtureItem, total int, rules []memoryFixtureItem, cwd string) string {
+	t.Helper()
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available")
+	}
+	hook, err := filepath.Abs(filepath.Join(hooksDirPath(), "session-start.cjs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture, err := json.Marshal(map[string]interface{}{
+		"data":  map[string]interface{}{"memories": memories, "total": total},
+		"rules": rules,
+		"cwd":   cwd,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "const { buildMemoryReport } = require(" + strconv.Quote(filepath.ToSlash(hook)) + ");\n" +
+		"const fx = JSON.parse(process.argv[1]);\n" +
+		"process.stdout.write(buildMemoryReport(fx.data, fx.rules, fx.cwd) || '');\n"
+	out, err := exec.Command(node, "-e", script, string(fixture)).Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			t.Fatalf("node run failed: %v (%s)", err, ee.Stderr)
+		}
+		t.Fatalf("node run failed: %v", err)
+	}
+	return string(out)
+}
+
+// TestBuildMemoryReportRulesFirstThenCappedScopedFacts pins the tiered
+// injection from Fix 2: a project with more scoped facts than MAX_MEMORIES
+// used to fill every slot and hide every global preference (2026-09 review,
+// KPIM: 16 scoped facts, 0 global preferences ever shown). Rules must show
+// first regardless, then at most SCOPED_CAP (4) scoped facts, then global
+// preferences fill the rest of MAX_MEMORIES (12).
+func TestBuildMemoryReportRulesFirstThenCappedScopedFacts(t *testing.T) {
+	here := "/work/kpim"
+	var memories []memoryFixtureItem
+	for i := 1; i <= 12; i++ {
+		memories = append(memories, memoryFixtureItem{ID: i, Text: fmt.Sprintf("scoped fact %d", i), Category: "context", Project: here})
+	}
+	for i := 1; i <= 10; i++ {
+		memories = append(memories, memoryFixtureItem{ID: 100 + i, Text: fmt.Sprintf("global pref %d", i), Category: "preference"})
+	}
+	var rules []memoryFixtureItem
+	for i := 1; i <= 3; i++ {
+		rules = append(rules, memoryFixtureItem{ID: 200 + i, Text: fmt.Sprintf("rule %d", i), Category: "rule"})
+	}
+	total := len(memories) + len(rules) // whole-store count, same semantic memory list --limit N reports
+
+	got := runBuildMemoryReport(t, memories, total, rules, here)
+
+	ruleCount := strings.Count(got, "[rule]")
+	if ruleCount != 3 {
+		t.Errorf("expected 3 rule lines, got %d in:\n%s", ruleCount, got)
+	}
+	scopedCount := strings.Count(got, "context · this project")
+	if scopedCount != 4 {
+		t.Errorf("expected scoped facts capped at 4, got %d in:\n%s", scopedCount, got)
+	}
+	prefCount := strings.Count(got, "[preference]")
+	if prefCount != 8 {
+		t.Errorf("expected 8 preference lines filling the remaining slots, got %d in:\n%s", prefCount, got)
+	}
+
+	firstRule := strings.Index(got, "rule 1")
+	firstScoped := strings.Index(got, "scoped fact")
+	firstPref := strings.Index(got, "global pref")
+	if firstRule < 0 || firstScoped < 0 || firstPref < 0 {
+		t.Fatalf("expected all three tiers present:\n%s", got)
+	}
+	if !(firstRule < firstScoped && firstScoped < firstPref) {
+		t.Errorf("expected order rules, then scoped facts, then preferences:\n%s", got)
+	}
+
+	// total(25) - shownFacts(12) - shownRules(3) = 10
+	if !strings.Contains(got, "+10 more") {
+		t.Errorf("expected the '+N more' count to account for both tiers:\n%s", got)
+	}
+}
+
+// TestBuildMemoryReportUnusedScopedSlotsGoToPreferences covers the other
+// direction: a project with only one scoped fact must not waste the other
+// three SCOPED_CAP slots — they pass to global preferences instead.
+func TestBuildMemoryReportUnusedScopedSlotsGoToPreferences(t *testing.T) {
+	here := "/work/small-project"
+	memories := []memoryFixtureItem{
+		{ID: 1, Text: "the one scoped fact", Category: "context", Project: here},
+	}
+	for i := 1; i <= 10; i++ {
+		memories = append(memories, memoryFixtureItem{ID: 100 + i, Text: fmt.Sprintf("global pref %d", i), Category: "preference"})
+	}
+	total := len(memories)
+
+	got := runBuildMemoryReport(t, memories, total, nil, here)
+
+	if strings.Count(got, "[rule]") != 0 {
+		t.Errorf("expected no rule lines when none are stored:\n%s", got)
+	}
+	scopedCount := strings.Count(got, "context · this project")
+	if scopedCount != 1 {
+		t.Errorf("expected exactly the 1 available scoped fact, got %d in:\n%s", scopedCount, got)
+	}
+	prefCount := strings.Count(got, "[preference]")
+	if prefCount != 10 {
+		t.Errorf("expected the unused 3 scoped slots to pass to preferences (1+10=11, all 10 available preferences shown), got %d in:\n%s", prefCount, got)
+	}
+
+	// total(11) - shownFacts(11) - shownRules(0) = 0: every row shown, no "more" line.
+	if strings.Contains(got, "more —") {
+		t.Errorf("expected no '+N more' line once every row is shown:\n%s", got)
+	}
+}
+
+// TestFormatMemoriesRetryUsesItsOwnShortTimeout covers Fix 2's own budget
+// bug: the unknown-flag retry (an older binary rejecting --with-rules) used
+// to reuse the 1500 ms memory-list timeout, pushing the worst-case serial sum
+// to 5100 ms — over the 5000 ms SessionStart hook timeout the file's own
+// comment states as an invariant. formatMemories takes an injectable capture
+// function precisely so this can be asserted without spawning a real binary.
+func TestFormatMemoriesRetryUsesItsOwnShortTimeout(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available")
+	}
+	hook, err := filepath.Abs(filepath.Join(hooksDirPath(), "session-start.cjs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "const { formatMemories } = require(" + strconv.Quote(filepath.ToSlash(hook)) + ");\n" +
+		"const calls = [];\n" +
+		"function stubCapture(args, timeoutMs) {\n" +
+		"  calls.push({ args, timeoutMs });\n" +
+		"  if (args.includes('--with-rules')) return { out: null, err: 'unknown flag: --with-rules' };\n" +
+		"  return { out: JSON.stringify({ memories: [], total: 0 }), err: '' };\n" +
+		"}\n" +
+		"formatMemories('/work/x', stubCapture);\n" +
+		"process.stdout.write(JSON.stringify(calls));\n"
+	out, err := exec.Command(node, "-e", script).Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			t.Fatalf("node run failed: %v (%s)", err, ee.Stderr)
+		}
+		t.Fatalf("node run failed: %v", err)
+	}
+
+	var calls []struct {
+		Args      []string `json:"args"`
+		TimeoutMs int      `json:"timeoutMs"`
+	}
+	if err := json.Unmarshal(out, &calls); err != nil {
+		t.Fatalf("cannot parse node output %q: %v", out, err)
+	}
+	if len(calls) != 2 {
+		t.Fatalf("expected 2 capture calls (the first call, then the retry), got %d: %v", len(calls), calls)
+	}
+	if calls[0].TimeoutMs != 1500 {
+		t.Errorf("first call timeout = %d, want 1500", calls[0].TimeoutMs)
+	}
+	if calls[1].TimeoutMs != 600 {
+		t.Errorf("retry call timeout = %d, want its own 600 ms budget, not the 1500 ms memory-list timeout", calls[1].TimeoutMs)
+	}
+}
+
+// TestBuildMemoryReportAllUnusedSlotsGoToScopedFacts covers the direction
+// Fix 2's own test left unpinned: with NO global memories at all (not even a
+// few), every one of the MAX_MEMORIES slots must return to scoped facts
+// rather than sit empty. TestBuildMemoryReportUnusedScopedSlotsGoToPreferences
+// passes identically on the pre-fix code (10 global preferences already fill
+// every leftover slot on their own), so it does not exercise this path.
+func TestBuildMemoryReportAllUnusedSlotsGoToScopedFacts(t *testing.T) {
+	here := "/work/big-project"
+	var memories []memoryFixtureItem
+	for i := 1; i <= 12; i++ {
+		memories = append(memories, memoryFixtureItem{ID: i, Text: fmt.Sprintf("scoped fact %d", i), Category: "context", Project: here})
+	}
+	total := len(memories)
+
+	got := runBuildMemoryReport(t, memories, total, nil, here)
+
+	scopedCount := strings.Count(got, "context · this project")
+	if scopedCount != 12 {
+		t.Errorf("expected all 12 slots to go to scoped facts with no global memories at all, got %d in:\n%s", scopedCount, got)
+	}
+	if strings.Count(got, "[preference]") != 0 {
+		t.Errorf("expected no preference lines when none are stored:\n%s", got)
+	}
+	// total(12) - shownFacts(12) - shownRules(0) = 0: every row shown, no "more" line.
+	if strings.Contains(got, "more —") {
+		t.Errorf("expected no '+N more' line once every row is shown:\n%s", got)
+	}
+}
+
+// TestBuildMemoryReportPartialGlobalsLeaveRestToScopedFacts covers the
+// partial case between the two above: a FEW global preferences (not enough
+// to fill every leftover slot on their own) must not stop the remaining
+// slots from returning to scoped facts.
+func TestBuildMemoryReportPartialGlobalsLeaveRestToScopedFacts(t *testing.T) {
+	here := "/work/big-project"
+	var memories []memoryFixtureItem
+	for i := 1; i <= 12; i++ {
+		memories = append(memories, memoryFixtureItem{ID: i, Text: fmt.Sprintf("scoped fact %d", i), Category: "context", Project: here})
+	}
+	memories = append(memories,
+		memoryFixtureItem{ID: 101, Text: "global pref 1", Category: "preference"},
+		memoryFixtureItem{ID: 102, Text: "global pref 2", Category: "preference"},
+	)
+	total := len(memories)
+
+	got := runBuildMemoryReport(t, memories, total, nil, here)
+
+	scopedCount := strings.Count(got, "context · this project")
+	if scopedCount != 10 {
+		t.Errorf("expected 4 (SCOPED_CAP) + 6 leftover-slot scoped facts = 10, got %d in:\n%s", scopedCount, got)
+	}
+	prefCount := strings.Count(got, "[preference]")
+	if prefCount != 2 {
+		t.Errorf("expected both preferences to show, got %d in:\n%s", prefCount, got)
+	}
+	// total(14) - shownFacts(12) - shownRules(0) = 2
+	if !strings.Contains(got, "+2 more") {
+		t.Errorf("expected the '+N more' count to reflect the unshown rows:\n%s", got)
+	}
+}
+
+// TestBuildMemoryReportGlobalPrefRankBeatsRecency pins the E2 ranking rule: a
+// global preference outranks a weak-spot regardless of recency. `memories`
+// arrives newest-first, so a preference appended after 15 weak-spots is the
+// OLDEST global fact in the list — under plain recency slicing it would be
+// the first one cut once the global facts exceed MAX_MEMORIES (12). The
+// category-rank sort moves it to the front instead, so it always shows, at
+// the cost of the newest weak-spots beyond the cap.
+func TestBuildMemoryReportGlobalPrefRankBeatsRecency(t *testing.T) {
+	here := "/work/rank-project"
+	var memories []memoryFixtureItem
+	for i := 1; i <= 15; i++ {
+		memories = append(memories, memoryFixtureItem{ID: i, Text: fmt.Sprintf("weak spot %d", i), Category: "weak-spot"})
+	}
+	memories = append(memories, memoryFixtureItem{ID: 100, Text: "the oldest preference", Category: "preference"})
+	total := len(memories)
+
+	got := runBuildMemoryReport(t, memories, total, nil, here)
+
+	if !strings.Contains(got, "the oldest preference") {
+		t.Fatalf("expected the oldest preference to still show by category rank, not get cut by recency:\n%s", got)
+	}
+	prefIdx := strings.Index(got, "the oldest preference")
+	firstSpotIdx := strings.Index(got, "weak spot 1 ")
+	if firstSpotIdx < 0 || prefIdx > firstSpotIdx {
+		t.Errorf("expected the preference to sort ahead of every weak-spot despite being the oldest global fact:\n%s", got)
+	}
+	prefCount := strings.Count(got, "[preference]")
+	if prefCount != 1 {
+		t.Errorf("expected exactly 1 preference line, got %d in:\n%s", prefCount, got)
+	}
+	spotCount := strings.Count(got, "[weak-spot]")
+	if spotCount != 11 {
+		t.Errorf("expected 11 weak-spot lines (12 global slots minus the 1 preference), got %d in:\n%s", spotCount, got)
+	}
+}
+
+// TestBuildMemoryReportExcludesOtherProjectsRules covers the "never another
+// project's" rule scoping: a rule saved for a different project must not
+// leak into this session even though the dedicated rule capture returned it.
+func TestBuildMemoryReportExcludesOtherProjectsRules(t *testing.T) {
+	here := "/work/here"
+	rules := []memoryFixtureItem{
+		{ID: 1, Text: "global rule", Category: "rule"},
+		{ID: 2, Text: "this project rule", Category: "rule", Project: here},
+		{ID: 3, Text: "other project rule", Category: "rule", Project: "/work/elsewhere"},
+	}
+	got := runBuildMemoryReport(t, nil, 3, rules, here)
+
+	if !strings.Contains(got, "global rule") {
+		t.Errorf("expected the global rule to show:\n%s", got)
+	}
+	if !strings.Contains(got, "this project rule") {
+		t.Errorf("expected this project's rule to show:\n%s", got)
+	}
+	if strings.Contains(got, "other project rule") {
+		t.Errorf("another project's rule must never show:\n%s", got)
+	}
+}
+
+// runSessionStart drives session-start.cjs with a scratch HOME whose ledger
+// for session "sess-x" names inline_god "iris", and returns its stdout. hookArgs
+// are passed to the script (for example "--part", "extras"). It skips when the
+// plugin-local binary has not been built.
+func runSessionStart(t *testing.T, source string, hookArgs ...string) string {
+	t.Helper()
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available")
+	}
+	root, err := filepath.Abs(filepath.Join(hooksDirPath(), ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(root, "bin", "kratos")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	if _, err := os.Stat(bin); err != nil {
+		t.Skip("plugin binary not built")
+	}
+	home := t.TempDir()
+	ledger := filepath.Join(home, ".kratos", "sessions", "sess-x.json")
+	if err := os.MkdirAll(filepath.Dir(ledger), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(ledger, []byte(`{"session_id":"sess-x","inline_god":"iris"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := json.Marshal(map[string]any{"session_id": "sess-x", "source": source, "cwd": t.TempDir()})
+	cmd := exec.Command(node, append([]string{filepath.Join(root, "hooks", "session-start.cjs")}, hookArgs...)...)
+	cmd.Stdin = strings.NewReader(string(payload))
+	cmd.Env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home, "CLAUDE_PLUGIN_ROOT="+root)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("hook failed: %v", err)
+	}
+	return string(out)
+}
+
+const godExtrasMarker = "# Agent Protocol (injected)"
+
+func TestSessionStartCompactReinjectsInlineGodExtras(t *testing.T) {
+	out := runSessionStart(t, "compact", "--part", "extras")
+	if !strings.Contains(out, godExtrasMarker) {
+		t.Fatalf("compact extras output lacks the iris extras:\n%s", out)
+	}
+	if n := utf8.RuneCountInString(out); n >= hookOutputCap {
+		t.Fatalf("extras output is %d characters, over the %d hook cap", n, hookOutputCap)
+	}
+	if main := runSessionStart(t, "compact"); strings.Contains(main, godExtrasMarker) {
+		t.Fatalf("main mode carries the extras, which belong to the --part extras hook:\n%s", main)
+	}
+}
+
+func TestSessionStartOtherSourcesSkipInlineGodExtras(t *testing.T) {
+	for _, source := range []string{"startup", "resume", "clear"} {
+		for _, args := range [][]string{nil, {"--part", "extras"}} {
+			if out := runSessionStart(t, source, args...); strings.Contains(out, godExtrasMarker) {
+				t.Fatalf("%s output %v carries the extras:\n%s", source, args, out)
+			}
+		}
+	}
+}

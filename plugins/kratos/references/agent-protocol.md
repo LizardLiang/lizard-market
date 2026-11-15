@@ -1,181 +1,149 @@
 # Agent Protocol — Shared Procedures
 
-Procedures shared across all Kratos agents. Read sections relevant to your mission.
-
----
-
-## Path Resolution
-
-All paths in agent instructions (e.g., `plugins/kratos/references/...`, `.claude/feature/...`) are relative to the **project root** (git repository root). Resolve from project root, not plugin directory.
-
-Templates are retrieved via the CLI: `'<kratos-path>' template get <template-name>` (omit the `.md` extension). The CLI handles file location regardless of where the plugin is installed.
-
-**Kratos binary**: The `SubagentStart` hook injects the resolved absolute path. Wherever instructions show `<kratos-bin>`, substitute the literal path from the hook directly — e.g. `'/usr/local/bin/kratos' <subcommand>`. If no path was injected, skip all kratos calls and report to Kratos that the binary is unavailable.
+Procedures shared across all Kratos agents. Spawned and inline agents receive their relevant sections injected automatically (SubagentStart hook / `kratos agent load`) — read this file only as a fallback when no injected **Agent Protocol** block is present in your context. Orchestrator-only procedures (path resolution, spawn prompt fields, spawning Athena) live in `references/orchestrator-protocol.md`.
 
 ---
 
 ## Document Selection
+<!-- protocol: document-selection -->
 
-Choose documents based on the decision you are making; don't mechanically read every input.
+Choose documents by the decision at hand; never read every input or reread one without need.
 
-- Use `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state, summaries, and quick context (do not read `status.json` directly)
-- Use `prd.md` for requirements, acceptance criteria, and product intent
-- Use `tech-spec.md` for architecture, interfaces, sequencing, and implementation constraints
-- Use `test-plan.md` for expected coverage and verification scope
-- Use `decomposition.md` for task ordering, waves, and phase boundaries
-- Use Arena/codebase reads only to verify a specific convention, dependency, or implementation pattern
-
-Avoid rereading the same document unless you need a section not already captured.
+- `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` — stage state and summaries (never read `status.json` directly).
+- `prd.md` — requirements, acceptance criteria, product intent
+- `tech-spec.md` — architecture, interfaces, sequencing, implementation constraints
+- `test-plan.md` — expected coverage and verification scope
+- `decomposition.md` — task ordering, waves, phase boundaries
+- Arena/codebase reads — only to verify a specific convention, dependency, or pattern
 
 ---
 
 ## Auto-Discovery
+<!-- protocol: auto-discovery -->
 
-Find the active feature and read pipeline state before starting any mission:
-
-```
-Search: .claude/feature/*/status.json
-```
-
-Then read the pipeline state:
-```bash
-<kratos-bin> pipeline get --feature FEATURE_NAME
-```
-
-Your agent definition lists the stage-specific prerequisites to verify. In command mode (inline invocation), Auto-Discovery may find no active feature — follow the feature name derivation instructions in your command-mode suffix if present.
+Find the active feature before starting a pipeline mission: search `.claude/feature/*/status.json`, then run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME`. Your agent definition lists the stage prerequisites. In command mode there may be no active feature — follow your command-mode suffix's feature-name derivation.
 
 ---
 
 ## Missing Required Input
+<!-- protocol: missing-required-input -->
 
-If you need a file and it is missing, don't improvise, recreate it, or continue with assumptions unless you are the agent responsible for producing that file.
+A missing input file is not recreated or assumed unless producing it is your job: stop and report the file, why you need it, and the upstream stage/agent responsible (`references/agent-handoff-spec.md`).
 
-1. Stop the current task
-2. Report the blocker to Kratos/orchestrator
-3. Name the missing file
-4. State why you need it right now
-5. Name the responsible upstream stage/agent from `references/agent-handoff-spec.md`
+Optional files (`context.md`, `decomposition.md`, Arena shards, review rules) block you only when the task needs them.
 
-Optional files (`context.md`, `decomposition.md`, Arena shards, language-specific review rules, etc.) only block you if the current task genuinely requires them.
+---
+
+## Interactive Questions (AskUserQuestion)
+<!-- protocol: interactive-questions -->
+
+Canonical rule for every `AskUserQuestion` call:
+
+1. **No escape option.** The client renders a built-in "Other" free-text choice — never add your own "Other" option.
+2. **Never set `preview` on options** — it drops the built-in "Other" input; fold essentials into `description`.
+3. **Free-text reply is the answer.** Parse the typed text before re-asking; follow up only if genuinely ambiguous.
+4. **Decline/interrupt/error →** ask once in plain prose and end the turn; never re-fire the tool for that question.
+5. **Option cap: 4** (tool max); all 4 substantive.
+6. **Never call with an empty `options` array** — free text means ask in plain prose.
+7. **Subagent caveat.** As a spawned subagent the tool never reaches the user: flag the gap as an assumption, note clarification was unavailable, don't call it.
 
 ---
 
 ## Document Creation
+<!-- protocol: document-creation -->
 
-Your primary deliverable is a document file. Kratos verifies this file exists after you complete — if missing, Kratos will re-spawn you, wasting time and tokens.
+Kratos re-spawns you if your deliverable file is missing.
 
-1. Create the document file early (even a skeleton) and fill it as you work
-2. Before reporting completion, verify the file EXISTS using `Read` or `Glob`
-3. Verify the document has complete content (not empty or partial)
-4. Update `status.json` via the CLI (see below) and confirm stage status is `complete`
+1. Create the file early and fill it as you work
+2. Before reporting completion, verify the file exists (`Read`/`Glob`) with complete content
+3. Update `status.json` via the CLI (see below) and confirm stage status is `complete`
 
 ---
 
 ## Timestamp Standard
+<!-- protocol: timestamp-standard -->
 
-**Never write `<ISO-timestamp>` placeholders.** Always use a real timestamp.
-
-**Preferred**: Let `kratos pipeline update` stamp timestamps automatically (always uses real time).
-
-**When you must write a timestamp manually** (e.g., fallback JSON edits or nested fields the CLI doesn't cover):
-
-```bash
-# Capture a precise ISO8601 timestamp
-TS=$(<kratos-bin> now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
-```
-
-Then use `$TS` wherever the schema expects `<ISO8601>`:
-
-```json
-{ "started": "2026-03-30T14:05:00Z", "completed": "2026-03-30T14:07:30Z" }
-```
-
-`kratos now` outputs RFC3339 with local timezone offset (e.g., `2026-03-30T22:05:00+08:00`). `date` fallback outputs UTC. Both are valid ISO8601.
+Never write `<ISO-timestamp>` placeholders. `kratos pipeline update` stamps its own. To write one by hand, capture it first: `TS=$(<kratos-bin> now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)`.
 
 ---
 
 ## Status Updates via Kratos CLI
+<!-- protocol: status-updates -->
 
-Update pipeline status using the exact command format below. Do NOT improvise flags or invent new ones.
-
-**CRITICAL**: For authentic timestamps, always use the two-step process:
-
-### Step 1: Mark Work as Started
-```bash
-# When you BEGIN work, immediately mark as in-progress
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage STAGE_NUMBER --status in-progress
-```
-
-### Step 2: Mark Work as Complete  
-```bash
-# When you FINISH work, mark as complete with deliverables
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage STAGE_NUMBER --status complete --document DOC_NAME
-
-# For review stages, include verdict:
-<kratos-bin> pipeline update --feature FEATURE_NAME --stage STAGE_NUMBER --status complete --verdict VERDICT --document DOC_NAME
-```
-
-### Examples
-```bash
-# PRD Creation (two steps):
-<kratos-bin> pipeline update --feature auth-system --stage 1 --status in-progress
-# ... do the actual PRD work ...
-<kratos-bin> pipeline update --feature auth-system --stage 1 --status complete --document prd.md
-
-# Review (two steps):
-<kratos-bin> pipeline update --feature auth-system --stage 2 --status in-progress
-# ... do the actual review work ...
-<kratos-bin> pipeline update --feature auth-system --stage 2 --status complete --verdict approved --document prd-review.md
-```
-
-**Why Two Steps**: Ensures `started` and `completed` have different timestamps, preventing zero-duration work periods that appear fabricated.
-
-- If the command outputs JSON → done. Do NOT also write status.json manually.
-- If the command is not found or errors → fall back to editing status.json directly using `kratos now` for timestamps.
-
-### Spawning Athena (stages 1, 2, 6)
-
-Athena runs at three different stages. Before spawning Athena, set `pending_stage` so the
-`kratos check --init` hook injects the correct deliverable expectations at SubagentStart:
-
-```bash
-# Before spawning Athena for stage 2 or 6 (stage 1 is already set at feature init):
-<kratos-bin> pipeline set-pending --feature FEATURE_NAME --stage STAGE_NUMBER
-
-# After Athena completes (clears the field):
-<kratos-bin> pipeline set-pending --feature FEATURE_NAME --stage ""
-```
-
-Omitting this step causes `--init` to read the previous completed stage and tell Athena
-to produce the wrong deliverable.
+Your agent definition carries the exact `pipeline update` commands for your stage. Do not improvise flags. Run them as two steps so `started` and `completed` carry real, different timestamps: `--status in-progress` when you begin, then `--status complete --document DOC_NAME` (add `--verdict VERDICT` on review stages) when you finish. JSON output means done — never also edit `status.json` by hand. If the binary is missing or errors, edit `status.json` directly (top-level key `pipeline`, see Timestamp Standard).
 
 ---
 
-## Session Tracking
+## Plain Language (ISO 24495-1)
+<!-- protocol: plain-language -->
 
-Record your work in the active Kratos session so Kratos can reconstruct what happened.
+Applies to prose documents written to disk, not chat, code, commit messages or quotes. A template's section order wins. Proxies for ISO 24495-1:2023; claim no conformance.
 
-```bash
-PROJECT=$(basename $(git rev-parse --show-toplevel 2>/dev/null || pwd))
-SESSION_ID=$(<kratos-bin> session active "$PROJECT" 2>/dev/null | grep -o '"session_id":"[^"]*"' | cut -d'"' -f4)
+- **Relevant** — write for the reader; include only what they need.
+- **Findable** — key point first; headings state the point; order by the reader's task.
+- **Understandable** — familiar words; define terms at first use; one term per concept; short active sentences; one topic per paragraph; concrete over abstract.
+- **Usable** — explicit commands, paths, values; tables for facts; ASCII diagram for a sequence (Mermaid only if rendered); re-read as the reader before finishing.
 
-# Record your spawn at start (replace AGENT_NAME, MODEL, DESCRIPTION)
-<kratos-bin> step record-agent "$SESSION_ID" AGENT_NAME MODEL "DESCRIPTION"
+---
 
-# Record each document you create or modify
-<kratos-bin> step record-file "$SESSION_ID" "path/to/file" "created"
-```
+## Artifact Edits (documents, diagrams, decks)
+<!-- protocol: artifact-edit -->
 
-If the binary is unavailable, skip session tracking silently — useful but not critical.
+When the mission changes a design document, diagram, image export, or slide deck:
+
+1. **Resolve the target first.** File, page/slide (name AND 1-based index; draw.io CLI `-p` is 1-based), section. If the reference could match more than one thing, echo your resolution in one line and stop for confirmation. Otherwise still echo it once before the first edit.
+2. **Look before you report.** Render the changed artifact (drawio CLI → PNG, PowerPoint COM `Slides.Export` → PNG, Read the markdown section) and check the change is present and legible. Bash timeout ≥ 5 minutes for exports; precheck that a required desktop app is running before the first call. "Done" without a look is not done.
+3. **Keep linked artifacts in sync in the same turn** — `.drawio → .png → .md → .pptx` when the project links them; say which links you updated.
+4. **Write only the requested delta.** No added cross-references, rationale asides, status markers, or self-talk; match the document's register; a reviewer reads it cold.
+
+Detail: `<KRATOS_ROOT>/references/artifact-edit-protocol.md`.
+
+---
+
+## Flow Trace (shared state, multi-step flows)
+<!-- protocol: flow-trace -->
+
+**Trigger** — the change touches a DB column, flag, status, counter, cache, or global written from more than one place; a step of a multi-step job; or a function with 3+ callers. Unsure → it triggers. The trace is grep plus one end-to-end read, not an interview.
+
+Before designing, editing, or approving, write down:
+1. **Every reader and writer** of the state, found by `grep`, never the brief's list; read the whole flow.
+2. **Lifecycle table** — `state | set by | cleared by | scope (row / member / global) | stale when`. A state with no clearing path on every exit (success and failure) is a finding.
+3. **The invariant** the change relies on plus the writer evidence (file:function) that keeps it true. No evidence → an assumption, and assumptions go to the user.
+4. **Fit or fight** — two poles, no middle: patch inside the current flow vs restructure it. A bug takes the cheapest pole; an architectural fork takes the complete end-state; the user decides.
+
+**Hard rule:** a concern about the flow, an invariant, or a caveat ("deliberately NOT…", "for now") is a question to the user — never a comment, docstring, or note. Ask it in the user's domain terms, show the flow as an ASCII diagram, offer the two poles. Spawned agents stop with their report kind (`ARES NEEDS DESIGN`); inline agents use AskUserQuestion.
 
 ---
 
 ## Boundaries (all agents)
+<!-- protocol: boundaries -->
 
-Subagent of Kratos. Stay in your domain. Schema: `references/status-json-schema.md`. Complete mission and return.
+Subagent of Kratos: stay in your domain, complete the mission, return. End every turn with visible text (a launch says what started and what is next); never poll with `sleep` — task notifications wake you. The PostToolUse hook records your writes and spawns in the ledger; never call `session active` or `step record-*` yourself.
+
+**Git safety:**
+- Commit only on the checked-out branch.
+- Ask before checkout/switch, rebase, reset, cherry-pick, or a merge into another branch.
+- Never merge into master/main/prod/product and never push unless the user asked; a merge you were asked for runs the repo's check on the merged tree (else say so), never `--no-verify`/`SKIP_*`.
+- Baseline/bisect/other-branch runs use `git worktree add`, never the user's checkout.
+- A push or deploy carrying commits the user did not name: state the count and ask.
+
+**Outside the repo:** text bound for another organization's system (form, ticket, email, API note) is shown to the user first and never names the ERP, server or job purpose. Scratch/log files only under the session scratchpad (else `.claude/tmp/`). Hand back only when every child agent has reported and every process you started is stopped (name PIDs/ports).
 
 ---
 
 ## Output Format
+<!-- protocol: output-format -->
 
-**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.
+**Output constraint:** One standard for every answer.
+- Lead with the point: the conclusion, or what is at stake. No preamble, no build-up.
+- Show the mechanism, never narrate it. One view replaces the prose it would have taken:
+  - A sequence of actions — call order, request flow, pipeline stages, the steps you took or will take, above all code flow — is an ASCII diagram in a code block: one box or line per step, arrows (`→`, `│`, `└─▶`) for order, a branch per condition. Never a paragraph, never Mermaid (it does not render in a terminal).
+  - Items with no order — options, checks, parallel facts — are bullet points.
+  - Logic is pseudocode. Structure is a file or component tree. A change is a `diff` when part changes, a full block when most is new.
+  The view sits next to the short text it supports and keeps only the nodes that answer this question. One or two views, never all.
+- Keep hedges and evidence status (verified vs inferred). Define a term at first use; never "simply", "just", "obviously". Name the misunderstanding the reader is likely to have.
+- Asking the user to decide: state the decision and its consequence before the options.
+- No filler, no pleasantries. Technical terms exact. Code blocks unchanged.
+- A mid-turn progress line is the same standard in miniature: `[status] [what] [result]. [next].` Fragments OK; lead with the result, never a bare `[what]:`. No arrow chains in prose — a flow goes in an ASCII diagram.
+- Write every line in the user's language — the language of their latest message; one answer, one language (code, paths and quotes excepted) — progress lines too, even when code and instructions are English.
+- A message the human typed always gets an answer; `No response requested` is only for harness task notifications.

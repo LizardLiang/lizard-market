@@ -1,186 +1,153 @@
 #!/usr/bin/env node
 /**
- * Kratos Memory - Session End Hook
+ * Kratos Memory - Session End Hook (SessionEnd event)
  *
- * Automatically ends a memory session when Claude Code session ends.
- * Generates a summary and saves it to the global database.
- * 
- * NEW: Detects which feature was being worked on from .claude/feature/[name]/status.json
+ * Closes this Claude Code session's ledger row with a one-line summary and
+ * removes its ~/.kratos/sessions/<session_id>.json state file.
+ *
+ * Registered on SessionEnd, not Stop: Stop fires after every assistant turn,
+ * so the old wiring ended the session on turn one, deleted the shared state
+ * file, and then printed "Kratos: No active session to end" plus the pending
+ * spec-delta list on every later turn (9× in one session). SessionEnd is
+ * fire-and-forget — hooks.json declares a 2 s timeout for this hook, but
+ * Claude Code's SessionEnd budget stays 1.5 s: "Timeouts set on
+ * plugin-provided hooks don't raise the budget" (hooks docs, SessionEnd).
+ * Keep this to two quick CLI calls of 600 ms each and print nothing.
+ *
+ * Kratos calls use spawnSync with an argv array, so the summary text (feature
+ * names, cwd basename) never reaches a shell.
  */
 
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { resolveBinary } = require('./kratos-bin.cjs');
+const { resolveBinary, stateDir } = require('./kratos-bin.cjs');
 
-// Global paths
 const KRATOS_HOME = path.join(os.homedir(), '.kratos');
 const DB_PATH = path.join(KRATOS_HOME, 'memory.db');
-const SESSION_FILE = path.join(KRATOS_HOME, 'active-session.json');
+const SESSIONS_DIR = path.join(KRATOS_HOME, 'sessions');
 
-// Get current working directory
-const cwd = process.cwd();
+// Two calls must fit the 1.5 s SessionEnd budget with node startup — 600 ms each.
+const CALL_TIMEOUT_MS = 600;
 
-const findKratosBinary = resolveBinary;
-
-// Read session data
-function getSession() {
-  if (!fs.existsSync(SESSION_FILE)) return null;
+function runKratos(kratosCmd, args) {
   try {
-    return JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
+    const r = spawnSync(kratosCmd, args, {
+      encoding: 'utf-8',
+      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: CALL_TIMEOUT_MS,
+    });
+    if (r.error || r.status !== 0) return null;
+    return r.stdout;
   } catch (e) {
     return null;
   }
 }
 
-// Find active feature from .claude/feature/*/status.json
-function findActiveFeature() {
-  const featureDir = path.join(cwd, '.claude', 'feature');
-  
-  if (!fs.existsSync(featureDir)) return null;
-  
+// Most recently touched in-progress feature under cwd/<state dir>/feature, for the
+// summary line only.
+function findActiveFeature(cwd) {
+  const featureDir = path.join(cwd, stateDir(), 'feature');
+  let features;
   try {
-    const features = fs.readdirSync(featureDir);
-    let mostRecent = null;
-    let mostRecentTime = 0;
-    
-    for (const featureName of features) {
-      const statusPath = path.join(featureDir, featureName, 'status.json');
-      
-      if (fs.existsSync(statusPath)) {
-        try {
-          const stats = fs.statSync(statusPath);
-          const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf-8'));
-          
-          // Check if this is an in-progress feature
-          const featureStatus = statusData.status || statusData.feature?.status;
-          if (featureStatus !== 'completed' && featureStatus !== 'abandoned') {
-            // Track most recently modified
-            if (stats.mtimeMs > mostRecentTime) {
-              mostRecentTime = stats.mtimeMs;
-              mostRecent = {
-                name: featureName,
-                stage: statusData.current_stage || statusData.stage || 0,
-                status: featureStatus || 'in_progress',
-                statusPath: statusPath
-              };
-            }
-          }
-        } catch (e) {
-          // Skip invalid status files
-        }
+    features = fs.readdirSync(featureDir);
+  } catch (e) {
+    return null;
+  }
+  let mostRecent = null;
+  let mostRecentTime = 0;
+  for (const featureName of features) {
+    const statusPath = path.join(featureDir, featureName, 'status.json');
+    try {
+      const stats = fs.statSync(statusPath);
+      const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf-8'));
+      const featureStatus = statusData.status || (statusData.feature && statusData.feature.status);
+      if (featureStatus === 'completed' || featureStatus === 'abandoned') continue;
+      if (stats.mtimeMs > mostRecentTime) {
+        mostRecentTime = stats.mtimeMs;
+        mostRecent = { name: featureName, stage: statusData.current_stage || statusData.stage || 0 };
       }
+    } catch (e) {
+      // skip invalid status files
     }
-    
-    return mostRecent;
-  } catch (e) {
-    return null;
   }
+  return mostRecent;
 }
 
-// Get session statistics
-function getSessionStats(sessionId) {
-  const kratosCmd = findKratosBinary();
-  if (!kratosCmd) return { totalSteps: 0, agentSpawns: 0, fileChanges: 0 };
-
-  try {
-    const result = execSync(
-      `"${kratosCmd}" step list "${sessionId}"`,
-      {
-        encoding: 'utf-8',
-        env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
-      }
-    );
-    const data = JSON.parse(result);
-    const steps = data.steps || [];
-
-    const agentSpawns = steps.filter(s => s.step_type === 'agent_spawn').length;
-    const fileChanges = steps.filter(s => s.step_type === 'file_modify').length;
-
-    return {
-      totalSteps: steps.length,
-      agentSpawns,
-      fileChanges
-    };
-  } catch (e) {
-    return { totalSteps: 0, agentSpawns: 0, fileChanges: 0 };
-  }
-}
-
-// End session
-function endSession(sessionId, summary, status = 'completed', featureName = null) {
-  const kratosCmd = findKratosBinary();
-  if (!kratosCmd) return false;
-
-  try {
-    execSync(
-      `"${kratosCmd}" session end "${sessionId}" "${escapeShell(summary)}"`,
-      {
-        stdio: 'ignore',
-        env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH }
-      }
-    );
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-// Escape shell characters
-function escapeShell(str) {
+// Single-line, length-capped summary text (argv-safe; no shell quoting involved).
+function clip(str, max) {
   if (!str) return '';
-  return str.replace(/"/g, '\\"').replace(/\n/g, ' ').substring(0, 500);
+  return String(str).replace(/\r?\n/g, ' ').substring(0, max);
 }
 
-// Format duration
 function formatDuration(ms) {
   const minutes = Math.floor(ms / 60000);
   if (minutes < 60) return `${minutes} minutes`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours}h ${mins}m`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
-// Main
-function main() {
-  const session = getSession();
-  if (!session) {
-    console.log('Kratos: No active session to end');
-    return;
+function endSession(payload) {
+  const sessionId = payload && payload.session_id ? String(payload.session_id) : '';
+  if (!sessionId) return;
+  const cwd = (payload && payload.cwd) || process.cwd();
+  const reason = (payload && payload.reason) || 'other';
+
+  const stateFile = path.join(SESSIONS_DIR, `${sessionId}.json`);
+  let startedAt = null;
+  try {
+    startedAt = JSON.parse(fs.readFileSync(stateFile, 'utf-8')).started_at || null;
+  } catch (e) {
+    // no state file — still close the ledger row if it exists
   }
 
-  const { session_id, project, started_at } = session;
-  const duration = formatDuration(Date.now() - started_at);
-
-  // Detect active feature
-  const activeFeature = findActiveFeature();
-
-  // Get stats
-  const stats = getSessionStats(session_id);
-
-  // Generate summary
-  let summary = `Session in ${project} (${duration}): ${stats.totalSteps} steps, ${stats.agentSpawns} agents spawned`;
-  if (activeFeature) {
-    summary += `. Feature: ${activeFeature.name} (stage ${activeFeature.stage})`;
+  const kratosCmd = resolveBinary();
+  if (kratosCmd) {
+    let stepsSummary = '';
+    const stepsRaw = runKratos(kratosCmd, ['step', 'list', sessionId]);
+    if (stepsRaw) {
+      try {
+        const steps = JSON.parse(stepsRaw).steps || [];
+        const agents = steps.filter((s) => s.step_type === 'agent_spawn').length;
+        stepsSummary = `${steps.length} steps, ${agents} agents spawned`;
+      } catch (e) {
+        // ignore
+      }
+    }
+    const parts = [`Session in ${path.basename(cwd)}`];
+    if (startedAt) parts[0] += ` (${formatDuration(Date.now() - startedAt)})`;
+    if (stepsSummary) parts.push(stepsSummary);
+    const feature = findActiveFeature(cwd);
+    if (feature) parts.push(`Feature: ${feature.name} (stage ${feature.stage})`);
+    parts.push(`ended: ${reason}`);
+    runKratos(kratosCmd, ['session', 'end', sessionId, clip(parts.join('; '), 500)]);
   }
 
-  // End the session
-  if (endSession(session_id, summary)) {
-    // Remove session file
+  try {
+    fs.unlinkSync(stateFile);
+  } catch (e) {
+    // already gone
+  }
+}
+
+let raw = '';
+let done = false;
+function finish() {
+  if (done) return;
+  done = true;
+  let payload = null;
+  if (raw.trim()) {
     try {
-      fs.unlinkSync(SESSION_FILE);
+      payload = JSON.parse(raw);
     } catch (e) {
-      // Ignore
-    }
-    console.log(`Kratos: Session ended - ${session_id}`);
-    console.log(`  Duration: ${duration}`);
-    console.log(`  Steps: ${stats.totalSteps}`);
-    console.log(`  Agents: ${stats.agentSpawns}`);
-    if (activeFeature) {
-      console.log(`  Feature: ${activeFeature.name} (stage ${activeFeature.stage})`);
+      payload = null;
     }
   }
+  endSession(payload);
 }
-
-main();
+process.stdin.setEncoding('utf-8');
+process.stdin.on('data', (chunk) => (raw += chunk));
+process.stdin.on('end', finish);
+process.stdin.on('error', finish);
+setTimeout(finish, 200).unref();

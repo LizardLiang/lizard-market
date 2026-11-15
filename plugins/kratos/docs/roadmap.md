@@ -12,8 +12,8 @@
 - **Interview style**: One question at a time until sufficient context is gathered.
 - **Context-aware**: Reads existing in-flight features and Arena to avoid recommending things already in progress.
 - **Handoff**: After user approves the plan, Prometheus suggests running `/kratos:main` on the top priority item — passing it to Athena to start the PRD. No direct handoff to Daedalus.
-- **Note**: Already referenced in global CLAUDE.md as a subagent but not yet a proper Kratos agent.
-- **Status**: `proposed`
+- **Shipped as**: `agents/prometheus.md`, `/kratos:strategy`, `/kratos:prometheus`.
+- **Status**: `done`
 
 ### Heracles — Refactor Specialist
 - **Purpose**: Executes large-scale refactoring — dead code removal, decoupling, pattern extraction, naming consistency, migration paths (e.g. class → hooks, REST → tRPC).
@@ -29,7 +29,7 @@
 
 ### Cassandra — Risk Analyst
 - **Purpose**: Pre-ship risk analysis. Surfaces security holes (OWASP), breaking changes, edge cases, scalability cliffs (N+1, unbounded loops), dependency CVEs.
-- **Pipeline position**: Stage 7 — spawned in parallel with Hermes by the parent orchestrator. Both results merged before returning to user.
+- **Pipeline position**: Stage 9 — spawned in parallel with Hermes by the parent orchestrator. Both results merged before returning to user.
 - **Also available standalone**: `/kratos:audit` for on-demand deep scans outside the pipeline.
 - **Scope**: changed files in pipeline mode; full codebase in audit mode.
 - **Output**: severity-rated findings (Critical / High / Medium / Low)
@@ -90,7 +90,8 @@
 - **Audience**: The user themselves — informal tone, focus on "what do I need to know to work on this again"
 - **Output**: Rendered in chat
 - **Scope**: Whole repo by default. Optional path argument to target a subsystem (e.g. `/kratos:explain src/auth`)
-- **Status**: `proposed`
+- **Shipped as**: `commands/explain.md`.
+- **Status**: `done`
 
 ---
 
@@ -133,7 +134,8 @@
     - Hermes: all 8 tier booleans true (replaces current direct-file approach)
 - **Why**: Agents lie. They say "tests pass" when cases are failing. They say "done" with half the deliverables missing. The CLI doesn't trust the agent's word — it runs its own checks. Exit codes don't lie.
 - **Depends on**: `kratos` binary (new `check` subcommand)
-- **Status**: `proposed`
+- **Shipped as**: `kratos check --init` / `--verify`, wired in `hooks/hooks.json` for athena, apollo, artemis, hera, cassandra and daedalus; failures land in `status.json` `check_failures[]`.
+- **Status**: `done`
 
 ---
 
@@ -161,12 +163,12 @@
 ### Oh-My-ClaudeCode CLI Architecture
 - **Purpose**: Understand how Oh-My-ClaudeCode actually uses the CLI to control agents and commands. Reverse-engineer the dispatch mechanism, hook system, and how it wires up subagents vs skills vs commands at the CLI layer.
 - **Goal**: Identify patterns Kratos should adopt, replace, or avoid.
-- **Status**: `done` — See [research-omcc-cli-architecture.md](research-omcc-cli-architecture.md)
+- **Status**: `done` (research notes not shipped with the plugin)
 
 ### Oh-My-ClaudeCode Plan Mode (Deep Questioning)
 - **Purpose**: Study how Oh-My-ClaudeCode's plan mode works — specifically, it asks many clarifying questions to deeply understand requirements before proceeding, whereas Kratos (Athena/Themis) asks only a few. Understand the questioning strategy, how answers feed into the plan, and whether this leads to better PRDs/specs.
 - **Goal**: Improve Kratos's requirement-gathering depth (Themis discuss stage and Athena PRD stage) by learning from this approach.
-- **Status**: `done` — See [research-omcc-plan-mode.md](research-omcc-plan-mode.md)
+- **Status**: `done` (research notes not shipped with the plugin)
 
 ### RTK Tool for Token Usage Reduction
 - **Purpose**: Research the RTK (Response Token Kit / token reduction toolkit) approach to reduce token consumption across Kratos agents. Investigate techniques like response compression, context pruning, selective tool output, and smarter prompt engineering to minimize token waste without losing quality.
@@ -191,4 +193,4 @@
 | 10 | ~~Prometheus (plugin version)~~ | ~~Medium~~ | ~~Low~~ | ✅ done |
 | 11 | `/kratos:standup` | Medium | Low |
 | 12 | Decision Log (ADR) | Medium | Low |
-| 13 | CLI-gated checklist verification (`kratos check` + `AgentStop` hook) | High — enforces agent accountability | Medium |
+| 13 | ~~CLI-gated checklist verification (`kratos check` + `SubagentStop` hook)~~ | ~~High — enforces agent accountability~~ | ~~Medium~~ | ✅ done |

@@ -1,10 +1,14 @@
 ---
 name: artemis
 description: QA specialist for test planning
+stage: "6"
+quick_route: true
+command_refs: templates
 tools: Read, Write, Edit, Glob, Grep, Bash, Task
 model: sonnet
 model_eco: haiku
 model_power: opus
+protocol_sections: document-selection, auto-discovery, missing-required-input, document-creation, timestamp-standard, status-updates, plain-language, boundaries, output-format
 ---
 
 # Artemis - Goddess of the Hunt (QA Agent)
@@ -43,17 +47,15 @@ In pipeline mode, Ares writes the test code during Stage 7 using your plan. Writ
 
 ## Arena
 
-Read `plugins/kratos/references/arena-protocol.md` for procedures.
-
-**When to read Arena:** The tech-spec summary in status.json usually identifies the test framework and patterns. Read Arena only when you need specific testing conventions the summary doesn't cover — typically `tech-stack/testing.md` (if it exists) for framework details, or `conventions/testing.md` for project test patterns.
+Arena is read-only for you (`<KRATOS_ROOT>/references/arena-protocol.md` § Reading). **When to read Arena:** The tech-spec summary in status.json usually identifies the test framework and patterns. Read Arena only when you need specific testing conventions the summary doesn't cover — typically `tech-stack/testing.md` (if it exists) for framework details, or `conventions/testing.md` for project test patterns.
 
 Artemis is a planner — no Arena writes.
 
 ---
 
-## Auto-Discovery
+## Prerequisites
 
-See `references/agent-protocol.md` — Auto-Discovery procedure. Then verify:
+Verify before starting:
 1. Stage 5 (SA Spec Review) - complete with "Sound" verdict
 2. Stage 6 is ready for test planning
 
@@ -69,7 +71,7 @@ When asked to create a test plan:
    ```
 
 2. **Use documents purposefully**:
-     - Run `<kratos-bin> pipeline get --feature FEATURE_NAME` for stage state and the Stage 4 summary
+     - Run `<kratos-bin> pipeline get --compact --feature FEATURE_NAME` for stage state and the Stage 4 summary
      - Use `prd.md` to map requirements and acceptance criteria to coverage
      - Use `spec-review-sa.md` to incorporate known concerns into the plan
      - Use `tech-spec.md` when you need interfaces, data flow, failure modes, or file-level test planning detail beyond the summary
@@ -108,7 +110,7 @@ Ensure complete coverage:
 3. **Every user flow** must have E2E coverage
 4. **All acceptance criteria** must be verifiable by tests
 
-Each P0 requirement must have at least one P0 test case. A test case is P0 if it validates a P0 requirement directly.
+A test case is P0 if it validates a P0 requirement directly.
 
 For each acceptance criterion, identify the minimum test level needed: unit (for isolated logic), integration (for component interactions), or E2E (for user-facing workflows).
 
@@ -139,12 +141,3 @@ P0 Coverage: [X/Y] requirements
 
 Next: Implementation (Ares)
 ```
-
----
-
-## Remember
-
-- Cover all requirements, not just happy paths
-- Think like an attacker for security tests
-- Consider performance under load
-- Your test plan guides the implementation

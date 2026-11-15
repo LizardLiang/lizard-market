@@ -19,35 +19,6 @@ When the user invokes `/kratos:recall`, you:
 
 ---
 
-## How to Query
-
-Use the Go binary (preferred) or status.json fallback to get session info:
-
-```bash
-# Go binary (primary method) — pass the project root path as argument
-<kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
-
-# Global recall (all projects)
-<kratos-bin> recall --global --limit 5
-
-# Incomplete features only
-<kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) --incomplete
-
-# Fallback: scan status.json files directly (if Go binary unavailable)
-# Use Glob to find .claude/feature/*/status.json and Read to parse them
-```
-
-### Options
-
-| Flag | Effect |
-|------|--------|
-| `[project]` | Project root path (required unless `--global`) |
-| `--global` | Show sessions across all projects |
-| `--incomplete` | Show only incomplete features |
-| `--limit N` | Number of recent sessions for `--global` (default: 5) |
-
----
-
 ## Response Format
 
 ### Project-Specific Mode (Default)
@@ -58,7 +29,7 @@ When the user runs `/kratos:recall`:
 KRATOS RECALL
 
 Feature: [feature-name]
-Stage: [X]/11 ([stage-name])
+Stage: [X]/9 ([stage-name])
 Status: [in_progress | completed | abandoned]
 Last active: [time ago]
 
@@ -68,7 +39,7 @@ Last Actions:
 - [Action 3]
 
 Pipeline:
-[1]OK -> [2]OK -> [3]OK -> [4]>> -> [4].. -> [5].. -> [6].. -> [7]..
+[1]OK -> [2]OK -> [3]OK -> [4]>> -> [5].. -> [6].. -> [7].. -> [8].. -> [9]..
 
 Pipeline symbols: `✅` = complete, `>>` = current/in-progress, `..` = pending/not started, `⏭️` = skipped, `❌` = blocked
 
@@ -84,30 +55,14 @@ KRATOS RECALL (Global)
 
 Recent sessions across all projects:
 
-1. [project]/[feature] - Stage [X]/11 - [time ago]
-2. [project]/[feature] - Stage [X]/11 - [time ago]
+1. [project]/[feature] - Stage [X]/9 - [time ago]
+2. [project]/[feature] - Stage [X]/9 - [time ago]
 3. [project]/[feature] - Completed - [time ago]
 
 Use /kratos:recall in the project directory for details.
 ```
 
----
-
-## Stage Reference
-
-| Stage | Name | Agent |
-|-------|------|-------|
-| 0 | Research | Metis |
-| 1 | PRD Creation | Athena |
-| 2 | PRD Review | Athena |
-| 3 | Decomposition | Daedalus |
-| 4 | Discuss | Themis |
-| 5 | Tech Spec | Hephaestus |
-| 7 | SA Spec Review | Apollo |
-| 8 | Test Plan | Artemis |
-| 9 | Implementation | Ares |
-| 10 | PRD Alignment | Hera |
-| 11 | Review | Hermes + Cassandra |
+Stage reference: 0 Research (Metis, optional) · 1 PRD (Kratos gap analysis inline, then Athena) · 2 PRD Review (Nemesis) · 3 Decomposition (Daedalus, optional) · 4 Tech Spec (Themis discuss inline, then Hephaestus) · 5 SA Spec Review (Apollo) · 6 Test Plan (Artemis) · 7 Implementation (Ares) · 8 PRD Alignment (Hera) · 9 Review (Hermes + Cassandra).
 
 ---
 
@@ -121,30 +76,57 @@ Check if user specified `--global`:
 
 ### Step 2: Query Memory
 
-Run the Go binary (preferred):
+Run the Go binary (preferred) — pass the project root path as argument:
 
 ```bash
 <kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd)
 ```
 
-Or for global:
+Add `--incomplete` to show only incomplete features. For global:
 
 ```bash
 <kratos-bin> recall --global --limit 5
 ```
 
+(`--limit N` sets the number of recent sessions for `--global`; default 5.)
+
 If the Go binary is unavailable, fall back to scanning `.claude/feature/*/status.json` files directly using Glob and Read tools.
 
-### Step 3: Parse and Present
+### Step 3: Check for a session handoff
 
-Parse the JSON response and format it according to the templates above.
+Check whether `.claude/.Arena/handoff.md` exists and is less than 7 days old (same freshness gate as `/kratos:wrap` and the on-demand injection hook). This step works with or without the Go binary — it's a plain file check:
 
-### Step 4: Offer Continuation
+- Use Glob/Read (or `test -f` via Bash) to check `.claude/.Arena/handoff.md` exists.
+- If it exists, check its modification time is within 7 days.
+- If fresh, Read the file and present its content alongside the recall summary (see Response Format above) — this is the explicit manual path to the same content the resume-phrase hook injects on demand.
+- If missing or stale, skip silently — no mention of it in the output.
+
+### Step 3b: Check for unfinished plan drafts
+
+A `/kratos:plan` session that ended mid-clarification leaves a tactical plan marked `status: draft`. It holds real answers the user already gave, and it is invisible to every other recall surface — Odysseus creates no session, no feature dir, and no `status.json`, so a plan-only session is exactly the case Steps 1–3 cannot see. This is a plain file check, binary or not:
+
+- Glob `.claude/.Arena/tactical-plans/*.md` and Read the frontmatter of each.
+- Collect any whose frontmatter says `status: draft`, along with the entries under their `## Locked Decisions` heading.
+- Apply the same 7-day freshness gate as the handoff.
+- If none, skip silently.
+
+### Step 4: Parse and Present
+
+Parse the JSON response and format it according to the templates above. If Step 3 found a fresh handoff, include it under a `## Session Handoff` heading after the pipeline summary. If Step 3b found drafts, list them under a `## Unfinished Plans` heading with their locked-decision count and the resume command:
+
+```
+## Unfinished Plans
+
+- `.claude/.Arena/tactical-plans/<slug>.md` — <N> locked decisions, last touched <date>
+  Resume: /kratos:plan <task title>   (picks up the existing answers instead of re-asking)
+```
+
+### Step 5: Offer Continuation
 
 If there's an incomplete feature, offer to continue:
 
 > **Ready to continue?**
-> Say "continue" or "/kratos" to resume from Stage [X] with [Agent].
+> Say "continue" or "/kratos:main" to resume from Stage [X] with [Agent].
 
 ---
 
@@ -160,7 +142,7 @@ KRATOS RECALL
 No previous sessions found for this project.
 
 To start a new feature, use:
-  /kratos Build [your feature description]
+  /kratos:main Build [your feature description]
 
 Or for quick tasks:
   /kratos:quick [task description]
@@ -179,7 +161,7 @@ Status: COMPLETED
 Your last feature was successfully completed.
 
 To start a new feature, use:
-  /kratos Build [your feature description]
+  /kratos:main Build [your feature description]
 ```
 
 ### Go Binary Not Available
@@ -204,67 +186,5 @@ Showing current project only.
 ```
 
 ---
-
-## Examples
-
-**User**: `/kratos:recall`
-
-**Response**:
-```
-KRATOS RECALL
-
-Feature: user-authentication
-Stage: 6/11 (PM Spec Review)
-Status: in_progress
-Last active: 2 hours ago
-
-Last Actions:
-- Hephaestus: Created tech-spec.md
-- Athena: Started PM review
-- Updated status.json
-
-Pipeline:
-[1]OK -> [2]OK -> [4]OK -> [5]>> -> [6].. -> [7].. -> [8].. -> [9].. -> [11]..
-
-Recommendation: Continue with Stage 6 (Apollo - SA Spec Review)?
-
-Ready to continue? Say "continue" or "/kratos" to resume.
-```
-
----
-
-**User**: `/kratos:recall --global`
-
-**Response**:
-```
-KRATOS RECALL (Global)
-
-Recent sessions across all projects:
-
-1. kratos/memory-recall-system - Stage 5/11 - 2 hours ago
-2. lizard-market/payment-integration - Stage 8/11 - 1 day ago
-3. my-app/user-dashboard - Completed - 3 days ago
-4. api-server/rate-limiting - Stage 2/11 - 5 days ago
-
-Use /kratos:recall in the project directory for details.
-```
-
----
-
-## Implementation
-
-When you receive `/kratos:recall`, execute these steps:
-
-1. **Run the query** (Go binary preferred, status.json fallback):
-```bash
-<kratos-bin> recall $(git rev-parse --show-toplevel 2>/dev/null || pwd) 2>/dev/null
-```
-If the binary is unavailable, use Glob to find `.claude/feature/*/status.json` and Read to parse them.
-
-2. **Parse the JSON output**
-
-3. **Format and display** according to the templates above
-
-4. **Offer continuation** if there's an incomplete feature
 
 **Now execute the recall query and present the results.**

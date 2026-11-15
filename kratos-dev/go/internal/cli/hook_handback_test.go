@@ -1,0 +1,992 @@
+package cli
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+// rfc3339 formats a timestamp the way every real Claude Code transcript line
+// carries its own: RFC 3339 with fractional seconds, "Z" suffix.
+func rfc3339(t time.Time) string {
+	return t.UTC().Format(time.RFC3339Nano)
+}
+
+// fixHandbackClock points handbackNow at a fixed instant for the life of the
+// test, restoring the real clock on cleanup.
+func fixHandbackClock(t *testing.T, when time.Time) {
+	t.Helper()
+	prev := handbackNow
+	handbackNow = func() time.Time { return when }
+	t.Cleanup(func() { handbackNow = prev })
+}
+
+// --- Fixture line builders ------------------------------------------------
+//
+// Every builder mirrors a real shape observed in a live Hermes transcript
+// (agent-ae8cddbbbfd689d03.jsonl, GSS_VITAL-NETZERO2604, 2026-09-17 — read
+// only, never copied into the repo verbatim; no customer text below).
+
+// handbackAssistantToolUseLine builds an assistant entry whose message
+// carries one tool_use block — the shape a Task/Agent spawn, or an ordinary
+// Read/Grep call, both look like.
+func handbackAssistantToolUseLine(toolUseID, name string) string {
+	b, _ := json.Marshal(map[string]any{
+		"type": "assistant",
+		"message": map[string]any{
+			"content": []map[string]any{
+				{"type": "tool_use", "id": toolUseID, "name": name, "input": map[string]any{}},
+			},
+		},
+	})
+	return string(b)
+}
+
+// handbackLaunchResultLine builds the tool_result Claude Code returns for an
+// async Agent/Task spawn: the marker text plus the child's id, both in the
+// tool_result's own nested content and in the line's toolUseResult field —
+// exactly as the real transcript carries both. Timestamped "now": tests that
+// do not care about the stall clock stay well inside handbackStallTimeout.
+func handbackLaunchResultLine(toolUseID, agentID string) string {
+	return handbackLaunchResultLineAt(toolUseID, agentID, time.Now())
+}
+
+// handbackLaunchResultLineAt is handbackLaunchResultLine with an explicit
+// timestamp, for the stall-timeout tests that control the clock precisely.
+func handbackLaunchResultLineAt(toolUseID, agentID string, ts time.Time) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":      "user",
+		"timestamp": rfc3339(ts),
+		"message": map[string]any{
+			"content": []map[string]any{
+				{
+					"type":        "tool_result",
+					"tool_use_id": toolUseID,
+					"content": []map[string]any{
+						{"type": "text", "text": "Async agent launched successfully. (internal)\nagentId: " + agentID + " (internal id)"},
+					},
+				},
+			},
+		},
+		"toolUseResult": map[string]any{"isAsync": true, "agentId": agentID},
+	})
+	return string(b)
+}
+
+// handbackReadResultLine builds an ordinary tool_result (a Read or Grep, not
+// an Agent/Task spawn) whose text happens to quote the two literal markers —
+// the Defect 1 exploit: this must never be counted as a real launch or
+// report, because its tool_use_id never answers an Agent/Task tool_use.
+func handbackReadResultLine(toolUseID string) string {
+	b, _ := json.Marshal(map[string]any{
+		"type": "user",
+		"message": map[string]any{
+			"content": []map[string]any{
+				{
+					"type":        "tool_result",
+					"tool_use_id": toolUseID,
+					"content": []map[string]any{
+						{"type": "text", "text": "// const handbackAsyncLaunchMarker = \"Async agent launched successfully\"\n// matches <agent-message from=\"not-a-real-child\">"},
+					},
+				},
+			},
+		},
+	})
+	return string(b)
+}
+
+// handbackReportLine builds the attachment entry a child's SubagentHandback
+// arrives as: attachment.prompt carries the literal <agent-message from="…">
+// tag, and attachment.origin names the same id structurally. Timestamped
+// "now" — see handbackLaunchResultLine.
+func handbackReportLine(agentID string) string {
+	return handbackReportLineAt(agentID, time.Now())
+}
+
+// handbackReportLineAt is handbackReportLine with an explicit timestamp.
+func handbackReportLineAt(agentID string, ts time.Time) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":      "attachment",
+		"timestamp": rfc3339(ts),
+		"attachment": map[string]any{
+			"type":   "queued_command",
+			"prompt": `<agent-message from="` + agentID + `">child report</agent-message>`,
+			"origin": map[string]any{"kind": "peer", "from": agentID, "handback": true},
+		},
+	})
+	return string(b)
+}
+
+// handbackUserOriginReportLine builds the OTHER real report shape: a
+// top-level `origin` on a type:"user" entry whose message content is a plain
+// string carrying the hand-back wrapper — 2 of 3 real reports in the 09-17
+// NETZERO transcript took this shape, not the attachment shape above. The
+// body text deliberately carries no `<agent-message from=` literal, so a
+// case using this fixture alone proves the structured origin path, not the
+// prose fallback, is what finishes the child.
+func handbackUserOriginReportLine(agentID string, ts time.Time) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":      "user",
+		"timestamp": rfc3339(ts),
+		"origin":    map[string]any{"kind": "peer", "from": agentID, "senderTaskId": agentID, "handback": true},
+		"message": map[string]any{
+			"content": "Another Claude session sent a message while you were working:\nchild report body, no literal tag here",
+		},
+	})
+	return string(b)
+}
+
+// handbackArrayPromptReportLine builds the same attachment report shape as
+// handbackReportLine, but with `prompt` encoded as a content-block array
+// instead of a plain string — a real shape a queued_command attachment can
+// carry. Before Prompt was typed json.RawMessage, a string-typed field made
+// the whole line fail json.Unmarshal, silently dropping this attachment's
+// origin.handback along with it.
+func handbackArrayPromptReportLine(agentID string, ts time.Time) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":      "attachment",
+		"timestamp": rfc3339(ts),
+		"attachment": map[string]any{
+			"type": "queued_command",
+			"prompt": []map[string]any{
+				{"type": "text", "text": `<agent-message from="` + agentID + `">child report</agent-message>`},
+			},
+			"origin": map[string]any{"kind": "peer", "from": agentID, "handback": true},
+		},
+	})
+	return string(b)
+}
+
+// handbackTaskNotificationLine builds the attachment entry Claude Code sends
+// when a child agent stops, for any status — completed, failed, or anything
+// else. A dead child never sends an <agent-message>, only this. Timestamped
+// "now" — see handbackLaunchResultLine.
+func handbackTaskNotificationLine(taskID, status string) string {
+	return handbackTaskNotificationLineAt(taskID, status, time.Now())
+}
+
+// handbackTaskNotificationLineAt is handbackTaskNotificationLine with an
+// explicit timestamp.
+func handbackTaskNotificationLineAt(taskID, status string, ts time.Time) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":      "attachment",
+		"timestamp": rfc3339(ts),
+		"attachment": map[string]any{
+			"type":        "queued_command",
+			"commandMode": "task-notification",
+			"prompt":      "<task-notification>\n<task-id>" + taskID + "</task-id>\n<status>" + status + "</status>\n</task-notification>",
+		},
+	})
+	return string(b)
+}
+
+// writeHandbackTranscript lays out the exact directory shape
+// handbackTranscriptPath expects — <root>/<sessionID>/subagents/
+// agent-<agentID>.jsonl — next to a stand-in main transcript file, and
+// returns the main transcript's path (what the payload's transcript_path
+// would carry).
+func writeHandbackTranscript(t *testing.T, sessionID, agentID string, lines ...string) string {
+	t.Helper()
+	root := t.TempDir()
+	mainTranscript := filepath.Join(root, sessionID+".jsonl")
+	if err := os.WriteFile(mainTranscript, []byte("{}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	subDir := filepath.Join(root, sessionID, "subagents")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	agentPath := filepath.Join(subDir, "agent-"+agentID+".jsonl")
+	if err := os.WriteFile(agentPath, []byte(strings.Join(lines, "\n")+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	return mainTranscript
+}
+
+// threeLaunchLines builds the six lines a real Hermes fan-out writes for
+// three children: one assistant tool_use plus one tool_result per child.
+func threeLaunchLines(toolUseA, toolUseB, toolUseC, childA, childB, childC string) []string {
+	return threeLaunchLinesAt(time.Now(), toolUseA, toolUseB, toolUseC, childA, childB, childC)
+}
+
+// threeLaunchLinesAt is threeLaunchLines with every launch stamped at the
+// same explicit time, for the stall-timeout tests.
+func threeLaunchLinesAt(ts time.Time, toolUseA, toolUseB, toolUseC, childA, childB, childC string) []string {
+	return []string{
+		handbackAssistantToolUseLine(toolUseA, "Agent"),
+		handbackLaunchResultLineAt(toolUseA, childA, ts),
+		handbackAssistantToolUseLine(toolUseB, "Agent"),
+		handbackLaunchResultLineAt(toolUseB, childB, ts),
+		handbackAssistantToolUseLine(toolUseC, "Agent"),
+		handbackLaunchResultLineAt(toolUseC, childC, ts),
+	}
+}
+
+func TestHandbackGateDecision(t *testing.T) {
+	t.Run("3 launched, 1 reported: deny and name the missing two", func(t *testing.T) {
+		lines := append(threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackReportLine("childA"),
+		)
+		mainTranscript := writeHandbackTranscript(t, "sess1", "hermesA", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesA",
+			SessionID:      "sess1",
+			TranscriptPath: mainTranscript,
+		})
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny, got %q", res.Decision)
+		}
+		if !strings.Contains(res.Reason, "childB") || !strings.Contains(res.Reason, "childC") {
+			t.Errorf("reason should name the missing children, got %q", res.Reason)
+		}
+		if strings.Contains(res.Reason, "childA") {
+			t.Errorf("reason should not name a child that already reported, got %q", res.Reason)
+		}
+	})
+
+	t.Run("3 launched, 3 reported: no decision", func(t *testing.T) {
+		lines := append(threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackReportLine("childA"),
+			handbackReportLine("childB"),
+			handbackReportLine("childC"),
+		)
+		mainTranscript := writeHandbackTranscript(t, "sess2", "hermesB", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesB",
+			SessionID:      "sess2",
+			TranscriptPath: mainTranscript,
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision once every child reported, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("non-Hermes agent: no decision regardless of transcript", func(t *testing.T) {
+		mainTranscript := writeHandbackTranscript(t, "sess3", "aresA",
+			handbackAssistantToolUseLine("tu1", "Agent"),
+			handbackLaunchResultLine("tu1", "childA"),
+		)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "general-purpose",
+			AgentID:        "aresA",
+			SessionID:      "sess3",
+			TranscriptPath: mainTranscript,
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a non-Hermes agent, got %q", res.Decision)
+		}
+	})
+
+	t.Run("unreadable transcript: fails open", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesC",
+			SessionID:      "sess4",
+			TranscriptPath: filepath.Join(t.TempDir(), "does-not-exist.jsonl"),
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected fail-open (no decision) for an unreadable transcript, got %q", res.Decision)
+		}
+	})
+
+	t.Run("wrong tool name: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "Write",
+			AgentType: "hermes",
+			AgentID:   "hermesD",
+			SessionID: "sess5",
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a non-SubagentHandback tool, got %q", res.Decision)
+		}
+	})
+
+	t.Run("ares missing Landed: deny naming it", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback1",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "Task list:\n1. [x] done\ncreated src/a.ts\nImplementation complete."},
+		})
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny for a report missing the Landed: line, got %q", res.Decision)
+		}
+		if !strings.Contains(res.Reason, "Landed:") {
+			t.Errorf("reason should name the missing Landed: line, got %q", res.Reason)
+		}
+	})
+
+	t.Run("ares complete report: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback2",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a complete report, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	// These two cases pin the fix for the PreToolUse hand-back gate's Ares
+	// branch building subagentStopInput without AgentTranscriptPath: before
+	// the fix, aresVerifyGateFailure fell back to TranscriptPath with
+	// sidechainOnly=true and scanned the parent session's transcript instead
+	// of Ares's own subagent transcript at
+	// <dir(TranscriptPath)>/<session_id>/subagents/agent-<agent_id>.jsonl.
+	t.Run("ares code edit with no test run, verify gate reads Ares's own transcript: deny naming the missing test run", func(t *testing.T) {
+		lines := []string{
+			userPromptLine("implement"),
+			toolUseLine(false, "Edit", map[string]any{"file_path": "src/auth.go"}),
+		}
+		mainTranscript := writeHandbackTranscript(t, "sess8", "aresHandback4", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "kratos:ares",
+			AgentID:        "aresHandback4",
+			SessionID:      "sess8",
+			TranscriptPath: mainTranscript,
+			Cwd:            t.TempDir(),
+			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"},
+		})
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny for a code edit with no test command in Ares's own transcript, got %q", res.Decision)
+		}
+		if !strings.Contains(res.Reason, "test") {
+			t.Errorf("reason should name the missing test run, got %q", res.Reason)
+		}
+	})
+
+	t.Run("ares TESTS-NOT-APPLICABLE waives the verify gate on Ares's own transcript: no decision", func(t *testing.T) {
+		lines := []string{
+			userPromptLine("implement"),
+			toolUseLine(false, "Edit", map[string]any{"file_path": "src/auth.go"}),
+			reachChildLine(),
+		}
+		mainTranscript := writeHandbackTranscript(t, "sess9", "aresHandback5", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "kratos:ares",
+			AgentID:        "aresHandback5",
+			SessionID:      "sess9",
+			TranscriptPath: mainTranscript,
+			Cwd:            t.TempDir(),
+			ToolInput:      preToolUseToolInput{Message: "Task list:\n1. [x] docs\ncreated docs/doc.md\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nTESTS-NOT-APPLICABLE: docs only"},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision once TESTS-NOT-APPLICABLE waives the verify gate, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("ares 4th call: no decision, cap reached", func(t *testing.T) {
+		cwd := t.TempDir()
+		badInput := preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback3",
+			Cwd:       cwd,
+			ToolInput: preToolUseToolInput{Message: "I did some work."},
+		}
+		for i := 1; i <= gateMaxBlocks; i++ {
+			res := handbackGateDecision(badInput)
+			if res.Decision != "deny" {
+				t.Fatalf("call %d: expected deny (block_count %d < cap %d), got %q", i, i-1, gateMaxBlocks, res.Decision)
+			}
+		}
+		res := handbackGateDecision(badInput)
+		if res.Decision != "" {
+			t.Fatalf("call %d: expected no decision once the block-count cap (%d) is reached, got %q: %s", gateMaxBlocks+1, gateMaxBlocks, res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("hephaestus with 3 sections: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:hephaestus",
+			AgentID:   "hephHandback1",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "## Architecture\n...\n## API\n...\n## Data Model\n..."},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision with 3 recognized sections, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("hephaestus too few sections: deny", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:hephaestus",
+			AgentID:   "hephHandback2",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "This is a brief spec."},
+		})
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny with too few sections, got %q", res.Decision)
+		}
+		if !strings.Contains(res.Reason, "incomplete") {
+			t.Errorf("reason should say the spec is incomplete, got %q", res.Reason)
+		}
+	})
+
+	// A compliant Ares/Hephaestus report asking for a plan or a decision
+	// changed no code and carries no Final Block — isNonCompletionReport
+	// exempts these three from every check aresReportFailures and
+	// hephaestusSectionFailures run, in both this gate and SubagentStop
+	// (TestAresReportFailuresAcceptsReportTemplates,
+	// TestHephaestusSectionFailuresAcceptsNeedsDecisionsReport in
+	// hook_test.go).
+	t.Run("ares ARES NEEDS PLAN MODE report: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback6",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "ARES NEEDS PLAN MODE\n\nReason: the mission names no target files and the request supports two different implementation approaches.\n\nRecommended next step:\n/kratos:plan restated task"},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a filled ARES NEEDS PLAN MODE report, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("ares ARES NEEDS CLARIFICATION report: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback7",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "ARES NEEDS CLARIFICATION\n\nQuestion: the fix could apply only to the v1 endpoint or to both v1 and v2 — the code gives no signal either way.\nRecommended default: apply it to both, because v1 and v2 share the same validator function."},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a filled ARES NEEDS CLARIFICATION report, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("hephaestus HEPHAESTUS NEEDS DECISIONS report: no decision", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:hephaestus",
+			AgentID:   "hephHandback3",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "HEPHAESTUS NEEDS DECISIONS\n\nFeature: payments\nProgress: wrote the schema section, stopped before the API section.\n\nQuestions:\n1. Two locked decisions conflict on retry behavior — should a failed charge retry automatically or surface to the caller?\n   Options: A — auto-retry / B — surface to caller / recommended: B because a silent retry can double-charge."},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a filled HEPHAESTUS NEEDS DECISIONS report, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	// The marker only exempts a report when it opens the message — a
+	// completion report that quotes the phrase mid-body still needs its
+	// Final Block, same as any other completion report.
+	t.Run("completion report quoting ARES NEEDS CLARIFICATION in its body but missing Landed: still denied", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:  "SubagentHandback",
+			AgentType: "kratos:ares",
+			AgentID:   "aresHandback8",
+			Cwd:       t.TempDir(),
+			ToolInput: preToolUseToolInput{Message: "ARES COMPLETE\n\nEarlier in this spawn I considered returning ARES NEEDS CLARIFICATION but resolved the ambiguity from the code instead.\n\nTask list:\n1. [x] auth — done\nFiles created/modified: auth.go\nImplementation complete."},
+		})
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny — the marker only exempts a report that opens with it, got %q", res.Decision)
+		}
+		if !strings.Contains(res.Reason, "Landed:") {
+			t.Errorf("reason should name the missing Landed: line, got %q", res.Reason)
+		}
+	})
+
+	t.Run("missing session id: fails open before touching disk", func(t *testing.T) {
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesE",
+			TranscriptPath: "/some/path/sess.jsonl",
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision with no session id, got %q", res.Decision)
+		}
+	})
+
+	// Defect 1: a Read/Grep result that merely quotes the two literal markers
+	// in prose must never be mistaken for a real launch or a real report.
+	t.Run("Read result quoting both literals plus 3 real launches and 3 real reports: no decision", func(t *testing.T) {
+		lines := []string{
+			handbackAssistantToolUseLine("tuRead", "Read"),
+			handbackReadResultLine("tuRead"),
+		}
+		lines = append(lines, threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC")...)
+		lines = append(lines,
+			handbackReportLine("childA"),
+			handbackReportLine("childB"),
+			handbackReportLine("childC"),
+		)
+		mainTranscript := writeHandbackTranscript(t, "sess6", "hermesF", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesF",
+			SessionID:      "sess6",
+			TranscriptPath: mainTranscript,
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision — the quoted Read result must not inflate launched or finished, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	// Defect 2: a child that dies still sends a task-notification, never an
+	// <agent-message>. That notification must count as finished regardless
+	// of its <status>.
+	t.Run("3 launches, 2 reports, 1 failed task-notification: no decision", func(t *testing.T) {
+		lines := append(threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackReportLine("childA"),
+			handbackReportLine("childB"),
+			handbackTaskNotificationLine("childC", "failed"),
+		)
+		mainTranscript := writeHandbackTranscript(t, "sess7", "hermesG", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesG",
+			SessionID:      "sess7",
+			TranscriptPath: mainTranscript,
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision — a failed child's task-notification still finishes it, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	// An <agent-message from="X"> for an id this transcript never launched
+	// must not count toward any of the real children finishing.
+	t.Run("agent-message for an unlaunched id does not count", func(t *testing.T) {
+		lines := append(threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackReportLine("some-other-agent-not-launched-here"),
+		)
+		mainTranscript := writeHandbackTranscript(t, "sess8", "hermesH", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesH",
+			SessionID:      "sess8",
+			TranscriptPath: mainTranscript,
+		})
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny — the unrelated report must not finish any real child, got %q", res.Decision)
+		}
+		for _, id := range []string{"childA", "childB", "childC"} {
+			if !strings.Contains(res.Reason, id) {
+				t.Errorf("reason should still name %s as missing, got %q", id, res.Reason)
+			}
+		}
+	})
+}
+
+// TestHandbackGateStallTimeout covers the stateless redesign (Part 3a): no
+// state file, no denial counter — the gate denies while children are
+// outstanding unless the transcript itself shows no launch or finish event
+// for handbackStallTimeout, measured against the injected clock.
+func TestHandbackGateStallTimeout(t *testing.T) {
+	t.Run("3 launched, 0 finished, last progress 1 minute ago: deny on ten consecutive calls", func(t *testing.T) {
+		ref := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+		launchedAt := ref.Add(-1 * time.Minute)
+		mainTranscript := writeHandbackTranscript(t, "sess9", "hermesI",
+			threeLaunchLinesAt(launchedAt, "tu1", "tu2", "tu3", "childA", "childB", "childC")...,
+		)
+		fixHandbackClock(t, ref)
+		input := preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesI",
+			SessionID:      "sess9",
+			TranscriptPath: mainTranscript,
+			Cwd:            filepath.Dir(mainTranscript),
+		}
+
+		for i := 1; i <= 10; i++ {
+			res := handbackGateDecision(input)
+			if res.Decision != "deny" {
+				t.Fatalf("call %d: expected deny (1 minute since last progress), got %q", i, res.Decision)
+			}
+		}
+	})
+
+	t.Run("same transcript, clock 31 minutes past last progress: no deny, additionalContext names the three ids", func(t *testing.T) {
+		ref := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+		launchedAt := ref.Add(-1 * time.Minute)
+		mainTranscript := writeHandbackTranscript(t, "sess9b", "hermesI2",
+			threeLaunchLinesAt(launchedAt, "tu1", "tu2", "tu3", "childA", "childB", "childC")...,
+		)
+		fixHandbackClock(t, launchedAt.Add(31*time.Minute))
+		input := preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesI2",
+			SessionID:      "sess9b",
+			TranscriptPath: mainTranscript,
+			Cwd:            filepath.Dir(mainTranscript),
+		}
+
+		res := handbackGateDecision(input)
+		if res.Decision != "" {
+			t.Fatalf("expected no decision past the stall timeout, got %q: %s", res.Decision, res.Reason)
+		}
+		for _, id := range []string{"childA", "childB", "childC"} {
+			if !strings.Contains(res.AdditionalContext, id) {
+				t.Errorf("additionalContext should name %s as missing, got %q", id, res.AdditionalContext)
+			}
+		}
+		if !strings.Contains(res.AdditionalContext, "parent-only") {
+			t.Errorf("additionalContext should say the missing tiers are parent-only, got %q", res.AdditionalContext)
+		}
+	})
+
+	t.Run("3 launched, 1 finished 2 minutes ago: deny even when the launch was 40 minutes ago", func(t *testing.T) {
+		ref := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+		launchedAt := ref.Add(-40 * time.Minute)
+		finishedAt := ref.Add(-2 * time.Minute)
+		lines := append(threeLaunchLinesAt(launchedAt, "tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackReportLineAt("childA", finishedAt),
+		)
+		mainTranscript := writeHandbackTranscript(t, "sess9c", "hermesI3", lines...)
+		fixHandbackClock(t, ref)
+		input := preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesI3",
+			SessionID:      "sess9c",
+			TranscriptPath: mainTranscript,
+			Cwd:            filepath.Dir(mainTranscript),
+		}
+
+		res := handbackGateDecision(input)
+		if res.Decision != "deny" {
+			t.Fatalf("expected deny — the finish 2 minutes ago is progress, not the 40-minute-old launch, got %q", res.Decision)
+		}
+		if strings.Contains(res.Reason, "childA") {
+			t.Errorf("reason should not name the child that already reported, got %q", res.Reason)
+		}
+		for _, id := range []string{"childB", "childC"} {
+			if !strings.Contains(res.Reason, id) {
+				t.Errorf("reason should name %s as missing, got %q", id, res.Reason)
+			}
+		}
+	})
+
+	t.Run("all finished: no output at all, regardless of how stale the launch is", func(t *testing.T) {
+		ref := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+		launchedAt := ref.Add(-90 * time.Minute)
+		lines := append(threeLaunchLinesAt(launchedAt, "tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackReportLineAt("childA", ref.Add(-70*time.Minute)),
+			handbackReportLineAt("childB", ref.Add(-60*time.Minute)),
+			handbackReportLineAt("childC", ref.Add(-50*time.Minute)),
+		)
+		mainTranscript := writeHandbackTranscript(t, "sess9d", "hermesI4", lines...)
+		fixHandbackClock(t, ref)
+		input := preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesI4",
+			SessionID:      "sess9d",
+			TranscriptPath: mainTranscript,
+			Cwd:            filepath.Dir(mainTranscript),
+		}
+
+		res := handbackGateDecision(input)
+		if res.Decision != "" || res.AdditionalContext != "" {
+			t.Fatalf("expected no output at all once every child has reported, got decision %q, context %q", res.Decision, res.AdditionalContext)
+		}
+	})
+
+	t.Run("no usable timestamp anywhere: fails open", func(t *testing.T) {
+		mainTranscript := writeHandbackTranscript(t, "sess9e", "hermesI5",
+			handbackAssistantToolUseLine("tu1", "Agent"),
+			// A launch line with no timestamp field at all.
+			`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu1","content":[{"type":"text","text":"Async agent launched successfully.\nagentId: childA"}]}]},"toolUseResult":{"agentId":"childA"}}`,
+		)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesI5",
+			SessionID:      "sess9e",
+			TranscriptPath: mainTranscript,
+			Cwd:            filepath.Dir(mainTranscript),
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected fail-open with no usable timestamp, got %q", res.Decision)
+		}
+	})
+}
+
+// TestHandbackGateStructuredFinishShapes covers Part 3c and 3d: the
+// top-level `origin` shape on a type:"user" entry, and an attachment whose
+// `prompt` is a content-block array rather than a plain string.
+func TestHandbackGateStructuredFinishShapes(t *testing.T) {
+	t.Run("top-level origin on a user entry finishes the child, no <agent-message> literal needed", func(t *testing.T) {
+		now := time.Now()
+		lines := append(threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackUserOriginReportLine("childA", now),
+			handbackUserOriginReportLine("childB", now),
+			handbackUserOriginReportLine("childC", now),
+		)
+		for _, l := range lines {
+			if strings.Contains(l, `<agent-message from=`) {
+				t.Fatalf("fixture must carry no <agent-message from= literal, got line: %s", l)
+			}
+		}
+		mainTranscript := writeHandbackTranscript(t, "sess11", "hermesK", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesK",
+			SessionID:      "sess11",
+			TranscriptPath: mainTranscript,
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision — the structured origin alone finishes every child, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+
+	t.Run("an attachment with an array-shaped prompt still counts as finished", func(t *testing.T) {
+		now := time.Now()
+		lines := append(threeLaunchLines("tu1", "tu2", "tu3", "childA", "childB", "childC"),
+			handbackArrayPromptReportLine("childA", now),
+			handbackReportLine("childB"),
+			handbackReportLine("childC"),
+		)
+		mainTranscript := writeHandbackTranscript(t, "sess12", "hermesL", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName:       "SubagentHandback",
+			AgentType:      "hermes",
+			AgentID:        "hermesL",
+			SessionID:      "sess12",
+			TranscriptPath: mainTranscript,
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected no decision — an array-shaped prompt must not fail the whole line's unmarshal, got %q: %s", res.Decision, res.Reason)
+		}
+	})
+}
+
+// --- Ares reach-check child lifecycle ---------------------------------------
+
+// aresChildLaunchLines builds what Ares writes when it spawns the async
+// reach-check child: an Agent tool_use whose prompt carries a git diff range,
+// then the "Async agent launched successfully" result naming the child.
+func aresChildLaunchLines(toolUseID, childID string, ts time.Time) []string {
+	b, _ := json.Marshal(map[string]any{
+		"type":      "assistant",
+		"timestamp": rfc3339(ts),
+		"message": map[string]any{
+			"content": []map[string]any{
+				{"type": "tool_use", "id": toolUseID, "name": "Agent", "input": map[string]any{"prompt": "Run git diff abc1234..HEAD and answer the four Reach questions"}},
+			},
+		},
+	})
+	return []string{string(b), handbackLaunchResultLineAt(toolUseID, childID, ts)}
+}
+
+// writeChildTranscript lays out a launched child's own transcript next to the
+// main one, where scanOutstandingChildren looks for it.
+func writeChildTranscript(t *testing.T, mainTranscript, sessionID, childID string, lines ...string) {
+	t.Helper()
+	p := subagentTranscriptPath(mainTranscript, sessionID, childID)
+	if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(strings.Join(lines, "\n")+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// apiErrorLine builds the synthetic assistant entry Claude Code writes when
+// the API call failed (shape read from a real dead child, 2026-10-13).
+func apiErrorLine(text string) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":              "assistant",
+		"isApiErrorMessage": true,
+		"error":             "server_error",
+		"message": map[string]any{
+			"content": []map[string]any{{"type": "text", "text": text}},
+		},
+	})
+	return string(b)
+}
+
+func TestAresHandbackWaitsForChild(t *testing.T) {
+	const goodReport = "Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"
+	ref := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	mk := func(sess, agent string, extra ...string) (preToolUseInput, string) {
+		lines := aresChildLaunchLines("tuC", "childR", ref.Add(-1*time.Minute))
+		lines = append(lines, extra...)
+		main := writeHandbackTranscript(t, sess, agent, lines...)
+		return preToolUseInput{
+			ToolName: "SubagentHandback", AgentType: "kratos:ares", AgentID: agent, SessionID: sess,
+			TranscriptPath: main, Cwd: t.TempDir(), ToolInput: preToolUseToolInput{Message: goodReport},
+		}, main
+	}
+
+	t.Run("child outstanding: deny, and the content gate counter stays untouched", func(t *testing.T) {
+		fixHandbackClock(t, ref)
+		in, _ := mk("sessAW1", "aresW1")
+		for i := 0; i < gateMaxBlocks+2; i++ {
+			res := handbackGateDecision(in)
+			if res.Decision != "deny" || !strings.HasPrefix(res.Reason, "End your turn now.") || !strings.Contains(res.Reason, "childR") {
+				t.Fatalf("call %d: expected the wait deny naming childR, got %q: %s", i+1, res.Decision, res.Reason)
+			}
+		}
+		if _, err := os.Stat(gateStatePath(in.Cwd, "", "ares-handback-state.json")); err == nil {
+			t.Error("the wait deny must not write ares-handback-state.json")
+		}
+	})
+
+	t.Run("child finished: complete report passes with no context", func(t *testing.T) {
+		fixHandbackClock(t, ref)
+		in, _ := mk("sessAW2", "aresW2", handbackReportLineAt("childR", ref.Add(-30*time.Second)))
+		res := handbackGateDecision(in)
+		if res.Decision != "" || res.AdditionalContext != "" {
+			t.Fatalf("expected a clean allow once the child reported, got %+v", res)
+		}
+	})
+
+	t.Run("child finished: the content gate still denies a bad report", func(t *testing.T) {
+		fixHandbackClock(t, ref)
+		in, _ := mk("sessAW3", "aresW3", handbackReportLineAt("childR", ref.Add(-30*time.Second)))
+		in.ToolInput.Message = "I did some work."
+		if res := handbackGateDecision(in); res.Decision != "deny" || !strings.Contains(res.Reason, "Hand-back missing") {
+			t.Fatalf("expected the content deny, got %+v", res)
+		}
+	})
+
+	t.Run("30 minutes of silence: allow with the Ares stall context", func(t *testing.T) {
+		fixHandbackClock(t, ref.Add(-1*time.Minute).Add(31*time.Minute))
+		in, _ := mk("sessAW4", "aresW4")
+		res := handbackGateDecision(in)
+		if res.Decision != "" {
+			t.Fatalf("expected no decision past the stall timeout, got %q: %s", res.Decision, res.Reason)
+		}
+		for _, want := range []string{"Stall timeout reached: no launch or finish for 30m0s", "Still missing: childR", "Reach: child failed (stall timeout, no report from childR)", "four Reach questions"} {
+			if !strings.Contains(res.AdditionalContext, want) {
+				t.Errorf("context missing %q, got %q", want, res.AdditionalContext)
+			}
+		}
+	})
+
+	t.Run("no usable timestamp: fails open to the content gate", func(t *testing.T) {
+		fixHandbackClock(t, ref)
+		la := strings.Replace(handbackLaunchResultLineAt("tuN", "childN", ref), `"timestamp":"`+rfc3339(ref)+`",`, "", 1)
+		lines := []string{
+			handbackAssistantToolUseLine("tuN", "Agent"), la,
+			toolUseLine(false, "Agent", map[string]any{"prompt": "git diff abc..HEAD"}),
+		}
+		main := writeHandbackTranscript(t, "sessAW5", "aresW5", lines...)
+		res := handbackGateDecision(preToolUseInput{
+			ToolName: "SubagentHandback", AgentType: "kratos:ares", AgentID: "aresW5", SessionID: "sessAW5",
+			TranscriptPath: main, Cwd: t.TempDir(), ToolInput: preToolUseToolInput{Message: goodReport},
+		})
+		if res.Decision != "" {
+			t.Fatalf("expected fail-open, got %+v", res)
+		}
+	})
+
+	t.Run("dead child (API error): allow at once with the dead-child context", func(t *testing.T) {
+		fixHandbackClock(t, ref)
+		in, main := mk("sessAW6", "aresW6")
+		writeChildTranscript(t, main, "sessAW6", "childR", handbackAssistantToolUseLine("x", "Read"), apiErrorLine("API Error: Can't reach the API server (ENOTFOUND)"))
+		res := handbackGateDecision(in)
+		if res.Decision != "" {
+			t.Fatalf("expected no decision for a dead child, got %q: %s", res.Decision, res.Reason)
+		}
+		for _, want := range []string{"child childR failed: API Error: Can't reach the API server (ENOTFOUND)", "Reach: child failed (API Error: Can't reach the API server (ENOTFOUND))", "four Reach questions"} {
+			if !strings.Contains(res.AdditionalContext, want) {
+				t.Errorf("context missing %q, got %q", want, res.AdditionalContext)
+			}
+		}
+	})
+
+	t.Run("child transcript exists but the error is not its last entry: still outstanding", func(t *testing.T) {
+		fixHandbackClock(t, ref)
+		in, main := mk("sessAW7", "aresW7")
+		writeChildTranscript(t, main, "sessAW7", "childR", apiErrorLine("API Error: boom"), handbackAssistantToolUseLine("x", "Read"))
+		if res := handbackGateDecision(in); res.Decision != "deny" {
+			t.Fatalf("an error that is not the last assistant entry must not release, got %+v", res)
+		}
+	})
+
+	t.Run("dead child plus a live one: still deny, naming only the live one", func(t *testing.T) {
+		fixHandbackClock(t, ref)
+		in, main := mk("sessAW8", "aresW8", handbackAssistantToolUseLine("tuD", "Agent"), handbackLaunchResultLineAt("tuD", "childD", ref.Add(-1*time.Minute)))
+		writeChildTranscript(t, main, "sessAW8", "childR", apiErrorLine("API Error: boom"))
+		res := handbackGateDecision(in)
+		if res.Decision != "deny" || !strings.Contains(res.Reason, "childD") || strings.Contains(res.Reason, "childR") {
+			t.Fatalf("expected deny naming only childD, got %+v", res)
+		}
+	})
+
+	t.Run("stalled child plus a dead one: release names both", func(t *testing.T) {
+		fixHandbackClock(t, ref.Add(31*time.Minute))
+		in, main := mk("sessAW10", "aresW10", handbackAssistantToolUseLine("tuD", "Agent"), handbackLaunchResultLineAt("tuD", "childD", ref.Add(-1*time.Minute)))
+		writeChildTranscript(t, main, "sessAW10", "childD", apiErrorLine("API Error: boom"))
+		res := handbackGateDecision(in)
+		if res.Decision != "" || !strings.Contains(res.AdditionalContext, "Still missing: childR") || !strings.Contains(res.AdditionalContext, "child childD failed: API Error: boom") {
+			t.Fatalf("expected a release naming both, got %+v", res)
+		}
+	})
+
+	t.Run("hermes dead child: released with hermes wording", func(t *testing.T) {
+		fixHandbackClock(t, ref)
+		main := writeHandbackTranscript(t, "sessAW9", "hermesW9",
+			handbackAssistantToolUseLine("tuH", "Agent"), handbackLaunchResultLineAt("tuH", "childH", ref.Add(-1*time.Minute)))
+		writeChildTranscript(t, main, "sessAW9", "childH", apiErrorLine("API Error: boom"))
+		res := handbackGateDecision(preToolUseInput{ToolName: "SubagentHandback", AgentType: "hermes", AgentID: "hermesW9", SessionID: "sessAW9", TranscriptPath: main})
+		if res.Decision != "" || !strings.Contains(res.AdditionalContext, "child childH failed: API Error: boom") || !strings.Contains(res.AdditionalContext, "parent-only") {
+			t.Fatalf("unexpected hermes dead-child result %+v", res)
+		}
+	})
+}
+
+// TestChildAPIErrorScan pins the line-by-line scan: an API error on the last
+// line is found, a transcript with no error is not dead, a later assistant
+// entry clears an earlier error, and a line over the scanner buffer is a scan
+// failure that must not report the child dead.
+func TestChildAPIErrorScan(t *testing.T) {
+	write := func(t *testing.T, lines ...string) string {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "child.jsonl")
+		if err := os.WriteFile(p, []byte(strings.Join(lines, "\n")+"\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	filler := handbackAssistantToolUseLine("x", "Read")
+
+	t.Run("error only on the last line is detected", func(t *testing.T) {
+		line, ok := childAPIError(write(t, filler, filler, filler, apiErrorLine("API Error: boom\nsecond line")))
+		if !ok || line != "API Error: boom" {
+			t.Fatalf("got (%q, %v), want (\"API Error: boom\", true)", line, ok)
+		}
+	})
+	t.Run("transcript without an error is not dead", func(t *testing.T) {
+		if line, ok := childAPIError(write(t, filler, filler)); ok {
+			t.Fatalf("got dead with %q, want not dead", line)
+		}
+	})
+	t.Run("a later assistant entry clears the error", func(t *testing.T) {
+		if _, ok := childAPIError(write(t, apiErrorLine("API Error: boom"), filler)); ok {
+			t.Fatal("got dead, want not dead after a later assistant entry")
+		}
+	})
+	t.Run("a line over the scanner buffer is not dead", func(t *testing.T) {
+		huge := `{"type":"user","message":"` + strings.Repeat("a", 17*1024*1024) + `"}`
+		if line, ok := childAPIError(write(t, apiErrorLine("API Error: boom"), huge)); ok {
+			t.Fatalf("got dead with %q, want not dead when the scan failed", line)
+		}
+	})
+}

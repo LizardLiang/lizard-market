@@ -14,7 +14,7 @@ Summon **Mimir** before major PRD work to gather knowledge from the outside worl
 ```
 Task(
   subagent_type: "kratos:mimir",
-  model: "claude-sonnet-4-6",
+  model: "[from modes.md — Mimir normal sonnet / eco haiku / power opus]",
   prompt: "MISSION: External Research for PRD
 TOPIC: [what to research]
 FOCUS: [specific questions to answer]

@@ -30,6 +30,18 @@
 ### System Context
 [How this feature fits into the overall system]
 
+### Existing Flow & Invariants
+*(Required when the feature touches an existing multi-step flow or shared state; else write "n/a")*
+
+Flow: 1. [step — file:function] → 2. … → n. [finalize]
+
+| State | Set by | Cleared by | Scope | Stale when |
+|-------|--------|------------|-------|------------|
+| [flag/column/counter] | [file:function] | [file:function, on every exit?] | [row / member / global] | [condition] |
+
+Invariants: [one per line, each with writer evidence]
+Fit or fight: A) patch inside the flow — [consequence] · B) restructure — [consequence] → **chosen: [pole]** — [why]
+
 ### Components
 *(Skip this subsection if the feature touches fewer than 3 components)*
 

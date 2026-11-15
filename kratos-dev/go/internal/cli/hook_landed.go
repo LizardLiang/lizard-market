@@ -1,0 +1,94 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"regexp"
+	"strings"
+)
+
+// landedLineRE matches the line Ares must end with once its files are
+// committed: `Landed: <branch>@<hash>` (branch optional, 7-40 hex hash).
+//
+// A trailing location names the repository the commit landed in when that is
+// not the session directory: `(repo <path>)` or `in <path>`. The path may hold
+// spaces inside the parentheses.
+var landedLineRE = regexp.MustCompile(`(?im)^\s*\**landed\**\s*:\**\s*(?:([\w./-]+)@)?([0-9a-f]{7,40})\b(?:[ \t]*\(repo[ \t]+([^)\r\n]+?)[ \t]*\)|[ \t]+in[ \t]+((?:[/\\]|[A-Za-z]:)[^\r\n]*?)[ \t]*$)?`)
+
+// landedWaiverRE is the only accepted waiver: a mission that changed no files
+// (User Mode task creation, a pure report) or a directory that is not a git
+// repository.
+var landedWaiverRE = regexp.MustCompile(`(?i)landed-not-applicable:`)
+
+// aresLandedGateFailure enforces the landed-work rule at Ares's SubagentStop:
+// the final report must name the commit the work landed in (or waive with
+// LANDED-NOT-APPLICABLE: <reason>), and when a cwd is known and is a git
+// repository, that commit must exist there. Uncommitted work "pending manual
+// check" lost an entire Ares+Hermes cycle on LizMeter #63 (2026-09 review).
+//
+// report is the text to check — LastAssistantMessage, or the delivered
+// SubagentHandback message when Ares used one — so both the SubagentStop gate
+// and the PreToolUse hand-back gate run the identical check against whichever
+// text actually carries the report.
+//
+// The message-level rule always applies: Ares must say where the work landed
+// or say explicitly why nothing could land. Infrastructure problems (no git on
+// PATH, cwd unknown or outside a work tree) fail OPEN only on the commit
+// verification.
+func aresLandedGateFailure(report, cwd string) string {
+	if landedWaiverRE.MatchString(report) {
+		return ""
+	}
+
+	m := landedLineRE.FindStringSubmatch(report)
+	if m == nil {
+		return "no `Landed: <branch>@<hash>` line — stage exactly the files you created or modified (git add <files>), commit them on the current branch, and report the hash; or state LANDED-NOT-APPLICABLE: <reason> when the mission changed no files or the directory is not a git repository"
+	}
+	hash := m[2]
+	repo := cwd
+	if loc := strings.Trim(strings.TrimSpace(firstNonEmpty(m[3], m[4])), "`\"'"); loc != "" {
+		if !landedAbsPathRE.MatchString(loc) {
+			return fmt.Sprintf("Landed: location %q is not an absolute path — write `(repo <abs-path>)`", loc)
+		}
+		if st, err := os.Stat(loc); err != nil || !st.IsDir() {
+			return fmt.Sprintf("Landed: location %s is not a directory — write `(repo <abs-path>)` of the repository the commit landed in", loc)
+		}
+		repo = loc
+	}
+	if repo == "" || !isGitWorkTree(repo) {
+		return ""
+	}
+	if err := gitCommitExists(repo, hash); err != nil {
+		return fmt.Sprintf("Landed: names commit %s but git cannot find it in %s (%v) — commit for real and report the new hash; when it landed outside the session directory, append `(repo <abs-path>)` to the Landed line", hash, repo, err)
+	}
+	return ""
+}
+
+// isGitWorkTree reports whether dir is inside a git work tree. Missing git is
+// treated as "unknown → assume a work tree" so the message rule still applies.
+func isGitWorkTree(dir string) bool {
+	git, err := exec.LookPath("git")
+	if err != nil {
+		return true
+	}
+	out, err := exec.Command(git, "-C", dir, "rev-parse", "--is-inside-work-tree").CombinedOutput()
+	return err == nil && strings.Contains(string(out), "true")
+}
+
+// gitCommitExists returns nil when hash names a commit reachable in dir's
+// repository. A missing git binary fails open (nil).
+func gitCommitExists(dir, hash string) error {
+	git, err := exec.LookPath("git")
+	if err != nil {
+		return nil
+	}
+	out, err := exec.Command(git, "-C", dir, "cat-file", "-e", hash+"^{commit}").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s", strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// landedAbsPathRE matches an absolute POSIX, UNC or drive-letter path.
+var landedAbsPathRE = regexp.MustCompile(`^(?:[/\\]|[A-Za-z]:)`)

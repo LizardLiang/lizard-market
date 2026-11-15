@@ -20,7 +20,7 @@
 | MEDIUM | [N] |
 | LOW | [N] |
 
-**Overall Risk Level**: CRITICAL / HIGH / MEDIUM / LOW / CLEAR
+**Highest Severity Found**: CRITICAL / HIGH / MEDIUM / LOW / none
 
 ---
 
@@ -48,6 +48,8 @@
 
 ## Verdict
 
-**CLEAR TO SHIP** / **SHIP WITH CAUTION** / **DO NOT SHIP**
+**CLEAR** / **CAUTION** / **BLOCKED**
+
+Record it with `<kratos-bin> pipeline update --stage 9 --verdict clear|caution|blocked`.
 
 [Explanation]

@@ -1,25 +1,180 @@
 #!/usr/bin/env node
 'use strict';
 
-// Kratos SubagentStart hook — resolves the kratos binary path for the current platform
-// and injects it for agents that reference <kratos-bin>.
-// Emits nothing (silent exit 0) if binary is not found.
+// Kratos SubagentStart hook — resolves the kratos binary path and the plugin
+// root for the current platform/install, and injects both for agents that
+// reference <kratos-bin> / <KRATOS_ROOT>. Root injection fires even when the
+// binary is unavailable (subagents still need <KRATOS_ROOT> resolved via
+// Read, independent of kratos-bin availability). Also reads the SubagentStart
+// payload from stdin for the spawning agent's name and injects (a) that
+// agent's composed protocol block (`kratos agent protocol <god>` — the
+// agent-protocol.md sections it needs, so it never Reads that file) and
+// (b) its stored feedback lessons (≤5, current-project first). Both are
+// fail-open: any error just drops that part. Emits nothing (silent exit 0)
+// if no part is available.
+//
+// Output constraint sourcing is single-source: the composed protocol block
+// already carries the "Output constraint:" sentence (every god's
+// protocol_sections includes output-format), so that block is the one copy
+// in the normal case. The OUTPUT_CONSTRAINT literal below is a fail-open
+// fallback only — emitted when the protocol block is absent/doesn't already
+// contain the sentence (binary unresolvable, protocol call fails, or no
+// stdin payload at all), so a spawned god always gets exactly one copy.
 
+const path = require('path');
+const os = require('os');
+const { execSync } = require('child_process');
 const { resolveBinary } = require('./kratos-bin.cjs');
+const { fitToBudget } = require('./hook-budget.cjs');
+
+const DB_PATH = path.join(os.homedir(), '.kratos', 'memory.db');
+const MAX_LESSONS = 5;
+
+// Output constraint injected into every spawned subagent, binary-independent
+// (mirrors references/agent-protocol.md's output-format section — same
+// precedent as hooks/session-start.cjs:28-29). protocolPart() below composes
+// this same section when the kratos binary IS resolvable, so duplication is
+// expected in that case; this const is the fail-open fallback for when it
+// isn't.
+const OUTPUT_CONSTRAINT =
+  '**Output constraint:** One standard for every answer.\n' +
+  '- Lead with the point: the conclusion, or what is at stake. No preamble, no build-up.\n' +
+  '- Show the mechanism, never narrate it. One view replaces the prose it would have taken:\n' +
+  '  - A sequence of actions — call order, request flow, pipeline stages, the steps you took or will take, above all code flow — is an ASCII diagram in a code block: one box or line per step, arrows (`→`, `│`, `└─▶`) for order, a branch per condition. Never a paragraph, never Mermaid (it does not render in a terminal).\n' +
+  '  - Items with no order — options, checks, parallel facts — are bullet points.\n' +
+  '  - Logic is pseudocode. Structure is a file or component tree. A change is a `diff` when part changes, a full block when most is new.\n' +
+  '  The view sits next to the short text it supports and keeps only the nodes that answer this question. One or two views, never all.\n' +
+  '- Keep hedges and evidence status (verified vs inferred). Define a term at first use; never "simply", "just", "obviously". Name the misunderstanding the reader is likely to have.\n' +
+  '- Asking the user to decide: state the decision and its consequence before the options.\n' +
+  '- No filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n' +
+  '- A mid-turn progress line is the same standard in miniature: `[status] [what] [result]. [next].` Fragments OK; lead with the result, never a bare `[what]:`. No arrow chains in prose — a flow goes in an ASCII diagram.\n' +
+  "- Write every line in the user's language, progress lines too, even when code and instructions are English.\n" +
+  '- A message the human typed always gets an answer; `No response requested` is only for harness task notifications.';
+
+function toSlashes(p) {
+  return p.replace(/\\/g, '/');
+}
+
+function pluginRoot() {
+  return toSlashes(process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, '..'));
+}
+
+function godFrom(agentType) {
+  if (typeof agentType !== 'string' || !agentType.startsWith('kratos:')) return null;
+  const god = agentType.slice('kratos:'.length).toLowerCase();
+  return /^[a-z][a-z-]*$/.test(god) ? god : null;
+}
+
+// Composed protocol block: the agent-protocol.md sections this god's
+// protocol_sections frontmatter lists, pre-resolved — replaces the runtime
+// Read of references/agent-protocol.md in spawned subagents.
+function protocolPart(kratosPath, agentType, root) {
+  const god = godFrom(agentType);
+  if (!kratosPath || !god) return null;
+  try {
+    const out = execSync(`"${kratosPath}" agent protocol ${god} --resolve --root "${root}"`, {
+      encoding: 'utf-8',
+      timeout: 2000,
+    });
+    return out.trim() || null;
+  } catch (e) {
+    return null; // fail-open: no protocol part
+  }
+}
+
+// Lessons saved from past user corrections of this god (memory-sweep.cjs
+// capture side). Current-project lessons sort first via --prefer-project.
+function lessonsPart(kratosPath, agentType) {
+  const god = godFrom(agentType);
+  if (!kratosPath || !god) return null;
+  try {
+    const out = execSync(`"${kratosPath}" feedback list --agent ${god} --limit ${MAX_LESSONS} --prefer-project`, {
+      encoding: 'utf-8',
+      timeout: 2000,
+      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
+    });
+    const data = JSON.parse(out);
+    if (!Array.isArray(data.feedback) || data.feedback.length === 0) return null;
+    const lines = [`**Lessons from past user corrections of ${god}** — apply them to this task:`];
+    for (const f of data.feedback.slice(0, MAX_LESSONS)) lines.push(`- ${f.lesson}`);
+    return lines.join('\n');
+  } catch (e) {
+    return null; // fail-open: no lessons part
+  }
+}
 
 const kratosPath = resolveBinary();
+const root = pluginRoot();
+
+const baseParts = [];
+
 if (kratosPath) {
-  const msg =
-    `**Kratos binary resolved:** \`${kratosPath}\`\n\n` +
-    `Use the path directly in every Bash command that calls kratos:\n` +
-    `\`\`\`bash\n` +
-    `'${kratosPath}' <subcommand>\n` +
-    `\`\`\`\n` +
-    `Wherever agent instructions show \`<kratos-bin>\`, use \`'${kratosPath}'\`.`;
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'SubagentStart',
-      additionalContext: msg,
-    },
-  }));
+  baseParts.push(
+    `**Kratos binary:** \`${kratosPath}\` — use it wherever instructions show \`<kratos-bin>\`.`
+  );
 }
+
+if (root) {
+  baseParts.push(
+    `**Kratos plugin root:** \`${root}\` — use it wherever instructions show \`<KRATOS_ROOT>\`.`
+  );
+}
+
+let emitted = false;
+function emit(parts) {
+  if (emitted) return;
+  emitted = true;
+  if (parts.length > 0) {
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'SubagentStart',
+        additionalContext: parts.join('\n\n'),
+      },
+    }));
+  }
+  // Release stdin so the process exits naturally once stdout flushes —
+  // process.exit() here can truncate piped output on Windows.
+  process.stdin.destroy();
+}
+
+let raw = '';
+process.stdin.setEncoding('utf-8');
+process.stdin.on('data', (chunk) => raw += chunk);
+process.stdin.on('end', () => {
+  let agentType = null;
+  let sessionPart = null;
+  try {
+    const payload = JSON.parse(raw);
+    agentType = payload.agent_type;
+    // The Claude Code session id keys the ledger (one row per session; the
+    // CLI creates it on demand). Injecting it saves every god the
+    // `session active` lookup that used to return nothing and break
+    // `step record-agent` with a FOREIGN KEY error.
+    if (payload.session_id) {
+      const proj = payload.cwd ? toSlashes(String(payload.cwd)) : '';
+      sessionPart = `**Kratos session:** \`${payload.session_id}\``
+        + (proj ? ` (project root \`${proj}\`)` : '')
+        + ` — pass it to \`step record-agent\` / \`step record-file\``
+        + (proj ? ` with \`--project "${proj}"\`` : '')
+        + '; never look it up with `session active`.';
+    }
+  } catch (e) {
+    // Malformed/empty payload — inject base parts only.
+  }
+  const protocol = protocolPart(kratosPath, agentType, root);
+  const lessons = lessonsPart(kratosPath, agentType);
+  // Protocol block already contains the output constraint sentence in the
+  // normal case; only fall back to the literal when it's missing or doesn't
+  // already carry that sentence, so the god never gets two copies.
+  const needLiteral = !protocol || !protocol.includes('Output constraint:');
+  // Order: binary, root, session, lessons, then the protocol block, so the
+  // parts every god needs lead the output. fitToBudget drops whole protocol
+  // sections when the total would pass the hook output cap.
+  const head = [...baseParts, sessionPart, lessons, needLiteral ? OUTPUT_CONSTRAINT : null].filter(Boolean);
+  emit([fitToBudget(head, protocol, root)]);
+});
+
+// If no stdin arrives (older harness, manual invocation), no agent_type was
+// ever available so no protocol block was computed — the literal is the
+// only possible source on this path.
+setTimeout(() => emit([...baseParts, OUTPUT_CONSTRAINT]), 1500).unref();

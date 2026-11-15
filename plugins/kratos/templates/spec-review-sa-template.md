@@ -63,6 +63,7 @@
 - **With Existing Systems**: [Assessment]
 - **API Design**: [Assessment]
 - **Data Flow**: [Assessment]
+- **Existing flow respected**: [Assessment — every writer of touched state listed, clearing path on every exit]
 
 ---
 

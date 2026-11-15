@@ -5,63 +5,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Test Commands
 
 ```bash
-# Build the Go binary (from go/ directory)
-cd plugins/kratos/go && make build        # outputs to ../bin/kratos
+# Build the Go binary (dev tree lives at repo-root kratos-dev/, outside the shipped plugin)
+cd kratos-dev/go && make build        # outputs to plugins/kratos/bin/kratos
 
-# Run all Go tests
-cd plugins/kratos/go && make test
+# Regenerate commands/<god>.md + SKILL.md god regions from agents/*.md frontmatter
+cd kratos-dev/go && make gen
 
-# Run a single test file or package
-cd plugins/kratos/go && go test ./internal/cli/ -run TestRecall -v
+# Verify generated launchers/SKILL.md match agents/*.md (no write; make ci + publish.sh gate)
+cd kratos-dev/go && make gen-check
 
-# Test with race detector
-cd plugins/kratos/go && make test-race
+# Full local CI gate (sync-assets, gen-check, go test -race, golangci-lint) —
+# there is no GitHub Actions CI; this is the only gate. See kratos-dev/CI.md.
+cd kratos-dev/go && make ci
 
-# Lint (requires golangci-lint)
-cd plugins/kratos/go && make lint
+# Initialize DB after build (hooks ship with the plugin via hooks/hooks.json — nothing to install;
+# `kratos uninstall` removes legacy global hooks left by old installs)
+./plugins/kratos/bin/kratos init
 
-# Initialize DB + install hooks after build
-./bin/kratos init && ./bin/kratos install
+# Release: tag, then build/archive/checksum/changelog and create the GitHub
+# release (local replacement for the removed release workflow)
+kratos-dev/release.sh
+
+# Publish to the dedicated distribution repo (LizardLiang/kratos) after release.sh
+kratos-dev/publish.sh
 ```
 
-## Architecture Overview
+## Architecture Notes
 
-Kratos is a **Claude Code plugin** (`.claude-plugin/plugin.json`) that orchestrates specialist subagents through an 11-stage feature pipeline. It has two runtime layers:
-
-### 1. Markdown Layer (the plugin brain)
-- **`agents/`** — Agent definitions (one `.md` per god-agent). Each file is a subagent prompt loaded by Claude Code's Agent tool via `subagent_type: "kratos:<name>"`.
-- **`skills/`** — Skill definitions invoked via `/kratos:<command>`. The `auto/SKILL.md` is the main router that classifies user intent and dispatches to the correct command.
-- **`commands/`** — Slash command implementations (`main.md`, `quick.md`, `review.md`, etc.). These are the entry points users invoke.
-- **`pipeline/`** — Stage orchestration logic. `stages.md` has exact Agent tool invocations for each stage (0-11). `next.md` handles stage progression. `classify.md` routes requests to quick-path vs full pipeline.
-- **`templates/`** — Document templates agents fill in (PRD, tech spec, test plan, code review, etc.).
-- **`rules/`** — Code review standards (tiered). `default.md` is the baseline; language-specific files (e.g., `react.md`) auto-load based on file types.
-- **`references/`** — Protocol docs agents read: `agent-protocol.md` (shared procedures), `arena-protocol.md` (knowledge base read/write rules), `status-json-schema.md`.
-- **`modes/`** — Execution mode overrides (`eco-mode.md`, `power-mode.md`) that change which model each agent uses.
-- **`hooks/`** — Claude Code hooks (`hooks.json` + JS/Go implementations). Key hooks: SubagentStart/Stop gates for Ares/Hephaestus/Hermes, PreToolUse for npm→project-PM rewriting.
-
-### 2. Go Binary Layer (optional, enhances pipeline tracking)
-- **`go/cmd/kratos/main.go`** — CLI entry point using Cobra.
-- **`go/internal/cli/`** — Command implementations: `hook.go` (all hook subcommands), `pipeline.go` (stage updates), `session.go`/`recall.go` (session tracking), `todo.go`, `status.go`.
-- **`go/internal/db/`** — SQLite layer with WAL mode. `schema.sql` is embedded. Session/step/feature CRUD. DB lives at `~/.kratos/memory.db`.
-- **`go/internal/models/`** — Data models for sessions and steps.
-- **`go/internal/formatter/`** — Output formatting for CLI display.
-- Uses `modernc.org/sqlite` (pure Go, no CGO required).
-
-### Key Data Flow
-1. User invokes `/kratos:main "Build X"` → `skills/auto/SKILL.md` routes to `commands/main.md`
-2. `commands/main.md` reads `pipeline/classify.md` to determine quick-path vs pipeline
-3. For pipeline: reads `pipeline/stages.md` to spawn the correct agent at the current stage
-4. Each agent reads its definition from `agents/<name>.md`, reads relevant `references/`, fills `templates/`
-5. Agents write deliverables to `.claude/feature/<name>/` and update `status.json` via the Go binary (or direct file edit as fallback)
-6. Hooks in `hooks.json` enforce quality gates (TODO-first for Ares, deliverable verification on stop)
-
-### Arena (`.claude/.Arena/`)
-Pull-model knowledge base in the target project. Agents read what they need; Metis bootstraps it. Sharded by domain (architecture, conventions, tech-stack, etc.). Each agent has specific read/write permissions defined in `references/arena-protocol.md`.
+- **`commands/`** — `main.md`, `quick.md`, `review.md`, etc. are hand-written. The 19 god launchers (`commands/<god>.md`, e.g. `ares.md`, `athena.md`) are **generated** from `agents/*.md` frontmatter by `kratos-dev/go/cmd/gencommands` — see `kratos-dev/codegen/README.md`. Never hand-edit a launcher carrying `generated: true`; run `make gen` instead.
+- **`references/`** — `agent-protocol.md` holds the sections injected into every god; nothing orchestrator-only lives there. Orchestrator-only rules go in `orchestrator-protocol.md` (read by Kratos only).
+- **Go binary** — source lives at repo-root `kratos-dev/go/`, outside `plugins/kratos/`, so plugin installs copy only runtime files. `make build` outputs to `plugins/kratos/bin/`, which is **gitignored** (`plugins/kratos/.gitignore`) — binaries are never committed. `kratos-dev/release.sh` builds them per-platform off the tag and attaches them as release assets, so a local rebuild produces no git diff.
 
 ## Important Conventions
 
-- All paths in agent prompts are relative to the **project root** (git repo root), not the plugin directory.
-- `schema.sql` exists in both `go/internal/db/` and `memory/src/` — keep them in sync on schema changes.
+- Plugin-internal paths are written as `<KRATOS_ROOT>/...`. Resolution is deterministic, not LLM substitution: the SubagentStart hook (`hooks/path-inject.cjs`) injects the resolved root into every spawned subagent's context, and `kratos agent load <name> --resolve` (used by every generated launcher) substitutes the token before an inline command-mode god ever sees its own body. Orchestrators pass `<KRATOS_ROOT>` through spawn prompts unmodified; `plugins/kratos/` from project root is the last-resort fallback. See `references/agent-protocol.md`.
+- Launchers load a god in two `!` lines, `agent load <god> --resolve --part body` and `--part extras` (lessons, protocol block, command-mode suffix), because Claude Code inlines at most 30,000 characters per `!` line and a whole god is 31–34 KB — one line arrives as a 2 KB `<persisted-output>` preview. `TestAgentLoadPartsFitInlineBudget` fails `make test` when any part would exceed 29,000 bytes; trim the agent file, never raise the budget.
+- `schema.sql` lives in `kratos-dev/go/internal/db/` (a legacy copy sits in `kratos-dev/memory/`).
+- Dev-only assets (Go source, eval harness, legacy memory prototype, CI docs) live in repo-root `kratos-dev/`. There is no CI service — `make ci` (in `kratos-dev/go/Makefile`) is the gate, run locally; see `kratos-dev/CI.md`. Nothing outside runtime needs lives in `plugins/kratos/` — installs copy the whole plugin dir.
+- **`LizardLiang/kratos` is the main publish repo** — a runtime-only mirror users install from (`claude plugin marketplace add LizardLiang/kratos`). After each release commit + tag here, run `kratos-dev/publish.sh` to force-push the plugin subtree (and tag) there. Development never happens in that repo.
 - Hook commands use fallback chains: try `${CLAUDE_PLUGIN_ROOT}/bin/kratos` first, then `~/.kratos/bin/kratos`.
 - The Go binary is optional — all agents gracefully fall back to direct file edits when it's unavailable.
-- Version is tracked in `.claude-plugin/plugin.json` (currently v2.27.0).
+- Version is tracked in `.claude-plugin/plugin.json`.

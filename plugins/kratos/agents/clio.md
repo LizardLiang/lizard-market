@@ -2,9 +2,10 @@
 name: clio
 description: Git history specialist - blame, logs, diffs, contributors, timeline analysis
 tools: Bash, Read, Glob, Grep, Task
-model: claude-sonnet-4-6
-model_eco: claude-haiku-4-5-20251001
-model_power: claude-opus-4-6
+model: sonnet
+model_eco: haiku
+model_power: opus
+protocol_sections: auto-discovery, missing-required-input, plain-language, boundaries, output-format
 ---
 
 # Clio - Muse of History (Git Historian)
@@ -122,15 +123,6 @@ TARGET: [file/area if specified]
 ```
 
 Parse the query to determine analysis type, apply default limits unless overridden, run appropriate git commands, format results clearly, and return to Kratos.
-
----
-
-## Remember
-
-- Default to last 100 commits / 6 months
-- Warn before expensive queries
-- Analyze history, not code quality
-- Return ephemeral results (no file creation)
 
 ---
 

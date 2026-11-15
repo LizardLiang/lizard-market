@@ -1,11 +1,15 @@
 ---
 name: stages
-description: Exact Task invocations for each pipeline stage (0–11)
+description: Exact Task invocations for each pipeline stage (0–9)
 ---
 
 # Pipeline Stage Invocations
 
 This file contains the exact Task tool calls for each pipeline stage. Read the relevant section when you need to spawn an agent for a specific stage.
+
+**Resolving `<KRATOS_ROOT>`:** Kratos substitutes the resolved plugin root only when Kratos reads a file itself. Leave `<KRATOS_ROOT>` verbatim inside spawn prompts — the SubagentStart hook (`hooks/path-inject.cjs`) injects the resolved absolute plugin root into every spawned subagent's context, and the subagent uses that injected path wherever it sees `<KRATOS_ROOT>`. `plugins/kratos/` from project root remains the last-resort fallback if no root was injected. Full rule: `<KRATOS_ROOT>/references/orchestrator-protocol.md` § Path Resolution.
+
+**Spawn prompt boilerplate:** `subagent_type: "kratos:<god>"` loads the agent definition, and the SubagentStart hook injects the Agent Protocol (including § Document Creation). Do not add "read your agent file" or "create X before completing" lines to the prompts below.
 
 **IMPORTANT — filling `ORIGINAL_USER_REQUEST`:** Copy the user's actual first message (the request that triggered this pipeline) verbatim from your conversation context. Do NOT use the one-sentence description from start.md. Preserve original wording exactly — do not summarize, rephrase, or truncate.
 
@@ -21,7 +25,7 @@ Task(
 TARGET: [project root or specific area]
 OUTPUT: .claude/.Arena/
 
-Create ALL Arena documents before completing: project-overview.md, tech-stack.md, architecture.md, file-structure.md, conventions.md. Verify they exist before reporting completion.
+Create ALL Arena documents before completing (sharded layout): index.md, project/overview.md, architecture/system-design.md, architecture/file-structure.md, tech-stack/ shards, conventions/ shards. Verify they exist before reporting completion.
 
 Analyze the codebase and document findings in the Arena. This knowledge will guide all other gods.",
   description: "metis - research project"
@@ -34,7 +38,7 @@ Analyze the codebase and document findings in the Arena. This knowledge will gui
 
 ### Stage 1a: Gap Analysis (Kratos, inline)
 
-Read `plugins/kratos/pipeline/gap-analysis.md` and run the gap analysis yourself. Use your own `AskUserQuestion` to collect requirements — do not delegate this to Athena.
+Read `<KRATOS_ROOT>/pipeline/gap-analysis.md` and run the gap analysis yourself. Use your own `AskUserQuestion` to collect requirements — do not delegate this to Athena.
 
 ### Stage 1b: PRD Creation (Athena)
 
@@ -55,10 +59,6 @@ FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 ORIGINAL_USER_REQUEST: [paste the user's request verbatim — same text passed to Athena in Stage 1]
 
-Read plugins/kratos/agents/nemesis.md for the full instruction set before starting.
-
-Create prd-challenge.md before completing. Kratos validates the deliverable after you finish.
-
 Review prd.md and create prd-challenge.md. Update status.json with verdict.",
   description: "nemesis - full PRD review (adversarial + user advocate)"
 )
@@ -76,66 +76,24 @@ Wait for completion before proceeding.
 
 ## Stage 2 → 3 Transition: Optional Decomposition (Daedalus)
 
-After Stage 2 APPROVED verdict, check PRD complexity before spawning Hephaestus.
+After a Stage 2 APPROVED verdict, check the PRD against `<KRATOS_ROOT>/pipeline/classify.md` § Daedalus Inclusion Signals before Stage 4.
 
-**Complexity signals** in `prd-review.md`:
-- Many requirements / user stories
-- Multiple modules/areas flagged
-- Cross-cutting concerns (auth, caching, logging)
-- External integrations
-- Complex data relationships
-
-If signals suggest a complex feature, offer decomposition:
-
-```
-AskUserQuestion(
-  question: "This feature touches [N] areas with [description]. Decompose into phases before tech spec?",
-  options: [
-    { label: "Yes, local files", description: "Create decomposition.md in the feature folder" },
-    { label: "Yes, Notion", description: "Create native Notion page with task database" },
-    { label: "Yes, Linear", description: "Create Linear project with phase issues" },
-    { label: "Yes, multiple targets", description: "Output to local files + Notion/Linear" },
-    { label: "No, proceed", description: "Skip decomposition, go straight to discuss/tech spec" }
-  ]
-)
-```
-
-If user chooses decomposition:
-
-```
-Task(
-  subagent_type: "kratos:daedalus",
-  model: "[sonnet|haiku|opus based on mode]",
-  prompt: "MISSION: Decompose Feature (Pipeline Stage 3)
-FEATURE: [feature-name]
-FOLDER: .claude/feature/[feature-name]/
-INPUT: Read prd.md in the feature folder
-OUTPUT_TARGETS: [user selection]
-
-Read plugins/kratos/agents/daedalus.md for the full instruction set before starting.
-
-Create decomposition.md at .claude/feature/[feature-name]/decomposition.md (for local target).
-
-Run `<kratos-bin> template get decomposition-template` for the local file format.
-[If Notion target]: Run `<kratos-bin> template get decomposition-notion-template`
-[If Linear target]: Run `<kratos-bin> template get decomposition-linear-template`
-
-This decomposition enriches the feature — downstream agents (Hephaestus, Artemis, Ares, Hermes) will reference your work.",
-  description: "daedalus - decompose feature (pipeline)"
-)
-```
-
-If user says No: set `stages["3-decomposition"].status` to `"skipped"` in status.json. See `plugins/kratos/references/status-json-schema.md`.
+1. If the signals suggest a complex feature, offer decomposition with one `AskUserQuestion` (options: "Yes, decompose" / "No, proceed"). See `references/agent-protocol.md` § Interactive Questions.
+2. **Yes** → ask the output-target question from `<KRATOS_ROOT>/commands/decompose.md` Step 2, then spawn Daedalus with the Step 3 template there, using `MISSION: Decompose Feature (Pipeline Stage 3)` and `INPUT: Read prd.md in the feature folder`. Downstream agents (Hephaestus, Artemis, Ares, Hermes) reference the result.
+3. **No** → run `<kratos-bin> pipeline update --feature [feature-name] --stage 3 --status skipped` (fallback without the binary: set `pipeline["3-decomposition"].status` to `"skipped"` in status.json per `<KRATOS_ROOT>/references/status-json-schema.md`).
+4. **"Other" free text** → read the reply before re-asking anything. If it already implies a yes/no plus a target (e.g. "local + Notion", "skip it", "yes, Linear"), treat that as the equivalent structured choice and proceed directly. Ask a follow-up only if the reply is genuinely ambiguous about yes/no or target.
 
 ---
 
-## Stage 4: Tech Spec — Three Sub-phases
+## Stage 4: Tech Spec
 
-Read `plugins/kratos/pipeline/hephaestus-gate.md` and run the full procedure:
-- Phase 4a: Kratos spawns Metis for codebase scan
-- Phase 4b: Kratos spawns Hephaestus ANALYZE → `tech-spec-proposal.md`
-- Phase 4c: Kratos uses AskUserQuestion for approach selection and gray areas
-- Phase 4d: Kratos spawns Hephaestus WRITE_SPEC with locked decisions → `tech-spec.md`
+Read `<KRATOS_ROOT>/pipeline/hephaestus-gate.md` and run the full procedure:
+- Phase 4pre: Kratos runs Themis **inline** (if no context.md) — gray-area debate via AskUserQuestion → `context.md`
+- Phase 4a: Kratos spawns Metis for codebase scan (or reads Arena directly)
+- Phase 4b: Kratos runs Hephaestus ANALYZE **inline** — asks user about approaches + gray areas via AskUserQuestion → `tech-spec-proposal.md` with locked decisions
+- Phase 4c: Kratos spawns Hephaestus WRITE_SPEC → `tech-spec.md` (if it returns HEPHAESTUS NEEDS DECISIONS, Kratos asks the user and re-spawns)
+
+Interactive phases run inline because AskUserQuestion never reaches the user from a spawned subagent.
 
 ---
 ## Stage 5: Spec Review (Architecture)
@@ -149,10 +107,6 @@ Task(
   prompt: "MISSION: Review Tech Spec (Architecture)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
-
-Read plugins/kratos/agents/apollo.md for the full instruction set before starting.
-
-Create spec-review-sa.md before completing. Kratos validates the deliverable after you finish.
 
 Use Apollo's document-selection policy. If a needed prerequisite file is missing, stop and report the owning upstream agent to Kratos. Create spec-review-sa.md. Update status.json.",
   description: "apollo - SA spec review"
@@ -173,16 +127,12 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/artemis.md for the full instruction set before starting.
-
-Create test-plan.md before completing. Kratos validates the deliverable after you finish.
-
 Use Artemis's document-selection policy. If a needed prerequisite file is missing, stop and report the owning upstream agent to Kratos. Create comprehensive test-plan.md. Update status.json.",
   description: "artemis - create test plan"
 )
 ```
 
-After Stage 6 completes: read `plugins/kratos/pipeline/pre-implementation.md` and execute its procedure.
+After Stage 6 completes: read `<KRATOS_ROOT>/pipeline/pre-implementation.md` and execute its procedure.
 
 ---
 
@@ -192,18 +142,26 @@ After Stage 6 completes: read `plugins/kratos/pipeline/pre-implementation.md` an
 Task(
   subagent_type: "kratos:ares",
   model: "sonnet",
+  mode: "acceptEdits",
+  name: "ares-[feature-name]",
   prompt: "MISSION: Implement Feature
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
-
-Read plugins/kratos/agents/ares.md for the full instruction set before starting.
-
-Create implementation-notes.md before completing. Kratos validates the deliverable after you finish.
+ORIGINAL_USER_REQUEST: [the user's request verbatim — the scope contract; any narrowing goes under NON-GOALS, never silently]
+TICKET: [#N when the feature came from a tracker ticket, else none]
+NON-GOALS: [out-of-scope items from prd.md Non-Goals / tech-spec scope section]
+STOP-CONDITIONS: missing prerequisite → report the owning upstream agent; genuine ambiguity → ARES NEEDS CLARIFICATION; wave boundary → ARES WAVE CHECKPOINT (wave committed, Landed: reported); work not committed → not done
 
 Use Ares's document-selection policy. If a needed prerequisite file is missing, stop and report the owning upstream agent to Kratos. Create implementation-notes.md. Update status.json.",
   description: "ares - implement feature"
 )
 ```
+
+**Why `mode: "acceptEdits"`**: Ares edits are auto-approved inside the subagent; Hermes review is the quality gate. Without it, a foreground spawn can silently hang on a per-edit permission prompt (observed: 71 minutes of a "running" Ares waiting for one Edit approval). Harnesses without the `mode` param ignore it — harmless.
+
+**Wave checkpoints** (when `decomposition.md` exists): Ares returns `ARES WAVE CHECKPOINT` after each completed wave instead of finishing the mission — a spawned subagent cannot ask the user directly. Ares has already committed the wave (its `Landed:` line names the hash) — report that line to the user, then **continue the same agent** — `SendMessage(to: "ares-[feature-name]", message: "CONTINUE_FROM_WAVE: [N+1]")`. Resuming keeps Ares's context (plan, spec, code already read); re-spawning throws it away and re-reads everything each wave. Repeat until Ares returns `ARES COMPLETE`, then run `<kratos-bin> verify --landed --hash <hash>` before Stage 8; on BLOCKED, continue Ares with `Commit your files and report Landed:` — never accept "pending your manual check". Fallback: on a harness without `SendMessage`, re-spawn with the same prompt plus `CONTINUE_FROM_WAVE: [N+1]`.
+
+**Clarification requests**: if Ares returns `ARES NEEDS CLARIFICATION` with a specific question, ask the user via `AskUserQuestion`, then re-spawn Ares with the original prompt plus `CLARIFICATION: [Q] → [A]` appended (this matches `agents/ares.md`). Never answer on Ares's behalf and never drop the question.
 
 ---
 
@@ -213,11 +171,10 @@ Use Ares's document-selection policy. If a needed prerequisite file is missing, 
 Task(
   subagent_type: "kratos:ares",
   model: "sonnet",
+  mode: "acceptEdits",
   prompt: "MISSION: Create Implementation Tasks (User Mode)
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
-
-Read plugins/kratos/agents/ares.md for the full instruction set before starting.
 
 You are in USER MODE — create task files, do not implement code yourself.
 
@@ -231,7 +188,7 @@ You are in USER MODE — create task files, do not implement code yourself.
 )
 ```
 
-After User Mode completes: do NOT spawn Hermes automatically. Tell the user to work through tasks with `/kratos:task-complete <id>`.
+After User Mode completes: do NOT spawn Hermes automatically. Tell the user to work through tasks with `/kratos:task-complete <id>` (backed by `<kratos-bin> pipeline tasks complete`, which validates User Mode, updates status.json atomically, and auto-advances 7→complete / 8→ready when the last task lands).
 
 ---
 
@@ -245,14 +202,14 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/hera.md for the full instruction set before starting.
-
-Create prd-alignment.md before completing. If `prd.md` is missing when you need it, stop and report Athena as the owning upstream agent to Kratos.
+If `prd.md` is missing when you need it, stop and report Athena as the owning upstream agent to Kratos.
 
 Verify every acceptance criterion in prd.md is covered by a test and that tests pass. Create prd-alignment.md with verdict. Update status.json.",
   description: "hera - prd alignment check"
 )
 ```
+
+**After Hera returns `aligned`:** before spawning Stage 9, run the spec archive offer in `<KRATOS_ROOT>/commands/spec-archive.md` § "Offer after implementation".
 
 ---
 
@@ -268,10 +225,6 @@ Task(
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
 
-Read plugins/kratos/agents/hermes.md for the full instruction set before starting.
-
-Create code-review.md before completing. Kratos validates the deliverable after you finish.
-
 Use Hermes's document-selection policy. If a needed prerequisite file is missing, stop and report the owning upstream agent to Kratos. Create code-review.md with verdict. Update status.json.",
   description: "hermes - code review"
 )
@@ -283,10 +236,6 @@ Task(
 MODE: pipeline
 FEATURE: [feature-name]
 FOLDER: .claude/feature/[feature-name]/
-
-Read plugins/kratos/agents/cassandra.md for the full instruction set before starting.
-
-Create risk-analysis.md before completing. Kratos validates the deliverable after you finish.
 
 Use Cassandra's document-selection policy. If a needed prerequisite file is missing, stop and report the owning upstream agent to Kratos. Create risk-analysis.md with severity-rated findings. Update status.json.",
   description: "cassandra - risk analysis"

@@ -1,7 +1,12 @@
 ---
 name: audit
 description: Pre-ship risk audit — security, breaking changes, scalability, dependency CVEs
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
+
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
+
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
 
 # Kratos: Audit Mode
 
@@ -19,13 +24,7 @@ Spawn Cassandra and report her findings.
 
 ---
 
-## Execution Modes
-
-| Mode | Keywords | Model Selection |
-|------|----------|-----------------|
-| **Eco** | `eco`, `budget`, `cheap` | Use `model_eco` |
-| **Power** | `power`, `max`, `full-power` | Use `model_power` |
-| **Normal** | (default) | Use `model` |
+Models: see `<KRATOS_ROOT>/modes/modes.md` (default normal; eco/power keywords switch).
 
 ---
 
@@ -61,7 +60,7 @@ Cover all five areas:
 Output findings severity-rated (CRITICAL / HIGH / MEDIUM / LOW) with file:line references.
 Render the full report in chat — do NOT create any files.
 
-End with a clear verdict: CLEAR / SHIP WITH CAUTION / DO NOT SHIP",
+End with your standard verdict: Clear / Caution / Blocked",
   description: "cassandra - standalone audit"
 )
 ```
@@ -85,9 +84,9 @@ Summoning: Cassandra (Risk Analyst)
 
 Present her findings directly. Then:
 
-- If **CRITICAL** findings: warn that these must be fixed before shipping
-- If **HIGH** findings: recommend addressing before ship
-- If **CLEAR**: confirm the codebase passed risk review
+- Verdict **Blocked** (any CRITICAL finding, or 4+ HIGH): warn that these must be fixed before shipping
+- Verdict **Caution** (1-3 HIGH, or 3+ MEDIUM): recommend addressing the HIGH findings before ship
+- Verdict **Clear**: confirm the codebase passed risk review
 
 ---
 

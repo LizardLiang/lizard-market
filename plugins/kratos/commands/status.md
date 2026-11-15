@@ -1,7 +1,12 @@
 ---
 name: status
 description: Show all features and their current pipeline stage
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
+
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
+
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root). `<kratos-bin>` resolves to `<KRATOS_ROOT>/bin/kratos`, falling back to `~/.kratos/bin/kratos`.
 
 # Kratos: Status Dashboard
 
@@ -17,31 +22,26 @@ Provide a comprehensive status report of all features in the `.claude/feature/` 
 
 ## Workflow
 
-### Step 1: Discover All Features
+### Step 1: Compute the Dashboard (CLI)
 
-1. **Scan**: Look for all directories in `.claude/feature/*/`
-2. **Read**: Load `status.json` from each feature folder
-3. **Analyze**: Determine current state, blockers, and health
+Run the CLI — it does all discovery, parsing, and computation (stage N of 9, completion %, health, conflicts, next action):
 
-### Step 2: Generate Dashboard
+```bash
+<kratos-bin> pipeline status --json            # all features
+<kratos-bin> pipeline status <feature> --json  # single-feature detail
+```
 
-For each feature, display:
-- Feature name and priority
-- Current stage in pipeline (always as N of 9)
-- Estimated remaining stages (9 minus completed stages)
-- Completion percentage
-- Blockers (if any)
-- Conflicts detected (if any)
-- Last activity
-- What the next agent expects (deliverable name from the stage table in `main.md`)
+The JSON gives you, per feature: `stage_number`/`total_stages`, `progress_pct`, `completed`/`total`, `health` (`blocked` | `conflict` | `stale` | `healthy`), `conflicts[]`, per-stage rows with statuses and verdicts, `verified`, and `next` (the computed next action/stage/agents from the transition table). Folders without `status.json` appear in `plan_only[]` — list those separately as "plan-only (pending spec delta)", never as features.
 
-### Step 3: Identify Issues
+### Step 1b: Plans ready but not implemented
 
-Flag any problems:
-- 🔴 **Blocked**: Waiting on prerequisite that's not complete
-- 🟡 **Conflict**: Source document changed after dependent doc created
-- 🔵 **Stale**: No activity for extended period
-- ⚪ **Healthy**: Progressing normally
+Odysseus plans live outside the pipeline, so `pipeline status` cannot see them. List every `.claude/.Arena/tactical-plans/*.md` whose frontmatter says `status: ready` and check whether its slug (or the ticket `#N` in its Request section) appears in `git log --oneline -100`. Plans with no matching commit go in a short **Planned, not implemented** list with the resume command `/kratos:quick implement the approved plan at <path>`. This is where approved plans go to die: a 0.047-ambiguity plan for NETZERO became LizMeter #62 on 2026-09-01 and was never built.
+
+### Step 2: Render the Dashboard
+
+Render the Output Format below from the JSON fields. Do not recompute any number the CLI already provided — theming (emoji, boxes, recommendations) is your job; arithmetic is not. Health mapping: `blocked` → 🔴, `conflict` → 🟡, `stale` → 🔵, `healthy` → 🟢/⚪.
+
+**Fallback (binary unavailable):** read each `.claude/feature/*/status.json` and report stage/status per feature; folders without `status.json` are "plan-only (pending spec delta)". Do not compute health, conflicts, or percentages by hand.
 
 ---
 
@@ -65,7 +65,6 @@ Pipeline:
 │ [1] PRD          ✅ Complete    │ prd.md                       │
 │ [2] PRD Review   ✅ Approved    │ prd-challenge.md             │
 │ [3] Decompose    ⏭ Skipped      │ -                            │
-│ [4] Discuss      ⏭ Skipped      │ -                            │
 │ [4] Tech Spec    ✅ Complete    │ tech-spec.md                 │
 │ [5] SA Review    ✅ Sound       │ spec-review-sa.md            │
 │ [6] Test Plan    ✅ Complete    │ test-plan.md                 │
@@ -133,23 +132,6 @@ The battlefield is empty. Begin a new conquest:
 | 🟢 | Healthy |
 | 🟡 | Warning (conflict or stale) |
 | 🔴 | Critical (blocked or failed) |
-
----
-
-## Conflict Detection
-
-When checking status, verify document dependencies per `plugins/kratos/references/status-json-schema.md`:
-
-```
-For each document with "based_on" in status.json:
-  - Compare based_on timestamp with current source timestamp
-  - If source is newer → flag as conflict
-
-Example:
-  tech-spec.md based_on prd.md (2024-01-15)
-  prd.md current modified (2024-01-18)
-  → CONFLICT: Tech spec may be outdated
-```
 
 ---
 

@@ -2,116 +2,565 @@
 /**
  * Kratos Memory - Session Start Hook
  *
- * Automatically starts a memory session when Claude Code session begins.
- * Uses global database at ~/.kratos/memory.db
+ * Registers this Claude Code session in the memory ledger, keyed by the
+ * harness session_id from the hook payload, and injects the small amount of
+ * context every session needs: the output constraint, the resolved binary
+ * path, stored user preferences, and one-line pointers to a fresh handoff,
+ * pending spec deltas, or unfinished plan drafts.
  *
- * NEW: Injects detailed context if there's an incomplete feature from last session.
+ * Session state lives in ~/.kratos/sessions/<session_id>.json — one file per
+ * Claude Code session. The previous single ~/.kratos/active-session.json was
+ * shared by every concurrent window: sessions in other projects ended each
+ * other, resume pointers named the wrong project, and `step record-agent`
+ * failed with FOREIGN KEY errors (2026-09 transcript review).
+ *
+ * Budget: hooks.json gives each SessionStart command 10 s (10000 ms). Every spawn
+ * below carries a timeout and the worst-case serial sum stays under ~5700 ms
+ * (version 800 + memory list 1500 + its unknown-flag retry 600 + init 2000 +
+ * session start 800); the `--part extras` call runs in its own 10 s hook with a
+ * 5000 ms budget of its own; the plugin-bin → ~/.kratos/bin copy runs last so it can
+ * never starve the calls. The retry has its own short timeout rather than
+ * reusing the 1500 ms memory-list budget — a flag-parse failure returns in about
+ * 250 ms. Every kratos call uses spawnSync with an argv array — payload text
+ * never reaches a shell.
+ *
+ * Two commands run at SessionStart. The main mode prints the output constraint,
+ * binary path, stored rules and pointers. `--part extras` prints only the
+ * inline god's lessons and protocol after a compaction, in its own hook output:
+ * Claude Code caps one hook output at 10,000 characters and injects a
+ * 2,000-character preview beyond that.
  */
 
-const { execSync, spawn } = require("child_process");
+const { execFileSync, spawn, spawnSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
-const { resolveBinary, platformBinaryName } = require("./kratos-bin.cjs");
+const {
+  resolveBinary,
+  platformBinaryName,
+  stateDir,
+  stateDirInfo,
+  syncStateDirConfig,
+  replaceBinary,
+  sweepStaleBinaries,
+  compareVersions,
+} = require("./kratos-bin.cjs");
+const { HOOK_OUTPUT_BUDGET, fitToBudget } = require("./hook-budget.cjs");
 
 // Global paths
 const KRATOS_HOME = path.join(os.homedir(), ".kratos");
 const DB_PATH = path.join(KRATOS_HOME, "memory.db");
-const SESSION_FILE = path.join(KRATOS_HOME, "active-session.json");
-const SCHEMA_PATH = path.join(__dirname, "..", "memory", "schema.sql");
+const SESSIONS_DIR = path.join(KRATOS_HOME, "sessions");
+const LEGACY_SESSION_FILE = path.join(KRATOS_HOME, "active-session.json");
+const SESSION_FILE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const REMINDER_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+const MAX_MEMORIES = 12;
+const RULE_CAP = 6; // standing rules shown per session, on top of MAX_MEMORIES
+const SCOPED_CAP = 4; // project-scoped facts capped so a global preference always gets a slot
 
-// Get project name from current working directory
-const cwd = process.cwd();
-const projectName = path.basename(cwd);
+// Rank a global fact's category so a preference always outranks a weak-spot,
+// and a weak-spot always outranks a habit, regardless of recency — a
+// preference is the fact most likely to change how the session responds.
+// Categories outside this map (e.g. "context", handled separately) rank last.
+// A stable sort keeps newest-first ordering within one rank, since `memories`
+// itself already arrives newest-first.
+const GLOBAL_PREF_RANK = { preference: 0, "weak-spot": 1, habit: 2 };
+function globalPrefRank(m) {
+  const rank = GLOBAL_PREF_RANK[m.category];
+  return rank === undefined ? GLOBAL_PREF_RANK.habit + 1 : rank;
+}
 
 // Output constraint injected into every session (verbatim from references/agent-protocol.md).
 const OUTPUT_CONSTRAINT =
-  "\n**Output constraint:** Terse. Drop articles, filler, pleasantries. Pattern: `[status] [what] [result]. [next].` Fragments OK. Technical terms exact. Code blocks unchanged.\n";
+  "\n**Output constraint:** One standard for every answer.\n" +
+  "- Lead with the point: the conclusion, or what is at stake. No preamble, no build-up.\n" +
+  "- Show the mechanism, never narrate it. One view replaces the prose it would have taken:\n" +
+  "  - A sequence of actions — call order, request flow, pipeline stages, the steps you took or will take, above all code flow — is an ASCII diagram in a code block: one box or line per step, arrows (`→`, `│`, `└─▶`) for order, a branch per condition. Never a paragraph, never Mermaid (it does not render in a terminal).\n" +
+  "  - Items with no order — options, checks, parallel facts — are bullet points.\n" +
+  "  - Logic is pseudocode. Structure is a file or component tree. A change is a `diff` when part changes, a full block when most is new.\n" +
+  "  The view sits next to the short text it supports and keeps only the nodes that answer this question. One or two views, never all.\n" +
+  "- Keep hedges and evidence status (verified vs inferred). Define a term at first use; never \"simply\", \"just\", \"obviously\". Name the misunderstanding the reader is likely to have.\n" +
+  "- Asking the user to decide: state the decision and its consequence before the options.\n" +
+  "- No filler, no pleasantries. Technical terms exact. Code blocks unchanged.\n" +
+  "- A mid-turn progress line is the same standard in miniature: `[status] [what] [result]. [next].` Fragments OK; lead with the result, never a bare `[what]:`. No arrow chains in prose — a flow goes in an ASCII diagram.\n" +
+  "- Write every line in the user's language, progress lines too, even when code and instructions are English.\n" +
+  "- A message the human typed always gets an answer; `No response requested` is only for harness task notifications.\n";
 
-// Ensure .kratos directory exists
-function ensureDir() {
-  if (!fs.existsSync(KRATOS_HOME)) {
-    fs.mkdirSync(KRATOS_HOME, { recursive: true });
+// The pre-plugin installer registered copies of the hooks in ~/.claude/settings.json;
+// when they are still there every event runs twice and the stale copy errors
+// (`recall --project`, "active session already exists"). Point at the fix once.
+function formatLegacyHooksWarning() {
+  const settingsFile = path.join(os.homedir(), ".claude", "settings.json");
+  let text;
+  try {
+    text = fs.readFileSync(settingsFile, "utf-8");
+  } catch (e) {
+    return null;
   }
+  if (!/hooks[\\\/]+kratos[\\\/]/.test(text)) return null;
+  return "Kratos: legacy hook copies are still registered in ~/.claude/settings.json and run alongside the plugin's — run `kratos install` once to remove them.";
+}
+
+function ensureDir() {
+  fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 }
 
 const findKratosBinary = resolveBinary;
 
-// Initialize database if needed
-function initDb() {
-  if (fs.existsSync(DB_PATH)) return true;
+// Per-call budgets (ms). Serial sum must stay under the 10 s (10000 ms) hook
+// timeout with room for node startup.
+const VERSION_TIMEOUT_MS = 800;
+const MEMORY_LIST_TIMEOUT_MS = 1500;
+// A flag-parse failure (an older binary rejecting --with-rules) returns in
+// about 250 ms — this is its own budget, not MEMORY_LIST_TIMEOUT_MS, so the
+// retry cannot push the worst-case serial sum over the hook's 10000 ms limit.
+const MEMORY_LIST_RETRY_TIMEOUT_MS = 600;
+const INIT_TIMEOUT_MS = 2000;
+const SESSION_START_TIMEOUT_MS = 800;
+// Runs in the `--part extras` hook on source "compact" only; that hook has its
+// own 10 s budget and the extras print in about 200 ms.
+const GOD_EXTRAS_TIMEOUT_MS = 5000;
 
+// Runs the kratos binary with an argv array; stdout on success, null otherwise.
+function runKratos(args, timeoutMs) {
   const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return null;
+  try {
+    const r = spawnSync(kratosCmd, args, {
+      encoding: "utf-8",
+      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: timeoutMs,
+    });
+    if (r.error || r.status !== 0) return null;
+    return r.stdout;
+  } catch (e) {
+    return null;
+  }
+}
+
+function firstLine(text) {
+  const line = String(text || "").split(/\r?\n/).find((l) => l.trim()) || "";
+  return line.trim().slice(0, 160);
+}
+
+// Like runKratos, but keeps stderr so a failure can name its cause.
+// Returns { out, err }; out is null on any failure.
+function runKratosCapture(args, timeoutMs) {
+  const kratosCmd = findKratosBinary();
+  if (!kratosCmd) return { out: null, err: "kratos binary not found" };
+  try {
+    const r = spawnSync(kratosCmd, args, {
+      encoding: "utf-8",
+      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: timeoutMs,
+    });
+    if (r.error || r.status !== 0 || !r.stdout) {
+      return { out: null, err: firstLine(r.stderr) || firstLine(r.error && r.error.message) || `exit ${r.status}` };
+    }
+    return { out: r.stdout, err: firstLine(r.stderr) };
+  } catch (e) {
+    return { out: null, err: firstLine(e && e.message) };
+  }
+}
+
+// plugin.json version without a leading "v", or null when unreadable.
+function pluginVersion() {
+  try {
+    const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, "..");
+    const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, ".claude-plugin", "plugin.json"), "utf-8"));
+    return manifest.version ? String(manifest.version).replace(/^v/, "") : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// `<bin> --version` prints "kratos version v2.108.0"; returns "2.108.0" or null.
+const versionCache = new Map();
+function binaryVersion(bin) {
+  if (!versionCache.has(bin)) versionCache.set(bin, readBinaryVersion(bin));
+  return versionCache.get(bin);
+}
+
+function readBinaryVersion(bin) {
+  try {
+    const out = execFileSync(bin, ["--version"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: VERSION_TIMEOUT_MS,
+    });
+    const match = out.match(/v?(\d+\.\d+\.\d+)/);
+    return match ? match[1] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// A stale binary silently lacks flags newer agents call (2026-09 review: a
+// v2.1.0 binary under a v2.108.0 plugin). One line; ensureBinary already
+// spawned the refresh when the binary is a release download. The other
+// direction — binary newer than the plugin — is a session still pinned to an
+// older plugin root after an update (2026-11-09: a resumed 2.126.0 session
+// under the 2.126.1 binary); nothing refreshes, the session must restart.
+function formatVersionMismatch(bin, refreshing) {
+  return formatVersionMismatchFor(binaryVersion(bin), pluginVersion(), refreshing);
+}
+
+function formatVersionMismatchFor(have, want, refreshing) {
+  if (!have || !want || have === want) return null;
+  if (compareVersions(have, want) > 0) {
+    return `Kratos: plugin v${want} in this session is older than binary v${have} — start a new session to load the current plugin`;
+  }
+  const action = refreshing ? "refreshing in background" : "rebuild: cd kratos-dev/go && make build";
+  return `Kratos: binary v${have} ≠ plugin v${want} — ${action}`;
+}
+
+// Runs `kratos init` once per binary version: a successful init writes
+// ~/.kratos/init-<version>, and later starts skip init while that marker and
+// the database both exist. An unknown version always runs init. A failed
+// marker write never blocks the session.
+function initDb() {
+  const kratosCmd = findKratosBinary();
+  const dbExists = fs.existsSync(DB_PATH);
   if (!kratosCmd) {
+    if (dbExists) return true;
     console.error(
-      "Kratos binary not found. Please build: cd go && go build -o ../bin/kratos ./cmd/kratos",
+      "Kratos binary not found yet. Downloading in the background to ~/.kratos/bin/ - " +
+        "retry shortly, or build from source: cd kratos-dev/go && make build",
     );
     return false;
   }
-
-  try {
-    execSync(`"${kratosCmd}" init`, {
-      stdio: "ignore",
-      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
-    });
-    return true;
-  } catch (e) {
-    console.error("Failed to init DB:", e.message);
-    return false;
+  const version = binaryVersion(kratosCmd);
+  const marker = version ? path.join(KRATOS_HOME, `init-${version}`) : null;
+  if (dbExists && marker && fs.existsSync(marker)) return true;
+  const ok = runKratos(["init"], INIT_TIMEOUT_MS) !== null;
+  if (ok && marker) {
+    try {
+      fs.writeFileSync(marker, "");
+    } catch (e) {
+      // the marker only saves the next start an init call
+    }
   }
+  return dbExists || ok;
 }
 
-// Generate UUID v4
-function uuid() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-  });
+function toSlashes(p) {
+  return String(p || "").replace(/\\/g, "/");
 }
 
-// Start session using Go CLI
-function startSession() {
-  const kratosCmd = findKratosBinary();
-  if (!kratosCmd) return null;
+// Same canonical form the CLI stores in user_memories.project.
+function normalizeProject(p) {
+  let out = toSlashes(p).replace(/\/+$/, "");
+  if (process.platform === "win32") out = out.toLowerCase();
+  return out;
+}
+
+// Ranks stored memories for THIS project into tiers: standing rules first
+// (this project's and global, never another project's, capped at RULE_CAP),
+// then up to SCOPED_CAP project-scoped facts, then global preferences /
+// habits / weak spots, then global context; a bucket's unused slots pass to
+// the next one. `memories` is the newest-80-window list; `ruleMemories` is
+// the separate `--category rule` capture, so a rule that has aged out of
+// that window still shows. Returns the formatted block, or null when there
+// is nothing to show. Pulled out of formatMemories so a test can call it
+// directly with fixture data instead of a real kratos binary and DB.
+function buildMemoryReport(data, ruleMemories, cwd) {
+  const memories = (data && data.memories) || [];
+  const rulePool = ruleMemories || [];
+  if (memories.length === 0 && rulePool.length === 0) return null;
+  const total = data && typeof data.total === "number" ? data.total : memories.length;
+  const here = normalizeProject(cwd);
+
+  const rules = rulePool.filter((m) => !m.project || normalizeProject(m.project) === here);
+  const shownRules = rules.slice(0, RULE_CAP);
+
+  const scoped = [];
+  const globalPrefs = [];
+  const globalContext = [];
+  for (const m of memories) {
+    if (m.category === "rule") continue; // shown from the dedicated rule tier only, never twice
+    if (m.project) {
+      if (normalizeProject(m.project) === here) scoped.push(m);
+      continue;
+    }
+    if (m.category === "context") globalContext.push(m);
+    else globalPrefs.push(m);
+  }
+  // Array.prototype.sort is stable (guaranteed since ES2019/Node 12), so this
+  // only reorders across ranks — newest-first survives within one rank.
+  globalPrefs.sort((a, b) => globalPrefRank(a) - globalPrefRank(b));
+
+  const scopedShown = scoped.slice(0, SCOPED_CAP);
+  let remaining = MAX_MEMORIES - scopedShown.length;
+  const prefsShown = globalPrefs.slice(0, remaining);
+  remaining -= prefsShown.length;
+  const contextShown = globalContext.slice(0, remaining);
+  remaining -= contextShown.length;
+  // A slot neither global bucket used goes back to the remaining scoped
+  // facts, so a project with few global preferences (or none at all) does
+  // not leave MAX_MEMORIES slots half-empty while more scoped facts wait.
+  const extraScoped = remaining > 0 ? scoped.slice(scopedShown.length, scopedShown.length + remaining) : [];
+  const shownFacts = [...scopedShown, ...prefsShown, ...contextShown, ...extraScoped];
+
+  if (shownRules.length === 0 && shownFacts.length === 0) return null;
+
+  const lines = ["", "## Stored user preferences"];
+  for (const m of shownRules) {
+    lines.push(`- ${m.text} [rule]`);
+  }
+  for (const m of shownFacts) {
+    const tag = m.project ? ` [${m.category || "context"} · this project]` : m.category ? ` [${m.category}]` : "";
+    lines.push(`- ${m.text}${tag}`);
+  }
+  const more = total - shownFacts.length - shownRules.length;
+  if (more > 0) {
+    lines.push(`(+${more} more — \`kratos memory list --limit 50\` or \`--project "${toSlashes(cwd)}"\`)`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+// Stored user memories — read-side of the memory sweep. The old newest-15-
+// of-everything injection put the same list in every project and 0-2 of 15
+// items were relevant (2026-09); buildMemoryReport ranks the newest-80
+// window for THIS project. The `--with-rules` flag on the same call adds
+// the standing-rule tier: a project with many scoped facts fills every
+// slot with them, and a rule saved weeks ago would otherwise never surface.
+//
+// A failed list with an existing DB returns one "memory unavailable" line
+// instead of nothing: silent null hid a broken binary for weeks (2026-09).
+// An older binary that predates --with-rules fails fast on the unknown
+// flag; the retry below drops it and shows the ordinary facts with no
+// rules tier, so one old binary in the field cannot lose the whole list.
+//
+// capture defaults to runKratosCapture; a test passes a stub instead, so it
+// can assert the retry's own timeout without spawning a real binary.
+function formatMemories(cwd, capture) {
+  capture = capture || runKratosCapture;
+  let { out, err } = capture(["memory", "list", "--limit", "80", "--with-rules"], MEMORY_LIST_TIMEOUT_MS);
+  if (!out && /unknown flag/i.test(err || "")) {
+    ({ out, err } = capture(["memory", "list", "--limit", "80"], MEMORY_LIST_RETRY_TIMEOUT_MS));
+  }
+  const unavailable = (reason) => (fs.existsSync(DB_PATH) ? `Kratos: memory unavailable (${reason})` : null);
+  if (!out) return unavailable(err || "no output");
+  let data;
+  try {
+    data = JSON.parse(out);
+  } catch (e) {
+    return unavailable(err || "unreadable output");
+  }
 
   try {
-    const result = execSync(`"${kratosCmd}" session start "${cwd}"`, {
-      encoding: "utf-8",
-      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
-    });
-    return JSON.parse(result).session_id;
+    return buildMemoryReport(data, data.rules || [], cwd);
   } catch (e) {
-    console.error("Failed to start session:", e.message);
     return null;
   }
 }
 
-// Get last session info for context injection
-function getLastSessionInfo() {
-  const kratosCmd = findKratosBinary();
-  if (!kratosCmd) return null;
-
+// One line instead of the preference list after a compaction. The full list
+// (~2 KB) plus the output constraint and the inline god's extras pushed the
+// compact payload to 14-16 KB on v2.120, which Claude Code truncated to a 2 KB
+// preview — the preferences arrived cut off and the environment facts not at
+// all (2026-10-25/26, four compactions in one session). The model still has
+// the list from the session's first start in its summary; this tells it how
+// to get the full set back on demand.
+function formatMemoriesCompact(cwd, capture) {
+  capture = capture || runKratosCapture;
+  const { out } = capture(["memory", "list", "--limit", "1"], MEMORY_LIST_RETRY_TIMEOUT_MS);
+  if (!out) return null;
   try {
-    const result = execSync(`"${kratosCmd}" recall --project "${cwd}"`, {
-      encoding: "utf-8",
-      env: { ...process.env, KRATOS_MEMORY_DB: DB_PATH },
-    });
-    const data = JSON.parse(result);
-    return data.last_session || null;
+    const data = JSON.parse(out);
+    const total = typeof data.total === "number" ? data.total : null;
+    if (total === null || total === 0) return null;
+    return `Kratos: ${total} stored preferences unchanged — \`kratos memory list --limit 50\` or \`--project "${toSlashes(cwd)}"\` for the list`;
   } catch (e) {
     return null;
   }
+}
+
+// The `## Environment` section of handoff.md: servers and ports, worktrees
+// and branches, restart commands — what Iris/Ares stood up and what a
+// compaction summary tends to drop (2026-10-26 09:06: the fake Mallbic server
+// was forgotten and the user asked for a real token). Up to 15 lines, same
+// freshness gate as the handoff head.
+function formatEnvironmentFacts(cwd) {
+  try {
+    const handoffPath = path.join(cwd, stateDir(), ".Arena", "handoff.md");
+    const stats = fs.statSync(handoffPath);
+    if (Date.now() - stats.mtimeMs >= SESSION_FILE_MAX_AGE_MS) return null;
+    const lines = fs.readFileSync(handoffPath, "utf-8").split(/\r?\n/);
+    const start = lines.findIndex((l) => /^##\s+Environment\b/i.test(l));
+    if (start < 0) return null;
+    const body = [];
+    for (const l of lines.slice(start + 1)) {
+      if (/^##\s/.test(l)) break;
+      if (!l.trim() || /^\s*<!--/.test(l) || /^\s*-\s*\[/.test(l)) continue; // comments and template placeholders
+      body.push("  " + l.trim());
+      if (body.length >= 15) break;
+    }
+    if (body.length === 0) return null;
+    return ["Kratos: environment still standing (handoff.md ## Environment):", ...body].join("\n");
+  } catch (e) {
+    return null;
+  }
+}
+
+// readSessionState returns the per-session state file's object, or {}.
+function readSessionState(sessionId) {
+  if (!sessionId) return {};
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, `${sessionId}.json`), "utf-8"));
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+// Syncs the plugin's shipped state_dir into ~/.kratos/config.json, then names
+// the active state dir when it is not .claude, and prints a notice on each session start while a
+// project still holds state under .claude/.
+function formatStateDirNotices(cwd, pluginRoot) {
+  const lines = [];
+  try {
+    syncStateDirConfig(pluginRoot);
+    const info = stateDirInfo();
+    if (info.dir === ".claude") return lines;
+    lines.push("Kratos: state dir " + info.dir + " (from " + info.source + ")");
+    if (fs.existsSync(path.join(cwd, ".claude", "feature")) || fs.existsSync(path.join(cwd, ".claude", ".Arena"))) {
+      lines.push("Kratos: found old state in .claude/ — move it with: mv .claude/feature .claude/.Arena " + info.dir + "/");
+    }
+  } catch (e) {
+    // a notice must never block session start
+  }
+  return lines;
+}
+
+// After a compaction the model has lost its working targets; print the head of
+// a fresh handoff.md (the memory sweep keeps it current) so files, pages and
+// next steps survive the boundary.
+function formatHandoffHead(cwd) {
+  try {
+    const handoffPath = path.join(cwd, stateDir(), ".Arena", "handoff.md");
+    const stats = fs.statSync(handoffPath);
+    if (Date.now() - stats.mtimeMs >= SESSION_FILE_MAX_AGE_MS) return null;
+    // The ## Environment section is printed by formatEnvironmentFacts in full;
+    // skip it here so a short handoff does not show it twice.
+    const lines = [];
+    let inEnv = false;
+    for (const l of fs.readFileSync(handoffPath, "utf-8").split(/\r?\n/)) {
+      if (/^##\s/.test(l)) inEnv = /^##\s+Environment\b/i.test(l);
+      if (inEnv || !l.trim()) continue;
+      lines.push(l);
+      if (lines.length >= 12) break;
+    }
+    if (lines.length === 0) return null;
+    return ["Kratos: current targets after compaction (" + stateDir() + "/.Arena/handoff.md):", ...lines.map((l) => "  " + l)].join("\n");
+  } catch (e) {
+    return null;
+  }
+}
+
+// Session handoff written by /kratos:wrap — .claude/.Arena/handoff.md. Content
+// is injected on demand by the Go UserPromptSubmit hook when a resume phrase
+// appears; this only prints a one-line pointer for a fresh file.
+function formatHandoffNotice(cwd) {
+  try {
+    const handoffPath = path.join(cwd, stateDir(), ".Arena", "handoff.md");
+    const stats = fs.statSync(handoffPath);
+    const age = Date.now() - stats.mtimeMs;
+    if (age >= SESSION_FILE_MAX_AGE_MS) return null;
+    return `Kratos: handoff from last session (${formatTimeAgo(stats.mtimeMs)}) — say "continue" or /kratos:recall to load it`;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Pending spec deltas: .claude/feature/*/spec-delta/*.md that are not under
+// archived/. One line, once per session, only while the newest delta is fresh
+// — stale deltas from abandoned features stop nagging on their own.
+function formatPendingSpecDeltas(cwd) {
+  const featureRoot = path.join(cwd, stateDir(), "feature");
+  let features;
+  try {
+    features = fs.readdirSync(featureRoot);
+  } catch (e) {
+    return null;
+  }
+  const pending = [];
+  let newest = 0;
+  for (const name of features) {
+    const deltaDir = path.join(featureRoot, name, "spec-delta");
+    let entries;
+    try {
+      entries = fs.readdirSync(deltaDir);
+    } catch (e) {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.endsWith(".md")) continue;
+      try {
+        const stats = fs.statSync(path.join(deltaDir, entry));
+        if (!stats.isFile()) continue;
+        pending.push(name);
+        if (stats.mtimeMs > newest) newest = stats.mtimeMs;
+      } catch (e) {
+        // unreadable entry — skip
+      }
+    }
+  }
+  if (pending.length === 0) return null;
+  if (Date.now() - newest >= REMINDER_MAX_AGE_MS) return null;
+  const unique = [...new Set(pending)];
+  const shown = unique.slice(0, 3).join(", ") + (unique.length > 3 ? ", …" : "");
+  return `Kratos: ${pending.length} un-archived spec delta(s) (${shown}) — /kratos:spec-archive <feature> when the work has landed`;
+}
+
+// Count entries under a plan's `## Locked Decisions` heading, so the reminder
+// can say how much answered-question work is sitting in the draft.
+function countLockedDecisions(body) {
+  const section = body.split(/^##\s+Locked Decisions\s*$/m)[1];
+  if (!section) return 0;
+  const untilNextHeading = section.split(/^##\s+/m)[0];
+  return (untilNextHeading.match(/^\s*-\s+\*\*/gm) || []).length;
+}
+
+// Unfinished tactical plans (status: draft) hold answers the user already
+// gave. One line, same freshness gate as the deltas.
+function formatDraftPlans(cwd) {
+  const planDir = path.join(cwd, stateDir(), ".Arena", "tactical-plans");
+  let names;
+  try {
+    names = fs.readdirSync(planDir);
+  } catch (e) {
+    return null;
+  }
+  const drafts = [];
+  for (const name of names) {
+    if (!name.endsWith(".md")) continue;
+    const full = path.join(planDir, name);
+    try {
+      const stats = fs.statSync(full);
+      if (Date.now() - stats.mtimeMs >= REMINDER_MAX_AGE_MS) continue;
+      const body = fs.readFileSync(full, "utf-8");
+      if (!/^---\r?\n(?:.*\r?\n)*?status:\s*draft\b/m.test(body.slice(0, 512))) continue;
+      const n = countLockedDecisions(body);
+      drafts.push(`${name} (${n === 1 ? "1 locked decision" : `${n} locked decisions`})`);
+    } catch (e) {
+      // skip unreadable plan
+    }
+  }
+  if (drafts.length === 0) return null;
+  return `Kratos: ${drafts.length} unfinished plan draft(s): ${drafts.join(", ")} — /kratos:plan <task> resumes it`;
 }
 
 // Format time ago
 function formatTimeAgo(timestampMs) {
   if (!timestampMs) return "unknown";
-
   const diffMs = Date.now() - timestampMs;
   const diffMin = diffMs / 60000;
   const diffHour = diffMin / 60;
   const diffDay = diffHour / 24;
-
   if (diffMin < 1) return "just now";
   if (diffMin < 60) return `${Math.floor(diffMin)} minutes ago`;
   if (diffHour < 24) return `${Math.floor(diffHour)} hours ago`;
@@ -119,148 +568,280 @@ function formatTimeAgo(timestampMs) {
   return `${Math.floor(diffDay / 7)} weeks ago`;
 }
 
-// Format detailed context message for injection
-function formatContextMessage(info) {
-  if (!info || !info.feature_name) return null;
-  if (info.feature_status === "completed") return null;
-
-  const timeAgo = formatTimeAgo(info.started_at);
-  const stage = info.current_stage || 0;
-  const stageName = info.stage_name || "Unknown";
-  const nextAgent = info.next_agent || "Unknown";
-  const nextStageName = info.next_stage_name || "Unknown";
-
-  // Build the context box
-  const lines = [
-    "",
-    "+----------------------------------------------------------------------+",
-    "|  KRATOS MEMORY: Last session detected                                |",
-    "+----------------------------------------------------------------------+",
-    `|  Feature: ${(info.feature_name || "").padEnd(56)}|`,
-    `|  Stage: ${stage}/8 (${stageName})`.padEnd(71) + "|",
-    `|  Last active: ${timeAgo}`.padEnd(71) + "|",
-    "|                                                                      |",
-  ];
-
-  // Add last actions
-  if (info.last_actions && info.last_actions.length > 0) {
-    lines.push(
-      "|  Last actions:                                                       |",
-    );
-    for (const action of info.last_actions.slice(-3)) {
-      const truncated =
-        action.length > 60 ? action.substring(0, 57) + "..." : action;
-      lines.push(`|  - ${truncated}`.padEnd(71) + "|");
-    }
-    lines.push(
-      "|                                                                      |",
-    );
-  }
-
-  // Add recommendation
-  if (info.next_stage !== null && info.next_stage !== undefined) {
-    const rec = `Continue with Stage ${info.next_stage} (${nextAgent} - ${nextStageName})?`;
-    lines.push(`|  Recommendation: ${rec}`.padEnd(71) + "|");
-    lines.push(
-      '|  Say "continue" or "/kratos" to resume                               |',
-      '|  Tip: /kratos:recall <path> to view past sessions                    |',
-    );
-  }
-
-  lines.push(
-    "+----------------------------------------------------------------------+",
-  );
-  lines.push("");
-
-  return lines.join("\n");
-}
-
-// Copy kratos binary to ~/.kratos/bin/ so agents use a single fixed path
+// Keep ~/.kratos/bin/ in sync with the plugin binary so agents use a single
+// fixed path. Returns { refreshing, copy }: refreshing is true when a background
+// release download was spawned; copy is a function performing the plugin-bin →
+// ~/.kratos/bin copy, or null when the target is already current. The caller
+// runs copy() last so a slow ~10MB copy never starves the CLI calls.
 function ensureBinary() {
   const targetDir = path.join(KRATOS_HOME, "bin");
   const isWin = process.platform === "win32";
   const targetName = isWin ? "kratos.exe" : "kratos";
   const targetPath = path.join(targetDir, targetName);
 
-  // Determine source binary from plugin bin/ directory
-  const pluginRoot =
-    process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, "..");
-  const srcDir = path.join(pluginRoot, "bin");
+  // A previous update may have left the old binary in `bin/stale/` because a
+  // hook was still executing it. Try to remove it now; a file another process
+  // still holds is skipped without error and waits for the next start.
+  sweepStaleBinaries(targetDir);
 
-  const srcName = platformBinaryName();
+  const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, "..");
+  const srcPath = path.join(pluginRoot, "bin", platformBinaryName());
+  if (!fs.existsSync(srcPath)) {
+    // No plugin-local binary (release install) — background download; the
+    // SessionStart budget cannot fit a ~10MB fetch inline.
+    try {
+      const child = spawn(process.execPath, [path.join(__dirname, "ensure-binary.cjs")], {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
+    } catch (e) {
+      // best-effort
+    }
+    return { refreshing: true, copy: null };
+  }
 
-  const srcPath = path.join(srcDir, srcName);
-  if (!fs.existsSync(srcPath)) return; // no source binary available
-
-  // Copy if target missing or source is newer
   let needsCopy = !fs.existsSync(targetPath);
   if (!needsCopy) {
-    const srcMtime = fs.statSync(srcPath).mtimeMs;
-    const tgtMtime = fs.statSync(targetPath).mtimeMs;
-    needsCopy = srcMtime > tgtMtime;
+    needsCopy = fs.statSync(srcPath).mtimeMs > fs.statSync(targetPath).mtimeMs;
   }
-
-  if (needsCopy) {
-    fs.mkdirSync(targetDir, { recursive: true });
-    fs.copyFileSync(srcPath, targetPath);
-    if (!isWin) {
-      fs.chmodSync(targetPath, 0o755);
-    }
-  }
-
-
+  if (!needsCopy) return { refreshing: false, copy: null };
+  return {
+    refreshing: false,
+    copy: () => {
+      fs.mkdirSync(targetDir, { recursive: true });
+      // Never copy onto a running binary: move it to bin/stale/, copy, then
+      // delete the stale file now or at a later sweep (replaceBinary in kratos-bin.cjs).
+      replaceBinary(targetPath, (dest) => fs.copyFileSync(srcPath, dest));
+      if (!isWin) fs.chmodSync(targetPath, 0o755);
+    },
+  };
 }
 
-// Main
-function main() {
-  ensureDir();
-  ensureBinary();
-
-  // Always inject the output constraint, regardless of session resume/init path.
-  console.log(OUTPUT_CONSTRAINT);
-
-  // Check for existing active session
-  if (fs.existsSync(SESSION_FILE)) {
+// Remove per-session state files older than 7 days, plus the legacy shared
+// file, so the directory never grows without bound.
+function pruneSessionFiles() {
+  try {
+    if (fs.existsSync(LEGACY_SESSION_FILE)) fs.unlinkSync(LEGACY_SESSION_FILE);
+  } catch (e) {
+    // ignore
+  }
+  let entries;
+  try {
+    entries = fs.readdirSync(SESSIONS_DIR);
+  } catch (e) {
+    return;
+  }
+  const now = Date.now();
+  for (const entry of entries) {
+    const full = path.join(SESSIONS_DIR, entry);
     try {
-      const existing = JSON.parse(fs.readFileSync(SESSION_FILE, "utf-8"));
-      // Session from same project and less than 1 hour old? Reuse it
-      const age = Date.now() - existing.started_at;
-      if (existing.project === projectName && age < 3600000) {
-        console.log(`Kratos: Resuming session ${existing.session_id}`);
-        return;
-      }
+      if (now - fs.statSync(full).mtimeMs > SESSION_FILE_MAX_AGE_MS) fs.unlinkSync(full);
     } catch (e) {
-      // Invalid session file, continue to create new
+      // ignore
     }
   }
+}
 
+// Replace the per-session state file atomically: write a uniquely named temp
+// file beside it, then rename over the target. A reader sees the old file or
+// the new one, never a truncated one. Failures are swallowed — the state file
+// is a discipline aid, and SessionStart must not fail on it.
+function writeStateFile(stateFile, state) {
+  const tmp = `${stateFile}.${process.pid}-${Date.now()}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
+    fs.renameSync(tmp, stateFile);
+  } catch (e) {
+    try {
+      fs.unlinkSync(tmp);
+    } catch (_) {
+      // nothing left to clean up
+    }
+  }
+}
+
+// Register the session in the ledger (idempotent on session_id) and write the
+// per-session state file other hooks read. extra holds fields this hook owns
+// (spec_delta_nag_shown) and is merged over the previous state.
+function registerSession(sessionId, cwd, source, extra) {
+  if (!sessionId) return;
   if (!initDb()) return;
 
-  // Get last session info BEFORE starting new session
-  const lastSessionInfo = getLastSessionInfo();
+  const raw = runKratos(["session", "start", cwd, "--session-id", sessionId], SESSION_START_TIMEOUT_MS);
+  let created = false;
+  if (raw) {
+    try {
+      created = JSON.parse(raw).created === true;
+    } catch (e) {
+      // keep going — the state file is still useful
+    }
+  }
 
-  const sessionId = startSession();
-  if (!sessionId) return;
-
-  // Save session info
-  const sessionData = {
+  const stateFile = path.join(SESSIONS_DIR, `${sessionId}.json`);
+  let prev = {};
+  try {
+    const parsed = JSON.parse(fs.readFileSync(stateFile, "utf-8"));
+    if (parsed && typeof parsed === "object") prev = parsed;
+  } catch (e) {
+    // fresh file
+  }
+  const startedAt = prev.started_at || Date.now();
+  // Spread the previous state: SessionStart fires again mid-session with
+  // source "compact" or "resume", and rebuilding the object from scratch there
+  // erased the edit gate's fields (inline_god, inline_edited_files) — the gate
+  // switched itself off after the first compaction.
+  //
+  // Temp file then rename, the same discipline as the Go writers of this file
+  // (atomicWriteFile in pipeline.go): a plain writeFileSync truncates first, so
+  // an edit-gate process reading the ledger in that window saw invalid JSON and
+  // silently lost the gate for that call. The temp name ends in .tmp so no
+  // *.json reader can pick it up and `session gc` sweeps an orphan.
+  //
+  // Accepted residual: this is still a read-modify-write, and two writers (this
+  // hook and the Go edit gate) can interleave so the later one overwrites the
+  // earlier one's field. No lock file — the failure direction is fail-open and
+  // the worst case is one extra budget slot for the turn, which is cheaper than
+  // a lock that can be left behind by a killed process.
+  writeStateFile(stateFile, {
+    ...prev,
+    ...(extra || {}),
     session_id: sessionId,
-    project: projectName,
-    cwd: cwd,
-    started_at: Date.now(),
-  };
+    project: path.basename(cwd),
+    cwd,
+    started_at: startedAt,
+    source: source || "startup",
+  });
 
-  fs.writeFileSync(SESSION_FILE, JSON.stringify(sessionData, null, 2));
+  if (created && (source === "startup" || source === "clear" || !source)) {
+    console.log(`Kratos: session ${sessionId.slice(0, 8)} started`);
+  }
+}
 
-  console.log(`Kratos: Memory session started - ${sessionId}`);
+// After /compact, Claude Code re-attaches an invoked skill cut at 20,000
+// characters, so a long inline god loses its lessons, protocol block and
+// command-mode suffix (the `--part extras` output). The extras follow the
+// ledger's inline god exactly as the PreToolUse edit gate does, so a session
+// whose ledger still names the god receives them until a dispatch clears it.
+// Only Iris and Odysseus run inline across turns; a command-mode god such as
+// Hermes ends with its own mission and gets no replay.
+// Returns "" on any failure.
+function formatInlineGodExtras(sessionId, source) {
+  if (source !== "compact" || !sessionId) return "";
+  try {
+    const ledger = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, `${sessionId}.json`), "utf-8"));
+    const god = ledger && typeof ledger.inline_god === "string" ? ledger.inline_god.trim() : "";
+    if (god !== "iris" && god !== "odysseus") return "";
+    const out = runKratos(["agent", "load", god, "--resolve", "--part", "extras"], GOD_EXTRAS_TIMEOUT_MS);
+    return out ? out.trim() : "";
+  } catch (e) {
+    return "";
+  }
+}
 
-  // Inject context if there's an incomplete feature
-  if (lastSessionInfo && lastSessionInfo.feature_name) {
-    const contextMsg = formatContextMessage(lastSessionInfo);
-    if (contextMsg) {
-      console.log(contextMsg);
+// `--part extras` mode: only the inline god's lessons and protocol, fitted to
+// the hook output cap. Prints nothing unless source is "compact" and the
+// ledger names an inline god.
+function mainExtras(payload) {
+  const sessionId = payload && payload.session_id ? String(payload.session_id) : "";
+  const source = payload && payload.source ? String(payload.source) : "";
+  const extras = formatInlineGodExtras(sessionId, source);
+  if (!extras) return;
+  const root = toSlashes(process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, ".."));
+  console.log(fitToBudget([], extras, root, HOOK_OUTPUT_BUDGET));
+}
+
+function main(payload) {
+  const cwd = (payload && payload.cwd) || process.cwd();
+  const sessionId = payload && payload.session_id ? String(payload.session_id) : "";
+  const source = payload && payload.source ? String(payload.source) : "";
+
+  ensureDir();
+  let refreshing = false;
+  let pendingCopy = null;
+  try {
+    const bin = ensureBinary();
+    refreshing = bin.refreshing;
+    pendingCopy = bin.copy;
+  } catch (e) {
+    // a failed binary check must not block session start
+  }
+  pruneSessionFiles();
+
+  // Always inject the output constraint, regardless of session source.
+  console.log(OUTPUT_CONSTRAINT);
+
+  for (const line of formatStateDirNotices(cwd, process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, ".."))) console.log(line);
+
+  const kratosBin = findKratosBinary();
+  if (kratosBin) {
+    console.log(`KRATOS_BIN: ${kratosBin}`);
+    const mismatch = formatVersionMismatch(kratosBin, refreshing);
+    if (mismatch) console.log(mismatch);
+  }
+  const compact = source === "compact";
+  const memoriesMsg = compact ? formatMemoriesCompact(cwd) : formatMemories(cwd);
+  if (memoriesMsg) {
+    console.log(memoriesMsg);
+  }
+
+  // The spec-delta reminder prints once per session: on 2026-10-22 → 28 the
+  // same "18 un-archived spec delta(s)" line arrived at all 18 compactions and
+  // was never acted on.
+  const prevState = readSessionState(sessionId);
+  let specLine = formatPendingSpecDeltas(cwd);
+  if (specLine && compact && prevState.spec_delta_nag_shown) specLine = null;
+
+  const handoffLine = compact ? formatHandoffHead(cwd) || formatHandoffNotice(cwd) : formatHandoffNotice(cwd);
+  const envLine = compact ? formatEnvironmentFacts(cwd) : null;
+  for (const line of [handoffLine, envLine, specLine, formatDraftPlans(cwd), formatLegacyHooksWarning()]) {
+    if (line) console.log(line);
+  }
+
+  registerSession(sessionId, cwd, source, {
+    spec_delta_nag_shown: Boolean(specLine) || Boolean(prevState.spec_delta_nag_shown),
+  });
+
+  // Copy last: resolveBinary() prefers the plugin-local binary, so nothing
+  // above depends on the ~/.kratos/bin copy being fresh.
+  if (pendingCopy) {
+    try {
+      pendingCopy();
+    } catch (e) {
+      // a failed copy must not block session start
     }
   }
 }
 
-main();
+// Only read stdin when run as a hook. Required as a module, this file
+// exposes buildMemoryReport so a test can drive the memory-ranking logic
+// with fixture data instead of a real kratos binary and DB.
+if (require.main === module) {
+  // Read the hook payload from stdin (session_id, cwd, source). Older
+  // harnesses send nothing — fall back to process.cwd() and skip session
+  // registration.
+  let raw = "";
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    let payload = null;
+    if (raw.trim()) {
+      try {
+        payload = JSON.parse(raw);
+      } catch (e) {
+        payload = null;
+      }
+    }
+    const partIdx = process.argv.indexOf("--part");
+    if (partIdx >= 0 && process.argv[partIdx + 1] === "extras") mainExtras(payload);
+    else main(payload);
+  };
+  process.stdin.setEncoding("utf-8");
+  process.stdin.on("data", (chunk) => (raw += chunk));
+  process.stdin.on("end", finish);
+  process.stdin.on("error", finish);
+  setTimeout(finish, 300).unref();
+} else {
+  module.exports = { buildMemoryReport, formatMemories, normalizeProject, formatStateDirNotices, formatVersionMismatchFor };
+}

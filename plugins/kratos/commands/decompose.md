@@ -1,7 +1,12 @@
 ---
 name: decompose
 description: Break features into phases with output to local files, Notion, or Linear
+allowed-tools: Bash(echo:*), Bash(node:*)
 ---
+
+!`echo "KRATOS_ROOT=${CLAUDE_PLUGIN_ROOT}"`
+
+> The `KRATOS_ROOT` value echoed above is the plugin's absolute root — substitute it for every `<KRATOS_ROOT>` reference below (fallback: `plugins/kratos/` from project root).
 
 # Kratos: Decompose Feature
 
@@ -23,15 +28,7 @@ You are an orchestrator, not a worker. You MUST:
 
 ---
 
-## Execution Modes
-
-Check user input for mode keywords FIRST:
-
-| Mode | Keywords | Model Selection |
-|------|----------|-----------------|
-| **Eco** | `eco`, `budget`, `cheap`, `efficient`, `save-tokens` | haiku |
-| **Power** | `power`, `max`, `full-power`, `don't care about cost` | opus |
-| **Normal** | (default) | sonnet |
+Models: see `<KRATOS_ROOT>/modes/modes.md` (default normal; eco/power keywords switch).
 
 ---
 
@@ -47,7 +44,7 @@ Determine the source of requirements:
 
 **If user provides raw text** (no existing feature):
 - Ask for a feature name via AskUserQuestion (if not obvious from the text)
-- Create minimal feature structure: `.claude/feature/<name>/`. If `.claude/feature/<name>/` does not exist, create it along with an initial status.json. See `plugins/kratos/references/status-json-schema.md` for schema.
+- If `.claude/feature/<name>/` does not exist, initialize it: `<kratos-bin> pipeline init --feature <name> --description "<one sentence>"` (creates the folder and status.json with real timestamps). Fallback without the binary: create the folder and a minimal status.json per `<KRATOS_ROOT>/references/status-json-schema.md`.
 - Daedalus will work from the raw text directly
 
 **If user provides a reference** (e.g., "decompose the auth system"):
@@ -56,7 +53,7 @@ Determine the source of requirements:
 
 ### Step 2: Ask Output Target
 
-Use AskUserQuestion to determine where the decomposition should be output:
+Use AskUserQuestion to determine where the decomposition should be output. A combo target (e.g. "local + notion") is reachable via the client's built-in "Other" free-text choice instead of a dedicated button. See `references/agent-protocol.md` § Interactive Questions.
 
 ```
 AskUserQuestion(
@@ -74,14 +71,6 @@ AskUserQuestion(
     {
       label: "Linear",
       description: "Creates a Linear project with phase issues and sub-issues"
-    },
-    {
-      label: "Local + Notion",
-      description: "Creates both local file and Notion page"
-    },
-    {
-      label: "Local + Linear",
-      description: "Creates both local file and Linear project"
     }
   ]
 )

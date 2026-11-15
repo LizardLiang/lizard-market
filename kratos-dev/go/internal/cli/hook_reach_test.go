@@ -1,0 +1,356 @@
+package cli
+
+import (
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+)
+
+// reachBase is a valid Ares completion report from before the Reach rule,
+// with the RED/GREEN evidence line and the Reach line left out.
+const reachBase = `ARES COMPLETE
+
+Task list:
+1. [x] fix handler — done
+Files created/modified: src/handler.go, src/handler_test.go
+Landed: LANDED-NOT-APPLICABLE: test fixture
+Not run: none
+`
+
+const reachEvidence = "Evidence: handler RED: TestHandler failed -> GREEN: TestHandler passed\n"
+const reachLine = "Reach: handler.Serve - reached by the batch pipeline with empty input -> test\n"
+
+func reachFailureText(failures []string) string { return strings.Join(failures, " | ") }
+
+// reachTranscript writes an Ares transcript where the agent spawned one child
+// with the given prompt (or none when prompt is empty) and returns the input
+// that points the gate at it.
+func reachInput(t *testing.T, agentID string, lines ...string) subagentStopInput {
+	t.Helper()
+	main := writeHandbackTranscript(t, "sessR", agentID, lines...)
+	return subagentStopInput{TranscriptPath: main, SessionID: "sessR", AgentID: agentID, Cwd: t.TempDir()}
+}
+
+func TestAresReachLineRequired(t *testing.T) {
+	report := reachBase + reachEvidence
+	got := reachFailureText(aresReportFailures(report, subagentStopInput{}))
+	if !strings.Contains(got, "Reach:") {
+		t.Fatalf("report without a Reach: line must fail naming it, got %q", got)
+	}
+	ok := reachFailureText(aresReportFailures(report+reachLine, subagentStopInput{}))
+	if strings.Contains(ok, "Reach") {
+		t.Fatalf("report with a Reach: line must not fail on it, got %q", ok)
+	}
+}
+
+func TestAresEvidenceRequired(t *testing.T) {
+	got := reachFailureText(aresReportFailures(reachBase+reachLine, subagentStopInput{}))
+	if !strings.Contains(got, "RED") || !strings.Contains(got, "GREEN") {
+		t.Fatalf("report with no RED/GREEN and no waiver must fail naming both, got %q", got)
+	}
+	for _, waiver := range []string{"EVIDENCE-SKIPPED: docs only\n", "TESTS-NOT-APPLICABLE: docs only\n"} {
+		f := reachFailureText(aresReportFailures(reachBase+reachLine+waiver, subagentStopInput{}))
+		if strings.Contains(f, "RED") {
+			t.Errorf("waiver %q must satisfy the evidence check, got %q", waiver, f)
+		}
+	}
+	onlyRed := reachFailureText(aresReportFailures(reachBase+reachLine+"Evidence: RED: it failed\n", subagentStopInput{}))
+	if !strings.Contains(onlyRed, "GREEN") {
+		t.Errorf("RED without GREEN must fail, got %q", onlyRed)
+	}
+}
+
+func TestAresReachCheckChildRequired(t *testing.T) {
+	full := reachBase + reachEvidence + reachLine
+
+	t.Run("no child spawned: fail naming the reach check", func(t *testing.T) {
+		in := reachInput(t, "aresR1", userPromptLine("implement"), toolUseLine(false, "Bash", map[string]any{"command": "go test ./..."}))
+		got := reachFailureText(aresReportFailures(full, in))
+		if !strings.Contains(got, "child agent") {
+			t.Fatalf("expected a failure naming the missing child agent, got %q", got)
+		}
+	})
+	t.Run("child spawned without a diff range: fail", func(t *testing.T) {
+		in := reachInput(t, "aresR2", userPromptLine("implement"), toolUseLine(false, "Agent", map[string]any{"prompt": "find the helper"}))
+		got := reachFailureText(aresReportFailures(full, in))
+		if !strings.Contains(got, "child agent") {
+			t.Fatalf("a child whose prompt carries no git diff range is not a reach check, got %q", got)
+		}
+	})
+	t.Run("child spawned with the diff range: pass", func(t *testing.T) {
+		in := reachInput(t, "aresR3", userPromptLine("implement"), toolUseLine(false, "Agent", map[string]any{"prompt": "Run git diff abc1234..HEAD and answer the four questions"}))
+		if f := aresReportFailures(full, in); len(f) != 0 {
+			t.Fatalf("expected no failures, got %v", f)
+		}
+	})
+	t.Run("legacy Task tool name also counts", func(t *testing.T) {
+		in := reachInput(t, "aresR4", userPromptLine("implement"), toolUseLine(false, "Task", map[string]any{"prompt": "git diff abc1234..HEAD"}))
+		if f := aresReportFailures(full, in); len(f) != 0 {
+			t.Fatalf("expected no failures, got %v", f)
+		}
+	})
+	t.Run("no readable transcript: fail open", func(t *testing.T) {
+		if f := aresReportFailures(full, subagentStopInput{}); len(f) != 0 {
+			t.Fatalf("an unknown transcript must not block, got %v", f)
+		}
+	})
+	t.Run("no code changed: child not required", func(t *testing.T) {
+		report := reachBase + "TESTS-NOT-APPLICABLE: report only\nReach: not applicable - no code changed\n"
+		in := reachInput(t, "aresR5", userPromptLine("report"))
+		if f := aresReportFailures(report, in); len(f) != 0 {
+			t.Fatalf("expected no failures, got %v", f)
+		}
+	})
+}
+
+func TestAresReachChecksExemptions(t *testing.T) {
+	for name, report := range map[string]string{
+		"needs design":        "ARES NEEDS DESIGN\n\nFlow: 1. a\n",
+		"needs plan mode":     "ARES NEEDS PLAN MODE\n\nReason: x\n",
+		"needs clarification": "ARES NEEDS CLARIFICATION\n\nQuestion: x\n",
+		"user mode": `ARES COMPLETE (User Mode)
+
+Task list:
+1. [x] Write task files — done
+Files created/modified: tasks/00-overview.md
+LANDED-NOT-APPLICABLE: User Mode — the user commits
+Not run: none`,
+	} {
+		in := reachInput(t, "aresEx", userPromptLine("x"))
+		if f := aresReportFailures(report, in); len(f) != 0 {
+			t.Errorf("%s must stay exempt from the Reach checks, got %v", name, f)
+		}
+	}
+}
+
+// reachChildLine is a transcript line for the fresh-context reach-check child.
+func reachChildLine() string {
+	return toolUseLine(false, "Agent", map[string]any{"prompt": "Run git diff abc1234..HEAD and answer the four Reach questions"})
+}
+
+// TestAresReachTextPinned guards the prompt text the gate depends on: the
+// Final Block and the report templates carry the Reach line, the Reach Review
+// section names no bug category, and the child prompt template exists.
+func TestAresReachTextPinned(t *testing.T) {
+	raw, err := agentsFS.ReadFile("agents/ares.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ares := strings.ReplaceAll(string(raw), "\r\n", "\n")
+
+	if n := strings.Count(ares, "Reach: <entry point>"); n < 2 {
+		t.Errorf("Final Block and the ARES COMPLETE template must carry the Reach line, found %d", n)
+	}
+	if n := strings.Count(ares, "[Final Block: Task list, Files created/modified, Landed, Not run, Reach]"); n != 2 {
+		t.Errorf("wave and phase checkpoint templates must each reference the Final Block with Reach, found %d", n)
+	}
+	start := strings.Index(ares, "## Reach Review")
+	end := strings.Index(ares, "## Output Format")
+	if start < 0 || end < start {
+		t.Fatal("ares.md has no Reach Review section before Output Format")
+	}
+	section := ares[start:end]
+	for _, banned := range []string{"auth", "token", "role", "cache", "tenant", "user switch"} {
+		if regexp.MustCompile(`(?i)\b` + banned).MatchString(section) {
+			t.Errorf("Reach Review must not name the bug category %q", banned)
+		}
+	}
+	if !strings.Contains(section, "template get reach-check-prompt") {
+		t.Error("Reach Review must point at the reach-check-prompt template")
+	}
+
+	prompt, err := templatesFS.ReadFile("templates/reach-check-prompt.md")
+	if err != nil {
+		t.Fatalf("reach-check-prompt template missing: %v", err)
+	}
+	for _, want := range []string{"git diff <start>..HEAD", "Callers", "Inputs", "States", "Lifetime", "file:line"} {
+		if !strings.Contains(string(prompt), want) {
+			t.Errorf("reach-check-prompt must contain %q", want)
+		}
+	}
+
+	um, err := templatesFS.ReadFile("templates/ares-user-mode-template.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(um), "Reach: not applicable") {
+		t.Error("User Mode template must carry the no-code Reach line")
+	}
+}
+
+const foldBase = `ARES COMPLETE
+
+Task list:
+1. [x] fix handler - done
+`
+
+const foldTail = "Landed: LANDED-NOT-APPLICABLE: test fixture\nNot run: none\n"
+
+// TestAresReportFoldedHeaderShapes pins the report shapes where a label sits
+// on its own line and the value follows on the next lines.
+func TestAresReportFoldedHeaderShapes(t *testing.T) {
+	cases := map[string]string{
+		"files header then bullets": foldBase + "Files created/modified:\n- src/handler.go\n- src/handler_test.go\n" + foldTail +
+			"Reach: not applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n",
+		"reach header then value lines": foldBase + "Files created/modified: src/handler.go\n" + foldTail +
+			"Reach:\n- handler.Serve - reached by empty input -> test\nEVIDENCE-SKIPPED for the docs item, RED and GREEN described in prose\n",
+		"waiver without colon": foldBase + "Files created/modified: src/handler.go\n" + foldTail +
+			"Reach: not applicable - no code changed\nTESTS-NOT-APPLICABLE for this mission, nothing to run\n",
+	}
+	for name, report := range cases {
+		in := reachInput(t, "aresFold", reachChildLine())
+		if f := aresReportFailures(report, in); len(f) != 0 {
+			t.Errorf("%s must pass, got %v", name, f)
+		}
+	}
+}
+
+func TestAresReportFoldedHeaderStillDenies(t *testing.T) {
+	const files = "Files created/modified:\n- src/handler.go\n"
+
+	noGreen := foldBase + files + foldTail + "Reach: not applicable - no code changed\nEvidence: RED: it failed\n"
+	if got := reachFailureText(aresReportFailures(noGreen, subagentStopInput{})); !strings.Contains(got, "GREEN") {
+		t.Errorf("RED without GREEN and no waiver must fail, got %q", got)
+	}
+
+	onlyNotRun := foldBase + files + foldTail + "Reach: not run\nTESTS-NOT-APPLICABLE: fixture\n"
+	in := reachInput(t, "aresFold2", userPromptLine("x"))
+	if got := reachFailureText(aresReportFailures(onlyNotRun, in)); !strings.Contains(got, "child agent") {
+		t.Errorf("a lone `Reach: not run` must still require the child, got %q", got)
+	}
+
+	noFiles := foldBase + "Files created/modified:\n- nothing\n" + "Landed: main@abc1234\nNot run: none\n" + "Reach: not applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n"
+	if got := reachFailureText(aresReportFailures(noFiles, subagentStopInput{})); !strings.Contains(got, "no specific files") {
+		t.Errorf("a file list without files must fail, got %q", got)
+	}
+}
+
+func TestFoldHeaderListsStopsAtNextField(t *testing.T) {
+	got := foldHeaderLists("Reach:\n- a\nLanded: x\n- b")
+	if got != "Reach: a\nLanded: x\n- b" {
+		t.Errorf("unexpected fold: %q", got)
+	}
+}
+
+func TestFoldHeaderListsStopsAtBoldField(t *testing.T) {
+	got := foldHeaderLists("Reach:\n- a\n**Landed:** main@abc1234\nVerify (cmd): go test")
+	if got != "Reach: a\n**Landed:** main@abc1234\nVerify (cmd): go test" {
+		t.Errorf("unexpected fold: %q", got)
+	}
+}
+
+func TestAresReachSkipRequiresEveryLineNotApplicable(t *testing.T) {
+	const files = "Files created/modified: src/handler.go\n"
+	childRequired := func(t *testing.T, report string) bool {
+		t.Helper()
+		in := reachInput(t, "aresSkip", userPromptLine("x"))
+		return strings.Contains(reachFailureText(aresReportFailures(report, in)), "child agent")
+	}
+	if !childRequired(t, foldBase+files+foldTail+"Reach: not run\nReach: not applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n") {
+		t.Error("a not-run Reach line followed by a not-applicable one must still require the child")
+	}
+	if childRequired(t, foldBase+files+foldTail+"Reach: not applicable - no code changed\nReach: not applicable - docs only\nTESTS-NOT-APPLICABLE: fixture\n") {
+		t.Error("all Reach lines not applicable must skip the child")
+	}
+	if childRequired(t, foldBase+files+foldTail+"Reach:\nnot applicable - no code changed\nTESTS-NOT-APPLICABLE: fixture\n") {
+		t.Error("a folded single not-applicable Reach must skip the child")
+	}
+}
+
+func TestEvidenceWaiverColonless(t *testing.T) {
+	const files = "Files created/modified: src/handler.go\n"
+	const reach = "Reach: not applicable - no code changed\n"
+	for name, tail := range map[string]string{
+		"sentence start": "Checks passed after. EVIDENCE-SKIPPED for a separate pre-change check\n",
+		"line start":     "EVIDENCE-SKIPPED for the docs item\n",
+		"list item":      "- TESTS-NOT-APPLICABLE for this mission\n",
+		"colon in prose": "I note TESTS-NOT-APPLICABLE: docs only\n",
+	} {
+		if got := reachFailureText(aresReportFailures(foldBase+files+foldTail+reach+tail, subagentStopInput{})); strings.Contains(got, "RED") {
+			t.Errorf("%s must waive the evidence check, got %q", name, got)
+		}
+	}
+	prose := foldBase + files + foldTail + reach + "I did not use TESTS-NOT-APPLICABLE here\n"
+	if got := reachFailureText(aresReportFailures(prose, subagentStopInput{})); !strings.Contains(got, "RED") {
+		t.Errorf("a mid-sentence mention must not waive, got %q", got)
+	}
+}
+
+// TestAresReachChildFailedLine pins `Reach: child failed (<reason>)`, the line
+// Ares writes when the reach-check child died or never reported. It counts as
+// a Reach line, is not "not applicable" (so the child-spawned check still
+// runs), and passes in full when the transcript shows the launched diff-child.
+func TestAresReachChildFailedLine(t *testing.T) {
+	const failedLine = "Reach: child failed (API Error: ENOTFOUND)\n"
+	report := reachBase + reachEvidence + failedLine
+
+	if m := reachLineRE.FindStringSubmatch(report); m == nil || reachNotApplicableRE.MatchString(m[1]) {
+		t.Fatalf("`Reach: child failed (...)` must be a Reach line that is not not-applicable, got %v", m)
+	}
+	launched := reachInput(t, "aresRF1", append([]string{userPromptLine("implement")}, aresChildLaunchLines("tuF", "childF", time.Now())...)...)
+	if f := aresReportFailures(report, launched); len(f) != 0 {
+		t.Fatalf("a launched diff-child plus `Reach: child failed (...)` must pass, got %v", f)
+	}
+	notLaunched := reachInput(t, "aresRF2", userPromptLine("implement"))
+	if got := reachFailureText(aresReportFailures(report, notLaunched)); !strings.Contains(got, "child agent") {
+		t.Fatalf("`Reach: child failed (...)` without a launched child must still fail the child check, got %q", got)
+	}
+}
+
+const noCodeReport = "TEST REPORT (AI usage and cost work, worktree nz-usage-test @ 62d3f6c). No code changed, nothing committed. LANDED-NOT-APPLICABLE: test-only mission, no files changed.\nReach: not applicable — no code changed.\n\n" +
+	"Task list:\n1. [x] Spec/plan located\n2. [x] dotnet tests\n3. [x] web unit tests and tsc\n4. [x] browser checks\n5. [x] WebApi and Vite stopped\n\n" +
+	"AUTOMATED TESTS\n- Agent unit: 187 passed, 0 failed\n- Web vitest: 693 tests passed\n\n" +
+	"BROWSER CHECKS\n1. PASS: list loads 21 documents.\n2. PASS: usage dialog opens.\n" +
+	"EVIDENCE-SKIPPED: test-only mission, nothing changed\n"
+
+// TestAresReportNoCodeChangedSkipsFilesAndCompletion pins the report of a
+// mission that changed no code: the landed waiver plus only `Reach: not
+// applicable` lines needs neither a named file nor a completion word.
+func TestAresReportNoCodeChangedSkipsFilesAndCompletion(t *testing.T) {
+	cases := []struct {
+		name       string
+		report     string
+		wantAll    []string
+		wantAbsent []string
+	}{
+		{name: "waiver and not-applicable reach pass", report: noCodeReport},
+		{
+			name:       "without the landed waiver the files check stays",
+			report:     strings.Replace(noCodeReport, "LANDED-NOT-APPLICABLE: test-only mission, no files changed.", "", 1),
+			wantAll:    []string{"no specific files"},
+			wantAbsent: []string{"fail-then-pass"},
+		},
+		{
+			name:       "a code reach line keeps the files check",
+			report:     strings.Replace(noCodeReport, "Reach: not applicable — no code changed.", "Reach: cli.go run — reached by cron → test", 1),
+			wantAll:    []string{"no specific files"},
+			wantAbsent: []string{"fail-then-pass"},
+		},
+		{
+			name:       "without the evidence line only the evidence check fails",
+			report:     strings.Replace(noCodeReport, "EVIDENCE-SKIPPED: test-only mission, nothing changed\n", "", 1),
+			wantAll:    []string{"fail-then-pass"},
+			wantAbsent: []string{"no specific files", "completion was not confirmed"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := reachInput(t, "aresNoCode", reachChildLine())
+			got := strings.Join(aresReportFailures(tc.report, in), " | ")
+			if len(tc.wantAll) == 0 && got != "" {
+				t.Fatalf("expected no failures, got %q", got)
+			}
+			for _, w := range tc.wantAll {
+				if !strings.Contains(got, w) {
+					t.Errorf("failures %q lack %q", got, w)
+				}
+			}
+			for _, w := range tc.wantAbsent {
+				if strings.Contains(got, w) {
+					t.Errorf("failures %q must not contain %q", got, w)
+				}
+			}
+		})
+	}
+}
