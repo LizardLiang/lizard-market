@@ -10,18 +10,18 @@ import (
 
 // Week of 2026-11-09 transcript review: four gate fixes.
 
-func TestAresHandbackCap8000(t *testing.T) {
-	if aresHandbackMaxChars != 8000 || hermesHandbackMaxChars != 8000 {
-		t.Fatalf("caps = %d/%d, want 8000/8000", aresHandbackMaxChars, hermesHandbackMaxChars)
+func TestAresHandbackCap10000(t *testing.T) {
+	if aresHandbackMaxChars != 10000 || hermesHandbackMaxChars != 10000 {
+		t.Fatalf("caps = %d/%d, want 10000/10000", aresHandbackMaxChars, hermesHandbackMaxChars)
 	}
 	if _, ok := handbackSizeFailure(strings.Repeat("字", 5500), "ares"); ok {
 		t.Fatal("5,500-rune Ares report must pass")
 	}
-	if _, ok := handbackSizeFailure(strings.Repeat("字", 9000), "ares"); !ok {
-		t.Fatal("9,000-rune Ares report must fail")
+	if _, ok := handbackSizeFailure(strings.Repeat("字", 10001), "ares"); !ok {
+		t.Fatal("10,001-rune Ares report must fail")
 	}
-	if _, ok := handbackSizeFailure(strings.Repeat("x", 8001), "hermes"); !ok {
-		t.Fatal("Hermes stays capped at 8,000")
+	if _, ok := handbackSizeFailure(strings.Repeat("x", 10001), "hermes"); !ok {
+		t.Fatal("Hermes stays capped at 10,000")
 	}
 }
 

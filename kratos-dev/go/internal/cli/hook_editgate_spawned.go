@@ -40,7 +40,7 @@ const aresHookBypassDenyReason = "Ares never bypasses the project's hooks (SKIP_
 // branch is excluded by the negative lookahead-free form below: the branch
 // creation flags are matched first and the segment is then left alone.
 var (
-	gateAresGitHeadRE   = regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(checkout|switch|stash|clean|restore|reset)\b(.*)$`)
+	gateAresGitHeadRE   = regexp.MustCompile(`(?i)^git\s+(?:(?:-[Cc]|--git-dir|--work-tree|--namespace)\s+(?:"[^"]*"|'[^']*'|\S+)\s+|--?[A-Za-z][^\s]*\s+)*(checkout|switch|stash|clean|restore|reset)\b(.*)$`)
 	gateAresBranchNewRE = regexp.MustCompile(`(?i)^\s*(?:-b|-B|-c|-C)\b`)
 	gateAresResetHardRE = regexp.MustCompile(`(?i)--(?:hard|merge|keep)\b`)
 	gateAresStashReadRE = regexp.MustCompile(`(?i)^\s*(?:list|show)\b`)
@@ -58,6 +58,9 @@ var (
 	gateAgentWorktreeRE = regexp.MustCompile(`(?i)(?:^|/)\.claude/worktrees/agent-[^/]+(?:/|$)`)
 	// gateGitDirOptRE reads `git -C <dir>`.
 	gateGitDirOptRE = regexp.MustCompile(`(?i)^git\s+-C\s+("[^"]*"|'[^']*'|\S+)`)
+	// gateGitRedirectsTreeRE spots options and variables that point git at
+	// another tree than the directory the command runs in.
+	gateGitRedirectsTreeRE = regexp.MustCompile(`(?i)--git-dir|--work-tree|GIT_DIR=|GIT_WORK_TREE=`)
 	// gateCheckoutPathRE is `git checkout [<rev>] -- <file>`: a restore of files.
 	gateCheckoutPathRE = regexp.MustCompile(`(?:^|\s)--(?:\s|$)`)
 )
@@ -67,8 +70,8 @@ var (
 // yields "".
 func aresResolveDir(dir, target string) string {
 	target = gateSlashPath(strings.Trim(target, `"'`))
-	if target == "" {
-		return dir
+	if target == "" || target == "-" || strings.ContainsAny(target, "$~%`(") {
+		return ""
 	}
 	if gateAbsPathRE.MatchString(target) {
 		return path.Clean(target)
@@ -92,7 +95,7 @@ func aresForbiddenGit(seg shellSegment, dir string) bool {
 	if c := gateGitDirOptRE.FindStringSubmatch(eff); c != nil {
 		dir = aresResolveDir(dir, c[1])
 	}
-	own := gateAgentWorktreeRE.MatchString(dir)
+	own := gateAgentWorktreeRE.MatchString(dir) && !gateGitRedirectsTreeRE.MatchString(seg.raw)
 	sub, rest := strings.ToLower(m[1]), m[2]
 	switch sub {
 	case "checkout":
@@ -127,8 +130,15 @@ func aresBashGate(command, cwd string) editGateResult {
 		if aresForbiddenGit(seg, dir) {
 			return editGateResult{Decision: "deny", Reason: aresGitDenyReason}
 		}
-		if toks := gateSegmentTokens(seg.raw); len(toks) >= 2 && strings.EqualFold(toks[0], "cd") {
-			dir = aresResolveDir(dir, toks[len(toks)-1])
+		if toks := gateSegmentTokens(strings.TrimLeft(strings.TrimSpace(seg.raw), "(")); len(toks) >= 1 {
+			switch strings.ToLower(toks[0]) {
+			case "cd", "chdir", "pushd", "popd", "set-location", "sl":
+				if len(toks) < 2 {
+					dir = ""
+				} else {
+					dir = aresResolveDir(dir, toks[len(toks)-1])
+				}
+			}
 		}
 	}
 	return editGateResult{}

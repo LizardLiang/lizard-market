@@ -200,8 +200,6 @@ const odysseusWriteDenyReason = "Odysseus plans, Ares builds — save the plan, 
 const odysseusBashDenyReason = "Odysseus plan mode may only run read-only inspection commands; this command writes files, runs code, or changes git, network or browser state. Write the command into the plan for Ares to run instead of running it now. Planning is over? Spawn kratos:ares with the approved plan, or load Iris (Skill kratos:iris): either one ends plan mode."
 
 var (
-	// gateGitSubcommandRE captures the git subcommand past an optional -C <path>.
-	gateGitSubcommandRE = regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?([a-z-]+)`)
 	// gateGitGrepPagerRE matches `git grep -O[<pager>]` /
 	// `--open-files-in-pager[=<pager>]`, which runs the named program.
 	gateGitGrepPagerRE = regexp.MustCompile(`(?:^|\s)(?:-O\S*|--open-files-in-pager\b\S*)`)
@@ -381,7 +379,7 @@ func gateEffectiveSegmentText(raw string) string {
 // production host on the user's behalf, unasked. ok is false when neither
 // pattern matches; the caller falls through to the rest of the gate.
 //
-// Splits on the same segment boundaries isReadOnlyShellCommand uses (;, &&,
+// Splits on the segment boundaries splitShellSegments uses (;, &&,
 // |, newline) so the guard reads what a shell would actually run as one unit:
 // the incident's own `grep -o 'Password=[^;]*' | cut -d= -f2` puts the
 // extraction verb and the keyword in the same segment.

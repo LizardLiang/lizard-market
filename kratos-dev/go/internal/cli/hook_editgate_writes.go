@@ -49,7 +49,10 @@ var (
 	// or loop header, `$x -eq 1` or `$f in $list`.
 	gatePSOperatorRE = regexp.MustCompile(`(?i)^(?:-(?:eq|ne|gt|ge|lt|le|like|notlike|match|notmatch|contains|notcontains|in|notin|and|or|is|isnot|as|replace|split|join|f|not)|in|[=+-]?=)$`)
 	// gatePSMethodWriteRE spots a .NET call that deletes, moves or writes.
-	gatePSMethodWriteRE = regexp.MustCompile(`(?i)\.(?:Delete|Kill|MoveTo|CopyTo|Remove)\(|::(?:Write\w*|Delete|Move|Copy|Create\w*|Append\w*|Set\w*)\(`)
+	gatePSMethodWriteRE = regexp.MustCompile(`(?i)\.(?:Delete|Kill|MoveTo|CopyTo|Remove|Save)\(|::(?:Open\w*)\(|::(?:Write\w*|Delete|Move|Copy|Create\w*|Append\w*|Set\w*)\(`)
+	// gateFakeNullRE spots `> nul.txt` or `> /dev/null.bak`: a file whose name
+	// only begins like the null device, which gateInertRedirectRE strips.
+	gateFakeNullRE = regexp.MustCompile(`(?i)>\s*(?:/dev/null|nul)[A-Za-z0-9_./-]`)
 	// gateVarRefRE spots a variable reference left in a segment's arguments.
 	gateVarRefRE = regexp.MustCompile(`\$[A-Za-z_{]`)
 	// gateFileCompileRE spots `file -C`, which writes a compiled magic file.
@@ -68,6 +71,18 @@ var (
 		"uniq": true, "date": true, "printf": true, "file": true,
 	}
 )
+
+// hasVarFlagOrOperand reports an argument that is a variable, or a flag that
+// holds one: the value could be a flag that writes. A variable inside a longer
+// word, such as a sed script `s|^|$f: |`, is text.
+func hasVarFlagOrOperand(args []string) bool {
+	for _, a := range args {
+		if strings.HasPrefix(a, "$") || (strings.HasPrefix(a, "-") && gateVarRefRE.MatchString(a)) {
+			return true
+		}
+	}
+	return false
+}
 
 // leadingAssignmentHijacks reports `PATH=x cmd` or a bare `PATH=x`.
 func leadingAssignmentHijacks(body string) bool {
@@ -121,7 +136,10 @@ var gateWriteMutatorHeads = map[string]bool{
 	"stop-process": true, "kill": true, "pkill": true, "killall": true, "taskkill": true,
 	"stop-service": true, "start-service": true, "restart-service": true,
 	"restart-computer": true, "stop-computer": true, "shutdown": true,
-	"wget": true, "make": true, "eval": true, "source": true,
+	"wget": true, "make": true, "eval": true, "source": true, "trap": true, ".": true,
+	"export-csv": true, "export-clixml": true, "compress-archive": true, "expand-archive": true, "rni": true,
+	"unblock-file": true, "set-executionpolicy": true, "sc": true, "clc": true, "xcopy": true, "robocopy": true,
+	"attrib": true, "mklink": true, "icacls": true, "setx": true, "npx": true, "bunx": true, "pnpx": true,
 	"iex": true, "invoke-expression": true, "invoke-command": true, "icm": true, "start-job": true,
 }
 
@@ -176,7 +194,8 @@ var (
 		"reset": true, "checkout": true, "switch": true, "clean": true, "restore": true, "apply": true,
 		"am": true, "revert": true, "pull": true, "rm": true, "mv": true, "init": true, "clone": true,
 		"update-ref": true, "gc": true, "prune": true, "repack": true, "maintenance": true, "bisect": true,
-		"format-patch": true, "sparse-checkout": true, "fetch": true,
+		"format-patch": true, "sparse-checkout": true, "fetch": true, "update-index": true,
+		"filter-branch": true, "checkout-index": true, "hash-object": true, "symbolic-ref": true,
 	}
 	gateGitBranchWriteFlags = map[string]bool{
 		"-d": true, "-D": true, "-m": true, "-M": true, "-c": true, "-C": true, "-f": true,
@@ -207,7 +226,11 @@ var (
 // odysseusShellWriteKind classifies a shell command: no known write, a known
 // write, or a redirect into a plan, flow or spec-delta file.
 func odysseusShellWriteKind(command string) shellWriteKind {
-	c := strings.TrimSpace(gateInertRedirectRE.ReplaceAllString(stripHeredocBodies(command), " "))
+	noBodies := stripHeredocBodies(command)
+	if gateFakeNullRE.MatchString(maskQuoted(noBodies)) {
+		return shellWriteFound
+	}
+	c := strings.TrimSpace(gateInertRedirectRE.ReplaceAllString(noBodies, " "))
 	if c == "" {
 		return shellNoWrite
 	}
@@ -305,16 +328,32 @@ func stripHeredocBodies(command string) string {
 		}
 		delim := firstNonEmpty(m[1], m[2], m[3])
 		dash := strings.HasPrefix(m[0], "<<-")
-		for i+1 < len(lines) {
-			i++
-			l := strings.TrimRight(lines[i], "\r")
+		end := -1
+		for j := i + 1; j < len(lines); j++ {
+			l := strings.TrimRight(lines[j], "\r")
 			if dash {
 				l = strings.TrimLeft(l, "\t")
 			}
 			if l == delim {
+				end = j
 				break
 			}
 		}
+		if end < 0 {
+			continue
+		}
+		if m[3] != "" {
+			expands := false
+			for _, b := range lines[i+1 : end] {
+				if strings.Contains(b, "$(") || strings.Contains(b, "`") {
+					expands = true
+				}
+			}
+			if expands {
+				continue
+			}
+		}
+		i = end
 	}
 	return strings.Join(out, "\n")
 }
@@ -340,7 +379,7 @@ func flattenedBytes(command string) (raw, masked []byte) {
 			raw[i], masked[i] = ';', ';'
 		case '$':
 			if i+1 < len(masked) && masked[i+1] == '{' {
-				if end := strings.IndexByte(string(masked[i:]), '}'); end > 0 {
+				if end := strings.IndexByte(string(masked[i:]), '}'); end > 0 && !strings.Contains(string(masked[i:i+end]), "$(") && !strings.ContainsRune(string(masked[i:i+end]), '`') {
 					i += end
 				}
 			}
@@ -379,7 +418,7 @@ func gateWriteTargetAllowed(t string) bool {
 	case "/dev/null", "nul", "$null", "/dev/stderr", "/dev/stdout":
 		return true
 	}
-	return gateTempClaudeRE.MatchString(gateSlashPath(t))
+	return gateTempClaudeRE.MatchString(strings.ToLower(path.Clean(gateSlashPath(t))))
 }
 
 func shellSegmentWrite(seg shellSegment, depth int, afterControl bool) shellWriteKind {
@@ -440,8 +479,11 @@ func segmentCommandWrites(body, masked string, depth int, afterControl bool) boo
 		}
 		return !gatePSOperatorRE.MatchString(args[0])
 	}
-	if gateVarGuardedHeads[head] && gateVarRefRE.MatchString(masked) {
+	if gateVarGuardedHeads[head] && hasVarFlagOrOperand(strings.Fields(strings.ReplaceAll(masked, `"`, ""))) {
 		return !(head == "sed" && sedVarOperandOK(tokens) && !gateInPlaceFlagRE.MatchString(masked))
+	}
+	if (head == "export" || head == "set" || head == "declare" || head == "setenv") && leadingAssignmentHijacks(strings.Join(args, " ")) {
+		return true
 	}
 	if gateWriteMutatorHeads[head] {
 		return true
@@ -507,7 +549,13 @@ func segmentCommandWrites(body, masked string, depth int, afterControl bool) boo
 func operands(args []string) []string {
 	var out []string
 	for _, a := range args {
-		if a != "" && !strings.HasPrefix(a, "-") {
+		switch {
+		case a == "":
+		case strings.HasPrefix(a, "-"):
+			if _, v, ok := strings.Cut(a, ":"); ok && v != "" {
+				out = append(out, v)
+			}
+		default:
 			out = append(out, a)
 		}
 	}
@@ -544,6 +592,9 @@ func versionQueryOnly(args []string) bool {
 func gatePlanPageOperand(op string) bool {
 	u := gateSlashPath(strings.Trim(op, `"'`))
 	u = strings.TrimPrefix(strings.TrimPrefix(u, "file:///"), "file://")
+	if strings.Contains(u, "://") {
+		return false
+	}
 	p := path.Clean(u)
 	return strings.HasSuffix(p, ".html") && strings.Contains(p, gatePlanRoot()+"/")
 }
