@@ -84,68 +84,12 @@ func gatePlanRoot() string { return stateRel(".Arena/tactical-plans") }
 // the payload's cwd.
 var gateAbsPathRE = regexp.MustCompile(`^(?:/|[A-Za-z]:/)`)
 
-// Read-only shell allowlist, matched against the HEAD of each command segment.
-// sed/head/tail/wc and `git -C <path> <read-only>` were added when this logic
-// moved into Go: the JS guard denied all five during the 2026-09-11 planning
-// session, and a guard that denies the agent's own inspection commands teaches
-// the agent to route around it. which/command -v/stat/file came from the JS
-// guard's own allowlist fix (v2.110), merged into this port.
-var gateReadOnlyCommands = []*regexp.Regexp{
-	// ls-tree, ls-remote, grep, blame, merge-base and cat-file were each denied
-	// during the week of 2026-11-08 (`git ls-tree -r --name-only main -- …`,
-	// `git -C … grep -n -E "…"`, `git ls-remote … | Select-String`). The git
-	// case in isReadOnlySegment denies the two forms that run a program:
-	// `grep -O<pager>` and `ls-remote --upload-pack`.
-	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(?:status|diff|show|log|rev-parse|ls-files|check-ignore|ls-tree|ls-remote|grep|blame|merge-base|cat-file)\b`),
-	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?worktree\s+list\b`),
-	// `git stash` mutates; only `list` and `show` are inspection. `show`
-	// prints a diff rather than a listing, so the git case in isReadOnlySegment
-	// denies the diff-family `--output`/`-o <file>` it would otherwise honor.
-	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?stash\s+(?:list|show)\b`),
-	// `git branch` is its own entry because most of its surface mutates:
-	// -d/-D/--delete drop a branch, -m/-M rename one, -f moves a ref, and a
-	// bare `git branch <name>` creates one. Only the listing forms are
-	// accepted, and only with no trailing operand — `git branch --merged main`
-	// is read-only but denied, an accepted false deny in exchange for a rule
-	// with no way through it.
-	regexp.MustCompile(`(?i)^git\s+(?:-C\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?branch(?:\s+(?:--list|--show-current|--all|--remotes|--verbose|--merged|--no-merged|-a|-r|-v|-vv|-av|-rv))*\s*$`),
-	regexp.MustCompile(`(?i)^(?:ls|dir|pwd)(?:\.exe)?(?:\s|$)`),
-	regexp.MustCompile(`(?i)^(?:cat|type)(?:\.exe)?(?:\s|$)`),
-	regexp.MustCompile(`(?i)^(?:find|grep|rg)(?:\.exe)?(?:\s|$)`),
-	// fd finds files; isReadOnlySegment denies its -x/-X/--exec forms.
-	regexp.MustCompile(`(?i)^(?:fd|fdfind)(?:\.exe)?(?:\s|$)`),
-	regexp.MustCompile(`(?i)^(?:sed|head|tail|wc)(?:\.exe)?(?:\s|$)`),
-	// where is the Windows which; Odysseus ran `where ollama` on 2026-10-28.
-	regexp.MustCompile(`(?i)^(?:which|where|stat|file)(?:\.exe)?(?:\s|$)`),
-	// Every program head ends at whitespace, end of text or .exe, so a
-	// hyphenated program (sort-package-json, cat-evil) is not a reader.
-	// Pure text and navigation heads.
-	regexp.MustCompile(`(?i)^(?:cd|echo|printf|sort|uniq|cut|tr)(?:\.exe)?(?:\s|$)`),
-	// ps and date inspect. awk is here only as a filter: an awk program can
-	// write files and run commands from inside its script, so
-	// gateAwkIsFilter vets every awk segment before this entry can match.
-	regexp.MustCompile(`(?i)^(?:ps|date|awk)(?:\.exe)?(?:\s|$)`),
-	regexp.MustCompile(`(?i)^command\s+-v\b`),
-	// gh read forms. Odysseus ran `gh auth status | head` on 2026-10-27 and
-	// was denied; a planner also reads PRs, runs and issues.
-	regexp.MustCompile(`(?i)^gh\s+(?:auth\s+status|pr\s+(?:view|list|diff|checks|status)|run\s+(?:list|view)|issue\s+(?:view|list)|release\s+(?:view|list)|repo\s+view)\b`),
-	regexp.MustCompile(`(?i)^Get-(?:ChildItem|Content|Location|Item|Date)\b`),
-	regexp.MustCompile(`(?i)^Select-String\b`),
-	regexp.MustCompile(`(?i)^Test-Path\b`),
-	// PowerShell pipeline readers (the 2026-11-08 session ran its hooks and
-	// inspection under PowerShell). A script block (`{ … }`) can run any
-	// command — `ForEach-Object { npm run build }` — so isReadOnlySegment
-	// denies these heads when the segment holds a brace; Where-Object and
-	// Select-Object still work in their bare-argument forms.
-	regexp.MustCompile(`(?i)^(?:Select-Object|Measure-Object|Sort-Object|Where-Object|ForEach-Object|Format-Table|Format-List|Format-Wide|Out-String)\b`),
-}
-
 // gateOpenHeadRE names the programs that only hand a file to the desktop.
 var gateOpenHeadRE = regexp.MustCompile(`(?i)^(?:start-process|invoke-item|xdg-open|open|explorer|start)$`)
 
 // gateOpensPlanPage reports a segment that opens the plan's page in the
 // browser — `Start-Process <plan>.html`, `cmd /c start "" <plan>.html`,
-// `xdg-open <plan>.html` — and nothing else: one operand, under the plan root,
+// `xdg-open <plan>.html`, `kratos open <plan>.html` — and nothing else: one operand, under the plan root,
 // ending in .html. The planner writes the page (isTacticalPlanPath) and has to
 // show it (a file path in chat is "not shown"); every other use of these
 // heads stays denied.
@@ -154,7 +98,16 @@ func gateOpensPlanPage(raw string) bool {
 	if len(tokens) >= 3 && strings.EqualFold(tokens[0], "cmd") && strings.EqualFold(tokens[1], "/c") {
 		tokens = tokens[2:]
 	}
-	if len(tokens) < 2 || !gateOpenHeadRE.MatchString(strings.TrimSuffix(strings.ToLower(tokens[0]), ".exe")) {
+	if len(tokens) < 2 {
+		return false
+	}
+	head := gateSlashPath(strings.ToLower(tokens[0]))
+	head = strings.TrimSuffix(head[strings.LastIndex(head, "/")+1:], ".exe")
+	switch {
+	case gateOpenHeadRE.MatchString(head):
+	case head == "kratos" && strings.EqualFold(tokens[1], "open"):
+		tokens = tokens[1:]
+	default:
 		return false
 	}
 	operand := ""
@@ -168,11 +121,7 @@ func gateOpensPlanPage(raw string) bool {
 		}
 		operand = t
 	}
-	if operand == "" {
-		return false
-	}
-	p := gateCleanPath(operand)
-	return strings.HasSuffix(p, ".html") && strings.Contains(p, gatePlanRoot()+"/")
+	return operand != "" && gatePlanPageOperand(operand)
 }
 
 // Read-only kratos subcommands the planner is instructed to run: slug mint and
@@ -180,7 +129,7 @@ func gateOpensPlanPage(raw string) bool {
 // session-tracking calls references/agent-protocol.md mandates for every agent.
 // Mutating subcommands — spec archive, pipeline update, session start, init,
 // install — are deliberately absent and stay denied.
-var gateKratosReadOnlySubcommandRE = regexp.MustCompile(`(?i)^(?:slug|now|version|--version|template\s+get|spec\s+(?:validate|list)|agent\s+(?:load|protocol)|session\s+active|pipeline\s+(?:get|status|next|discover)|feedback\s+list|memory\s+(?:list|add)|profile\s+list|todo\s+list|step\s+record-(?:agent|file))\b`)
+var gateKratosReadOnlySubcommandRE = regexp.MustCompile(`(?i)^(?:slug|now|version|--version|template\s+get|spec\s+(?:validate|list)|agent\s+(?:load|protocol)|session\s+active|pipeline\s+(?:get|status|next|discover)|feedback\s+list|memory\s+(?:list|add)|profile\s+list|todo\s+list|step\s+record-(?:agent|file)|verify)\b`)
 
 // Any shell metacharacter disqualifies a kratos command. This is what makes it
 // safe to check the kratos allowlist *before* the segment heuristics: without
@@ -206,27 +155,12 @@ var (
 	// name to test against the kratos allowlist.
 	gateBinArgsRE = regexp.MustCompile(`(?s)^(?:"([^"]+)"|'([^']+)'|(\S+))\s+(.+)$`)
 
-	// gateRedirectRE matches a write. The `>` alternative is deliberately
-	// unanchored: requiring `(^|\s)` before it missed every unspaced form the
-	// shell accepts — `ls>out.txt`, `cat foo>>bar`, `git status>out.txt`,
-	// `ls 1>out.txt`, `Get-Content x>y` all passed as reads. It is safe to
-	// match anywhere because the test runs on the *masked* segment, where a
-	// quoted `>` is blanked, and because gateInertRedirectRE has already taken
-	// the stderr plumbing (`2>/dev/null`, `2>&1`) out of the string.
-	gateRedirectRE = regexp.MustCompile(`(?i)>|(^|\s)(?:Set-Content\b|Add-Content\b|Out-File\b|Remove-Item\b|Move-Item\b|Copy-Item\b|New-Item\b)`)
 	// gateInertRedirectRE matches stderr plumbing that creates no file: a
 	// redirect to the null device and any `N>&M` descriptor duplication
 	// (`2>&1`, `1>&2`, `>&2`). It is stripped before the segment split, not
 	// after: the `&` in `2>&1` is a segment separator, so `ls 2>&1 | grep x`
 	// would otherwise be cut into `ls 2`, `1 ` and ` grep x` and denied.
 	gateInertRedirectRE = regexp.MustCompile(`(?i)\s*\d?>\s*(?:/dev/null|nul)\b|\s*\d?>&\d`)
-	// gateCmdSubstRE spots a substitution surviving inside a segment:
-	// `cat $(rm -rf build)` has a reader at its head and is still a mutation.
-	// `<(` and `>(` are process substitution, the same hole in bash clothing —
-	// `cat <(rm -rf build)`, `sed -n 1p <(rm -rf build)` and
-	// `git log --format=%h <(rm -rf b)` all ran the inner command while the
-	// pattern matched only `$(` and a backtick.
-	gateCmdSubstRE = regexp.MustCompile("\\$\\(|`|<\\(|>\\(")
 	// gateInPlaceFlagRE matches an in-place flag anywhere in a sed invocation:
 	// `sed -n -i`, `sed --quiet -i` and `sed --in-place` all edit the file. The
 	// leading (^|\s) is what keeps `--quiet` (which contains an "i") out of the
@@ -245,7 +179,7 @@ var (
 	// gateGitOutputRE matches git's diff-family output flag. `git diff/show/log`
 	// and `git stash show` delegate to the diff machinery, which honors
 	// `--output=<file>` / `-o <file>` to create or truncate an arbitrary file.
-	// gateRedirectRE only catches `>`, so without this a read-only git command
+	// A shell redirect only catches `>`, so without this a read-only git command
 	// could write. (Verified live on git 2.56: diff/show/log/stash-show --output.)
 	// `-o` is lowercase-only: git diff's read-only `-O<orderfile>` must not match.
 	gateGitOutputRE  = regexp.MustCompile(`(?:^|\s)(?:(?i:--output)(?:=|\s|$)|-o(?:=|\s))`)
@@ -263,7 +197,7 @@ const odysseusWriteDenyReason = "Odysseus plans, Ares builds — save the plan, 
 // read-only for ten hours after "approve" (2026-11-12): the builder that
 // clears the lock is kratos:ares or kratos:hades, and a Skill load of another
 // god replaces the planner (skillLoadResult).
-const odysseusBashDenyReason = "Odysseus plan mode may only run read-only inspection commands. Write the command into the plan for Ares to run instead of running it now. Planning is over? Spawn kratos:ares with the approved plan, or load Iris (Skill kratos:iris): either one ends plan mode."
+const odysseusBashDenyReason = "Odysseus plan mode may only run read-only inspection commands; this command writes files, runs code, or changes git, network or browser state. Write the command into the plan for Ares to run instead of running it now. Planning is over? Spawn kratos:ares with the approved plan, or load Iris (Skill kratos:iris): either one ends plan mode."
 
 var (
 	// gateGitSubcommandRE captures the git subcommand past an optional -C <path>.
@@ -273,15 +207,6 @@ var (
 	gateGitGrepPagerRE = regexp.MustCompile(`(?:^|\s)(?:-O\S*|--open-files-in-pager\b\S*)`)
 	// gateGitUploadPackRE matches the ls-remote flags that name a program to run.
 	gateGitUploadPackRE = regexp.MustCompile(`(?i)(?:^|\s)(?:--upload-pack|--exec|-u)(?:=|\s|$)`)
-
-	// gateWhereBlockRE accepts a Where-Object script block that only compares
-	// properties of the pipeline item: `{ $_.Name -match 'x' -and -not
-	// $_.PSIsContainer }`. A value is a quoted literal with nothing that
-	// expands, a number, or $true/$false/$null. A method call, a command, a
-	// nested block or a second statement does not fit and stays denied.
-	gateWhereValue   = `(?:'[^']*'|"[^"$` + "`" + `]*"|-?\d+(?:\.\d+)?|\$true|\$false|\$null)`
-	gateWhereTerm    = `(?:(?:-not\s+|!\s*)?\$_(?:\.\w+)+(?:\s+-[ci]?(?:eq|ne|gt|ge|lt|le|like|notlike|match|notmatch|contains|notcontains|in|notin)\s+` + gateWhereValue + `)?)`
-	gateWhereBlockRE = regexp.MustCompile(`(?i)^Where-Object\s+\{\s*` + gateWhereTerm + `(?:\s+-(?:and|or)\s+` + gateWhereTerm + `)*\s*\}$`)
 
 	// gateLoaderArgsRE is the argument list of a god loader: `agent load <god>
 	// --resolve --part body`, `agent protocol <god>`. Words and flags only.
@@ -857,8 +782,14 @@ func odysseusGate(input preToolUseInput, ledger map[string]any) editGateResult {
 		// gate Bash but not PowerShell, so Set-Content/Remove-Item/etc. — all
 		// already in the mutation patterns above — ran ungated.
 		c := input.ToolInput.Command
-		if isReadOnlyKratosCommand(c) || isReadOnlyShellCommand(c) {
+		if isReadOnlyKratosCommand(c) {
 			return editGateResult{}
+		}
+		switch odysseusShellWriteKind(c) {
+		case shellNoWrite:
+			return editGateResult{}
+		case shellDocRedirect:
+			return editGateResult{Decision: "deny", Reason: odysseusDocRedirectDenyReason}
 		}
 		return editGateResult{Decision: "deny", Reason: odysseusBashDenyReason}
 	}
@@ -1184,139 +1115,6 @@ func splitShellSegments(command string) []shellSegment {
 	return segs
 }
 
-// isReadOnlyShellCommand reports whether every segment of command is pure
-// inspection.
-//
-// Classification is per segment and per head, never over the raw string: a
-// whole-string scan for mutation words denied
-// `cat .claude/.Arena/tactical-plans/2026-09-11-move-sidebar.md` — the
-// draft-plan discovery commands/plan.md mandates — because the *path* said
-// "move", while checking only the prefix allowed `git status && go build -o out
-// ./...`.
-//
-// Inert stderr plumbing comes out first, before the split: `2>&1` contains a
-// segment separator, so `git status 2>&1 | head -20` was cut at the `&` and
-// denied on a fragment that was never a command.
-func isReadOnlyShellCommand(command string) bool {
-	trimmed := strings.TrimSpace(gateInertRedirectRE.ReplaceAllString(command, " "))
-	if trimmed == "" {
-		return true
-	}
-	segs := splitShellSegments(trimmed)
-	if len(segs) == 0 {
-		return false
-	}
-	if rest, ok := peelSubstAssignment(trimmed); ok {
-		return isReadOnlyShellCommand(rest)
-	}
-	segs = substituteAssignments(trimmed, segs)
-	for _, seg := range segs {
-		if strings.TrimSpace(seg.raw) == "" {
-			continue
-		}
-		if !isReadOnlySegment(seg) {
-			return false
-		}
-	}
-	return true
-}
-
-var gateSubstAssignHeadRE = regexp.MustCompile("^([A-Za-z_][A-Za-z0-9_]*)=(\\$\\(|`)")
-
-// gateOpaqueVarHeads are the heads that may receive an opaque `$NAME` as an
-// argument: none has a flag that writes a file or runs a program. A head with
-// such a flag (find -delete, git log --output, rg --pre, date -s) never gets
-// one, because the value could be that flag. sed is handled apart.
-var gateOpaqueVarHeads = map[string]bool{
-	"echo": true, "cat": true, "type": true, "ls": true, "dir": true, "head": true, "wc": true,
-	"grep": true, "egrep": true, "fgrep": true, "stat": true, "cd": true, "pwd": true,
-	"which": true, "where": true,
-}
-
-// peelSubstAssignment handles a line that opens with `NAME=$(<cmd>)` or
-// NAME=`<cmd>` (the user's `f=$(grep X); sed -n 1,5p "$f"` idiom). When <cmd>
-// is itself read-only and the separator that follows runs the next command in
-// the same shell (`;`, `&&`, a newline), it returns the rest of the line with
-// every `$NAME` / `${NAME}` replaced by an opaque word, and the caller
-// classifies that rest. A later segment is judged by its own head; it may use
-// the variable only as the argument of a head in gateOpaqueVarHeads, or as the
-// final quoted operand of sed, so the unknown value cannot be a write flag.
-// Nothing is peeled when a later segment names NAME as a bare word (`read f`,
-// `export f=rm`), which can reassign it.
-func peelSubstAssignment(command string) (string, bool) {
-	m := gateSubstAssignHeadRE.FindStringSubmatchIndex(command)
-	if m == nil {
-		return "", false
-	}
-	name := command[m[2]:m[3]]
-	masked := maskQuoted(command)
-	open := m[1]
-	var closeAt int
-	if command[m[4]] == '`' {
-		end := strings.IndexByte(masked[open:], '`')
-		if end < 0 {
-			return "", false
-		}
-		closeAt = open + end
-	} else {
-		depth := 1
-		closeAt = -1
-		for i := open; i < len(masked); i++ {
-			switch masked[i] {
-			case '(':
-				depth++
-			case ')':
-				depth--
-			}
-			if depth == 0 {
-				closeAt = i
-				break
-			}
-		}
-		if closeAt < 0 {
-			return "", false
-		}
-	}
-	inner := strings.TrimSpace(command[open:closeAt])
-	if inner == "" || strings.Contains(inner, "\\") || !isReadOnlyShellCommand(inner) {
-		return "", false
-	}
-	after := strings.TrimLeft(masked[closeAt+1:], " \t")
-	skip := 0
-	switch {
-	case strings.HasPrefix(after, "&&"):
-		skip = 2
-	case strings.HasPrefix(after, ";"), strings.HasPrefix(after, "\n"):
-		skip = 1
-	case strings.HasPrefix(after, "\r\n"):
-		skip = 2
-	default:
-		return "", false
-	}
-	rest := command[closeAt+1:]
-	rest = rest[len(rest)-len(after)+skip:]
-	quoted := regexp.QuoteMeta(name)
-	refRE := regexp.MustCompile(`\$\{` + quoted + `\}|\$` + quoted + `\b`)
-	bareRE := regexp.MustCompile(`(?:^|[^A-Za-z0-9_$-])` + quoted + `(?:[^A-Za-z0-9_]|$)`)
-	quotedLastRE := regexp.MustCompile(`\s"(?:\$\{` + quoted + `\}|\$` + quoted + `)"\s*$`)
-	if bareRE.MatchString(refRE.ReplaceAllString(maskQuoted(rest), " ")) {
-		return "", false
-	}
-	for _, seg := range splitShellSegments(rest) {
-		if !refRE.MatchString(seg.raw) {
-			continue
-		}
-		head := gateSegmentHead(seg.raw)
-		switch {
-		case gateOpaqueVarHeads[head]:
-		case head == "sed" && len(refRE.FindAllString(seg.raw, -1)) == 1 && quotedLastRE.MatchString(seg.raw) && sedScriptPrecedes(seg.raw):
-		default:
-			return "", false
-		}
-	}
-	return refRE.ReplaceAllLiteralString(rest, "OPAQUEVALUE"), true
-}
-
 // gateAssignmentRE matches a segment that only sets NAME=value, where the value
 // is one literal: a bare word with no shell metacharacter or quote, or one
 // single- or double-quoted string. The quoted forms arrived with the 2026-11
@@ -1411,103 +1209,6 @@ func segmentSeparatorKeepsVar(masked string, seg shellSegment) bool {
 	}
 	rest := strings.TrimLeft(masked[seg.end:], " \t")
 	return strings.HasPrefix(rest, ";") || strings.HasPrefix(rest, "&&") || strings.HasPrefix(rest, "\n") || strings.HasPrefix(rest, "\r")
-}
-
-// isReadOnlySegment classifies one segment by its head plus the guards a reader
-// head cannot vouch for: a redirect writes, a command substitution hides a
-// second command in the arguments, `sed -i` edits in place, `find -delete` or
-// `-exec` runs anything, and `tail -f` never returns.
-func isReadOnlySegment(seg shellSegment) bool {
-	raw := strings.TrimSpace(seg.raw)
-	masked := strings.TrimSpace(seg.masked)
-	if raw == "" {
-		return false
-	}
-	if gateRedirectRE.MatchString(masked) || gateCmdSubstRE.MatchString(masked) {
-		return false
-	}
-	switch gateSegmentHead(raw) {
-	case "git":
-		sub := ""
-		if m := gateGitSubcommandRE.FindStringSubmatch(raw); m != nil {
-			sub = strings.ToLower(m[1])
-		}
-		switch sub {
-		case "grep":
-			// -o is --only-matching here, not an output file; -O runs a pager.
-			if gateGitGrepPagerRE.MatchString(masked) {
-				return false
-			}
-		case "ls-remote":
-			if gateGitUploadPackRE.MatchString(masked) {
-				return false
-			}
-		default:
-			// git diff/show/log and stash show write a file with --output/-o.
-			if gateGitOutputRE.MatchString(masked) {
-				return false
-			}
-		}
-	case "sed":
-		if gateInPlaceFlagRE.MatchString(masked) {
-			return false
-		}
-	case "find":
-		if gateFindActionRE.MatchString(masked) {
-			return false
-		}
-	case "fd", "fdfind":
-		if gateFdExecRE.MatchString(masked) {
-			return false
-		}
-	case "tail":
-		if gateFollowFlagRE.MatchString(masked) {
-			return false
-		}
-	case "awk":
-		if !gateAwkIsFilter(raw) {
-			return false
-		}
-	case "date":
-		if gateDateSetsClock(gateSegmentTokens(raw)) {
-			return false
-		}
-	case "sort":
-		if gateSortWritesFile(gateSegmentTokens(raw)) {
-			return false
-		}
-	case "uniq":
-		if gateUniqWritesFile(gateSegmentTokens(raw)) {
-			return false
-		}
-	case "printf":
-		if gatePrintfAssignsVar(gateSegmentTokens(raw)) {
-			return false
-		}
-	case "where-object":
-		if strings.Contains(masked, "{") && !gateWhereBlockRE.MatchString(raw) {
-			return false
-		}
-	case "select-object", "measure-object", "sort-object", "foreach-object", "format-table", "format-list", "format-wide", "out-string":
-		if strings.Contains(masked, "{") {
-			return false
-		}
-	}
-	if isGodLoaderCommand(raw) {
-		return true
-	}
-	// Wrappers (`rtk $K slug x` after substitution is `rtk C:/…/kratos.exe
-	// slug x`) are seen past so the kratos allowlist tests the program that
-	// runs, as gateSegmentHead does for every other head.
-	if isReadOnlyKratosCommand(gateStripCommandWrappers(raw)) || gateOpensPlanPage(raw) {
-		return true
-	}
-	for _, re := range gateReadOnlyCommands {
-		if re.MatchString(raw) {
-			return true
-		}
-	}
-	return false
 }
 
 // gateDateSetsClock reports a date invocation that could set the system
@@ -2054,30 +1755,4 @@ func gateContainmentRootSource(cwd string) (string, bool) {
 		dir = parent
 	}
 	return cwd, false
-}
-
-// sedScriptPrecedes reports a sed segment whose script is a literal word before
-// the final operand, with no -e/-f/--expression/--file flag: the operand
-// is then a file name, never the script.
-func sedScriptPrecedes(raw string) bool {
-	tokens := gateSegmentTokens(raw)
-	if len(tokens) < 3 {
-		return false
-	}
-	words := 0
-	for _, t := range tokens[1 : len(tokens)-1] {
-		switch {
-		case strings.HasPrefix(t, "--"):
-			if strings.HasPrefix(t, "--expression") || strings.HasPrefix(t, "--file") {
-				return false
-			}
-		case strings.HasPrefix(t, "-") && len(t) > 1:
-			if strings.ContainsAny(t[1:], "ef") {
-				return false
-			}
-		default:
-			words++
-		}
-	}
-	return words == 1
 }

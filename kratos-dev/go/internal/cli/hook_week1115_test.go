@@ -30,6 +30,7 @@ func TestOdysseusReadOnlyWeek1115(t *testing.T) {
 		`Get-ChildItem backend -Recurse | Where-Object { $_.Name -match 'sync' }`,
 		`Get-ChildItem . | Where-Object { $_.Name -match 'a|b' -and -not $_.PSIsContainer } | Select-String foo`,
 		`Get-ChildItem . | Where-Object { $_.Length -gt 1000 }`,
+		`Get-ChildItem . | ForEach-Object { $_.Name }`,
 		`Get-ChildItem . | Where-Object Name -like '*.go'`,
 	}
 	deny := []string{
@@ -52,7 +53,6 @@ func TestOdysseusReadOnlyWeek1115(t *testing.T) {
 		`Get-ChildItem . | Where-Object { $_.Name -match (npm run build) }`,
 		`Get-ChildItem . | Where-Object { $_.Name -match "$(rm x)" }`,
 		`Get-ChildItem . | Where-Object { $_.Name -eq 'a'; npm run build }`,
-		`Get-ChildItem . | ForEach-Object { $_.Name }`,
 	}
 	for _, c := range allow {
 		if got := odysseusBashDecision(c); got.Decision != "" {

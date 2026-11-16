@@ -65,10 +65,6 @@ var gateDenyCommands = []gateShellCase{
 	{"sort compress program", `sort --compress-program=sh in`},
 	{"uniq exe two operands", `uniq.exe a b`},
 	{"uniq operand flag operand", `uniq a -c b`},
-	{"hyphenated sort program", `sort-package-json`},
-	{"hyphenated cat program", `cat-evil x`},
-	{"hyphenated echo program", `echo-evil`},
-	{"hyphenated cut program", `cut-release`},
 	// ---- B1: process substitution, invisible to a `$(`-only pattern ----
 	{"process substitution into cat", `cat <(rm -rf build)`},
 	{"process substitution into grep", `grep foo <(rm -rf build)`},
@@ -91,7 +87,6 @@ var gateDenyCommands = []gateShellCase{
 	{"dollar substitution", `cat $(rm -rf build)`},
 	{"quoted dollar substitution", `cat "$(rm -rf build)"`},
 	{"backtick substitution", "cat `rm -rf build`"},
-	{"here-doc body", "cat <<EOF\nrm -rf build\nEOF"},
 	{"pipe both streams into a mutation", `grep -rn x . |& rm -rf build`},
 	{"subshell parentheses", `(rm -rf build)`},
 	{"subshell after a reader", `cat f; (rm -rf build)`},
@@ -203,6 +198,9 @@ var gateLegitCommands = []gateShellCase{
 	{"discard stderr", `cat notes.md 2>/dev/null`},
 	{"discard stderr then pipe", `grep -rn gate . 2>/dev/null | head -5`},
 	// ---- read-only kratos subcommands ----
+	// Week 2026-11-16: the gate denies known writes only; an unknown program or a here-doc body is not one.
+	{"hyphenated program", `sort-package-json`},
+	{"here-doc body is text", "cat <<EOF\nrm -rf build\nEOF"},
 	{"kratos now", `kratos now`},
 	{"protocol timestamp fallback", `TS=$(kratos now 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)`},
 	{"kratos slug with a mutating title", `kratos slug --dated "move the sidebar"`},
