@@ -27,8 +27,8 @@ var (
 )
 
 // evidenceWaiverRE matches the two accepted waivers of the RED/GREEN evidence,
-// with the colon anywhere, or without it when the keyword starts a line, a
-// list item or a sentence.
+// with a colon, comma, dash or " for" after the keyword, or without any of
+// them when the keyword starts a line, a list item or a sentence.
 var evidenceWaiverRE = waiverRE(`evidence-skipped|tests-not-applicable`)
 
 // testsNotApplicableRE is the same rule for the TESTS-NOT-APPLICABLE waiver
@@ -36,7 +36,7 @@ var evidenceWaiverRE = waiverRE(`evidence-skipped|tests-not-applicable`)
 var testsNotApplicableRE = waiverRE(`tests-not-applicable`)
 
 func waiverRE(words string) *regexp.Regexp {
-	return regexp.MustCompile(`(?im)(?:(?:` + words + `)\b[ \t]*:|(?:^[ \t]*[-*]?[ \t]*\**|[.!?][ \t]+)(?:` + words + `)\b)`)
+	return regexp.MustCompile(`(?im)(?:(?:` + words + `)\b(?:[ \t]*(?::|,|—|-)|[ \t]+for\b)|(?:^[ \t]*[-*]?[ \t]*\**|[.!?][ \t]+)(?:` + words + `)\b)`)
 }
 
 // foldedHeaderRE matches a report line that holds only the label of a field
