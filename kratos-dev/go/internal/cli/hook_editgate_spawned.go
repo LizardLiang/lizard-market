@@ -3,6 +3,7 @@ package cli
 import (
 	"io"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 )
@@ -28,7 +29,7 @@ import (
 
 // aresGitDenyReason is the deny text for a forbidden git form in an Ares
 // subagent.
-const aresGitDenyReason = "Ares never runs git stash/checkout/switch/restore/clean or a hard reset: worktrees share one stash list and the user's dirty files are off-limits. Baseline = copy the files to the scratchpad or use a temporary worktree (git worktree add). Creating a branch (checkout -b / switch -c) is allowed."
+const aresGitDenyReason = "Ares never runs git stash/checkout/switch/restore/clean or a hard reset outside its own .claude/worktrees/agent-<id>/ checkout: worktrees share one stash list and the user's dirty files are off-limits. Baseline = copy the files to the scratchpad or use a temporary worktree (git worktree add). Creating a branch (checkout -b / switch -c) is allowed."
 
 // aresHookBypassDenyReason is the deny text for a commit that skips the
 // project's own hooks.
@@ -48,33 +49,86 @@ var (
 	gateHookBypassRE = regexp.MustCompile(`(?i)(?:^|[\s;&|])(?:SKIP_LOCAL_CI=|HUSKY=0\b|--no-verify\b)`)
 )
 
+var (
+	// gateAgentWorktreeRE matches a directory inside a harness agent worktree,
+	// `.claude/worktrees/agent-<id>/`. The harness creates it for an
+	// `isolation: worktree` Ares at an old commit, so the agent has to move it
+	// to the feature commit with a hard reset; the user's dirty files are not
+	// in it.
+	gateAgentWorktreeRE = regexp.MustCompile(`(?i)(?:^|/)\.claude/worktrees/agent-[^/]+(?:/|$)`)
+	// gateGitDirOptRE reads `git -C <dir>`.
+	gateGitDirOptRE = regexp.MustCompile(`(?i)^git\s+-C\s+("[^"]*"|'[^']*'|\S+)`)
+	// gateCheckoutPathRE is `git checkout [<rev>] -- <file>`: a restore of files.
+	gateCheckoutPathRE = regexp.MustCompile(`(?:^|\s)--(?:\s|$)`)
+)
+
+// aresResolveDir applies a `cd <dir>` or `-C <dir>` target to the directory a
+// command runs in. A relative target joins onto dir; with no known dir it
+// yields "".
+func aresResolveDir(dir, target string) string {
+	target = gateSlashPath(strings.Trim(target, `"'`))
+	if target == "" {
+		return dir
+	}
+	if gateAbsPathRE.MatchString(target) {
+		return path.Clean(target)
+	}
+	if dir == "" {
+		return ""
+	}
+	return path.Join(dir, target)
+}
+
 // aresForbiddenGit reports whether one segment is a git form Ares may not run.
-func aresForbiddenGit(seg shellSegment) bool {
-	m := gateAresGitHeadRE.FindStringSubmatch(strings.TrimSpace(gateEffectiveSegmentText(seg.raw)))
+// dir is the directory the segment runs in. Inside an agent worktree a hard
+// reset, `checkout -- <file>` and `restore` are allowed; stash and clean never
+// are, because the stash list is shared.
+func aresForbiddenGit(seg shellSegment, dir string) bool {
+	eff := strings.TrimSpace(gateEffectiveSegmentText(seg.raw))
+	m := gateAresGitHeadRE.FindStringSubmatch(eff)
 	if m == nil {
 		return false
 	}
+	if c := gateGitDirOptRE.FindStringSubmatch(eff); c != nil {
+		dir = aresResolveDir(dir, c[1])
+	}
+	own := gateAgentWorktreeRE.MatchString(dir)
 	sub, rest := strings.ToLower(m[1]), m[2]
 	switch sub {
-	case "checkout", "switch":
+	case "checkout":
+		if gateAresBranchNewRE.MatchString(rest) {
+			return false
+		}
+		return !(own && gateCheckoutPathRE.MatchString(rest))
+	case "switch":
 		return !gateAresBranchNewRE.MatchString(rest)
 	case "stash":
 		return !gateAresStashReadRE.MatchString(rest)
 	case "reset":
-		return gateAresResetHardRE.MatchString(rest)
+		return gateAresResetHardRE.MatchString(rest) && !own
+	case "restore":
+		return !own
 	}
-	return true // clean, restore
+	return true // clean
 }
 
 // aresBashGate denies the git forms and hook bypasses listed above. Any other
-// command is left to Claude Code's normal permission flow.
-func aresBashGate(command string) editGateResult {
+// command is left to Claude Code's normal permission flow. cwd is the payload's
+// working directory; a leading `cd <dir> &&` moves it for the segments after it.
+func aresBashGate(command, cwd string) editGateResult {
+	dir := ""
+	if cwd != "" {
+		dir = path.Clean(gateSlashPath(cwd))
+	}
 	for _, seg := range splitShellSegments(command) {
 		if gateHookBypassRE.MatchString(seg.masked) {
 			return editGateResult{Decision: "deny", Reason: aresHookBypassDenyReason}
 		}
-		if aresForbiddenGit(seg) {
+		if aresForbiddenGit(seg, dir) {
 			return editGateResult{Decision: "deny", Reason: aresGitDenyReason}
+		}
+		if toks := gateSegmentTokens(seg.raw); len(toks) >= 2 && strings.EqualFold(toks[0], "cd") {
+			dir = aresResolveDir(dir, toks[len(toks)-1])
 		}
 	}
 	return editGateResult{}
@@ -168,7 +222,7 @@ func spawnedAgentGate(input preToolUseInput) editGateResult {
 		return editGateResult{}
 	}
 	if strings.Contains(strings.ToLower(input.AgentType), "ares") {
-		return aresBashGate(input.ToolInput.Command)
+		return aresBashGate(input.ToolInput.Command, input.Cwd)
 	}
 	return readOnlyChildGitGate(input)
 }
