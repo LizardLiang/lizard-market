@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook prompt-submit",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       }
@@ -60,7 +60,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook edit-gate",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -70,7 +70,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook handback-gate",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       }
@@ -82,7 +82,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/tool-use.cjs\"",
-            "timeout": 5,
+            "timeout": 15,
             "async": true
           }
         ]
@@ -93,7 +93,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook spec-delta-check",
-            "timeout": 5
+            "timeout": 15
           }
         ]
       },
@@ -103,7 +103,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook turn-reset",
-            "timeout": 5
+            "timeout": 15
           }
         ]
       }
@@ -115,7 +115,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/path-inject.cjs\"",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -125,7 +125,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook subagent-start",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -135,7 +135,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook subagent-start",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -145,7 +145,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook subagent-start",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -217,7 +217,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook subagent-stop",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -227,7 +227,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook subagent-stop",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -237,7 +237,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook subagent-stop",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -247,7 +247,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook subagent-stop",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -262,7 +262,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.cjs\" hook subagent-stop",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
