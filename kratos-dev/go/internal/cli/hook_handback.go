@@ -197,8 +197,8 @@ func handbackGateDecision(input preToolUseInput) handbackGateResult {
 // unit the model sees; capped at gateMaxBlocks denials like every other
 // content check.
 const (
-	aresHandbackMaxChars   = 8000
-	hermesHandbackMaxChars = 8000
+	aresHandbackMaxChars   = 10000
+	hermesHandbackMaxChars = 10000
 )
 
 // handbackSizeFailure returns the failure text when message exceeds max.

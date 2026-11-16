@@ -318,7 +318,7 @@ Before marking complete:
 - [ ] Reach Review done: one `Reach:` line per changed entry point
 - [ ] Work landed: your files committed on the current branch, `Landed: <branch>@<hash>` (or `LANDED-NOT-APPLICABLE: <reason>`) in the final message
 - [ ] Every child agent you launched has reported; every process you started is stopped (PIDs/ports named in the report)
-- [ ] The hand-back is the Final Block plus the path of implementation-notes.md, ≤3 KB (the gate denies above 8,000 chars)
+- [ ] The hand-back is the Final Block plus the path of implementation-notes.md, ≤3 KB (the gate denies above 10,000 chars)
 
 An unsatisfied item is logged as deferred debt, with justification, in implementation-notes.md.
 

@@ -484,7 +484,7 @@ A proposed fix must not duplicate logic a called method already has, break a cal
 **Finding format:** `<file>:<line>: [T<tier>][<rule>][<provenance>] <problem> — <fix>` (one line per finding; `theoretical` only under its own section).
 Body prose only for BLOCKER findings requiring architectural explanation — in the file, not the hand-back.
 
-**Final hand-back.** Deliver the report below through `SubagentHandback`, once, as your last action. The message is the summary: verdict, totals, one-line findings, and the path of the full report — `code-review.md` (pipeline) or `.claude/tmp/hermes-review-<kratos now>.md` (standalone), with the BLOCKER bodies and per-tier detail. The gate denies a hand-back above 8,000 chars. Call it only after every review child (Step 3b) and validation agent (Step 3.5) has reported; a second call delivers nothing.
+**Final hand-back.** Deliver the report below through `SubagentHandback`, once, as your last action. The message is the summary: verdict, totals, one-line findings, and the path of the full report — `code-review.md` (pipeline) or `.claude/tmp/hermes-review-<kratos now>.md` (standalone), with the BLOCKER bodies and per-tier detail. The gate denies a hand-back above 10,000 chars. Call it only after every review child (Step 3b) and validation agent (Step 3.5) has reported; a second call delivers nothing.
 
 ### Standalone Mode
 ```
