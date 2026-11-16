@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,13 +49,14 @@ func openBrowserCandidates(goos string, env func(string) string) [][]string {
 	return [][]string{{"google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome"}, {"microsoft-edge", "microsoft-edge-stable", "msedge"}}
 }
 
-// openFileURL turns a path into a file:/// URL.
+// openFileURL turns a path into a file:/// URL. The path is percent-encoded, so
+// a "#" or a space in it survives.
 func openFileURL(abs string) string {
 	p := filepath.ToSlash(abs)
-	if strings.HasPrefix(p, "/") {
-		return "file://" + p
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
 	}
-	return "file:///" + p
+	return (&url.URL{Scheme: "file", Path: p}).String()
 }
 
 // openTarget opens path and returns the name of the program it started. An
@@ -68,14 +70,13 @@ func openTarget(path, goos string, env func(string) string) (string, error) {
 		return "", fmt.Errorf("open: %w", err)
 	}
 	if strings.EqualFold(filepath.Ext(abs), ".html") {
-		url := openFileURL(abs)
+		fileURL := openFileURL(abs)
 		for _, names := range openBrowserCandidates(goos, env) {
 			for _, name := range names {
 				if prog, ok := openLookup(name); ok {
-					if err := openLauncher(prog, url); err != nil {
-						return "", err
+					if err := openLauncher(prog, fileURL); err == nil {
+						return prog, nil
 					}
-					return prog, nil
 				}
 			}
 		}

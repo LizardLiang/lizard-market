@@ -63,3 +63,51 @@ func TestOpenTargetMissingFile(t *testing.T) {
 		t.Error("missing file opened without error")
 	}
 }
+
+func TestOpenFileURLEncodesPath(t *testing.T) {
+	for in, want := range map[string]string{
+		"C:/a b/#x.html":    "file:///C:/a%20b/%23x.html",
+		"/tmp/a b/#x.html":  "file:///tmp/a%20b/%23x.html",
+		"/tmp/plain/x.html": "file:///tmp/plain/x.html",
+	} {
+		if got := openFileURL(in); got != want {
+			t.Errorf("openFileURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestOpenTargetTriesNextBrowserWhenStartFails(t *testing.T) {
+	page := filepath.Join(t.TempDir(), "plan.html")
+	if err := os.WriteFile(page, []byte("<p>x</p>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	oldLaunch, oldLookup := openLauncher, openLookup
+	defer func() { openLauncher, openLookup = oldLaunch, oldLookup }()
+	openLookup = func(name string) (string, bool) {
+		if strings.HasSuffix(name, "chrome.exe") || strings.HasSuffix(name, "msedge.exe") {
+			return name, true
+		}
+		return "", false
+	}
+	var tried []string
+	openLauncher = func(prog string, args ...string) error {
+		tried = append(tried, prog)
+		if strings.HasSuffix(prog, "chrome.exe") {
+			return os.ErrPermission
+		}
+		return nil
+	}
+	env := func(k string) string {
+		if k == "ProgramFiles" {
+			return `C:\Program Files`
+		}
+		return ""
+	}
+	prog, err := openTarget(page, "windows", env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(prog, "msedge.exe") {
+		t.Errorf("program = %q, want Edge after Chrome failed to start (tried %v)", prog, tried)
+	}
+}

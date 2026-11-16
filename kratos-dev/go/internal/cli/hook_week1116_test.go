@@ -126,11 +126,11 @@ func TestAresOwnWorktreeGitWeek1116(t *testing.T) {
 		name, cwd, cmd string
 		deny           bool
 	}{
-		{"reset hard after cd to the agent worktree", main, `cd ` + agent + ` && git reset --hard 3923a3b -q && git log -1 --format=%h && ls src/`, false},
+		{"reset hard after cd to the agent worktree", agent, `cd ` + agent + ` && git reset --hard 3923a3b -q && git log -1 --format=%h && ls src/`, false},
 		{"reset hard with the agent worktree as cwd", agent, `git cat-file -t 3923a3b && git reset --hard 3923a3b && git log -1 --oneline`, false},
 		{"reset keep with the agent worktree as cwd", agent, `git reset --keep 3923a3b; git log -1 --format=%h`, false},
-		{"checkout files after a quoted cd into a subdirectory", main, `cd "` + agent + `/src/apps/web"; git checkout -- src/pages/Home.tsx test/home.test.tsx 2>&1; git status --porcelain | head`, false},
-		{"reset hard through git -C", main, `git -C ` + agent + ` reset --hard abc123`, false},
+		{"checkout files after a quoted cd into a subdirectory", agent, `cd "` + agent + `/src/apps/web"; git checkout -- src/pages/Home.tsx test/home.test.tsx 2>&1; git status --porcelain | head`, false},
+		{"reset hard through git -C", agent, `git -C ` + agent + ` reset --hard abc123`, false},
 		{"restore in the agent worktree", agent, `git restore src/a.ts`, false},
 		{"relative cd stays inside the agent worktree", agent, `cd src/apps/web && git reset --hard abc123`, false},
 

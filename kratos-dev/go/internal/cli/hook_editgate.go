@@ -19,7 +19,7 @@ import (
 // The ledger-keyed inline edit gate. One PreToolUse hook decides, mechanically,
 // whether the god running inline in the main context may make this edit:
 //
-//	odysseus — plans and spec deltas only, read-only shell (ported from the
+//	odysseus — plans and spec deltas only, shell with no known write (ported from the
 //	           retired hooks/plan-mode-guard.cjs, which could only ever see a
 //	           *spawned* Odysseus because it keyed off agent_type)
 //	iris     — at most two distinct project source files per user turn, then
@@ -317,8 +317,8 @@ var gateWrapperHeadRE = regexp.MustCompile(`(?i)^\s*(?:rtk(?:\s+proxy)?|time|sud
 
 // gateCommandWrapperRE matches the `command` builtin, except `command -v`:
 // that form only checks whether a program exists and never runs it, so it is
-// its own read-only allowlist entry (gateReadOnlyCommands) rather than a
-// wrapper to see past.
+// not a wrapper to see past. Any other `command` flag (`command -p rm x`)
+// leaves a head that starts with `-`, which segmentCommandWrites denies.
 var gateCommandWrapperRE = regexp.MustCompile(`(?i)^\s*command\s+(?:-v\b)?`)
 
 // gateLeadingAssignmentRE matches one leading shell variable assignment
@@ -585,7 +585,7 @@ func gateIsSpawnedOdysseus(input preToolUseInput) bool {
 //
 // The credential guard is computed first but never returned early: the rest
 // of the policy might hard-deny this same command outright (an inline
-// Odysseus's own read-only-shell rule denies any non-read command, credential
+// Odysseus's own known-write shell rule denies a write command, credential
 // or not), and deny must always win over ask. Returning the guard's "ask"
 // before checking that downgraded a plan-mode hard deny to a permission
 // prompt the user could simply accept — the 2026-09-18 review's own
@@ -733,7 +733,8 @@ func skillLoadResult(skill string) editGateResult {
 	return editGateResult{SetGod: name}
 }
 
-// odysseusGate keeps the planner on planning artifacts and read-only shell.
+// odysseusGate keeps the planner on planning artifacts and shell commands with
+// no known write.
 //
 // It denies or says nothing. A tactical-plan write, a spec-delta write and a
 // read-only command all return no decision and fall through to Claude Code's
@@ -773,25 +774,44 @@ func odysseusGate(input preToolUseInput, ledger map[string]any) editGateResult {
 	case "Bash", "PowerShell":
 		// PowerShell's tool input carries the script under the same "command"
 		// key Bash uses (see subagentStopCmd's transcript scan, which reads
-		// both tools' Command field identically), and the read-only allowlist
-		// above already has PowerShell verbs (Get-ChildItem, Test-Path, …) for
-		// exactly this reason. Routing it through the same classification
-		// closes the hole a PowerShell-only matcher left: hooks.json used to
-		// gate Bash but not PowerShell, so Set-Content/Remove-Item/etc. — all
-		// already in the mutation patterns above — ran ungated.
-		c := input.ToolInput.Command
-		if isReadOnlyKratosCommand(c) {
-			return editGateResult{}
-		}
-		switch odysseusShellWriteKind(c) {
-		case shellNoWrite:
-			return editGateResult{}
-		case shellDocRedirect:
-			return editGateResult{Decision: "deny", Reason: odysseusDocRedirectDenyReason}
-		}
-		return editGateResult{Decision: "deny", Reason: odysseusBashDenyReason}
+		// both tools' Command field identically), and the known-write lists
+		// (hook_editgate_writes.go) already hold PowerShell verbs (Remove-Item,
+		// Set-Content, …) for exactly this reason. Routing it through the same
+		// classification closes the hole a PowerShell-only matcher left:
+		// hooks.json used to gate Bash but not PowerShell, so those verbs ran
+		// ungated.
+		return odysseusShellDecision(input.ToolInput.Command)
 	}
 	return editGateResult{}
+}
+
+// odysseusClassifierFailedReason is the deny text when the shell classifier
+// panics. The gate fails closed with a short reason, never a stack trace.
+const odysseusClassifierFailedReason = "The plan-mode shell check failed on this command. Split it into simpler commands, or put it into the plan for Ares."
+
+// odysseusShellClassifier is the shell classifier; tests replace it to reach
+// the recover below.
+var odysseusShellClassifier = odysseusShellWriteKind
+
+// odysseusShellDecision classifies one shell command for an inline or spawned
+// Odysseus. A panic in the classifier becomes a deny.
+func odysseusShellDecision(c string) (res editGateResult) {
+	defer func() {
+		if r := recover(); r != nil {
+			debugLog("edit-gate: shell classifier panic: %v", r)
+			res = editGateResult{Decision: "deny", Reason: odysseusClassifierFailedReason}
+		}
+	}()
+	if isReadOnlyKratosCommand(c) {
+		return editGateResult{}
+	}
+	switch odysseusShellClassifier(c) {
+	case shellNoWrite:
+		return editGateResult{}
+	case shellDocRedirect:
+		return editGateResult{Decision: "deny", Reason: odysseusDocRedirectDenyReason}
+	}
+	return editGateResult{Decision: "deny", Reason: odysseusBashDenyReason}
 }
 
 // irisGate caps distinct project source files per user turn. Allows are silent
@@ -1154,7 +1174,7 @@ func substituteAssignments(command string, segs []shellSegment) []shellSegment {
 		bareRE := regexp.MustCompile(`(?:^|[^A-Za-z0-9_$-])` + quoted + `(?:[^A-Za-z0-9_]|$)`)
 		collides := false
 		for _, seg := range out[i+1:] {
-			if bareRE.MatchString(refRE.ReplaceAllString(seg.masked, " ")) {
+			if strings.Contains(seg.masked, m[1]) && bareRE.MatchString(refRE.ReplaceAllString(seg.masked, " ")) {
 				collides = true
 				break
 			}
@@ -1166,7 +1186,7 @@ func substituteAssignments(command string, segs []shellSegment) []shellSegment {
 		next = append(next, out[:i]...)
 		used := false
 		for _, seg := range out[i+1:] {
-			if refRE.MatchString(seg.raw) {
+			if strings.Contains(seg.raw, m[1]) && refRE.MatchString(seg.raw) {
 				expanded := refRE.ReplaceAllLiteralString(seg.raw, value)
 				seg = shellSegment{raw: expanded, masked: maskQuoted(expanded), end: seg.end}
 				used = true

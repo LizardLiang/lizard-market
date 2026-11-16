@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"path"
 	"regexp"
 	"strings"
@@ -44,7 +45,7 @@ var (
 	// bare variable in the next segment is its condition or loop variable.
 	gateControlHeadRE = regexp.MustCompile(`(?i)^\s*(?:if|elseif|while|until|foreach|for|switch|return)\b`)
 	// gateVarHeadRE is a bare variable in command position.
-	gateVarHeadRE = regexp.MustCompile(`^\$(?:[A-Za-z]\w*|\{[^}]*\})$`)
+	gateVarHeadRE = regexp.MustCompile(`^\$(?:[A-Za-z]\w*|_\w+|\{[^}]*\})$`)
 	// gatePSOperatorRE is the token after a PowerShell variable in a condition
 	// or loop header, `$x -eq 1` or `$f in $list`.
 	gatePSOperatorRE = regexp.MustCompile(`(?i)^(?:-(?:eq|ne|gt|ge|lt|le|like|notlike|match|notmatch|contains|notcontains|in|notin|and|or|is|isnot|as|replace|split|join|f|not)|in|[=+-]?=)$`)
@@ -133,7 +134,7 @@ var gateWriteMutatorHeads = map[string]bool{
 	"remove-item": true, "move-item": true, "copy-item": true, "new-item": true, "rename-item": true,
 	"clear-content": true, "set-itemproperty": true, "set-item": true, "new-itemproperty": true,
 	"remove-itemproperty": true, "ri": true, "mi": true, "cpi": true, "ni": true,
-	"stop-process": true, "kill": true, "pkill": true, "killall": true, "taskkill": true,
+	"stop-process": true, "spps": true, "epcsv": true, "kill": true, "pkill": true, "killall": true, "taskkill": true,
 	"stop-service": true, "start-service": true, "restart-service": true,
 	"restart-computer": true, "stop-computer": true, "shutdown": true,
 	"wget": true, "make": true, "eval": true, "source": true, "trap": true, ".": true,
@@ -146,7 +147,7 @@ var gateWriteMutatorHeads = map[string]bool{
 // gateWriteTargetHeads write to the files named as operands; an operand that is
 // the null device or the session scratchpad is bookkeeping.
 var gateWriteTargetHeads = map[string]bool{
-	"tee": true, "out-file": true, "set-content": true, "add-content": true, "tee-object": true,
+	"tee": true, "out-file": true, "set-content": true, "add-content": true, "ac": true, "tee-object": true,
 }
 
 // gateInterpreterHeads run inline or script code. Only a version query passes.
@@ -157,6 +158,29 @@ var gateInterpreterHeads = map[string]bool{
 	"wsl":  true,
 	"psql": true, "sqlcmd": true, "mysql": true, "mariadb": true, "sqlite3": true, "mongosh": true,
 	"mongo": true, "redis-cli": true, "bcp": true, "invoke-sqlcmd": true,
+}
+
+// gateVersionedInterpreterRE spots a numbered interpreter such as python3.12 or
+// ruby3.2.
+var gateVersionedInterpreterRE = regexp.MustCompile(`^(?:python|pypy|ruby|php|perl|lua|node)\d[\d.]*w?$`)
+
+func isInterpreterHead(head string) bool {
+	return gateInterpreterHeads[head] || gateVersionedInterpreterRE.MatchString(head)
+}
+
+// gateScriptExtRE spots a program name that is a script file.
+var gateScriptExtRE = regexp.MustCompile(`(?i)\.(?:sh|bash|zsh|ps1|bat|cmd|py|rb|pl|js|mjs|cjs)$`)
+
+// gateLocalScriptHead reports a command whose program is a script: a relative
+// path (./build.sh, .\x.ps1, ../tool) or a file with a script extension. It
+// runs code the gate cannot read.
+func gateLocalScriptHead(body string) bool {
+	fields := strings.Fields(gateEffectiveSegmentText(body))
+	if len(fields) == 0 {
+		return false
+	}
+	first := gateSlashPath(strings.Trim(fields[0], "\"'"))
+	return strings.HasPrefix(first, "./") || strings.HasPrefix(first, "../") || gateScriptExtRE.MatchString(first)
 }
 
 var gateOpenHeads = map[string]bool{
@@ -205,7 +229,7 @@ var (
 	gateGitSubSubWrites = map[string]map[string]bool{
 		"worktree":  {"add": true, "remove": true, "move": true, "prune": true, "lock": true, "unlock": true, "repair": true},
 		"remote":    {"add": true, "remove": true, "rm": true, "rename": true, "set-url": true, "prune": true, "set-head": true},
-		"submodule": {"update": true, "add": true, "init": true, "deinit": true, "sync": true},
+		"submodule": {"update": true, "add": true, "init": true, "deinit": true, "sync": true, "foreach": true},
 		"notes":     {"add": true, "append": true, "edit": true, "remove": true, "copy": true},
 		"reflog":    {"expire": true, "delete": true},
 	}
@@ -216,7 +240,6 @@ var (
 	}
 	gateGitOptionWithValue = map[string]bool{"-C": true, "-c": true, "--git-dir": true, "--work-tree": true, "--namespace": true}
 	gateCurlWriteVerbRE    = regexp.MustCompile(`(?i)^(?:POST|PUT|DELETE|PATCH)$`)
-	gateRestWriteMethodRE  = regexp.MustCompile(`(?i)^(?:POST|PUT|DELETE|PATCH)$`)
 	gateBrowserValueFlags  = map[string]bool{"--session": true, "--profile": true, "--executable-path": true, "--headers": true, "--args": true, "--config": true, "--proxy": true, "--cdp": true, "--user-agent": true}
 	gateBrowserReadVerbs   = map[string]bool{"snapshot": true, "get": true, "eval": true, "screenshot": true}
 	gateGhWriteVerbs       = map[string]bool{"create": true, "merge": true, "close": true, "edit": true, "comment": true, "review": true, "reopen": true, "delete": true, "rerun": true, "cancel": true, "fork": true, "clone": true}
@@ -227,17 +250,20 @@ var (
 // write, or a redirect into a plan, flow or spec-delta file.
 func odysseusShellWriteKind(command string) shellWriteKind {
 	noBodies := stripHeredocBodies(command)
-	if gateFakeNullRE.MatchString(maskQuoted(noBodies)) {
+	if gateFakeNullRE.MatchString(maskQuotedNested(noBodies)) {
 		return shellWriteFound
 	}
 	c := strings.TrimSpace(gateInertRedirectRE.ReplaceAllString(noBodies, " "))
 	if c == "" {
 		return shellNoWrite
 	}
-	if gatePSMethodWriteRE.MatchString(maskQuoted(c)) {
+	if gatePSMethodWriteRE.MatchString(maskQuotedNested(c)) {
 		return shellWriteFound
 	}
 	segs, flatRaw, flatMasked := flattenShellSegments(c)
+	if countAssignmentSegments(segs) > gateMaxAssignments {
+		return shellWriteFound
+	}
 	segs = expandFlagAssignments(flatMasked, segs)
 	segs = substituteAssignments(flatRaw, segs)
 	kind := shellNoWrite
@@ -254,6 +280,22 @@ func odysseusShellWriteKind(command string) shellWriteKind {
 		}
 	}
 	return kind
+}
+
+// gateMaxAssignments caps the NAME=value segments in one command. Both
+// assignment expansions rescan every later segment for each assignment, so a
+// command of thousands of them (a 96 KB `D=-x;` line took 54 s) outlasted the
+// hook's time limit. A real planning command holds a handful.
+const gateMaxAssignments = 64
+
+func countAssignmentSegments(segs []shellSegment) int {
+	n := 0
+	for _, seg := range segs {
+		if gateAssignmentRE.MatchString(strings.TrimSpace(seg.raw)) {
+			n++
+		}
+	}
+	return n
 }
 
 // expandFlagAssignments expands a variable that holds a flag (`D=-delete;
@@ -277,7 +319,10 @@ func expandFlagAssignments(flatMasked string, segs []shellSegment) []shellSegmen
 		next := make([]shellSegment, len(out))
 		copy(next, out)
 		for j := i + 1; j < len(next); j++ {
-			expanded := bareRef.ReplaceAllLiteralString(quotedRef.ReplaceAllLiteralString(next[j].raw, value), value)
+			expanded := next[j].raw
+			if strings.Contains(expanded, m[1]) {
+				expanded = bareRef.ReplaceAllLiteralString(quotedRef.ReplaceAllLiteralString(next[j].raw, value), value)
+			}
 			if expanded != next[j].raw {
 				next[j] = shellSegment{raw: expanded, masked: maskQuoted(expanded), end: next[j].end}
 			}
@@ -358,6 +403,116 @@ func stripHeredocBodies(command string) string {
 	return strings.Join(out, "\n")
 }
 
+// maskQuotedNested is maskQuoted for a command whose double-quoted spans hold
+// substitutions. Text inside a quoted span is blanked, but the code inside a
+// `$(…)` or backtick substitution in that span is a command of its own and
+// keeps its own quote rules, so a redirect, flag or head in it stays readable.
+// The result has the length of s. An unbalanced quote leaves the rest of the
+// text unmasked, the stricter reading, as maskQuoted does.
+func maskQuotedNested(s string) string {
+	m := nestedMasker{s: s, out: []byte(s)}
+	m.code(0, 0)
+	return string(m.out)
+}
+
+type nestedMasker struct {
+	s   string
+	out []byte
+}
+
+// code scans command text from i. closer is 0 at the top, ')' inside `$(` and
+// a backtick inside a backtick pair. It returns the index after the closer and
+// whether the text was balanced.
+func (m *nestedMasker) code(i int, closer byte) (int, bool) {
+	depth := 0
+	for i < len(m.s) {
+		c := m.s[i]
+		switch {
+		case c == '\\':
+			i += 2
+		case c == '\'':
+			end := strings.IndexByte(m.s[i+1:], '\'')
+			if end < 0 {
+				return len(m.s), false
+			}
+			for k := i + 1; k <= i+end; k++ {
+				m.out[k] = 'x'
+			}
+			i += end + 2
+		case c == '"':
+			var ok bool
+			if i, ok = m.quoted(i); !ok {
+				return len(m.s), false
+			}
+		case c == '$' && i+1 < len(m.s) && m.s[i+1] == '(':
+			var ok bool
+			if i, ok = m.code(i+2, ')'); !ok {
+				return len(m.s), false
+			}
+		case c == '(' && closer == ')':
+			depth++
+			i++
+		case c == ')' && closer == ')':
+			if depth == 0 {
+				return i + 1, true
+			}
+			depth--
+			i++
+		case c == '`':
+			if closer == '`' {
+				return i + 1, true
+			}
+			var ok bool
+			if i, ok = m.code(i+1, '`'); !ok {
+				return len(m.s), false
+			}
+		default:
+			i++
+		}
+	}
+	return len(m.s), closer == 0
+}
+
+// quoted scans a double-quoted span that opens at i and returns the index after
+// its closing quote.
+func (m *nestedMasker) quoted(i int) (int, bool) {
+	var blank []int
+	j := i + 1
+	for j < len(m.s) {
+		c := m.s[j]
+		switch {
+		case c == '"':
+			for _, k := range blank {
+				m.out[k] = 'x'
+			}
+			return j + 1, true
+		case c == '\\':
+			for k := j; k < j+2 && k < len(m.s); k++ {
+				if !survivesDoubleQuotes(m.s[k]) {
+					blank = append(blank, k)
+				}
+			}
+			j += 2
+		case c == '$' && j+1 < len(m.s) && m.s[j+1] == '(':
+			var ok bool
+			if j, ok = m.code(j+2, ')'); !ok {
+				return len(m.s), false
+			}
+		case c == '`':
+			var ok bool
+			if j, ok = m.code(j+1, '`'); !ok {
+				return len(m.s), false
+			}
+		default:
+			if !survivesDoubleQuotes(c) {
+				blank = append(blank, j)
+			}
+			j++
+		}
+	}
+	return len(m.s), false
+}
+
 // flattenedBytes returns raw and masked copies of command in which every
 // construct that opens or closes a nested command — `$(`, `<(`, `>(`, a
 // parenthesis, a backtick, a brace — is a `;`, so the nested command is a
@@ -365,7 +520,8 @@ func stripHeredocBodies(command string) string {
 // keeps its mask, so a `)` inside it stays inert.
 func flattenedBytes(command string) (raw, masked []byte) {
 	raw = []byte(command)
-	masked = []byte(maskQuoted(command))
+	masked = []byte(maskQuotedNested(command))
+	noBrace := false
 	for i := 0; i < len(masked); i++ {
 		switch masked[i] {
 		case '`', '}', ')':
@@ -378,8 +534,11 @@ func flattenedBytes(command string) (raw, masked []byte) {
 		case '{':
 			raw[i], masked[i] = ';', ';'
 		case '$':
-			if i+1 < len(masked) && masked[i+1] == '{' {
-				if end := strings.IndexByte(string(masked[i:]), '}'); end > 0 && !strings.Contains(string(masked[i:i+end]), "$(") && !strings.ContainsRune(string(masked[i:i+end]), '`') {
+			if i+1 < len(masked) && masked[i+1] == '{' && !noBrace {
+				end := bytes.IndexByte(masked[i:], '}')
+				if end < 0 {
+					noBrace = true
+				} else if end > 0 && !bytes.Contains(masked[i:i+end], []byte("$(")) && bytes.IndexByte(masked[i:i+end], '`') < 0 {
 					i += end
 				}
 			}
@@ -418,12 +577,32 @@ func gateWriteTargetAllowed(t string) bool {
 	case "/dev/null", "nul", "$null", "/dev/stderr", "/dev/stdout":
 		return true
 	}
-	return gateTempClaudeRE.MatchString(strings.ToLower(path.Clean(gateSlashPath(t))))
+	clean := strings.ToLower(path.Clean(gateSlashPath(t)))
+	return gateAbsPathRE.MatchString(clean) && gateTempClaudeRE.MatchString(clean)
+}
+
+// trimPair trims the whitespace around raw and cuts masked by the same
+// offsets. A masked copy is as long as its raw text, so one set of offsets
+// serves both; slicing raw with an offset read from a separately trimmed masked
+// string was the 2026-11-16 panic. Two strings of different length have no
+// shared offsets, so the pair is reported as unusable.
+func trimPair(raw, masked string) (string, string, bool) {
+	if len(raw) != len(masked) {
+		return "", "", false
+	}
+	lead := len(raw) - len(strings.TrimLeft(raw, " \t\r\n"))
+	end := len(strings.TrimRight(raw, " \t\r\n"))
+	if end < lead {
+		end = lead
+	}
+	return raw[lead:end], masked[lead:end], true
 }
 
 func shellSegmentWrite(seg shellSegment, depth int, afterControl bool) shellWriteKind {
-	raw := strings.TrimSpace(seg.raw)
-	masked := strings.TrimSpace(seg.masked)
+	raw, masked, ok := trimPair(seg.raw, seg.masked)
+	if !ok {
+		return shellWriteFound
+	}
 	if raw == "" {
 		return shellNoWrite
 	}
@@ -447,7 +626,9 @@ func shellSegmentWrite(seg shellSegment, depth int, afterControl bool) shellWrit
 		if loc == nil || loc[1] == 0 {
 			break
 		}
-		body, mbody = strings.TrimSpace(body[loc[1]:]), strings.TrimSpace(mbody[loc[1]:])
+		if body, mbody, ok = trimPair(body[loc[1]:], mbody[loc[1]:]); !ok {
+			return shellWriteFound
+		}
 	}
 	if kind == shellNoWrite && segmentCommandWrites(body, mbody, depth, afterControl) {
 		kind = shellWriteFound
@@ -467,6 +648,9 @@ func segmentCommandWrites(body, masked string, depth int, afterControl bool) boo
 	}
 	if isGodLoaderCommand(body) {
 		return false
+	}
+	if strings.HasPrefix(head, "-") || (head != "kratos" && gateLocalScriptHead(body)) {
+		return true
 	}
 	tokens := gateSegmentTokens(body)
 	if len(tokens) == 0 {
@@ -491,7 +675,7 @@ func segmentCommandWrites(body, masked string, depth int, afterControl bool) boo
 	if gateWriteTargetHeads[head] {
 		return !allOperandsAllowedTargets(args)
 	}
-	if gateInterpreterHeads[head] {
+	if isInterpreterHead(head) {
 		return !versionQueryOnly(args)
 	}
 	if gateOpenHeads[head] || head == "cmd" {
@@ -530,7 +714,7 @@ func segmentCommandWrites(body, masked string, depth int, afterControl bool) boo
 		return browserWrites(args)
 	case "gh":
 		return ghWrites(args)
-	case "xargs", "nohup", "exec", "timeout", "watch":
+	case "xargs", "nohup", "exec", "timeout", "watch", "nice", "ionice", "setsid":
 		if rest := peelRunner(head, args); len(rest) > 0 && depth < 4 {
 			joined := strings.Join(rest, " ")
 			return shellSegmentWrite(shellSegment{raw: joined, masked: maskQuoted(joined)}, depth+1, false) != shellNoWrite
@@ -625,7 +809,13 @@ func opensPlanPageWithBrowser(args []string) bool {
 func gitWrites(args []string, masked string) bool {
 	i := 0
 	for i < len(args) && strings.HasPrefix(args[i], "-") {
-		if gateGitOptionWithValue[args[i]] {
+		a := args[i]
+		// -c sets config such as core.pager or an alias, --config-env reads it
+		// from a variable and --exec-path swaps the git programs: all run code.
+		if strings.HasPrefix(a, "-c") || strings.HasPrefix(a, "--config-env") || strings.HasPrefix(a, "--exec-path") {
+			return true
+		}
+		if gateGitOptionWithValue[a] {
 			i++
 		}
 		i++
@@ -713,6 +903,11 @@ func toolWrites(head string, verbs map[string]bool, args []string) bool {
 	return verbs[verb]
 }
 
+// gateCurlWriteLongRE matches the curl long options that send a body or write a
+// file: data, form, upload, output, header and cookie dumps, traces, a saved
+// libcurl program, and the hsts and alt-svc caches.
+var gateCurlWriteLongRE = regexp.MustCompile(`^--(?:data|form|upload-file|output|json|remote-name|dump-header|cookie-jar|trace|stderr|libcurl|hsts|alt-svc)`)
+
 func curlWrites(args []string) bool {
 	for i, a := range args {
 		switch {
@@ -722,24 +917,45 @@ func curlWrites(args []string) bool {
 			}
 		case strings.HasPrefix(a, "-X") && len(a) > 2 && gateCurlWriteVerbRE.MatchString(a[2:]):
 			return true
-		case strings.HasPrefix(a, "--") && (strings.HasPrefix(a, "--data") || a == "--form" || a == "--upload-file" || a == "--output" || a == "--json" || a == "--remote-name"):
+		case strings.HasPrefix(a, "--") && gateCurlWriteLongRE.MatchString(a):
 			return true
-		case strings.HasPrefix(a, "-") && !strings.HasPrefix(a, "--") && strings.ContainsAny(a, "dFToO"):
+		case strings.HasPrefix(a, "-") && !strings.HasPrefix(a, "--") && strings.ContainsAny(a, "dDFToOc"):
 			return true
 		}
 	}
 	return false
 }
 
+// gateRestWriteParams are the Invoke-RestMethod and Invoke-WebRequest
+// parameters that send a body, write a file or name the verb. PowerShell takes
+// any unambiguous prefix, so each entry is the shortest prefix to deny.
+var gateRestWriteParams = []struct {
+	full   string
+	minLen int
+}{{"body", 1}, {"form", 2}, {"infile", 2}, {"outfile", 3}, {"method", 1}, {"custommethod", 2}}
+
+// restWrites reports a PowerShell web call that sends a body, writes a file or
+// uses a write verb. A parameter is matched by prefix (-OutF, -Meth) and its
+// value may follow a colon (-Method:Post).
 func restWrites(args []string) bool {
 	for i, a := range args {
-		switch strings.ToLower(a) {
-		case "-method":
-			if i+1 < len(args) && gateRestWriteMethodRE.MatchString(args[i+1]) {
+		if !strings.HasPrefix(a, "-") || len(a) < 2 {
+			continue
+		}
+		name, value, hasValue := strings.Cut(strings.ToLower(a[1:]), ":")
+		for _, p := range gateRestWriteParams {
+			if len(name) < p.minLen || !strings.HasPrefix(p.full, name) {
+				continue
+			}
+			if p.full != "method" && p.full != "custommethod" {
 				return true
 			}
-		case "-body", "-infile", "-outfile":
-			return true
+			if !hasValue && i+1 < len(args) {
+				value = args[i+1]
+			}
+			if gateCurlWriteVerbRE.MatchString(strings.Trim(value, "\"'")) {
+				return true
+			}
 		}
 	}
 	return false
@@ -794,12 +1010,25 @@ func ghWrites(args []string) bool {
 	return false
 }
 
+// gateRunnerValueFlags lists, per runner head, the options that take their
+// value as the next word.
+var gateRunnerValueFlags = map[string]map[string]bool{
+	"xargs": {
+		"-I": true, "-n": true, "-P": true, "-d": true, "-L": true, "-s": true, "-E": true, "-a": true,
+		"--max-args": true, "--max-procs": true, "--delimiter": true, "--max-lines": true, "--max-chars": true,
+		"--arg-file": true, "--process-slot-var": true,
+	},
+	"nice":    {"-n": true, "--adjustment": true},
+	"ionice":  {"-c": true, "-n": true, "-p": true, "-P": true, "-u": true, "--class": true, "--classdata": true},
+	"timeout": {"-s": true, "-k": true, "--signal": true, "--kill-after": true},
+}
+
 // peelRunner returns the command a runner head hands its arguments to.
 func peelRunner(head string, args []string) []string {
-	valueFlags := map[string]bool{"-I": true, "-n": true, "-P": true, "-d": true, "-L": true, "-s": true, "-E": true, "-a": true}
+	valueFlags := gateRunnerValueFlags[head]
 	i := 0
 	for i < len(args) && strings.HasPrefix(args[i], "-") {
-		if head == "xargs" && valueFlags[args[i]] {
+		if valueFlags[args[i]] {
 			i++
 		}
 		i++
