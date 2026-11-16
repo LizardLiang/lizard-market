@@ -29,7 +29,7 @@ Read by Iris (WORK mode) before the first step of a walkthrough, before presenti
 ## 2. UI mock (you present, the user judges)
 
 1. **Look before you show.** Screenshot desktop, dark theme and phone width; read the three images yourself; fix what you see. "are you sure you like that toolbar design?" caught an unchecked mock (2026-10-23 11:44); a dark toolbar shipped into the light theme from an unchecked mock (10-24 07:23).
-2. **Open it on screen.** `Start-Process <file>` / the browser window — a file path or a screenshot path in chat is "you did not show me shit" (10-24 08:33).
+2. **Open it on screen.** `<kratos-bin> open <file>` / the browser window — a file path or a screenshot path in chat is "you did not show me shit" (10-24 08:33).
 3. **Cold-open test.** Before presenting, answer in one paragraph: a first-time user opens this page — what do they see, what do they do first, where is the setup, how do they redo it. If you cannot, the mock is not ready ("我真的不知道使用者要怎麼使用", 10-26 13:24).
 4. **One place per job.** A job editable on two pages, or two cards for one credential, is a design defect, not a feature ("你只需要一個", 10-26 09:43).
 5. **Design proposals** with several options are one HTML page with clickable mock screens, not chat text.

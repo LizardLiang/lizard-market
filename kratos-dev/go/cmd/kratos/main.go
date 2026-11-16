@@ -39,6 +39,7 @@ func main() {
 	rootCmd.AddCommand(cli.CheckCmd())
 	rootCmd.AddCommand(cli.VerifyCmd())
 	rootCmd.AddCommand(cli.NowCmd())
+	rootCmd.AddCommand(cli.OpenCmd())
 	rootCmd.AddCommand(cli.TemplateCmd())
 	rootCmd.AddCommand(cli.AgentCmd())
 	rootCmd.AddCommand(cli.HermesListCmd())
