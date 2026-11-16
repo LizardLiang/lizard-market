@@ -149,7 +149,7 @@ func TestOdysseusWrapperFlags(t *testing.T) {
 			t.Errorf("%q: decision %q, want deny", c, got.Decision)
 		}
 	}
-	for _, c := range []string{`env FOO=1 ls`, `time ls`, `nice ls`, `env FOO=1 BAR=2 git log --oneline -3`, `command -v git`} {
+	for _, c := range []string{`env FOO=1 ls`, `time ls`, `nice ls`, `(Get-Content f.txt) -join ","`, `(Get-Item f).Name -replace "a","b"`, `env FOO=1 BAR=2 git log --oneline -3`, `command -v git`} {
 		if got := odysseusBashDecision(c); got.Decision != "" {
 			t.Errorf("%q: decision %q, want allow", c, got.Decision)
 		}
@@ -256,4 +256,47 @@ func TestOdysseusAssignmentCap(t *testing.T) {
 func mustSegs(c string) []shellSegment {
 	segs, _, _ := flattenShellSegments(c)
 	return segs
+}
+
+// The classifier must never panic: raw/masked offsets stay aligned for any
+// mix of quotes, substitutions, separators and redirects.
+func TestOdysseusClassifierNeverPanics(t *testing.T) {
+	toks := []string{`"`, `'`, "`", `$(`, `)`, `(`, `{`, `}`, `${`, `\`, ` `, `;`, `&&`, `|`, `>`, `>>`, `2>`, `<<`, `echo`, `cat`, `rm`, `git`, `a`, `$x`, `x=1`, "\n", `-i`, `/tmp/claude/z`}
+	seed := uint32(7)
+	next := func(n int) int {
+		seed = seed*1664525 + 1013904223
+		return int(seed>>8) % n
+	}
+	for i := 0; i < 20000; i++ {
+		var b strings.Builder
+		for j, n := 0, 1+next(14); j < n; j++ {
+			b.WriteString(toks[next(len(toks))])
+		}
+		cmd := b.String()
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("%q: classifier panic: %v", cmd, r)
+				}
+			}()
+			odysseusShellWriteKind(cmd)
+			aresBashGate(cmd, "C:/m/.claude/worktrees/agent-a1")
+		}()
+	}
+}
+
+func TestReachReviewFollowUps(t *testing.T) {
+	for _, c := range []string{`watch -n 5 rm x`, `exec -a name rm x`, `tools/release`, `node_modules/.bin/tsc`, `bin/deploy --now`} {
+		if got := odysseusBashDecision(c); got.Decision != "deny" {
+			t.Errorf("%q: decision %q, want deny", c, got.Decision)
+		}
+	}
+	const agent = "C:/m/.claude/worktrees/agent-a1"
+	for _, c := range []string{
+		`git --namespace x -C C:/m reset --hard a`,
+	} {
+		if got := aresBashGate(c, agent); got.Decision != "deny" {
+			t.Errorf("%q: decision %q, want deny", c, got.Decision)
+		}
+	}
 }

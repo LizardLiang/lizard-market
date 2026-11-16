@@ -180,7 +180,8 @@ func gateLocalScriptHead(body string) bool {
 		return false
 	}
 	first := gateSlashPath(strings.Trim(fields[0], "\"'"))
-	return strings.HasPrefix(first, "./") || strings.HasPrefix(first, "../") || gateScriptExtRE.MatchString(first)
+	relativePath := strings.Contains(first, "/") && !gateAbsPathRE.MatchString(first) && !strings.ContainsAny(first, "~$,@:") && !strings.HasPrefix(strings.TrimSpace(fields[0]), "\"")
+	return relativePath || gateScriptExtRE.MatchString(first)
 }
 
 var gateOpenHeads = map[string]bool{
@@ -626,8 +627,12 @@ func shellSegmentWrite(seg shellSegment, depth int, afterControl bool) shellWrit
 		if loc == nil || loc[1] == 0 {
 			break
 		}
+		timed := strings.EqualFold(strings.TrimSpace(body[:loc[1]]), "time")
 		if body, mbody, ok = trimPair(body[loc[1]:], mbody[loc[1]:]); !ok {
 			return shellWriteFound
+		}
+		if timed && strings.HasPrefix(body, "-") {
+			return shellWriteFound // `time -p rm x`: the flag hides the program
 		}
 	}
 	if kind == shellNoWrite && segmentCommandWrites(body, mbody, depth, afterControl) {
@@ -649,7 +654,10 @@ func segmentCommandWrites(body, masked string, depth int, afterControl bool) boo
 	if isGodLoaderCommand(body) {
 		return false
 	}
-	if strings.HasPrefix(head, "-") || (head != "kratos" && gateLocalScriptHead(body)) {
+	// A wrapper's flag (`env -i rm x`) leaves a head that starts with "-": the
+	// program behind it is unreadable. A bare `-join` after a parenthesis is a
+	// PowerShell operator, not a wrapper flag.
+	if (strings.HasPrefix(head, "-") && gateStripCommandWrappers(body) != body) || (head != "kratos" && gateLocalScriptHead(body)) {
 		return true
 	}
 	tokens := gateSegmentTokens(body)
@@ -1021,6 +1029,8 @@ var gateRunnerValueFlags = map[string]map[string]bool{
 	"nice":    {"-n": true, "--adjustment": true},
 	"ionice":  {"-c": true, "-n": true, "-p": true, "-P": true, "-u": true, "--class": true, "--classdata": true},
 	"timeout": {"-s": true, "-k": true, "--signal": true, "--kill-after": true},
+	"watch":   {"-n": true, "--interval": true},
+	"exec":    {"-a": true},
 }
 
 // peelRunner returns the command a runner head hands its arguments to.

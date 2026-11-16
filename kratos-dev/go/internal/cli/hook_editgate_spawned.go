@@ -209,6 +209,8 @@ func aresStaysInOwnWorktree(command, cwd string) bool {
 				return false
 			case f == "-c":
 				i++
+			case f == "--namespace" || f == "--super-prefix" || f == "--config-env" || f == "--exec-path":
+				return false // may take the next word as its value; the next option would go unread
 			}
 		}
 	}
