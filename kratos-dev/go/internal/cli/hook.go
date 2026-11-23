@@ -1957,7 +1957,7 @@ func handleHermesStop(input subagentStopInput) error {
 	// the tier gate below still runs, unchanged, once every launched child
 	// has finished.
 	if input.AgentTranscriptPath != "" {
-		if launched, finished, _, _, err := scanHandbackTranscript(input.AgentTranscriptPath); err == nil {
+		if launched, finished, _, _, _, err := scanHandbackTranscript(input.AgentTranscriptPath); err == nil {
 			var outstanding int
 			for id := range launched {
 				if !finished[id] {

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -990,3 +991,87 @@ func TestChildAPIErrorScan(t *testing.T) {
 		}
 	})
 }
+
+// sessionStartLine builds the SessionStart hook attachment Claude Code writes
+// into the main transcript (shape read from the NETZERO 2026-11-19 session).
+func sessionStartLine(hookName string, ts time.Time) string {
+	b, _ := json.Marshal(map[string]any{
+		"type":      "attachment",
+		"timestamp": rfc3339(ts),
+		"attachment": map[string]any{
+			"type": "hook_success", "hookName": hookName, "hookEvent": "SessionStart", "exitCode": 0,
+		},
+	})
+	return string(b)
+}
+
+// childEndLine is one timestamped entry in a child's own transcript.
+func childEndLine(ts time.Time) string {
+	b, _ := json.Marshal(map[string]any{"type": "assistant", "timestamp": rfc3339(ts), "message": map[string]any{"content": []map[string]any{{"type": "text", "text": "working"}}}})
+	return string(b)
+}
+
+// TestHandbackChildrenLostInSessionRestart replays the 2026-11-19 shape: the
+// parent launched children at 08:03, they stopped writing at 08:08:16, the
+// session restarted at 08:08:46 and no report or notification ever followed.
+func TestHandbackChildrenLostInSessionRestart(t *testing.T) {
+	launch := time.Date(2026, 11, 19, 8, 3, 0, 0, time.UTC)
+	restart := time.Date(2026, 11, 19, 8, 8, 46, 0, time.UTC)
+	now := time.Date(2026, 11, 19, 8, 20, 0, 0, time.UTC)
+	const goodReport = "Task list:\n1. [x] auth\ncreated src/auth.ts\nImplementation complete.\nLanded: main@abc1234\nReach: none beyond the request\nEvidence: RED: failed -> GREEN: passed"
+
+	cases := []struct {
+		name         string
+		ares         bool
+		mainLines    []string
+		childEnd     *time.Time // nil = no child transcript file
+		wantDeny     bool
+		wantContains string
+	}{
+		{"hermes: child ended before the resume", false, []string{sessionStartLine("SessionStart:resume", restart)}, ptrTime(restart.Add(-30 * time.Second)), false, "lost when the session restarted at 08:08"},
+		{"hermes: startup counts like resume", false, []string{sessionStartLine("SessionStart:startup", restart)}, ptrTime(restart.Add(-30 * time.Second)), false, "lost when the session restarted at 08:08"},
+		{"hermes: a compact does not kill children", false, []string{sessionStartLine("SessionStart:compact", restart)}, ptrTime(restart.Add(-30 * time.Second)), true, ""},
+		{"hermes: child wrote after the resume", false, []string{sessionStartLine("SessionStart:resume", restart)}, ptrTime(restart.Add(2 * time.Minute)), true, ""},
+		{"hermes: no SessionStart line", false, nil, ptrTime(restart.Add(-30 * time.Second)), true, ""},
+		{"hermes: no child transcript file", false, []string{sessionStartLine("SessionStart:resume", restart)}, nil, true, ""},
+		{"ares: child ended before the resume", true, []string{sessionStartLine("SessionStart:resume", restart)}, ptrTime(restart.Add(-30 * time.Second)), false, "Reach: child failed (lost when the session restarted at 08:08"},
+		{"ares: child wrote after the resume", true, []string{sessionStartLine("SessionStart:resume", restart)}, ptrTime(restart.Add(2 * time.Minute)), true, ""},
+		{"ares: no SessionStart line", true, nil, ptrTime(restart.Add(-30 * time.Second)), true, ""},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fixHandbackClock(t, now)
+			sess, agent := fmt.Sprintf("sessLR%d", i), fmt.Sprintf("agentLR%d", i)
+			lines := aresChildLaunchLines("tuLR", "childLR", launch)
+			main := writeHandbackTranscript(t, sess, agent, lines...)
+			if err := os.WriteFile(main, []byte(strings.Join(append([]string{"{}"}, tc.mainLines...), "\n")+"\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if tc.childEnd != nil {
+				writeChildTranscript(t, main, sess, "childLR", childEndLine(launch.Add(time.Minute)), childEndLine(*tc.childEnd))
+			}
+			agentType := "kratos:hermes"
+			if tc.ares {
+				agentType = "kratos:ares"
+			}
+			res := handbackGateDecision(preToolUseInput{
+				ToolName: "SubagentHandback", AgentType: agentType, AgentID: agent, SessionID: sess,
+				TranscriptPath: main, Cwd: t.TempDir(), ToolInput: preToolUseToolInput{Message: goodReport},
+			})
+			if tc.wantDeny {
+				if res.Decision != "deny" || !strings.Contains(res.Reason, "childLR") {
+					t.Fatalf("expected the wait deny naming childLR, got %+v", res)
+				}
+				return
+			}
+			if res.Decision != "" {
+				t.Fatalf("expected release, got %q: %s", res.Decision, res.Reason)
+			}
+			if !strings.Contains(res.AdditionalContext, tc.wantContains) || !strings.Contains(res.AdditionalContext, "UTC") {
+				t.Errorf("context missing %q (and UTC), got %q", tc.wantContains, res.AdditionalContext)
+			}
+		})
+	}
+}
+
+func ptrTime(t time.Time) *time.Time { return &t }

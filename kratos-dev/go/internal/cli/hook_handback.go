@@ -236,23 +236,119 @@ type handbackChildState struct {
 // else would release the parent. A missing or unreadable child transcript keeps
 // the child outstanding, because it may not exist yet right after the launch.
 func scanOutstandingChildren(path, transcriptPath, sessionID string) (handbackChildState, error) {
-	launched, finished, last, has, err := scanHandbackTranscript(path)
+	launched, finished, launchedAt, last, has, err := scanHandbackTranscript(path)
 	if err != nil {
 		return handbackChildState{}, err
 	}
 	st := handbackChildState{Dead: map[string]string{}, LastProgress: last, HasProgress: has}
+	restart, restarted := latestSessionStart(transcriptPath)
 	for id := range launched {
 		if finished[id] {
 			continue
 		}
-		if line, ok := childAPIError(subagentTranscriptPath(transcriptPath, sessionID, id)); ok {
+		childPath := subagentTranscriptPath(transcriptPath, sessionID, id)
+		if line, ok := childAPIError(childPath); ok {
 			st.Dead[id] = line
 			continue
+		}
+		if restarted {
+			if at, ok := launchedAt[id]; ok && at.Before(restart) {
+				if end, ok := childLastTimestamp(childPath); ok && end.Before(restart) {
+					st.Dead[id] = "lost when the session restarted at " + restart.UTC().Format("15:04") + " UTC"
+					continue
+				}
+			}
 		}
 		st.Missing = append(st.Missing, id)
 	}
 	sort.Strings(st.Missing)
 	return st, nil
+}
+
+// latestSessionStart returns the timestamp of the newest SessionStart resume or
+// startup hook attachment in the main transcript at path. A session restart
+// stops every running background child without a report or notification in
+// the parent's transcript, so this instant bounds when a silent child died.
+// A compact does not stop children and is not counted. ok is false on a read
+// error or when no such attachment exists: the caller then changes nothing.
+func latestSessionStart(path string) (time.Time, bool) {
+	if path == "" {
+		return time.Time{}, false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return time.Time{}, false
+	}
+	defer f.Close()
+
+	var latest time.Time
+	found := false
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 64*1024*1024)
+	for sc.Scan() {
+		raw := sc.Bytes()
+		if !bytes.Contains(raw, []byte(`"hook_success"`)) || !bytes.Contains(raw, []byte(`SessionStart`)) {
+			continue
+		}
+		var entry struct {
+			Type       string `json:"type"`
+			Timestamp  string `json:"timestamp"`
+			Attachment *struct {
+				Type      string `json:"type"`
+				HookName  string `json:"hookName"`
+				HookEvent string `json:"hookEvent"`
+			} `json:"attachment"`
+		}
+		if json.Unmarshal(raw, &entry) != nil || entry.Type != "attachment" || entry.Attachment == nil || entry.Attachment.Type != "hook_success" {
+			continue
+		}
+		name := entry.Attachment.HookName
+		if name != "SessionStart:resume" && name != "SessionStart:startup" && !(name == "" && entry.Attachment.HookEvent == "SessionStart") {
+			continue
+		}
+		if ts, ok := parseHandbackTimestamp(entry.Timestamp); ok && (!found || ts.After(latest)) {
+			latest, found = ts, true
+		}
+	}
+	if err := sc.Err(); err != nil {
+		debugLog("handback-gate: session-start scan failed for %s: %v", path, err)
+		return time.Time{}, false
+	}
+	return latest, found
+}
+
+// childLastTimestamp returns the timestamp of the last entry in a child
+// transcript that carries one. ok is false when the file is missing, unreadable
+// or has no timestamp, which keeps the child outstanding.
+func childLastTimestamp(path string) (time.Time, bool) {
+	if path == "" {
+		return time.Time{}, false
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return time.Time{}, false
+	}
+	defer f.Close()
+
+	var last time.Time
+	found := false
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	for sc.Scan() {
+		var entry struct {
+			Timestamp string `json:"timestamp"`
+		}
+		if json.Unmarshal(sc.Bytes(), &entry) != nil {
+			continue
+		}
+		if ts, ok := parseHandbackTimestamp(entry.Timestamp); ok && (!found || ts.After(last)) {
+			last, found = ts, true
+		}
+	}
+	if sc.Err() != nil {
+		return time.Time{}, false
+	}
+	return last, found
 }
 
 // childAPIError reports whether the last assistant entry of the child
@@ -483,15 +579,16 @@ func parseHandbackTimestamp(s string) (time.Time, bool) {
 // parseable one). A finish is only counted for an id this same transcript
 // actually launched; an unrelated id appearing in some other message never
 // counts.
-func scanHandbackTranscript(path string) (launchedIDs, finishedIDs map[string]bool, lastProgress time.Time, hasProgress bool, err error) {
+func scanHandbackTranscript(path string) (launchedIDs, finishedIDs map[string]bool, launchedAt map[string]time.Time, lastProgress time.Time, hasProgress bool, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, nil, time.Time{}, false, err
+		return nil, nil, nil, time.Time{}, false, err
 	}
 	defer f.Close()
 
 	launchedIDs = map[string]bool{}
 	finishedIDs = map[string]bool{}
+	launchedAt = map[string]time.Time{}
 	// pendingLaunchToolUseIDs holds the tool_use id of every Agent/Task call
 	// Hermes has made so far, so a later tool_result can be recognized as
 	// answering one of THOSE calls specifically — never a Read, Grep, or Bash
@@ -556,6 +653,9 @@ func scanHandbackTranscript(path string) (launchedIDs, finishedIDs map[string]bo
 					}
 					if id != "" {
 						launchedIDs[id] = true
+						if ts, ok := parseHandbackTimestamp(entry.Timestamp); ok {
+							launchedAt[id] = ts
+						}
 					}
 				case "text":
 					handbackScanText(b.Text, launchedIDs, finishedIDs)
@@ -581,9 +681,9 @@ func scanHandbackTranscript(path string) (launchedIDs, finishedIDs map[string]bo
 		}
 	}
 	if scanErr := sc.Err(); scanErr != nil {
-		return nil, nil, time.Time{}, false, scanErr
+		return nil, nil, nil, time.Time{}, false, scanErr
 	}
-	return launchedIDs, finishedIDs, lastProgress, hasProgress, nil
+	return launchedIDs, finishedIDs, launchedAt, lastProgress, hasProgress, nil
 }
 
 // handbackScanText marks a launched id finished when text carries either
