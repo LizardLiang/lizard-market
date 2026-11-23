@@ -603,6 +603,9 @@ func editGateDecisionWith(input preToolUseInput, extra gateToolExtra, ledger map
 	credAsks := false
 	if input.ToolName == "Bash" || input.ToolName == "PowerShell" {
 		credResult, credAsks = credentialGuardDecision(input.ToolInput.Command)
+		if res, ok := htmlOpenGuardDecision(input.ToolInput.Command); ok {
+			return res
+		}
 	}
 
 	res := editGateDecisionRest(input, extra, ledger)

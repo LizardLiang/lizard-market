@@ -32,10 +32,8 @@ func TestOdysseusReadOnlyWeek1102(t *testing.T) {
 		`Get-Content D:/repo/a.log | Measure-Object -Line`,
 		`Get-ChildItem D:/repo | Sort-Object LastWriteTime | Format-Table Name -AutoSize`,
 		// opening the plan page
-		`Start-Process D:/repo/.claude/.Arena/tactical-plans/2026-11-07-x.html`,
-		`Start-Process -FilePath "D:/repo/.claude/.Arena/tactical-plans/2026-11-07-x.html"`,
-		`cmd /c start "" "D:\repo\.claude\.Arena\tactical-plans\2026-11-07-x.html"`,
-		`xdg-open .claude/.Arena/tactical-plans/x.html`,
+		`kratos open D:/repo/.claude/.Arena/tactical-plans/2026-11-07-x.html`,
+		`C:/Users/u/.kratos/bin/kratos.exe open "D:/repo/.claude/.Arena/tactical-plans/2026-11-07-x.html"`,
 	}
 	short := func(s string, n int) string {
 		if len(s) > n {
@@ -67,6 +65,10 @@ func TestOdysseusReadOnlyWeek1102(t *testing.T) {
 		`Get-ChildItem D:/repo | ForEach-Object { npm run build }`,
 		`Get-ChildItem D:/repo | Select-Object @{n='x';e={ Remove-Item $_ }}`,
 		// open heads with anything but the plan page
+		// the bare open starts VS Code on this machine; the HTML-open guard sends it to kratos open
+		`Start-Process D:/repo/.claude/.Arena/tactical-plans/2026-11-07-x.html`,
+		`cmd /c start "" "D:\repo\.claude\.Arena\tactical-plans\2026-11-07-x.html"`,
+		`xdg-open .claude/.Arena/tactical-plans/x.html`,
 		`Start-Process notepad`,
 		`Start-Process D:/repo/dist/index.html`,
 		`cmd /c start "" https://example.com`,
