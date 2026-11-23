@@ -17,7 +17,7 @@ python -I kratos-dev/tools/transcript_digest.py <session>.jsonl <scratchpad>/dig
 #    (`PreToolUse:… hook error`), then what each god reported vs. what the user later found.
 ```
 
-The review is read against the plugin version that actually ran that week, not the repo HEAD: the plugin auto-updates from the marketplace, so `installed_plugins.json` dates the switch. Findings become a `review/transcript-week-<monday>` branch off `origin/master`, one work package per friction class, each gate change with a table-driven test that replays the exact denied command or payload. Previous weeks: v2.109.0 (09-06), v2.118–v2.122.0 (10-20), v2.125.0 (11-01), v2.127.0 (11-08), v2.128.0 (11-09, this machine).
+The review is read against the plugin version that actually ran that week, not the repo HEAD: the plugin auto-updates from the marketplace, so `installed_plugins.json` dates the switch. Findings become a `review/transcript-week-<monday>` branch off `origin/master`, one work package per friction class, each gate change with a table-driven test that replays the exact denied command or payload. Previous weeks: v2.109.0 (09-06), v2.118–v2.122.0 (10-20), v2.125.0 (11-01), v2.127.0 (11-08), v2.128.0 (11-09, this machine, shipped inside v2.129.0), v2.129.0 (11-16, this machine).
 
 Before the review: `git fetch`, merge `origin/master` into local `master`, and branch from that. A review read against a stale checkout re-finds what a later release already fixed (2026-11-15: v2.126.0 had shipped four of the week's gate fixes).
 
