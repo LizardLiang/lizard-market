@@ -22,6 +22,7 @@ func TestEditGateHTMLOpen(t *testing.T) {
 		`Start-Process -FilePath "D:/repo/x.html"`,
 		`saps file:///C:/x/y.html`,
 		`start x.html`,
+		`F="C:/x/plan.html"; Start-Process $F`,
 	}
 	pass := []string{
 		`Start-Process msedge "file:///C:/Users/lizard_liang/work/CCA/EPA-CCO_GHGRS2609/.claude/.Arena/specs/2026-11-18-data-fixes.html"`,
@@ -62,7 +63,7 @@ func TestEditGateHTMLOpen(t *testing.T) {
 
 func TestEditGateHTMLOpenReasonNamesPath(t *testing.T) {
 	res := editGateDecision(preToolUseInput{ToolName: "PowerShell", ToolInput: preToolUseToolInput{Command: `Start-Process "C:\x\a b.html"`}}, nil)
-	want := ` open C:\x\a b.html.`
+	want := ` open "C:\x\a b.html".`
 	if res.Decision != "deny" || !strings.HasSuffix(res.Reason, want) {
 		t.Fatalf("got %q %q, want a deny ending %q", res.Decision, res.Reason, want)
 	}

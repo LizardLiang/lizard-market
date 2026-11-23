@@ -37,13 +37,18 @@ func htmlOpenGuardDecision(command string) (editGateResult, bool) {
 		return editGateResult{}, false
 	}
 	if target, ok := htmlOpenInCommand(trimmed, 0); ok {
-		return editGateResult{Decision: "deny", Reason: "HTML opens in VS Code on this machine. Run " + kratosBinPath() + " open " + target + "."}, true
+		shown := target
+		if strings.ContainsAny(shown, " \t") {
+			shown = `"` + shown + `"`
+		}
+		return editGateResult{Decision: "deny", Reason: "HTML opens in VS Code on this machine. Run " + kratosBinPath() + " open " + shown + "."}, true
 	}
 	return editGateResult{}, false
 }
 
 func htmlOpenInCommand(command string, depth int) (string, bool) {
-	for _, seg := range splitShellSegments(command) {
+	segs := splitShellSegments(command)
+	for _, seg := range substituteAssignments(command, segs) {
 		if target, ok := htmlOpenInTokens(htmlOpenFields(gateEffectiveSegmentText(strings.TrimSpace(seg.raw))), depth); ok {
 			return target, true
 		}
@@ -149,7 +154,7 @@ func htmlOpenStart(args []string) (string, bool) {
 		}
 		if strings.HasPrefix(t, "-") {
 			name, val, hasVal := strings.Cut(strings.ToLower(strings.TrimLeft(t, "-")), ":")
-			if len(name) >= 2 && strings.HasPrefix("filepath", name) {
+			if len(name) >= 2 && len(name) <= 8 && "filepath"[:len(name)] == name {
 				if !hasVal && i+1 < len(args) {
 					i++
 					val = args[i]

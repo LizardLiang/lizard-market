@@ -19,9 +19,8 @@
  * (version 800 + memory list 1500 + rule count 600 + init 2000 +
  * session start 800); the `--part extras` call runs in its own 10 s hook with a
  * 5000 ms budget of its own; the plugin-bin → ~/.kratos/bin copy runs last so it can
- * never starve the calls. The retry has its own short timeout rather than
- * reusing the 1500 ms memory-list budget — a flag-parse failure returns in about
- * 250 ms. Every kratos call uses spawnSync with an argv array — payload text
+ * never starve the calls. The rule count has its own short timeout rather than
+ * reusing the 1500 ms memory-list budget. Every kratos call uses spawnSync with an argv array — payload text
  * never reaches a shell.
  *
  * Two commands run at SessionStart. The main mode prints the output constraint,
@@ -112,9 +111,9 @@ const findKratosBinary = resolveBinary;
 // timeout with room for node startup.
 const VERSION_TIMEOUT_MS = 800;
 const MEMORY_LIST_TIMEOUT_MS = 1500;
-// A flag-parse failure (an older binary rejecting a flag) returns in
-// about 250 ms — this is its own budget, not MEMORY_LIST_TIMEOUT_MS, so the
-// retry cannot push the worst-case serial sum over the hook's 10000 ms limit.
+// Budget of the short calls (the rule count, the one-row compact total): its
+// own value, not MEMORY_LIST_TIMEOUT_MS, so they cannot push the worst-case
+// serial sum over the hook's 10000 ms limit.
 const MEMORY_LIST_RETRY_TIMEOUT_MS = 600;
 const INIT_TIMEOUT_MS = 2000;
 const SESSION_START_TIMEOUT_MS = 800;
@@ -793,15 +792,17 @@ function formatInlineGodExtras(sessionId, source) {
   }
 }
 
-// `--part extras` mode: only the inline god's lessons and protocol, fitted to
-// the hook output cap. Prints nothing unless source is "compact" and the
-// ledger names an inline god.
+// `--part rules` mode: every standing rule that applies to the project, on
+// every source. Prints nothing when no rule applies or the call fails.
 function mainRules(payload) {
   const cwd = (payload && payload.cwd) || process.cwd();
   const rules = formatRules(cwd);
   if (rules) console.log(rules);
 }
 
+// `--part extras` mode: only the inline god's lessons and protocol, fitted to
+// the hook output cap. Prints nothing unless source is "compact" and the
+// ledger names an inline god.
 function mainExtras(payload) {
   const sessionId = payload && payload.session_id ? String(payload.session_id) : "";
   const source = payload && payload.source ? String(payload.source) : "";
