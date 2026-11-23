@@ -88,9 +88,10 @@ var gateAbsPathRE = regexp.MustCompile(`^(?:/|[A-Za-z]:/)`)
 var gateOpenHeadRE = regexp.MustCompile(`(?i)^(?:start-process|invoke-item|xdg-open|open|explorer|start)$`)
 
 // gateOpensPlanPage reports a segment that opens the plan's page in the
-// browser — `Start-Process <plan>.html`, `cmd /c start "" <plan>.html`,
-// `xdg-open <plan>.html`, `kratos open <plan>.html` — and nothing else: one operand, under the plan root,
-// ending in .html. The planner writes the page (isTacticalPlanPath) and has to
+// browser — `kratos open <plan>.html`, or the macOS `open <plan>.html` — and
+// nothing else: one operand, under the plan root, ending in .html. The HTML-open
+// guard denies `Start-Process`, `cmd /c start` and `xdg-open` on an HTML file
+// before this check runs. The planner writes the page (isTacticalPlanPath) and has to
 // show it (a file path in chat is "not shown"); every other use of these
 // heads stays denied.
 func gateOpensPlanPage(raw string) bool {
@@ -603,7 +604,7 @@ func editGateDecisionWith(input preToolUseInput, extra gateToolExtra, ledger map
 	credAsks := false
 	if input.ToolName == "Bash" || input.ToolName == "PowerShell" {
 		credResult, credAsks = credentialGuardDecision(input.ToolInput.Command)
-		if res, ok := htmlOpenGuardDecision(input.ToolInput.Command); ok {
+		if res, ok := htmlOpenGuardDecision(input.ToolName, input.ToolInput.Command); ok {
 			return res
 		}
 	}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -31,19 +32,87 @@ const htmlOpenMaxDepth = 3
 
 // htmlOpenGuardDecision denies a segment that opens a local HTML file with the
 // system default handler. ok is false when no segment does.
-func htmlOpenGuardDecision(command string) (editGateResult, bool) {
+func htmlOpenGuardDecision(toolName, command string) (editGateResult, bool) {
 	trimmed := strings.TrimSpace(command)
 	if trimmed == "" {
 		return editGateResult{}, false
 	}
-	if target, ok := htmlOpenInCommand(trimmed, 0); ok {
-		shown := target
+	if target, ok := htmlOpenInCommand(stripHereStrings(stripHeredocBodies(trimmed)), 0); ok {
+		shown := htmlOpenShownTarget(target)
+		if toolName != "PowerShell" {
+			shown = filepath.ToSlash(shown)
+		}
 		if strings.ContainsAny(shown, " \t") {
 			shown = `"` + shown + `"`
 		}
-		return editGateResult{Decision: "deny", Reason: "HTML opens in VS Code on this machine. Run " + kratosBinPath() + " open " + shown + "."}, true
+		bin := "'" + filepath.ToSlash(kratosBinPath()) + "'"
+		if toolName == "PowerShell" {
+			bin = "& " + bin
+		}
+		return editGateResult{Decision: "deny", Reason: "HTML opens in VS Code on this machine. Run " + bin + " open " + shown + "."}, true
 	}
 	return editGateResult{}, false
+}
+
+var htmlOpenDriveRE = regexp.MustCompile(`^/[A-Za-z]:`)
+
+// htmlOpenShownTarget turns a denied target into the local path `kratos open`
+// accepts: no file: scheme, no #fragment, no ?query. A glob or an unresolved
+// variable becomes the literal <path>.
+func htmlOpenShownTarget(target string) string {
+	t := strings.TrimRight(strings.TrimSpace(target), ")")
+	if strings.HasPrefix(strings.ToLower(t), "file:") {
+		t = strings.TrimPrefix(t[len("file:"):], "//")
+		if htmlOpenDriveRE.MatchString(t) {
+			t = t[1:]
+		}
+	}
+	if i := strings.IndexAny(t, "#?"); i >= 0 {
+		t = t[:i]
+	}
+	if t == "" || strings.ContainsAny(t, "*[$") {
+		return "<path>"
+	}
+	return t
+}
+
+// stripHereStrings drops PowerShell here-string bodies (@'..'@ and @".."@):
+// they are text for a program, not commands. The opener line keeps an empty
+// string in place of the @' so its quote cannot swallow the next lines.
+func stripHereStrings(command string) string {
+	if !strings.Contains(command, "@'") && !strings.Contains(command, `@"`) {
+		return command
+	}
+	lines := strings.Split(command, "\n")
+	out := make([]string, 0, len(lines))
+	for i := 0; i < len(lines); i++ {
+		line := strings.TrimRight(lines[i], "\r")
+		q := ""
+		switch {
+		case strings.HasSuffix(line, "@'"):
+			q = "'"
+		case strings.HasSuffix(line, `@"`):
+			q = `"`
+		}
+		if q == "" {
+			out = append(out, lines[i])
+			continue
+		}
+		end := -1
+		for j := i + 1; j < len(lines); j++ {
+			if strings.HasPrefix(lines[j], q+"@") {
+				end = j
+				break
+			}
+		}
+		if end < 0 {
+			out = append(out, lines[i])
+			continue
+		}
+		out = append(out, line[:len(line)-2]+q+q+lines[end][2:])
+		i = end
+	}
+	return strings.Join(out, "\n")
 }
 
 func htmlOpenInCommand(command string, depth int) (string, bool) {
@@ -123,6 +192,9 @@ func htmlOpenInTokens(tokens []string, depth int) (string, bool) {
 		return htmlOpenStart(rest)
 	case head == "invoke-item" || head == "ii" || head == "explorer" || head == "xdg-open":
 		for _, t := range rest {
+			if head == "explorer" && strings.HasPrefix(t, "/") {
+				continue
+			}
 			if htmlOpenIsTarget(t) {
 				return t, true
 			}
@@ -130,6 +202,9 @@ func htmlOpenInTokens(tokens []string, depth int) (string, bool) {
 	case head == "cmd":
 		for i, t := range rest {
 			if lt := strings.ToLower(t); lt == "/c" || lt == "//c" || lt == "/k" || lt == "//k" {
+				if len(rest[i+1:]) == 1 {
+					return htmlOpenInCommand(rest[i+1], depth+1)
+				}
 				return htmlOpenInTokens(rest[i+1:], depth+1)
 			}
 		}
@@ -161,7 +236,7 @@ func htmlOpenStart(args []string) (string, bool) {
 				}
 				return htmlOpenProgram(val)
 			}
-			if !htmlOpenSwitches[name] && !hasVal {
+			if !htmlOpenIsSwitch(name) && !hasVal {
 				i++
 			}
 			continue
@@ -169,6 +244,20 @@ func htmlOpenStart(args []string) (string, bool) {
 		return htmlOpenProgram(t)
 	}
 	return "", false
+}
+
+// htmlOpenIsSwitch reports a Start-Process value-less switch, also when
+// abbreviated to a prefix of two or more letters (-Pass).
+func htmlOpenIsSwitch(name string) bool {
+	if len(name) < 2 {
+		return false
+	}
+	for sw := range htmlOpenSwitches {
+		if strings.HasPrefix(sw, name) {
+			return true
+		}
+	}
+	return false
 }
 
 func htmlOpenProgram(program string) (string, bool) {

@@ -15,15 +15,15 @@
  * failed with FOREIGN KEY errors (2026-09 transcript review).
  *
  * Budget: hooks.json gives each SessionStart command 10 s (10000 ms). Every spawn
- * below carries a timeout and the worst-case serial sum stays under ~5700 ms
- * (version 800 + memory list 1500 + rule count 600 + init 2000 +
+ * below carries a timeout and the worst-case serial sum stays under ~6300 ms
+ * (version 800 + memory list 1500 + rule count 600 + compact total 600 + init 2000 +
  * session start 800); the `--part extras` call runs in its own 10 s hook with a
  * 5000 ms budget of its own; the plugin-bin → ~/.kratos/bin copy runs last so it can
  * never starve the calls. The rule count has its own short timeout rather than
  * reusing the 1500 ms memory-list budget. Every kratos call uses spawnSync with an argv array — payload text
  * never reaches a shell.
  *
- * Two commands run at SessionStart. The main mode prints the output constraint,
+ * Three commands run at SessionStart. The main mode prints the output constraint,
  * binary path, stored facts and pointers. `--part extras` prints only the
  * inline god's lessons and protocol after a compaction. `--part rules` prints
  * every standing rule on every source, compact included. Each runs as its own
@@ -114,7 +114,7 @@ const MEMORY_LIST_TIMEOUT_MS = 1500;
 // Budget of the short calls (the rule count, the one-row compact total): its
 // own value, not MEMORY_LIST_TIMEOUT_MS, so they cannot push the worst-case
 // serial sum over the hook's 10000 ms limit.
-const MEMORY_LIST_RETRY_TIMEOUT_MS = 600;
+const SHORT_CALL_TIMEOUT_MS = 600;
 const INIT_TIMEOUT_MS = 2000;
 const SESSION_START_TIMEOUT_MS = 800;
 // Runs in the `--part extras` hook on source "compact" only; that hook has its
@@ -388,7 +388,7 @@ function formatMemories(cwd, capture) {
 // subtract it from the store total so their counts cover facts only.
 function countRules(capture) {
   try {
-    const { out } = capture(["memory", "list", "--category", "rule", "--limit", "1"], MEMORY_LIST_RETRY_TIMEOUT_MS);
+    const { out } = capture(["memory", "list", "--category", "rule", "--limit", "1"], SHORT_CALL_TIMEOUT_MS);
     const data = out ? JSON.parse(out) : null;
     return data && typeof data.total === "number" ? data.total : 0;
   } catch (e) {
@@ -420,7 +420,7 @@ function formatRules(cwd, capture) {
 // to get the full set back on demand.
 function formatMemoriesCompact(cwd, capture) {
   capture = capture || runKratosCapture;
-  const { out } = capture(["memory", "list", "--limit", "1"], MEMORY_LIST_RETRY_TIMEOUT_MS);
+  const { out } = capture(["memory", "list", "--limit", "1"], SHORT_CALL_TIMEOUT_MS);
   if (!out) return null;
   try {
     const data = JSON.parse(out);

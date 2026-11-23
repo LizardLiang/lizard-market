@@ -23,6 +23,10 @@ func TestEditGateHTMLOpen(t *testing.T) {
 		`saps file:///C:/x/y.html`,
 		`start x.html`,
 		`F="C:/x/plan.html"; Start-Process $F`,
+		`cmd /c "start plan.html"`,
+		`cmd //c "start plan.html"`,
+		`Start-Process -PassThru plan.html`,
+		"cat > notes.md <<'EOF'\nstart plan.html\nEOF\nStart-Process plan.html",
 	}
 	pass := []string{
 		`Start-Process msedge "file:///C:/Users/lizard_liang/work/CCA/EPA-CCO_GHGRS2609/.claude/.Arena/specs/2026-11-18-data-fixes.html"`,
@@ -40,6 +44,14 @@ func TestEditGateHTMLOpen(t *testing.T) {
 		`Start-Process https://example.com/index.html`,
 		`explorer.exe C:\x\folder`,
 		`powershell -Command "Start-Process msedge file:///C:/x.html"`,
+		"cat > notes.md <<'EOF'\nstart plan.html\nEOF",
+		"git commit -F - <<'EOF'\nfix\nStart-Process plan.html\nEOF",
+		"git commit -m @'\nfix: don't\nStart-Process plan.html\n'@",
+		"git commit -m @\"\nStart-Process plan.html\n\"@",
+		`explorer /select,C:\x\plan.html`,
+		`Start-Process -PassThru chrome plan.html`,
+		`Start-Process -Pass chrome plan.html`,
+		`cmd /c "start msedge plan.html"`,
 	}
 	for _, tool := range []string{"Bash", "PowerShell"} {
 		for _, cmd := range deny {
@@ -73,5 +85,34 @@ func TestEditGateHTMLOpenAppliesToSpawnedAgents(t *testing.T) {
 	res := editGateDecision(preToolUseInput{ToolName: "Bash", AgentType: "kratos:ares", AgentID: "a1", SessionID: "s1", ToolInput: preToolUseToolInput{Command: `Start-Process x.html`}}, nil)
 	if res.Decision != "deny" || !strings.Contains(res.Reason, "VS Code") {
 		t.Fatalf("spawned agent: got %q %q", res.Decision, res.Reason)
+	}
+}
+
+func TestEditGateHTMLOpenReasonSuggestsRunnableCommand(t *testing.T) {
+	cases := []struct{ tool, cmd, want string }{
+		{"Bash", `Start-Process x.html`, ` open x.html.`},
+		{"Bash", `start C:\Users\me\plan.html`, ` open C:/Users/me/plan.html.`},
+		{"Bash", `saps file:///C:/x/y.html`, ` open C:/x/y.html.`},
+		{"Bash", `start plan.html#section`, ` open plan.html.`},
+		{"Bash", `start "plan.html?q=1"`, ` open plan.html.`},
+		{"PowerShell", `ii .\out\*.html`, ` open <path>.`},
+		{"PowerShell", `Start-Process $F.html`, ` open <path>.`},
+	}
+	for _, c := range cases {
+		res := editGateDecision(preToolUseInput{ToolName: c.tool, ToolInput: preToolUseToolInput{Command: c.cmd}}, nil)
+		if res.Decision != "deny" || !strings.HasSuffix(res.Reason, c.want) {
+			t.Errorf("%s %q: got %q %q, want a deny ending %q", c.tool, c.cmd, res.Decision, res.Reason, c.want)
+			continue
+		}
+		if strings.Contains(res.Reason, `\`) {
+			t.Errorf("%s %q: reason keeps a backslash: %q", c.tool, c.cmd, res.Reason)
+		}
+		wantRun := "Run '"
+		if c.tool == "PowerShell" {
+			wantRun = "Run & '"
+		}
+		if !strings.Contains(res.Reason, wantRun) {
+			t.Errorf("%s %q: binary not quoted: %q", c.tool, c.cmd, res.Reason)
+		}
 	}
 }

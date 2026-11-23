@@ -1,6 +1,6 @@
-# Walkthrough Protocol — live demos, self-test runs, UI mocks, demo guides
+# Walkthrough Protocol — live demos, test runs, UI mocks, demo guides
 
-Read by Iris (WORK mode) before the first step of a walkthrough, before a self-test run (a request to test, verify or compare the app yourself), before presenting a UI mock, and before building a demo guide or tutorial. Not injected — loaded on demand so `iris.md` stays under the inline budget. Every rule here is a correction the user made in the week of 2026-10-20 → 10-31; the quotes are theirs.
+Read by Iris (WORK mode) before the first step of a walkthrough, before a test run (a request to test, verify or compare the app yourself), before presenting a UI mock, and before building a demo guide or tutorial. Not injected — loaded on demand so `iris.md` stays under the inline budget. Every rule here is a correction the user made in the week of 2026-10-20 → 10-31; the quotes are theirs.
 
 ---
 
@@ -26,9 +26,9 @@ Read by Iris (WORK mode) before the first step of a walkthrough, before a self-t
 - More than ~10 browser actions of cleanup → spawn a `general-purpose` agent with the register and a results file; cleanup run inline flooded the context into a compaction (2026-10-25 10:43).
 - Stop any background refresh job before cleanup and restart it after (a running refresh refilled deleted snapshots).
 
-## 2. Self-test run (you test, the user watches)
+## 2. Test run (you test, the user watches)
 
-A request to test, verify, or compare with the prototype is a self-test run. You drive. The "one hinted step per turn" rule of section 1 does not apply. Section 1 setup items 1, 2, 5 and 6 apply. The user signs in when only the user can.
+A request to test, verify, or compare with the prototype is a test run. You drive. The "one hinted step per turn" rule of section 1 does not apply. Section 1 setup items 1, 2, 5 and 6 apply. The user signs in when only the user can.
 
 **Before the first check:**
 1. **Write the coverage list.** Take the items from the system analysis document (SA 系統分析書) for the screens in scope, not only from the ticket. Write the list to `.claude/.Arena/walkthroughs/<date>-<slug>.md` as a table: `# | item (SA id) | step | result | evidence`. "give me again the spec item list and the verify result" (2026-11-17).
@@ -39,14 +39,14 @@ A request to test, verify, or compare with the prototype is a self-test run. You
 - **Test every field, every option and every state of each form.** For each one: change it, save, load the page again, and compare the screen with the database. A sample of a few fields is not a test. "我再說一次，你每個欄位每種情境，每個選項都有測過嗎" (2026-11-19).
 - **Sample only a large list that comes from the database** (358 devices). Test 3 to 5 rows of it and use the time on the other fields. "i think this test is meaning less" (2026-11-19).
 - **Write the result and the evidence in the list after every step.** A row is ✓ or ✗. "not observed" and "out of scope" are not results. "too many things are not verified, verify those" (2026-11-17).
-- **Do not end the turn between rows.** End the turn in two cases only: every row has a result, or one row needs the user (a sign-in, a decision only the user can make). In the second case, name the row and the one thing you need, and say which rows you continue with after it. "what are you waiting for , keep testing" (2026-11-18). "there are still lots of failed items, why are we stopping" (2026-11-18).
+- **Do not end the turn between rows.** End the turn in two cases only. In the first case, every row has a result. In the second case, one row needs the user, for example a sign-in or a decision only the user can make. Then name the row and the one thing you need. Say which rows you continue with after it. "what are you waiting for , keep testing" (2026-11-18). "there are still lots of failed items, why are we stopping" (2026-11-18).
 - **A defect does not stop the run.** Open a ticket, spawn one Ares in a worktree for it, and continue with the next row. Test the row again after the fix lands. After the last fix lands, run the list again from the first row.
 - **A background Ares is not a reason to wait.** Continue with rows the fix does not touch. When no such row is left, show the agent's status and the files it changed so far. "what took you so long" (2026-11-20).
 
 **At the end:**
 - Restore the test data from `.claude/.Arena/test-data-register.md`. Compare the database with the snapshot from before the run.
 - Report one time: the count of ✓ and ✗ rows, each ✗ row with its ticket, and the path of the list file. Open an HTML report with `<kratos-bin> open <file>`. Give a file path, not a published page. "give me the path" (2026-11-19).
-- A spec page built from the run holds the SA items and the rules the user added during the run, not a copy of the SA text. "你還需要把我們補充的規格記錄到上面" (2026-11-20).
+- Build a spec page from the run. The page holds the SA items and the rules the user added during the run. It does not copy the SA text. "你還需要把我們補充的規格記錄到上面" (2026-11-20).
 
 ## 3. UI mock (you present, the user judges)
 

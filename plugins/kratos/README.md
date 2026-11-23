@@ -159,7 +159,7 @@ Kratos ships Claude Code hooks that enforce workflow discipline automatically â€
 | Event | Matcher | Script / command | What it does |
 |-------|---------|------------------|--------------|
 | `UserPromptSubmit` | all prompts | `launch.cjs hook prompt-submit` | Detects Kratos keywords and handoffs, injects skill activation |
-| `SessionStart` | all sessions | `session-start.cjs` | Registers the session ledger, prints `KRATOS_BIN:`, memories, handoff and pending spec deltas, auto-downloads the binary. A second command (`--part rules`) prints every standing rule |
+| `SessionStart` | all sessions | `session-start.cjs` | Registers the session ledger, prints `KRATOS_BIN:`, memories, handoff and pending spec deltas, auto-downloads the binary. Two more commands run in their own hooks: `--part extras` prints the inline god's lessons and protocol, and `--part rules` prints every standing rule |
 | `SessionEnd` | all sessions | `session-end.cjs` | Closes the session ledger row with a one-line summary |
 | `PermissionRequest` | `Read` | `permission-read.cjs` | Auto-allows reads under the plugin root and `~/.kratos/` only |
 | `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|PowerShell\|Agent\|Task\|Skill` | `launch.cjs hook edit-gate` | Inline edit gate: Odysseus plan-only lane, Iris source-file budget, credential guard (section below) |
