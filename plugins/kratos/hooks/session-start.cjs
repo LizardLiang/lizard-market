@@ -16,7 +16,7 @@
  *
  * Budget: hooks.json gives each SessionStart command 10 s (10000 ms). Every spawn
  * below carries a timeout and the worst-case serial sum stays under ~5700 ms
- * (version 800 + memory list 1500 + its unknown-flag retry 600 + init 2000 +
+ * (version 800 + memory list 1500 + rule count 600 + init 2000 +
  * session start 800); the `--part extras` call runs in its own 10 s hook with a
  * 5000 ms budget of its own; the plugin-bin → ~/.kratos/bin copy runs last so it can
  * never starve the calls. The retry has its own short timeout rather than
@@ -25,10 +25,11 @@
  * never reaches a shell.
  *
  * Two commands run at SessionStart. The main mode prints the output constraint,
- * binary path, stored rules and pointers. `--part extras` prints only the
- * inline god's lessons and protocol after a compaction, in its own hook output:
- * Claude Code caps one hook output at 10,000 characters and injects a
- * 2,000-character preview beyond that.
+ * binary path, stored facts and pointers. `--part extras` prints only the
+ * inline god's lessons and protocol after a compaction. `--part rules` prints
+ * every standing rule on every source, compact included. Each runs as its own
+ * hook command, so each has its own output: Claude Code caps one hook output
+ * at 10,000 characters and injects a 2,000-character preview beyond that.
  */
 
 const { execFileSync, spawn, spawnSync } = require("child_process");
@@ -55,7 +56,7 @@ const LEGACY_SESSION_FILE = path.join(KRATOS_HOME, "active-session.json");
 const SESSION_FILE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const REMINDER_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const MAX_MEMORIES = 12;
-const RULE_CAP = 6; // standing rules shown per session, on top of MAX_MEMORIES
+const RULES_BUDGET = HOOK_OUTPUT_BUDGET; // the `--part rules` hook prints every standing rule within this many characters
 const SCOPED_CAP = 4; // project-scoped facts capped so a global preference always gets a slot
 
 // Rank a global fact's category so a preference always outranks a weak-spot,
@@ -111,7 +112,7 @@ const findKratosBinary = resolveBinary;
 // timeout with room for node startup.
 const VERSION_TIMEOUT_MS = 800;
 const MEMORY_LIST_TIMEOUT_MS = 1500;
-// A flag-parse failure (an older binary rejecting --with-rules) returns in
+// A flag-parse failure (an older binary rejecting a flag) returns in
 // about 250 ms — this is its own budget, not MEMORY_LIST_TIMEOUT_MS, so the
 // retry cannot push the worst-case serial sum over the hook's 10000 ms limit.
 const MEMORY_LIST_RETRY_TIMEOUT_MS = 600;
@@ -256,30 +257,26 @@ function normalizeProject(p) {
   return out;
 }
 
-// Ranks stored memories for THIS project into tiers: standing rules first
-// (this project's and global, never another project's, capped at RULE_CAP),
-// then up to SCOPED_CAP project-scoped facts, then global preferences /
-// habits / weak spots, then global context; a bucket's unused slots pass to
-// the next one. `memories` is the newest-80-window list; `ruleMemories` is
-// the separate `--category rule` capture, so a rule that has aged out of
-// that window still shows. Returns the formatted block, or null when there
-// is nothing to show. Pulled out of formatMemories so a test can call it
-// directly with fixture data instead of a real kratos binary and DB.
-function buildMemoryReport(data, ruleMemories, cwd) {
+// Ranks stored memories for THIS project into tiers: up to SCOPED_CAP
+// project-scoped facts, then global preferences / habits / weak spots, then
+// global context; a bucket's unused slots pass to the next one. Standing rules
+// are not shown here: the `--part rules` hook prints every one of them in its
+// own hook output (buildRulesReport). `ruleTotal` is how many rule rows the
+// store holds, so the "+N more" count covers facts only. Returns the formatted
+// block, or null when there is nothing to show. Pulled out of formatMemories
+// so a test can call it directly with fixture data instead of a real kratos
+// binary and DB.
+function buildMemoryReport(data, ruleTotal, cwd) {
   const memories = (data && data.memories) || [];
-  const rulePool = ruleMemories || [];
-  if (memories.length === 0 && rulePool.length === 0) return null;
+  if (memories.length === 0) return null;
   const total = data && typeof data.total === "number" ? data.total : memories.length;
   const here = normalizeProject(cwd);
-
-  const rules = rulePool.filter((m) => !m.project || normalizeProject(m.project) === here);
-  const shownRules = rules.slice(0, RULE_CAP);
 
   const scoped = [];
   const globalPrefs = [];
   const globalContext = [];
   for (const m of memories) {
-    if (m.category === "rule") continue; // shown from the dedicated rule tier only, never twice
+    if (m.category === "rule") continue; // shown by the `--part rules` hook only, never twice
     if (m.project) {
       if (normalizeProject(m.project) === here) scoped.push(m);
       continue;
@@ -303,17 +300,14 @@ function buildMemoryReport(data, ruleMemories, cwd) {
   const extraScoped = remaining > 0 ? scoped.slice(scopedShown.length, scopedShown.length + remaining) : [];
   const shownFacts = [...scopedShown, ...prefsShown, ...contextShown, ...extraScoped];
 
-  if (shownRules.length === 0 && shownFacts.length === 0) return null;
+  if (shownFacts.length === 0) return null;
 
   const lines = ["", "## Stored user preferences"];
-  for (const m of shownRules) {
-    lines.push(`- ${m.text} [rule]`);
-  }
   for (const m of shownFacts) {
     const tag = m.project ? ` [${m.category || "context"} · this project]` : m.category ? ` [${m.category}]` : "";
     lines.push(`- ${m.text}${tag}`);
   }
-  const more = total - shownFacts.length - shownRules.length;
+  const more = total - (ruleTotal || 0) - shownFacts.length;
   if (more > 0) {
     lines.push(`(+${more} more — \`kratos memory list --limit 50\` or \`--project "${toSlashes(cwd)}"\`)`);
   }
@@ -321,27 +315,60 @@ function buildMemoryReport(data, ruleMemories, cwd) {
   return lines.join("\n");
 }
 
+// Every standing rule that applies to THIS project: this project's rules
+// first, then global ones, never another project's. `ruleMemories` arrives
+// newest first and keeps that order inside each group. Whole lines are cut
+// from the end when the block would pass `budget` characters, and one line
+// says how many were left out. Returns null when no rule applies.
+function buildRulesReport(ruleMemories, cwd, budget) {
+  budget = budget || RULES_BUDGET;
+  const here = normalizeProject(cwd);
+  const mine = [];
+  const global = [];
+  for (const m of ruleMemories || []) {
+    if (!m || typeof m.text !== "string") continue;
+    if (m.project) {
+      if (normalizeProject(m.project) === here) mine.push(m);
+    } else {
+      global.push(m);
+    }
+  }
+  const rules = [...mine, ...global];
+  if (rules.length === 0) return null;
+
+  const header = "## Standing rules";
+  const footer = (n) => `(+${n} rules not shown — \`kratos memory list --category rule\`)`;
+  const lines = rules.map((m) => `- ${m.text} [rule]`);
+  // console.log adds one newline to the joined block.
+  const size = (shown) => {
+    const hidden = lines.length - shown;
+    const parts = [header, ...lines.slice(0, shown)];
+    if (hidden > 0) parts.push(footer(hidden));
+    return parts.join("\n").length + 1;
+  };
+  let shown = lines.length;
+  while (shown > 0 && size(shown) > budget) shown--;
+  const hidden = lines.length - shown;
+  const out = [header, ...lines.slice(0, shown)];
+  if (hidden > 0) out.push(footer(hidden));
+  return out.join("\n");
+}
+
 // Stored user memories — read-side of the memory sweep. The old newest-15-
 // of-everything injection put the same list in every project and 0-2 of 15
 // items were relevant (2026-09); buildMemoryReport ranks the newest-80
-// window for THIS project. The `--with-rules` flag on the same call adds
-// the standing-rule tier: a project with many scoped facts fills every
-// slot with them, and a rule saved weeks ago would otherwise never surface.
+// window for THIS project. Standing rules are not part of this list: the
+// `--part rules` hook prints them all (formatRules), so a rule saved weeks ago
+// is never cut by the fact cap or the 10,000-character hook limit.
 //
 // A failed list with an existing DB returns one "memory unavailable" line
 // instead of nothing: silent null hid a broken binary for weeks (2026-09).
-// An older binary that predates --with-rules fails fast on the unknown
-// flag; the retry below drops it and shows the ordinary facts with no
-// rules tier, so one old binary in the field cannot lose the whole list.
 //
 // capture defaults to runKratosCapture; a test passes a stub instead, so it
-// can assert the retry's own timeout without spawning a real binary.
+// can assert the calls and their timeouts without spawning a real binary.
 function formatMemories(cwd, capture) {
   capture = capture || runKratosCapture;
-  let { out, err } = capture(["memory", "list", "--limit", "80", "--with-rules"], MEMORY_LIST_TIMEOUT_MS);
-  if (!out && /unknown flag/i.test(err || "")) {
-    ({ out, err } = capture(["memory", "list", "--limit", "80"], MEMORY_LIST_RETRY_TIMEOUT_MS));
-  }
+  const { out, err } = capture(["memory", "list", "--limit", "80"], MEMORY_LIST_TIMEOUT_MS);
   const unavailable = (reason) => (fs.existsSync(DB_PATH) ? `Kratos: memory unavailable (${reason})` : null);
   if (!out) return unavailable(err || "no output");
   let data;
@@ -352,7 +379,34 @@ function formatMemories(cwd, capture) {
   }
 
   try {
-    return buildMemoryReport(data, data.rules || [], cwd);
+    return buildMemoryReport(data, countRules(capture), cwd);
+  } catch (e) {
+    return null;
+  }
+}
+
+// How many rule rows the store holds; 0 when the call fails. The fact lists
+// subtract it from the store total so their counts cover facts only.
+function countRules(capture) {
+  try {
+    const { out } = capture(["memory", "list", "--category", "rule", "--limit", "1"], MEMORY_LIST_RETRY_TIMEOUT_MS);
+    const data = out ? JSON.parse(out) : null;
+    return data && typeof data.total === "number" ? data.total : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+// `--part rules` body: every standing rule, one capture of the whole rule
+// category. An older binary that rejects a flag, or any failed call, prints
+// nothing.
+function formatRules(cwd, capture) {
+  capture = capture || runKratosCapture;
+  try {
+    const { out } = capture(["memory", "list", "--category", "rule", "--limit", "0"], MEMORY_LIST_TIMEOUT_MS);
+    if (!out) return null;
+    const data = JSON.parse(out);
+    return buildRulesReport(data.memories || [], cwd, RULES_BUDGET);
   } catch (e) {
     return null;
   }
@@ -371,8 +425,8 @@ function formatMemoriesCompact(cwd, capture) {
   if (!out) return null;
   try {
     const data = JSON.parse(out);
-    const total = typeof data.total === "number" ? data.total : null;
-    if (total === null || total === 0) return null;
+    const total = typeof data.total === "number" ? data.total - countRules(capture) : null;
+    if (total === null || total <= 0) return null;
     return `Kratos: ${total} stored preferences unchanged — \`kratos memory list --limit 50\` or \`--project "${toSlashes(cwd)}"\` for the list`;
   } catch (e) {
     return null;
@@ -742,6 +796,12 @@ function formatInlineGodExtras(sessionId, source) {
 // `--part extras` mode: only the inline god's lessons and protocol, fitted to
 // the hook output cap. Prints nothing unless source is "compact" and the
 // ledger names an inline god.
+function mainRules(payload) {
+  const cwd = (payload && payload.cwd) || process.cwd();
+  const rules = formatRules(cwd);
+  if (rules) console.log(rules);
+}
+
 function mainExtras(payload) {
   const sessionId = payload && payload.session_id ? String(payload.session_id) : "";
   const source = payload && payload.source ? String(payload.source) : "";
@@ -834,7 +894,9 @@ if (require.main === module) {
       }
     }
     const partIdx = process.argv.indexOf("--part");
-    if (partIdx >= 0 && process.argv[partIdx + 1] === "extras") mainExtras(payload);
+    const part = partIdx >= 0 ? process.argv[partIdx + 1] : "";
+    if (part === "extras") mainExtras(payload);
+    else if (part === "rules") mainRules(payload);
     else main(payload);
   };
   process.stdin.setEncoding("utf-8");
@@ -843,5 +905,5 @@ if (require.main === module) {
   process.stdin.on("error", finish);
   setTimeout(finish, 300).unref();
 } else {
-  module.exports = { buildMemoryReport, formatMemories, normalizeProject, formatStateDirNotices, formatVersionMismatchFor };
+  module.exports = { buildMemoryReport, buildRulesReport, formatRules, formatMemories, formatMemoriesCompact, normalizeProject, formatStateDirNotices, formatVersionMismatchFor };
 }

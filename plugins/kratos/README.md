@@ -159,7 +159,7 @@ Kratos ships Claude Code hooks that enforce workflow discipline automatically �
 | Event | Matcher | Script / command | What it does |
 |-------|---------|------------------|--------------|
 | `UserPromptSubmit` | all prompts | `launch.cjs hook prompt-submit` | Detects Kratos keywords and handoffs, injects skill activation |
-| `SessionStart` | all sessions | `session-start.cjs` | Registers the session ledger, prints `KRATOS_BIN:`, memories, handoff and pending spec deltas, auto-downloads the binary |
+| `SessionStart` | all sessions | `session-start.cjs` | Registers the session ledger, prints `KRATOS_BIN:`, memories, handoff and pending spec deltas, auto-downloads the binary. A second command (`--part rules`) prints every standing rule |
 | `SessionEnd` | all sessions | `session-end.cjs` | Closes the session ledger row with a one-line summary |
 | `PermissionRequest` | `Read` | `permission-read.cjs` | Auto-allows reads under the plugin root and `~/.kratos/` only |
 | `PreToolUse` | `Write\|Edit\|MultiEdit\|NotebookEdit\|Bash\|PowerShell\|Agent\|Task\|Skill` | `launch.cjs hook edit-gate` | Inline edit gate: Odysseus plan-only lane, Iris source-file budget, credential guard (section below) |
@@ -364,10 +364,10 @@ All sessions, agent spawns, decisions, and file changes are recorded in a SQLite
 
 `kratos memory add "<text>" --category <category>` saves a durable fact about you: `preference`, `habit`, `weak-spot`, `context`, or `rule`. `rule` is a standing order you gave in imperative form — "never touch his credentials", "always spawn Ares for implementation" — as opposed to a one-off preference. `--project "<path>"` scopes a fact to one project; omit it for a global fact. `kratos memory list --with-rules` adds a `rules` key to the JSON output: every `rule` row, newest first, capped at 20, independent of the main list's own `--limit`/`--category`/`--project`/`--since` filters — a rule is rare enough that one call should never miss it. (`--ids-only` and `--with-rules` cannot be combined: `--ids-only` returns before the rules capture runs.)
 
-Every `SessionStart` injects up to 8 stored facts for the current project, ranked in tiers so a project with many scoped facts cannot bury every global preference:
+Every `SessionStart` prints every standing rule in its own hook command, then up to 12 stored facts for the current project from the main command. Both commands run on startup, resume, clear and compact, so a compaction never drops a rule. The facts are ranked in tiers so a project with many scoped facts cannot bury every global preference:
 
-1. **Rules** — this project's and global standing orders, capped at 6, shown first and tagged `[rule]`.
-2. **Scoped facts** — up to 4 facts saved with `--project` matching the current project.
+1. **Rules** (own hook command, `session-start.cjs --part rules`) — this project's and global standing orders, never another project's. This project's come first, then global ones, newest first in each group. Each line ends with `[rule]`. The hook output stays under 9,500 characters: when the list does not fit, whole lines are cut and the last line reads `(+N rules not shown — kratos memory list --category rule)`. The main command prints no rule, so none shows twice.
+2. **Scoped facts** (main command) — up to 4 facts saved with `--project` matching the current project.
 3. **Global preferences**, then **global context** — fill whatever slots rules and scoped facts left empty.
 4. **Leftover slots return to scoped facts** — if there are no (or few) global preferences or context facts to show, the unused slots go back to this project's own scoped facts instead of sitting empty.
 

@@ -21,8 +21,8 @@ type memoryFixtureItem struct {
 	Project  string `json:"project,omitempty"`
 }
 
-// runBuildMemoryReport calls session-start.cjs's buildMemoryReport(data, rules, cwd)
-// with fixture JSON through node, the same node-exec pattern
+// runBuildMemoryReport calls session-start.cjs's buildMemoryReport(data, ruleTotal, cwd)
+// (ruleTotal is len(rules)) with fixture JSON through node, the same node-exec pattern
 // TestGateProjectFileMatchesJS uses for tool-use.cjs. It returns the report
 // string (possibly empty).
 func runBuildMemoryReport(t *testing.T, memories []memoryFixtureItem, total int, rules []memoryFixtureItem, cwd string) string {
@@ -45,7 +45,7 @@ func runBuildMemoryReport(t *testing.T, memories []memoryFixtureItem, total int,
 	}
 	script := "const { buildMemoryReport } = require(" + strconv.Quote(filepath.ToSlash(hook)) + ");\n" +
 		"const fx = JSON.parse(process.argv[1]);\n" +
-		"process.stdout.write(buildMemoryReport(fx.data, fx.rules, fx.cwd) || '');\n"
+		"process.stdout.write(buildMemoryReport(fx.data, (fx.rules || []).length, fx.cwd) || '');\n"
 	out, err := exec.Command(node, "-e", script, string(fixture)).Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
@@ -56,13 +56,14 @@ func runBuildMemoryReport(t *testing.T, memories []memoryFixtureItem, total int,
 	return string(out)
 }
 
-// TestBuildMemoryReportRulesFirstThenCappedScopedFacts pins the tiered
-// injection from Fix 2: a project with more scoped facts than MAX_MEMORIES
-// used to fill every slot and hide every global preference (2026-09 review,
-// KPIM: 16 scoped facts, 0 global preferences ever shown). Rules must show
-// first regardless, then at most SCOPED_CAP (4) scoped facts, then global
-// preferences fill the rest of MAX_MEMORIES (12).
-func TestBuildMemoryReportRulesFirstThenCappedScopedFacts(t *testing.T) {
+// TestBuildMemoryReportCappedScopedFactsAndNoRules pins the tiered injection
+// from Fix 2: a project with more scoped facts than MAX_MEMORIES used to fill
+// every slot and hide every global preference (2026-09 review, KPIM: 16 scoped
+// facts, 0 global preferences ever shown). At most SCOPED_CAP (4) scoped facts
+// show, then global preferences fill the rest of MAX_MEMORIES (12). Standing
+// rules are printed by the `--part rules` hook, so the main report carries none
+// and its "+N more" count leaves them out.
+func TestBuildMemoryReportCappedScopedFactsAndNoRules(t *testing.T) {
 	here := "/work/kpim"
 	var memories []memoryFixtureItem
 	for i := 1; i <= 12; i++ {
@@ -75,36 +76,27 @@ func TestBuildMemoryReportRulesFirstThenCappedScopedFacts(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		rules = append(rules, memoryFixtureItem{ID: 200 + i, Text: fmt.Sprintf("rule %d", i), Category: "rule"})
 	}
-	total := len(memories) + len(rules) // whole-store count, same semantic memory list --limit N reports
+	// the window also carries a rule row, as a real `memory list` does
+	memories = append(memories, rules[0])
+	total := 22 + len(rules) // whole-store count, same semantic memory list --limit N reports
 
 	got := runBuildMemoryReport(t, memories, total, rules, here)
 
-	ruleCount := strings.Count(got, "[rule]")
-	if ruleCount != 3 {
-		t.Errorf("expected 3 rule lines, got %d in:\n%s", ruleCount, got)
+	if n := strings.Count(got, "[rule]"); n != 0 {
+		t.Errorf("the main report must not print rules, got %d [rule] lines in:\n%s", n, got)
 	}
-	scopedCount := strings.Count(got, "context · this project")
-	if scopedCount != 4 {
-		t.Errorf("expected scoped facts capped at 4, got %d in:\n%s", scopedCount, got)
+	if strings.Contains(got, "rule 1") {
+		t.Errorf("the main report must not print a rule row from the window:\n%s", got)
 	}
-	prefCount := strings.Count(got, "[preference]")
-	if prefCount != 8 {
-		t.Errorf("expected 8 preference lines filling the remaining slots, got %d in:\n%s", prefCount, got)
+	if n := strings.Count(got, "context · this project"); n != 4 {
+		t.Errorf("expected scoped facts capped at 4, got %d in:\n%s", n, got)
 	}
-
-	firstRule := strings.Index(got, "rule 1")
-	firstScoped := strings.Index(got, "scoped fact")
-	firstPref := strings.Index(got, "global pref")
-	if firstRule < 0 || firstScoped < 0 || firstPref < 0 {
-		t.Fatalf("expected all three tiers present:\n%s", got)
+	if n := strings.Count(got, "[preference]"); n != 8 {
+		t.Errorf("expected 8 preference lines filling the remaining slots, got %d in:\n%s", n, got)
 	}
-	if !(firstRule < firstScoped && firstScoped < firstPref) {
-		t.Errorf("expected order rules, then scoped facts, then preferences:\n%s", got)
-	}
-
-	// total(25) - shownFacts(12) - shownRules(3) = 10
+	// total(25) - ruleTotal(3) - shownFacts(12) = 10
 	if !strings.Contains(got, "+10 more") {
-		t.Errorf("expected the '+N more' count to account for both tiers:\n%s", got)
+		t.Errorf("expected the '+N more' count to cover facts only:\n%s", got)
 	}
 }
 
@@ -141,13 +133,12 @@ func TestBuildMemoryReportUnusedScopedSlotsGoToPreferences(t *testing.T) {
 	}
 }
 
-// TestFormatMemoriesRetryUsesItsOwnShortTimeout covers Fix 2's own budget
-// bug: the unknown-flag retry (an older binary rejecting --with-rules) used
-// to reuse the 1500 ms memory-list timeout, pushing the worst-case serial sum
-// to 5100 ms — over the 5000 ms SessionStart hook timeout the file's own
-// comment states as an invariant. formatMemories takes an injectable capture
-// function precisely so this can be asserted without spawning a real binary.
-func TestFormatMemoriesRetryUsesItsOwnShortTimeout(t *testing.T) {
+// TestFormatMemoriesCalls pins the two capture calls the main part makes and
+// their timeouts: the fact window at 1500 ms, then the rule count at its own
+// short 600 ms budget, so the worst-case serial sum stays under the 10000 ms
+// SessionStart hook limit. Neither call asks for --with-rules any more. The
+// capture function is injectable so this runs without a real binary.
+func TestFormatMemoriesCalls(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {
 		t.Skip("node not available")
@@ -160,7 +151,6 @@ func TestFormatMemoriesRetryUsesItsOwnShortTimeout(t *testing.T) {
 		"const calls = [];\n" +
 		"function stubCapture(args, timeoutMs) {\n" +
 		"  calls.push({ args, timeoutMs });\n" +
-		"  if (args.includes('--with-rules')) return { out: null, err: 'unknown flag: --with-rules' };\n" +
 		"  return { out: JSON.stringify({ memories: [], total: 0 }), err: '' };\n" +
 		"}\n" +
 		"formatMemories('/work/x', stubCapture);\n" +
@@ -181,13 +171,15 @@ func TestFormatMemoriesRetryUsesItsOwnShortTimeout(t *testing.T) {
 		t.Fatalf("cannot parse node output %q: %v", out, err)
 	}
 	if len(calls) != 2 {
-		t.Fatalf("expected 2 capture calls (the first call, then the retry), got %d: %v", len(calls), calls)
+		t.Fatalf("expected 2 capture calls (the fact window, then the rule count), got %d: %v", len(calls), calls)
 	}
-	if calls[0].TimeoutMs != 1500 {
-		t.Errorf("first call timeout = %d, want 1500", calls[0].TimeoutMs)
+	if calls[0].TimeoutMs != 1500 || calls[1].TimeoutMs != 600 {
+		t.Errorf("timeouts = %d, %d; want 1500 then 600", calls[0].TimeoutMs, calls[1].TimeoutMs)
 	}
-	if calls[1].TimeoutMs != 600 {
-		t.Errorf("retry call timeout = %d, want its own 600 ms budget, not the 1500 ms memory-list timeout", calls[1].TimeoutMs)
+	for _, c := range calls {
+		if strings.Contains(strings.Join(c.Args, " "), "--with-rules") {
+			t.Errorf("call %v must not ask for --with-rules", c.Args)
+		}
 	}
 }
 
@@ -288,26 +280,163 @@ func TestBuildMemoryReportGlobalPrefRankBeatsRecency(t *testing.T) {
 	}
 }
 
-// TestBuildMemoryReportExcludesOtherProjectsRules covers the "never another
-// project's" rule scoping: a rule saved for a different project must not
-// leak into this session even though the dedicated rule capture returned it.
-func TestBuildMemoryReportExcludesOtherProjectsRules(t *testing.T) {
-	here := "/work/here"
-	rules := []memoryFixtureItem{
-		{ID: 1, Text: "global rule", Category: "rule"},
-		{ID: 2, Text: "this project rule", Category: "rule", Project: here},
-		{ID: 3, Text: "other project rule", Category: "rule", Project: "/work/elsewhere"},
+// runRulesReport calls session-start.cjs's buildRulesReport(rules, cwd, budget)
+// through node. budget 0 means the default.
+func runRulesReport(t *testing.T, rules []memoryFixtureItem, cwd string, budget int) string {
+	t.Helper()
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available")
 	}
-	got := runBuildMemoryReport(t, nil, 3, rules, here)
+	hook, err := filepath.Abs(filepath.Join(hooksDirPath(), "session-start.cjs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture, err := json.Marshal(map[string]interface{}{"rules": rules, "cwd": cwd, "budget": budget})
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "const { buildRulesReport } = require(" + strconv.Quote(filepath.ToSlash(hook)) + ");\n" +
+		"const fx = JSON.parse(process.argv[1]);\n" +
+		"process.stdout.write(buildRulesReport(fx.rules, fx.cwd, fx.budget || undefined) || '');\n"
+	out, err := exec.Command(node, "-e", script, string(fixture)).Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			t.Fatalf("node run failed: %v (%s)", err, ee.Stderr)
+		}
+		t.Fatalf("node run failed: %v", err)
+	}
+	return string(out)
+}
 
-	if !strings.Contains(got, "global rule") {
-		t.Errorf("expected the global rule to show:\n%s", got)
+// 44 rules apply to the GHGRS project on 2026-11-23 (global plus its own);
+// the old tier showed the newest 6. All 44 show now, this project's first,
+// and another project's rule never does.
+func TestBuildRulesReportShowsEveryEligibleRule(t *testing.T) {
+	here := "/work/ghgrs"
+	var rules []memoryFixtureItem
+	for i := 1; i <= 30; i++ {
+		rules = append(rules, memoryFixtureItem{ID: i, Text: fmt.Sprintf("global rule %d", i), Category: "rule"})
 	}
-	if !strings.Contains(got, "this project rule") {
-		t.Errorf("expected this project's rule to show:\n%s", got)
+	for i := 1; i <= 14; i++ {
+		rules = append(rules, memoryFixtureItem{ID: 100 + i, Text: fmt.Sprintf("project rule %d", i), Category: "rule", Project: here})
+	}
+	for i := 1; i <= 5; i++ {
+		rules = append(rules, memoryFixtureItem{ID: 200 + i, Text: fmt.Sprintf("other project rule %d", i), Category: "rule", Project: "/work/elsewhere"})
+	}
+
+	got := runRulesReport(t, rules, here, 0)
+
+	if n := strings.Count(got, "[rule]"); n != 44 {
+		t.Errorf("expected all 44 eligible rules, got %d in:\n%s", n, got)
 	}
 	if strings.Contains(got, "other project rule") {
 		t.Errorf("another project's rule must never show:\n%s", got)
+	}
+	if !strings.HasPrefix(got, "## Standing rules\n- project rule 1 [rule]\n") {
+		t.Errorf("expected the header, then this project's rules first:\n%s", got)
+	}
+	if strings.Index(got, "project rule 14 [rule]") > strings.Index(got, "global rule 1 [rule]") {
+		t.Errorf("expected every project rule before the first global rule:\n%s", got)
+	}
+	if strings.Contains(got, "not shown") {
+		t.Errorf("nothing was cut, so no truncation line:\n%s", got)
+	}
+}
+
+func TestBuildRulesReportTruncatesAtBudgetWithVisibleLine(t *testing.T) {
+	var rules []memoryFixtureItem
+	for i := 1; i <= 200; i++ {
+		rules = append(rules, memoryFixtureItem{ID: i, Text: fmt.Sprintf("global rule number %03d %s", i, strings.Repeat("x", 80)), Category: "rule"})
+	}
+
+	got := runRulesReport(t, rules, "/work/here", 0)
+
+	if n := utf8.RuneCountInString(got) + 1; n > 9500 {
+		t.Errorf("output is %d characters with its newline, over the 9500 budget", n)
+	}
+	shown := strings.Count(got, "[rule]")
+	if shown == 0 || shown >= 200 {
+		t.Fatalf("expected a cut list, got %d rules shown", shown)
+	}
+	lines := strings.Split(got, "\n")
+	want := fmt.Sprintf("(+%d rules not shown — `kratos memory list --category rule`)", 200-shown)
+	if lines[len(lines)-1] != want {
+		t.Errorf("last line = %q, want %q", lines[len(lines)-1], want)
+	}
+	if !strings.HasPrefix(lines[len(lines)-2], "- global rule number ") || !strings.HasSuffix(lines[len(lines)-2], " [rule]") {
+		t.Errorf("a rule line must be cut whole, not mid-line: %q", lines[len(lines)-2])
+	}
+}
+
+// seedRuleMemory adds one memory row through the plugin binary into home.
+func seedRuleMemory(t *testing.T, bin, home, text, project string) {
+	t.Helper()
+	args := []string{"memory", "add", text, "--category", "rule"}
+	if project != "" {
+		args = append(args, "--project", project)
+	}
+	cmd := exec.Command(bin, args...)
+	cmd.Env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("memory add: %v\n%s", err, out)
+	}
+}
+
+// The --part rules hook prints the rules on every source, compact included,
+// and the main part prints no [rule] line, so no rule shows twice.
+func TestSessionStartRulesPartOnEverySource(t *testing.T) {
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available")
+	}
+	root, err := filepath.Abs(filepath.Join(hooksDirPath(), ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(root, "bin", "kratos")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	if _, err := os.Stat(bin); err != nil {
+		t.Skip("plugin binary not built")
+	}
+	home := t.TempDir()
+	cwd := t.TempDir()
+	seedRuleMemory(t, bin, home, "global rule alpha", "")
+	seedRuleMemory(t, bin, home, "global rule beta", "")
+	seedRuleMemory(t, bin, home, "this project rule gamma", cwd)
+	seedRuleMemory(t, bin, home, "other project rule delta", filepath.Join(cwd, "elsewhere"))
+
+	run := func(source string, args ...string) string {
+		payload, _ := json.Marshal(map[string]any{"session_id": "sess-r", "source": source, "cwd": cwd})
+		cmd := exec.Command(node, append([]string{filepath.Join(root, "hooks", "session-start.cjs")}, args...)...)
+		cmd.Stdin = strings.NewReader(string(payload))
+		cmd.Env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home, "CLAUDE_PLUGIN_ROOT="+root)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("session-start.cjs %v (%s): %v", args, source, err)
+		}
+		return string(out)
+	}
+
+	for _, source := range []string{"startup", "resume", "clear", "compact"} {
+		got := run(source, "--part", "rules")
+		if n := strings.Count(got, "[rule]"); n != 3 {
+			t.Errorf("%s: expected 3 rules, got %d in:\n%s", source, n, got)
+		}
+		if !strings.HasPrefix(got, "## Standing rules\n- this project rule gamma [rule]\n") {
+			t.Errorf("%s: expected this project's rule first:\n%s", source, got)
+		}
+		if strings.Contains(got, "other project rule") {
+			t.Errorf("%s: another project's rule showed:\n%s", source, got)
+		}
+		if utf8.RuneCountInString(got) >= hookOutputCap {
+			t.Errorf("%s: rules output is over the hook cap", source)
+		}
+		if main := run(source); strings.Contains(main, "[rule]") || strings.Contains(main, "Standing rules") {
+			t.Errorf("%s: the main part must print no rule line:\n%s", source, main)
+		}
 	}
 }
 
