@@ -1,6 +1,6 @@
-# Walkthrough Protocol — live demos, UI mocks, demo guides
+# Walkthrough Protocol — live demos, self-test runs, UI mocks, demo guides
 
-Read by Iris (WORK mode) before the first step of a walkthrough, before presenting a UI mock, and before building a demo guide or tutorial. Not injected — loaded on demand so `iris.md` stays under the inline budget. Every rule here is a correction the user made in the week of 2026-10-20 → 10-31; the quotes are theirs.
+Read by Iris (WORK mode) before the first step of a walkthrough, before a self-test run (a request to test, verify or compare the app yourself), before presenting a UI mock, and before building a demo guide or tutorial. Not injected — loaded on demand so `iris.md` stays under the inline budget. Every rule here is a correction the user made in the week of 2026-10-20 → 10-31; the quotes are theirs.
 
 ---
 
@@ -26,7 +26,29 @@ Read by Iris (WORK mode) before the first step of a walkthrough, before presenti
 - More than ~10 browser actions of cleanup → spawn a `general-purpose` agent with the register and a results file; cleanup run inline flooded the context into a compaction (2026-10-25 10:43).
 - Stop any background refresh job before cleanup and restart it after (a running refresh refilled deleted snapshots).
 
-## 2. UI mock (you present, the user judges)
+## 2. Self-test run (you test, the user watches)
+
+A request to test, verify, or compare with the prototype is a self-test run. You drive. The "one hinted step per turn" rule of section 1 does not apply. Section 1 setup items 1, 2, 5 and 6 apply. The user signs in when only the user can.
+
+**Before the first check:**
+1. **Write the coverage list.** Take the items from the system analysis document (SA 系統分析書) for the screens in scope, not only from the ticket. Write the list to `.claude/.Arena/walkthroughs/<date>-<slug>.md` as a table: `# | item (SA id) | step | result | evidence`. "give me again the spec item list and the verify result" (2026-11-17).
+2. **Start from a clean state.** Use a clean checkout of the branch under test and known test data. "why didn't you start from clean" (2026-11-18).
+
+**Running it:**
+- **Follow the list order, section by section.** Never skip a section to go to a later one. "你為什麼又跑到盤查報告書 跳過這裡" (2026-11-18).
+- **Test every field, every option and every state of each form.** For each one: change it, save, load the page again, and compare the screen with the database. A sample of a few fields is not a test. "我再說一次，你每個欄位每種情境，每個選項都有測過嗎" (2026-11-19).
+- **Sample only a large list that comes from the database** (358 devices). Test 3 to 5 rows of it and use the time on the other fields. "i think this test is meaning less" (2026-11-19).
+- **Write the result and the evidence in the list after every step.** A row is ✓ or ✗. "not observed" and "out of scope" are not results. "too many things are not verified, verify those" (2026-11-17).
+- **Do not end the turn between rows.** End the turn in two cases only: every row has a result, or one row needs the user (a sign-in, a decision only the user can make). In the second case, name the row and the one thing you need, and say which rows you continue with after it. "what are you waiting for , keep testing" (2026-11-18). "there are still lots of failed items, why are we stopping" (2026-11-18).
+- **A defect does not stop the run.** Open a ticket, spawn one Ares in a worktree for it, and continue with the next row. Test the row again after the fix lands. After the last fix lands, run the list again from the first row.
+- **A background Ares is not a reason to wait.** Continue with rows the fix does not touch. When no such row is left, show the agent's status and the files it changed so far. "what took you so long" (2026-11-20).
+
+**At the end:**
+- Restore the test data from `.claude/.Arena/test-data-register.md`. Compare the database with the snapshot from before the run.
+- Report one time: the count of ✓ and ✗ rows, each ✗ row with its ticket, and the path of the list file. Open an HTML report with `<kratos-bin> open <file>`. Give a file path, not a published page. "give me the path" (2026-11-19).
+- A spec page built from the run holds the SA items and the rules the user added during the run, not a copy of the SA text. "你還需要把我們補充的規格記錄到上面" (2026-11-20).
+
+## 3. UI mock (you present, the user judges)
 
 1. **Look before you show.** Screenshot desktop, dark theme and phone width; read the three images yourself; fix what you see. "are you sure you like that toolbar design?" caught an unchecked mock (2026-10-23 11:44); a dark toolbar shipped into the light theme from an unchecked mock (10-24 07:23).
 2. **Open it on screen.** `<kratos-bin> open <file>` / the browser window — a file path or a screenshot path in chat is "you did not show me shit" (10-24 08:33).
@@ -34,7 +56,7 @@ Read by Iris (WORK mode) before the first step of a walkthrough, before presenti
 4. **One place per job.** A job editable on two pages, or two cards for one credential, is a design defect, not a feature ("你只需要一個", 10-26 09:43).
 5. **Design proposals** with several options are one HTML page with clickable mock screens, not chat text.
 
-## 3. Demo guide, tutorial, PDF
+## 4. Demo guide, tutorial, PDF
 
 1. **Inventory first.** Enumerate the feature's screens from code — routes, wizards, bulk toolbars, settings — before taking a single screenshot. A guide built from the bug-fix screenshots at hand was redone three times (2026-10-31 02:23 → 04:22: "看起來不像是從最一開始開始講解", "你沒有介紹批次對應").
 2. **Start from an empty tenant** and walk the inventory in the order a new user meets it; every screen gets its one-paragraph "what you see, what you do".
@@ -42,6 +64,6 @@ Read by Iris (WORK mode) before the first step of a walkthrough, before presenti
 4. **Screenshots in bulk go to a subagent** that returns a verdict list (`file · what it shows · usable yes/no`), or a contact sheet; reading 60 full-size images inline forced a mid-task compaction (10-31 03:44).
 5. Restore a minimized browser window before headed screenshots (30 s vs <1 s, and short UI states are missed).
 
-## 4. Environment facts survive compaction
+## 5. Environment facts survive compaction
 
 Whatever you stand up — fake servers and their ports, worktrees and their branches, the demo backend command, the restart script — goes into `.claude/.Arena/handoff.md` under `## Environment` the moment it exists (one line each). The compact SessionStart hook re-injects that section; without it the fake Mallbic server was forgotten after a compaction and the user was asked for a real token ("就跟你說要用 dummy server 了", 10-26 10:15).
