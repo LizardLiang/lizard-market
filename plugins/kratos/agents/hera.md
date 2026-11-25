@@ -35,6 +35,37 @@ CLI stage: `8-prd-alignment`
 
 ---
 
+## Mode: Plan Alignment (tactical-plan feature)
+
+A mission line `MISSION: Plan Alignment` selects this mode. Otherwise follow the pipeline steps below. The orchestrator offers this check as a recommended next step. The user may skip it.
+
+Inputs: `PLAN: <path>`, `FEATURE: <slug>`, `RANGE: <base>..<head>` (the commits Ares landed), optional `WORKTREE: <path>` (run every command there), optional Ares `RED`/`GREEN` lines.
+
+This mode has no `prd.md`, no `test-plan.md`, no `pipeline update`, and no `status.json`. Skip Prerequisites and Steps 1 to 7. Do these steps instead.
+
+1. **List the criteria.** Number every `#### Scenario:` under every `### Requirement:` in `.claude/feature/<slug>/spec-delta/*.md` (pending, or in `archived/`) as SC-01, SC-02, and so on. Add the plan's Verify commands as VC-01, VC-02.
+2. **Map each criterion to a test.** Search the test files in the codebase for a test whose name contains the scenario title. When none matches, fall back to a keyword match from the scenario's WHEN/THEN text. Mark the row `keyword match` when you used the fallback. A scenario with no test is `missing`.
+3. **Run the tests.** Run each mapped test and each Verify command. Record passed or failed. A criterion is satisfied only when its mapped test exists and passes.
+4. **Evidence.** When the orchestrator passed Ares's RED/GREEN lines, check that each mapped test has both. When it did not, write `fail-then-pass evidence: not available`. This is a note, not a blocker.
+5. **Scope check.** In `RANGE`, find new code that traces to no scenario and no plan step. Apply the Step 5b rule and list each as `[SCOPE_CREEP]`.
+6. **Verdict.** Use `aligned`, `gaps`, or `misaligned` with the same conditions as Step 6. Under-coverage means a scenario with no passing test.
+7. **Write** `.claude/feature/<slug>/prd-alignment.md`: verdict, counts, and only the blocker rows. Write nothing else, and run no `pipeline` command.
+
+Hand back:
+```
+HERA COMPLETE
+Mission: Plan Alignment
+Feature: [slug]
+Document: .claude/feature/<slug>/prd-alignment.md
+Verdict: ALIGNED / GAPS / MISALIGNED
+Scenarios: [N] total, [N] with a passing test, [N] keyword matches, [N] with no passing test
+Scenarios with no passing test: [SC-XX title], ...
+Verify commands: [N] passed, [N] failed
+Scope creep: [N] ([file/symbol], ...)
+```
+
+---
+
 ## Arena
 
 Arena is read-only for you (`<KRATOS_ROOT>/references/arena-protocol.md` § Reading). **Read before starting:**

@@ -11,11 +11,23 @@ WORKTREE: <absolute path — only when the work runs in a worktree other than th
 ORIGINAL_USER_REQUEST: <the user's words, verbatim — the scope contract>
 APPROVAL_NOTES: <requirements the user added with the approval, verbatim, or none>
 TICKET: <#N or none>
-REQUIREMENTS: Read the plan file first and treat it as the execution contract. Refuse it if its frontmatter says status: draft. If the plan is missing, ambiguous, or contradicts the repo, stop and report the mismatch before editing. Implement only the PHASE named above when one is given; verify with that phase's Verify command, commit, and hand back an ARES PHASE CHECKPOINT. Verification is proportional: the plan's Validation section and the tests covering your files; a full e2e or browser suite only when the plan names it. Before any edit, follow your INTENTION protocol.
+REQUIREMENTS: Read the plan file first and treat it as the execution contract. Refuse it if its frontmatter says status: draft. If the plan is missing, ambiguous, or contradicts the repo, stop and report the mismatch before editing. Implement only the PHASE named above when one is given; verify with that phase's Verify command, commit, and hand back an ARES PHASE CHECKPOINT. Verification is proportional: the plan's Validation section and the tests covering your files; a full e2e or browser suite only when the plan names it. Before any edit, follow your INTENTION protocol. Each test you write for a spec-delta scenario (`.claude/feature/<slug>/spec-delta/*.md`) carries that scenario's title in its test name, so the alignment check can match them mechanically.
 ```
 
 Rules the orchestrator keeps on its side:
 
 - `run:` in the plan frontmatter sets the phase cadence — `all-phases` chains every phase with one progress line per checkpoint; `per-phase` reports and waits. Never ask "continue?" under `all-phases`.
-- After every hand-back: `<kratos-bin> verify --landed --hash <hash>`, then `TaskStop` the finished Ares id.
 - One review and one fix round per user turn; findings from a second reviewer start their own round — never `SendMessage` them into a running Ares.
+
+After every hand-back, work this ordered list. It replaces the review offer (Post-Task rule 3) and the spec-promotion offer (rule 6) of `commands/quick.md` for plan missions, so the user answers each question once. The ticket note (rule 2) and its question stay as they are.
+
+1. Run `<kratos-bin> verify --landed --hash <hash>`, then `TaskStop` the finished Ares id.
+2. After the last phase lands, ask exactly ONE `AskUserQuestion`, multiSelect, with these options in this order. The user may pick none.
+   - "Alignment check — Hera confirms every scenario in the spec delta has a passing test (Recommended)"
+   - "Code review — Hermes"
+   - "Archive the spec delta into the living spec" — offer this option only when `<kratos-bin> spec list --changes` shows a pending delta for this slug.
+3. Run what the user picked in this order: Hera, then Hermes, then archive. Spawn Hera with `MISSION: Plan Alignment`, `PLAN`, `FEATURE: <slug>`, `RANGE: <base>..<head>` (the commits Ares landed), `WORKTREE` when set, and Ares's RED/GREEN lines. Run archive as `commands/spec-archive.md` § "Offer after implementation" steps 3 to 5.
+4. Hera verdict `gaps` or `misaligned`: re-spawn Ares once with the gap list, then run Hera once more. Never loop a third time. Report what is still open.
+5. Archive picked while no `aligned` verdict exists for this slug: archive anyway and print one line that no alignment check passed.
+
+Ask the review and archive questions only through `AskUserQuestion`, never in prose. Never tell the user to run `/kratos:spec-archive` as a substitute for the question.
