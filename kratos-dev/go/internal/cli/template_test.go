@@ -45,8 +45,18 @@ func TestTemplateCopyRewritesStateDir(t *testing.T) {
 	assert.NotContains(t, string(data), ".claude/feature")
 }
 
-func TestTemplateCopyKeepsHTMLBytes(t *testing.T) {
+func TestTemplateCopyHTMLRewritesStateDir(t *testing.T) {
 	useStateDir(t, "", ".agents")
+	dest := filepath.Join(t.TempDir(), "plan.html")
+	runTemplate(t, "copy", "plan-page-template", dest)
+	data, err := os.ReadFile(dest)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), ".agents/.Arena")
+	assert.NotContains(t, string(data), ".claude/.Arena")
+}
+
+func TestTemplateCopyHTMLDefaultIsEmbeddedBytes(t *testing.T) {
+	useStateDir(t, "", "")
 	want, err := templatesFS.ReadFile("templates/plan-page-template.html")
 	require.NoError(t, err)
 	dest := filepath.Join(t.TempDir(), "plan.html")
