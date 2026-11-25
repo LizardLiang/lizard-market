@@ -56,7 +56,7 @@ func templateGetCmd() *cobra.Command {
 				return err
 			}
 			data, _ := templatesFS.ReadFile(file)
-			fmt.Fprint(cmd.OutOrStdout(), string(data))
+			fmt.Fprint(cmd.OutOrStdout(), rewriteStateText(string(data)))
 			return nil
 		},
 	}
@@ -100,6 +100,9 @@ func templateCopyCmd() *cobra.Command {
 				return err
 			}
 			data, _ := templatesFS.ReadFile(file)
+			if strings.HasSuffix(file, ".md") {
+				data = []byte(rewriteStateText(string(data)))
+			}
 			if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 				return fmt.Errorf("failed to create destination directory: %w", err)
 			}
