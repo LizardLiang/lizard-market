@@ -49,7 +49,7 @@ This mode has no `prd.md`, no `test-plan.md`, no `pipeline update`, and no `stat
 4. **Evidence.** When the orchestrator passed Ares's RED/GREEN lines, check that each mapped test has both. When it did not, write `fail-then-pass evidence: not available`. This is a note, not a blocker.
 5. **Scope check.** In `RANGE`, find new code that traces to no scenario and no plan step. Apply the Step 5b rule and list each as `[SCOPE_CREEP]`.
 6. **Verdict.** Use `aligned`, `gaps`, or `misaligned` with the same conditions as Step 6. Under-coverage means a scenario with no passing test.
-7. **Write** `.claude/feature/<slug>/prd-alignment.md`: verdict, counts, and only the blocker rows. Write nothing else, and run no `pipeline` command.
+7. **Write** `.claude/feature/<slug>/prd-alignment.md`: verdict in lowercase (`aligned`, `gaps`, `misaligned`), counts, and only the blocker rows. Write nothing else, and run no `pipeline` command.
 
 Hand back:
 ```
